@@ -44,6 +44,15 @@ setup_gbajs3() {
         
         if command -v npm &> /dev/null; then
             print_status "Installing GBAjs3 dependencies..."
+            
+            # Verify we're in the right directory
+            if [ ! -f "package.json" ]; then
+                print_error "package.json not found in $(pwd)"
+                print_error "Directory contents:"
+                ls -la
+                return 1
+            fi
+            
             npm install
             print_success "GBAjs3 setup complete!"
         else

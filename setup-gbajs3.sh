@@ -77,6 +77,15 @@ fi
 # Install dependencies
 print_status "Installing GBAjs3 dependencies..."
 cd /tmp/gbajs3/gbajs3/gbajs3
+
+# Verify we're in the right directory
+if [ ! -f "package.json" ]; then
+    print_error "package.json not found in $(pwd)"
+    print_error "Directory contents:"
+    ls -la
+    exit 1
+fi
+
 npm install
 
 if [ $? -eq 0 ]; then
@@ -110,4 +119,3 @@ fi
 
 echo ""
 print_success "🎮 GBAjs3 setup complete! Happy testing!"
-
