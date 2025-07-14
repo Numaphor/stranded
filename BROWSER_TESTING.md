@@ -5,8 +5,11 @@ This document describes how to run browser testing for the Stranded GBA game.
 ## Quick Start
 
 ```bash
-# Run the browser testing setup
+# Run the browser testing setup (automatically installs GBAjs3 if needed)
 ./run-browser-tests.sh
+
+# Or set up GBAjs3 emulator separately
+./setup-gbajs3.sh
 ```
 
 ## Testing Options
@@ -141,6 +144,21 @@ When testing the game, verify:
    - Try Chrome/Firefox for best performance
    - Check browser developer tools
 
+### GBAjs3 Setup Issues
+
+1. **"No such file or directory" error**:
+   - Run `./setup-gbajs3.sh` to install GBAjs3
+   - Or let `./run-browser-tests.sh` install it automatically
+
+2. **Server won't start**:
+   - Check if Node.js is installed: `node --version`
+   - Install Node.js from https://nodejs.org/
+   - Kill existing processes: `pkill -f 'npm run dev'`
+
+3. **Port already in use**:
+   - The script will automatically find an available port
+   - Check the output for the actual port number
+
 ## Development Testing
 
 ### Automated Testing (Future)
@@ -182,4 +200,3 @@ When adding new features or fixing bugs:
 ---
 
 Happy testing! 🎮✨
-

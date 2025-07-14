@@ -32,6 +32,30 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
+# Function to setup GBAjs3 emulator
+setup_gbajs3() {
+    print_status "Setting up GBAjs3 emulator..."
+    
+    if [ ! -d "/tmp/gbajs3" ]; then
+        print_status "Cloning GBAjs3 repository..."
+        cd /tmp
+        git clone --recursive https://github.com/thenick775/gbajs3.git
+        cd gbajs3/gbajs3/gbajs3
+        
+        if command -v npm &> /dev/null; then
+            print_status "Installing GBAjs3 dependencies..."
+            npm install
+            print_success "GBAjs3 setup complete!"
+        else
+            print_error "Node.js/npm not found. Please install Node.js first."
+            return 1
+        fi
+        cd - > /dev/null
+    else
+        print_success "GBAjs3 already installed"
+    fi
+}
+
 # Check if we're in the right directory
 if [ ! -f "Makefile" ]; then
     print_error "Makefile not found. Please run this script from the stranded project root."
@@ -102,6 +126,27 @@ if [ -d "/tmp/gbajs3/gbajs3/gbajs3" ]; then
         echo "   - Access at: http://localhost:3001"
     else
         print_status "Starting GBAjs3 server..."
+        if [ -d "/tmp/gbajs3/gbajs3/gbajs3" ]; then
+            cd /tmp/gbajs3/gbajs3/gbajs3
+            npm run dev -- --host 0.0.0.0 --port 3001 &
+            SERVER_PID=$!
+            sleep 3
+            if ps -p $SERVER_PID > /dev/null; then
+                print_success "GBAjs3 server started on http://localhost:3001"
+            else
+                print_error "Failed to start GBAjs3 server"
+            fi
+            cd - > /dev/null
+        else
+            print_error "GBAjs3 directory not found at /tmp/gbajs3/gbajs3/gbajs3"
+            print_warning "Please run the GBAjs3 setup first"
+        fi
+    fi
+else
+    print_warning "GBAjs3 emulator not found"
+    echo "   - Setting up GBAjs3 automatically..."
+    if setup_gbajs3; then
+        print_status "Starting GBAjs3 server after setup..."
         cd /tmp/gbajs3/gbajs3/gbajs3
         npm run dev -- --host 0.0.0.0 --port 3001 &
         SERVER_PID=$!
@@ -112,10 +157,9 @@ if [ -d "/tmp/gbajs3/gbajs3/gbajs3" ]; then
             print_error "Failed to start GBAjs3 server"
         fi
         cd - > /dev/null
+    else
+        print_error "Failed to set up GBAjs3"
     fi
-else
-    print_warning "GBAjs3 emulator not found"
-    echo "   - Run setup to install GBAjs3"
 fi
 
 echo ""
@@ -147,4 +191,3 @@ echo "Shift: Select"
 echo ""
 print_success "Browser testing setup complete!"
 print_status "Happy testing! 🎮"
-
