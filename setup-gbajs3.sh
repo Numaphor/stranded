@@ -58,8 +58,8 @@ if [ -d "/tmp/gbajs3" ]; then
         print_status "Using existing installation"
         cd /tmp/gbajs3/gbajs3/gbajs3
         print_status "Starting GBAjs3 server..."
-        npm run dev -- --host 0.0.0.0 --port 3001 &
-        print_success "GBAjs3 server started on http://localhost:3001"
+        npm run dev -- --host 0.0.0.0 --port 3000 &
+        print_success "GBAjs3 server started on http://localhost:3000"
         exit 0
     fi
 fi
@@ -97,7 +97,7 @@ fi
 
 # Start the development server
 print_status "Starting GBAjs3 development server..."
-npm run dev -- --host 0.0.0.0 --port 3001 &
+npm run dev -- --host 0.0.0.0 --port 3000 &
 SERVER_PID=$!
 
 # Wait a moment for the server to start
@@ -107,8 +107,8 @@ sleep 3
 if ps -p $SERVER_PID > /dev/null; then
     print_success "GBAjs3 server started successfully!"
     echo ""
-    print_status "🌐 Access the emulator at: http://localhost:3001"
-    print_status "📱 Network access at: http://$(hostname -I | awk '{print $1}'):3001"
+    print_status "🌐 Access the emulator at: http://localhost:3000"
+    print_status "📱 Network access at: http://$(hostname -I | awk '{print $1}'):3000"
     echo ""
     print_status "To stop the server, run: pkill -f 'npm run dev'"
     print_status "To restart, run this script again or use: ./run-browser-tests.sh"
