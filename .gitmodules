@@ -1,3 +1,7 @@
 [submodule "butano"]
 	path = butano
 	url = https://github.com/GValiente/butano
+
+[submodule "gbajs3"]
+	path = gbajs3
+	url = https://github.com/thenick775/gbajs3
