@@ -9,6 +9,7 @@
 #include "bn_vector.h"
 #include "bn_affine_bg_ptr.h"
 #include "bn_affine_bg_map_cell.h"
+#include "bn_math.h"
 
 #include "fe_extras.h"
 #include "fe_hitbox.h"

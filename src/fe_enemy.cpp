@@ -8,6 +8,7 @@
 #include "bn_span.h"
 #include "bn_log.h"
 #include "bn_size.h"
+#include "bn_math.h"
 #include "bn_sprite_builder.h"
 
 #include "bn_sprite_items_spearguard.h"

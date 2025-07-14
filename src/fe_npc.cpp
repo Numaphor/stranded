@@ -140,7 +140,8 @@ namespace fe
         {
             _sprite.value().set_camera(_camera);
             _sprite.value().set_bg_priority(1);
-            _sprite.value().set_z_order(2);
+            // Set initial z-order based on position instead of fixed value
+            update_z_order_by_position();
         }
     }
 
@@ -286,10 +287,16 @@ namespace fe
         {
             // Calculate z-order based on Y position for proper depth sorting
             // Objects with higher Y values (lower on screen) should appear in front (lower z-order)
-            // Base z-order of 0, with Y position scaled down to avoid extreme values
-            // This ensures NPCs sort properly with the player's z-order range (-10 to -5)
-            int calculated_z_order = static_cast<int>(_pos.y() / 10);
+            // Use a different base range than the player to avoid conflicts
+            // Player uses -10 to -5, so NPCs will use a base offset to ensure proper sorting
+            int calculated_z_order = static_cast<int>(_pos.y() / 8) - 1;
             _sprite.value().set_z_order(calculated_z_order);
+            
+            // Debug logging for merchant NPC
+            if (_type == NPC_TYPE::MERCHANT)
+            {
+                BN_LOG("Merchant z-order: ", calculated_z_order, " (pos.y: ", _pos.y(), ")");
+            }
         }
     }
 }

@@ -13,6 +13,7 @@
 #include "bn_string.h"
 #include "bn_regular_bg_map_item.h"
 #include "bn_regular_bg_map_cell.h"
+#include "bn_math.h"
 #include "bn_size.h"
 #include "bn_regular_bg_tiles_ptr.h"
 #include "bn_bg_palette_ptr.h"
@@ -93,7 +94,7 @@ namespace fe
         bn::regular_bg_tiles_ptr tiles = bn::regular_bg_tiles_items::tiles.create_tiles();
         bn::bg_palette_ptr palette = bn::bg_palette_items::palette.create_palette();
         bn::regular_bg_map_ptr bg_map_ptr = bg_map.map_item.create_map(tiles, palette);
-        bn::regular_bg_ptr bg = bn::regular_bg_ptr::create(bg_map_ptr);
+        bn::regular_bg_ptr bg = bn::regular_bg_ptr::create(0, 0, bg_map_ptr);
         bg.set_camera(camera);
 
         _level = new Level(bg_map_ptr);
