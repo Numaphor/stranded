@@ -7,7 +7,7 @@
       "request": "launch",
       "preLaunchTask": "make",
       "postDebugTask": "stop",
-      "program": "${workspaceFolder}/numa.elf",
+      "program": "${workspaceFolder}/stranded.elf",
       "args": [],
       "cwd": "${fileDirname}",
       "environment": [],
@@ -28,7 +28,7 @@
         },
         {
           "description": "mgba",
-          "text": "shell start /b \"\" \"C:/Program Files/mGBA/mGBA.exe\" -g ${workspaceFolder}/numa.gba",
+          "text": "shell start /b \"\" \"${workspaceFolder}/tools/mGBA.exe\" -g ${workspaceFolder}/stranded.gba",
           "ignoreFailures": true                
         }
       ],
