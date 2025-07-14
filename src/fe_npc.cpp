@@ -151,6 +151,9 @@ namespace fe
             _action.value().update();
         }
 
+        // Update z-order based on Y position for proper depth sorting
+        update_z_order_by_position();
+
         if (_is_talking)
         {
             if (_currentChar == _lines.at(_currentLine).size() * 2)
@@ -267,5 +270,26 @@ namespace fe
     bn::fixed_point NPC::pos() const
     {
         return _pos;
+    }
+
+    void NPC::set_sprite_z_order(int z_order)
+    {
+        if (_sprite.has_value())
+        {
+            _sprite.value().set_z_order(z_order);
+        }
+    }
+
+    void NPC::update_z_order_by_position()
+    {
+        if (_sprite.has_value())
+        {
+            // Calculate z-order based on Y position for proper depth sorting
+            // Objects with higher Y values (lower on screen) should appear in front (lower z-order)
+            // Base z-order of 0, with Y position scaled down to avoid extreme values
+            // This ensures NPCs sort properly with the player's z-order range (-10 to -5)
+            int calculated_z_order = static_cast<int>(_pos.y() / 10);
+            _sprite.value().set_z_order(calculated_z_order);
+        }
     }
 }

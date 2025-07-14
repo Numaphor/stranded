@@ -207,6 +207,8 @@ namespace fe
         bool finished_talking();
         void set_is_hidden(bool is_hidden);
         bool hidden();
+        void set_sprite_z_order(int z_order);
+        void update_z_order_by_position();
     };
 }
 
