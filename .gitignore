@@ -1,0 +1,10 @@
+# build output 
+build/
+*.elf
+*.gba
+
+# save file for testing
+*.sav
+
+# windsurf rules
+.windsurfrules

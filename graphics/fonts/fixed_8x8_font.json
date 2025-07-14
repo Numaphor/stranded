@@ -1,0 +1,14 @@
+{
+  "tiles_count": 96,
+  "color": "white",
+  "palette": 3,
+  "tile_width": 1,
+  "tile_height": 1,
+  "width": 16,
+  "height": 6,
+  "h_tiles": 16,
+  "v_tiles": 6,
+  "h_space": 0,
+  "v_space": 0,
+  "characters": " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~"
+}
