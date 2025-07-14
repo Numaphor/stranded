@@ -172,23 +172,50 @@ stranded/
 ```bash
 docker run --rm -v $(pwd):/src devkitpro/devkitarm make -C /src -j8
 ```
+**Expected Output**: `stranded.gba` (1.4MB ROM file)
 
 ### 2. Test in Emulator
-```bash
-# Using mGBA Docker
-docker run --rm -v $(pwd):/workspace banhcanh/docker-mgba
-# Load stranded.gba in web interface
 
-# Or use local mGBA
+#### Method A: mGBA Docker (Recommended)
+```bash
+# Pull and run the mGBA testing environment
+docker pull banhcanh/docker-mgba
+docker run --rm -p 8080:8080 -v $(pwd):/workspace banhcanh/docker-mgba
+```
+**Access**: Web interface at `http://localhost:8080`
+
+#### Method B: Local Emulator
+```bash
+# Windows
 ./tools/mGBA.exe stranded.gba
+
+# Linux (if installed)
+mgba-qt stranded.gba
 ```
 
-### 3. Verify Functionality
+#### Method C: Online Emulators
+- Upload `stranded.gba` to web-based GBA emulators
+- Examples: Eclipse, GBA.js, or other online emulators
+
+### 3. Verify Z-Order Fix
+**Critical Test**: Navigate to merchant NPC and verify depth sorting:
+- Move player **above** merchant (lower Y) → Player appears **behind** merchant
+- Move player **below** merchant (higher Y) → Player appears **in front** of merchant
+- Check debug console for: `Merchant z-order: -7 (pos.y: -50)`
+
+### 4. General Functionality Tests
 - Player movement and animation
 - NPC interactions (especially merchant)
-- Z-order depth sorting
 - Collision detection
 - Audio playback
+
+### 5. Build Verification (Without Emulator)
+If emulator testing isn't available:
+```bash
+# Verify ROM was built correctly
+file stranded.gba  # Should show "Game Boy Advance ROM image"
+ls -lh stranded.gba  # Should be ~1.4MB
+```
 
 ## 📝 Development Best Practices
 
@@ -235,4 +262,3 @@ docker run --rm -v $(pwd):/workspace banhcanh/docker-mgba
 **Last Updated**: 2025-07-14  
 **Build Status**: ✅ Working with DevkitPro Docker  
 **Key Fix**: NPC z-order depth sorting implemented
-
