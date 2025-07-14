@@ -176,7 +176,24 @@ docker run --rm -v $(pwd):/src devkitpro/devkitarm make -C /src -j8
 
 ### 2. Test in Emulator
 
-#### Method A: mGBA Docker (Recommended)
+#### Method A: GBAjs3 Web Emulator (Recommended) ⭐
+**Best Option**: No installation required, runs directly in browser!
+```bash
+# 1. Build the ROM first
+docker run --rm -v $(pwd):/src devkitpro/devkitarm make -C /src -j8
+
+# 2. Open GBAjs3 in your browser
+# Visit: https://gba.nicholas-vancise.dev
+# Click "Upload Rom" and select stranded.gba
+```
+**Features**: 
+- ✅ No installation required
+- ✅ Works on any platform with a web browser
+- ✅ Based on mGBA WASM core (same accuracy as desktop mGBA)
+- ✅ Mobile and desktop support
+- ✅ Save states, fast forward, debugging features
+
+#### Method B: mGBA Docker
 ```bash
 # Pull and run the mGBA testing environment
 docker pull banhcanh/docker-mgba
@@ -184,7 +201,7 @@ docker run --rm -p 8080:8080 -v $(pwd):/workspace banhcanh/docker-mgba
 ```
 **Access**: Web interface at `http://localhost:8080`
 
-#### Method B: Local mGBA Download
+#### Method C: Local mGBA Download
 Download the latest mGBA from https://mgba.io/downloads.html:
 
 ```bash
@@ -199,7 +216,7 @@ chmod +x mGBA-0.10.5-appimage-x64.appimage
 # macOS: Download mGBA-0.10.5-macos.dmg
 ```
 
-#### Method C: Existing Local Installation
+#### Method D: Existing Local Installation
 ```bash
 # Windows (included in tools/)
 ./tools/mGBA.exe stranded.gba
@@ -211,15 +228,25 @@ mgba-qt stranded.gba
 /Applications/mGBA.app/Contents/MacOS/mGBA stranded.gba
 ```
 
-#### Method D: Online Emulators
-- Upload `stranded.gba` to web-based GBA emulators
+#### Method E: Other Online Emulators
+- Upload `stranded.gba` to other web-based GBA emulators
 - Examples: Eclipse, GBA.js, or other online emulators
+- Note: GBAjs3 (Method A) is recommended for best compatibility
 
 ### 3. Verify Z-Order Fix
 **Critical Test**: Navigate to merchant NPC and verify depth sorting:
-- Move player **above** merchant (lower Y) → Player appears **behind** merchant
-- Move player **below** merchant (higher Y) → Player appears **in front** of merchant
-- Check debug console for: `Merchant z-order: -7 (pos.y: -50)`
+
+#### Using GBAjs3 (Recommended):
+1. **Upload ROM**: Visit https://gba.nicholas-vancise.dev and upload `stranded.gba`
+2. **Navigate to Merchant**: Find the merchant NPC at position (100, -50)
+3. **Test Depth Sorting**:
+   - Move player **above** merchant (lower Y) → Player appears **behind** merchant
+   - Move player **below** merchant (higher Y) → Player appears **in front** of merchant
+4. **Debug Output**: Check browser console (F12) for: `Merchant z-order: -7 (pos.y: -50)`
+
+#### Expected Behavior:
+- **Before Fix**: Merchant had static z-order `2`, causing incorrect layering
+- **After Fix**: Merchant z-order `-7` properly sorts with player range (-10 to -5)
 
 ### 4. General Functionality Tests
 - Player movement and animation
