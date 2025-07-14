@@ -39,7 +39,7 @@ A lightweight HTML page with basic GBA emulation interface:
 
 Full-featured web-based GBA emulator with advanced capabilities:
 
-- **URL**: http://localhost:3001 (when server is running)
+- **URL**: http://localhost:3000 (when server is running)
 - **Features**:
   - Complete GBA emulation
   - Save states
@@ -50,7 +50,7 @@ Full-featured web-based GBA emulator with advanced capabilities:
 
 **Steps**:
 1. The setup script automatically starts the GBAjs3 server
-2. Visit http://localhost:3001 in your browser
+2. Visit http://localhost:3000 in your browser
 3. Load your ROM file
 4. Enjoy full GBA emulation features
 
