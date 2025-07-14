@@ -40,7 +40,7 @@ setup_gbajs3() {
         print_status "Cloning GBAjs3 repository..."
         cd /tmp
         git clone --recursive https://github.com/thenick775/gbajs3.git
-        cd gbajs3/gbajs3/gbajs3
+        cd gbajs3
         
         if command -v npm &> /dev/null; then
             print_status "Installing GBAjs3 dependencies..."
@@ -132,7 +132,7 @@ if [ -d "/tmp/gbajs3/gbajs3/gbajs3" ]; then
     # Check if server is running
     if pgrep -f "npm run dev" > /dev/null; then
         print_success "GBAjs3 server is already running"
-        echo "   - Access at: http://localhost:3001"
+        echo "   - Access at: http://localhost:3000"
     else
         print_status "Starting GBAjs3 server..."
         if [ -f "./start-gbajs3-server.sh" ]; then
