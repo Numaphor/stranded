@@ -61,8 +61,8 @@ if [ ! -d "node_modules" ]; then
 fi
 
 # Start the server
-print_status "Starting GBAjs3 server on port 3001..."
-nohup npm run dev -- --host 0.0.0.0 --port 3001 > /tmp/gbajs3-server.log 2>&1 &
+print_status "Starting GBAjs3 server on port 3000..."
+nohup npm run dev -- --host 0.0.0.0 --port 3000 > /tmp/gbajs3-server.log 2>&1 &
 SERVER_PID=$!
 
 # Wait for server to start
@@ -71,9 +71,9 @@ sleep 3
 # Check if server is running
 if ps -p $SERVER_PID > /dev/null 2>&1; then
     # Test if server is responding
-    if curl -s -o /dev/null -w "%{http_code}" http://localhost:3001 | grep -q "200"; then
+    if curl -s -o /dev/null -w "%{http_code}" http://localhost:3000 | grep -q "200"; then
         print_success "GBAjs3 server started successfully!"
-        print_status "🌐 Access at: http://localhost:3001"
+        print_status "🌐 Access at: http://localhost:3000"
         print_status "📋 Server PID: $SERVER_PID"
         print_status "📄 Logs: /tmp/gbajs3-server.log"
         
@@ -82,7 +82,7 @@ if ps -p $SERVER_PID > /dev/null 2>&1; then
         print_status "Recent server output:"
         tail -n 5 /tmp/gbajs3-server.log
     else
-        print_error "Server started but not responding on port 3001"
+        print_error "Server started but not responding on port 3000"
         print_error "Check logs: /tmp/gbajs3-server.log"
         exit 1
     fi
