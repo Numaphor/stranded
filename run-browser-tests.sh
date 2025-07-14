@@ -135,20 +135,31 @@ if [ -d "/tmp/gbajs3/gbajs3/gbajs3" ]; then
         echo "   - Access at: http://localhost:3001"
     else
         print_status "Starting GBAjs3 server..."
-        if [ -d "/tmp/gbajs3/gbajs3/gbajs3" ]; then
-            cd /tmp/gbajs3/gbajs3/gbajs3
-            npm run dev -- --host 0.0.0.0 --port 3001 &
-            SERVER_PID=$!
-            sleep 3
-            if ps -p $SERVER_PID > /dev/null; then
+        if [ -f "./start-gbajs3-server.sh" ]; then
+            ./start-gbajs3-server.sh > /dev/null 2>&1
+            if curl -s -o /dev/null -w "%{http_code}" http://localhost:3001 | grep -q "200"; then
                 print_success "GBAjs3 server started on http://localhost:3001"
             else
                 print_error "Failed to start GBAjs3 server"
+                print_warning "Try running: ./start-gbajs3-server.sh"
             fi
-            cd - > /dev/null
         else
-            print_error "GBAjs3 directory not found at /tmp/gbajs3/gbajs3/gbajs3"
-            print_warning "Please run the GBAjs3 setup first"
+            print_warning "start-gbajs3-server.sh not found"
+            print_status "Attempting direct startup..."
+            if [ -d "/tmp/gbajs3/gbajs3/gbajs3" ]; then
+                cd /tmp/gbajs3/gbajs3/gbajs3
+                nohup npm run dev -- --host 0.0.0.0 --port 3001 > /tmp/gbajs3-server.log 2>&1 &
+                sleep 3
+                if curl -s -o /dev/null -w "%{http_code}" http://localhost:3001 | grep -q "200"; then
+                    print_success "GBAjs3 server started on http://localhost:3001"
+                else
+                    print_error "Failed to start GBAjs3 server"
+                fi
+                cd - > /dev/null
+            else
+                print_error "GBAjs3 directory not found at /tmp/gbajs3/gbajs3/gbajs3"
+                print_warning "Please run the GBAjs3 setup first"
+            fi
         fi
     fi
 else
@@ -156,16 +167,24 @@ else
     echo "   - Setting up GBAjs3 automatically..."
     if setup_gbajs3; then
         print_status "Starting GBAjs3 server after setup..."
-        cd /tmp/gbajs3/gbajs3/gbajs3
-        npm run dev -- --host 0.0.0.0 --port 3001 &
-        SERVER_PID=$!
-        sleep 3
-        if ps -p $SERVER_PID > /dev/null; then
-            print_success "GBAjs3 server started on http://localhost:3001"
+        if [ -f "./start-gbajs3-server.sh" ]; then
+            ./start-gbajs3-server.sh > /dev/null 2>&1
+            if curl -s -o /dev/null -w "%{http_code}" http://localhost:3001 | grep -q "200"; then
+                print_success "GBAjs3 server started on http://localhost:3001"
+            else
+                print_error "Failed to start GBAjs3 server after setup"
+            fi
         else
-            print_error "Failed to start GBAjs3 server"
+            cd /tmp/gbajs3/gbajs3/gbajs3
+            nohup npm run dev -- --host 0.0.0.0 --port 3001 > /tmp/gbajs3-server.log 2>&1 &
+            sleep 3
+            if curl -s -o /dev/null -w "%{http_code}" http://localhost:3001 | grep -q "200"; then
+                print_success "GBAjs3 server started on http://localhost:3001"
+            else
+                print_error "Failed to start GBAjs3 server after setup"
+            fi
+            cd - > /dev/null
         fi
-        cd - > /dev/null
     else
         print_error "Failed to set up GBAjs3"
     fi
