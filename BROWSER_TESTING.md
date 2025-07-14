@@ -29,12 +29,6 @@ Full-featured web-based GBA emulator with advanced capabilities:
   - Full-screen mode
   - Touch controls for mobile
 
-**Steps**:
-1. The setup script automatically starts the GBAjs3 server
-2. Visit http://localhost:3000 in your browser
-3. Load your ROM file
-4. Enjoy full GBA emulation features
-
 ## Building the ROM
 
 ### Prerequisites
