@@ -16,12 +16,6 @@ A lightweight HTML page with basic GBA emulation interface:
   - Keyboard input mapping
   - ROM header information display
 
-**Steps**:
-1. Build the ROM: `make clean && make`
-2. Open `browser-test.html` in your browser
-3. Load the generated `.gba` file
-4. Use controls to test the game
-
 ### 2. 🚀 Advanced GBAjs3 Emulator
 
 Full-featured web-based GBA emulator with advanced capabilities:
