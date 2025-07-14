@@ -184,16 +184,34 @@ docker run --rm -p 8080:8080 -v $(pwd):/workspace banhcanh/docker-mgba
 ```
 **Access**: Web interface at `http://localhost:8080`
 
-#### Method B: Local Emulator
-```bash
-# Windows
-./tools/mGBA.exe stranded.gba
+#### Method B: Local mGBA Download
+Download the latest mGBA from https://mgba.io/downloads.html:
 
-# Linux (if installed)
-mgba-qt stranded.gba
+```bash
+# Download mGBA 0.10.5 AppImage for Linux
+wget -O mGBA-0.10.5-appimage-x64.appimage "https://s3.amazonaws.com/mgba/release/mGBA-0.10.5-appimage-x64.appimage"
+chmod +x mGBA-0.10.5-appimage-x64.appimage
+
+# Run with ROM (requires GUI environment)
+./mGBA-0.10.5-appimage-x64.appimage stranded.gba
+
+# Windows: Download and run mGBA-0.10.5-win64.zip
+# macOS: Download mGBA-0.10.5-macos.dmg
 ```
 
-#### Method C: Online Emulators
+#### Method C: Existing Local Installation
+```bash
+# Windows (included in tools/)
+./tools/mGBA.exe stranded.gba
+
+# Linux (if installed via package manager)
+mgba-qt stranded.gba
+
+# macOS (if installed)
+/Applications/mGBA.app/Contents/MacOS/mGBA stranded.gba
+```
+
+#### Method D: Online Emulators
 - Upload `stranded.gba` to web-based GBA emulators
 - Examples: Eclipse, GBA.js, or other online emulators
 
@@ -216,6 +234,20 @@ If emulator testing isn't available:
 file stranded.gba  # Should show "Game Boy Advance ROM image"
 ls -lh stranded.gba  # Should be ~1.4MB
 ```
+
+### 6. Testing Environment Requirements
+
+#### GUI Environment Needed
+- mGBA requires a graphical environment (X11, Wayland, or Windows GUI)
+- Headless/server environments cannot run the emulator directly
+- Docker with GUI forwarding or VNC may be needed for remote testing
+
+#### Alternative Verification Methods
+If GUI testing isn't possible:
+1. **Build Verification**: Confirm ROM file is valid GBA format
+2. **Code Review**: Verify z-order logic in source code
+3. **Static Analysis**: Check merchant position calculations
+4. **CI/CD Integration**: Automated build verification in pipeline
 
 ## 📝 Development Best Practices
 
