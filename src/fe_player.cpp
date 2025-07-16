@@ -6,6 +6,7 @@
 #include "fe_level.h"
 #include "bn_log.h"
 #include "fe_enemy.h"
+#include "fe_collision.h"
 #include "bn_sprite_palette_ptr.h"
 
 extern fe::Level *_level;
@@ -478,18 +479,7 @@ namespace fe
         extern fe::Level *_level; // Assuming _level is globally accessible as in fe_scene_world.cpp
         if (_level)
         {
-            bn::fixed_point points[4];
-            _hitbox.get_collision_points(_pos, fe::directions::down, points);
-            bool valid = true;
-            for (int i = 0; i < 4; ++i)
-            {
-                if (!_level->is_position_valid(points[i]))
-                {
-                    valid = false;
-                    break;
-                }
-            }
-            if (!valid)
+            if (!fe::Collision::check_hitbox_collision_with_level(_hitbox, _pos, fe::directions::down, *_level))
             {
                 revert_position();
                 _movement.stop_movement();

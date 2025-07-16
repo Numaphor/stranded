@@ -216,19 +216,7 @@ namespace fe
             check_direction = _dy > 0 ? fe::directions::down : fe::directions::up;
         }
 
-        // Get collision points based on movement direction
-        _hitbox.get_collision_points(new_pos, check_direction, points);
-
-        bool valid = true;
-        for (int i = 0; i < 4; ++i)
-        {
-            if (!level.is_position_valid(points[i]))
-            {
-                valid = false;
-                break;
-            }
-        }
-        if (valid)
+        if (fe::Collision::check_hitbox_collision_with_level(_hitbox, new_pos, check_direction, level))
         {
             _pos = new_pos;
             update_hitbox();
@@ -244,17 +232,7 @@ namespace fe
             {
                 bn::fixed_point x_pos(_pos.x() + _dx, _pos.y());
                 fe::directions x_dir = _dx > 0 ? fe::directions::right : fe::directions::left;
-                bn::fixed_point x_points[4];
-                _hitbox.get_collision_points(x_pos, x_dir, x_points);
-
-                for (int i = 0; i < 4; ++i)
-                {
-                    if (!level.is_position_valid(x_points[i]))
-                    {
-                        can_move_x = false;
-                        break;
-                    }
-                }
+                can_move_x = fe::Collision::check_hitbox_collision_with_level(_hitbox, x_pos, x_dir, level);
             }
 
             // Check Y movement only
@@ -262,17 +240,7 @@ namespace fe
             {
                 bn::fixed_point y_pos(_pos.x(), _pos.y() + _dy);
                 fe::directions y_dir = _dy > 0 ? fe::directions::down : fe::directions::up;
-                bn::fixed_point y_points[4];
-                _hitbox.get_collision_points(y_pos, y_dir, y_points);
-
-                for (int i = 0; i < 4; ++i)
-                {
-                    if (!level.is_position_valid(y_points[i]))
-                    {
-                        can_move_y = false;
-                        break;
-                    }
-                }
+                can_move_y = fe::Collision::check_hitbox_collision_with_level(_hitbox, y_pos, y_dir, level);
             }
 
             // Apply movement on valid axes
