@@ -14,6 +14,7 @@
 
 #include "fe_level.h"
 #include "fe_enemy_type.h"
+#include "fe_collision.h"
 
 namespace fe
 {
@@ -201,8 +202,6 @@ namespace fe
         bn::fixed_point new_pos(new_x, new_y);
 
         // --- Robust collision check with proper direction ---
-        bn::fixed_point points[4];
-
         // Determine movement direction for collision check
         fe::directions check_direction = fe::directions::down; // Default
         if (bn::abs(_dx) > bn::abs(_dy))
