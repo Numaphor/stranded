@@ -14,6 +14,7 @@
 
 #include "fe_level.h"
 #include "fe_enemy_type.h"
+#include "fe_collision.h"
 
 namespace fe
 {
@@ -122,21 +123,20 @@ namespace fe
         static bn::random random;
         _state_timer++;
 
-        // Distance to player
+        // Distance to player - cache expensive sqrt calculation
         bn::fixed dist_x = player_pos.x() - _pos.x();
         bn::fixed dist_y = player_pos.y() - _pos.y();
         bn::fixed dist_sq = dist_x * dist_x + dist_y * dist_y;
-        bn::fixed dist = bn::sqrt(dist_sq);
-        const bn::fixed follow_dist = 48;   // 6 tiles
-        const bn::fixed unfollow_dist = 64; // 8 tiles
+        const bn::fixed follow_dist_sq = 48 * 48;   // 6 tiles squared
+        const bn::fixed unfollow_dist_sq = 64 * 64; // 8 tiles squared
 
         // Aggro logic - enemies can't detect player when they're listening to NPCs
-        if (!player_listening && _state != EnemyState::FOLLOW && dist <= follow_dist)
+        if (!player_listening && _state != EnemyState::FOLLOW && dist_sq <= follow_dist_sq)
         {
             _state = EnemyState::FOLLOW;
             _state_timer = 0;
         }
-        else if (_state == EnemyState::FOLLOW && (dist > unfollow_dist || player_listening))
+        else if (_state == EnemyState::FOLLOW && (dist_sq > unfollow_dist_sq || player_listening))
         {
             _state = EnemyState::IDLE;
             _state_timer = 0;
@@ -149,9 +149,9 @@ namespace fe
         // State logic
         if (_state == EnemyState::FOLLOW)
         {
-            // Move toward player, slow lerp
+            // Move toward player, slow lerp - use cached distance calculation
             bn::fixed speed = 0.35;
-            bn::fixed len = bn::sqrt(dist_x * dist_x + dist_y * dist_y);
+            bn::fixed len = bn::sqrt(dist_sq);
             if (len > 0.1)
             {
                 _target_dx = (dist_x / len) * speed;
@@ -202,8 +202,6 @@ namespace fe
         bn::fixed_point new_pos(new_x, new_y);
 
         // --- Robust collision check with proper direction ---
-        bn::fixed_point points[4];
-
         // Determine movement direction for collision check
         fe::directions check_direction = fe::directions::down; // Default
         if (bn::abs(_dx) > bn::abs(_dy))
@@ -217,19 +215,7 @@ namespace fe
             check_direction = _dy > 0 ? fe::directions::down : fe::directions::up;
         }
 
-        // Get collision points based on movement direction
-        _hitbox.get_collision_points(new_pos, check_direction, points);
-
-        bool valid = true;
-        for (int i = 0; i < 4; ++i)
-        {
-            if (!level.is_position_valid(points[i]))
-            {
-                valid = false;
-                break;
-            }
-        }
-        if (valid)
+        if (fe::Collision::check_hitbox_collision_with_level(_hitbox, new_pos, check_direction, level))
         {
             _pos = new_pos;
             update_hitbox();
@@ -245,17 +231,7 @@ namespace fe
             {
                 bn::fixed_point x_pos(_pos.x() + _dx, _pos.y());
                 fe::directions x_dir = _dx > 0 ? fe::directions::right : fe::directions::left;
-                bn::fixed_point x_points[4];
-                _hitbox.get_collision_points(x_pos, x_dir, x_points);
-
-                for (int i = 0; i < 4; ++i)
-                {
-                    if (!level.is_position_valid(x_points[i]))
-                    {
-                        can_move_x = false;
-                        break;
-                    }
-                }
+                can_move_x = fe::Collision::check_hitbox_collision_with_level(_hitbox, x_pos, x_dir, level);
             }
 
             // Check Y movement only
@@ -263,17 +239,7 @@ namespace fe
             {
                 bn::fixed_point y_pos(_pos.x(), _pos.y() + _dy);
                 fe::directions y_dir = _dy > 0 ? fe::directions::down : fe::directions::up;
-                bn::fixed_point y_points[4];
-                _hitbox.get_collision_points(y_pos, y_dir, y_points);
-
-                for (int i = 0; i < 4; ++i)
-                {
-                    if (!level.is_position_valid(y_points[i]))
-                    {
-                        can_move_y = false;
-                        break;
-                    }
-                }
+                can_move_y = fe::Collision::check_hitbox_collision_with_level(_hitbox, y_pos, y_dir, level);
             }
 
             // Apply movement on valid axes

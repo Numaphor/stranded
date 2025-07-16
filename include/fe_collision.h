@@ -122,6 +122,26 @@ namespace fe
             collision_log.append(")");
             bn::log(collision_log);
         }
+
+        // Shared collision validation utilities
+        [[nodiscard]] static bool validate_position_points(const bn::fixed_point points[4], const Level& level)
+        {
+            for (int i = 0; i < 4; ++i)
+            {
+                if (!level.is_position_valid(points[i]))
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        [[nodiscard]] static bool check_hitbox_collision_with_level(const Hitbox& hitbox, bn::fixed_point pos, fe::directions direction, const Level& level)
+        {
+            bn::fixed_point points[4];
+            hitbox.get_collision_points(pos, direction, points);
+            return validate_position_points(points, level);
+        }
     };
 }
 

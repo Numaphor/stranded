@@ -37,7 +37,7 @@ namespace fe
             // Get enemy position (using friend access)
             bn::fixed_point enemy_pos = enemy._pos;
 
-            // Find or create enemy dot
+            // Find or create enemy dot - optimized sprite reuse
             if (i >= _enemy_dots.size())
             {
                 // Create new enemy dot with enemy sprite
@@ -53,18 +53,16 @@ namespace fe
                 // Create and add new enemy dot
                 _enemy_dots.push_back(EnemyDot(std::move(sprite), &enemy));
             }
-            else
-            {
-                // Update existing enemy dot
-                _enemy_dots[i].enemy = &enemy;
+            
+            // Update existing enemy dot (moved outside else to reduce code duplication)
+            _enemy_dots[i].enemy = &enemy;
 
-                // Update position of enemy dot
-                bn::fixed enemy_rel_x = (enemy_pos.x() - map_center.x()) * POSITION_SCALE;
-                bn::fixed enemy_rel_y = (enemy_pos.y() - map_center.y()) * POSITION_SCALE;
-                _enemy_dots[i].sprite.set_position(
-                    _position.x() + enemy_rel_x,
-                    _position.y() + enemy_rel_y);
-            }
+            // Update position of enemy dot
+            bn::fixed enemy_rel_x = (enemy_pos.x() - map_center.x()) * POSITION_SCALE;
+            bn::fixed enemy_rel_y = (enemy_pos.y() - map_center.y()) * POSITION_SCALE;
+            _enemy_dots[i].sprite.set_position(
+                _position.x() + enemy_rel_x,
+                _position.y() + enemy_rel_y);
         }
 
         // Remove any extra enemy dots
