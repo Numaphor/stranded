@@ -191,7 +191,11 @@ namespace fe
                     _currentLine = 0;
                     _has_spoken_once = true;
                 }
-                _currentChars = _lines.at(_currentLine).substr(0, (_currentChar / 2) + 1);
+                int char_count = (_currentChar / 2) + 1;
+                if (char_count != _last_char_count) {
+                    _currentChars = _lines.at(_currentLine).substr(0, char_count);
+                    _last_char_count = char_count;
+                }
                 if (bn::keypad::a_held() || bn::keypad::up_held())
                 {
                     _currentChar += 2;

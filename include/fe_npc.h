@@ -42,6 +42,7 @@ namespace fe
         bn::span<bn::string_view> _lines;
         int _currentLine = 0;
         int _currentChar = 0;
+        int _last_char_count = -1;
         bn::string_view _currentChars = "";
 
         bn::string_view _golem_lines[14] = {

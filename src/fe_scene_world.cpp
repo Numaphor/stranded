@@ -228,20 +228,20 @@ namespace fe
                     _player->set_position(_player->pos() + knockback);
                 }
 
-                // Check for collision with player's bullets
+                // Check for collision with player's bullets - optimized collision detection
                 if (_player->bullets().size() > 0)
                 {
                     // Get reference to bullets vector to avoid copying
                     const auto &bullets = _player->bullets();
+                    
+                    Hitbox enemy_hitbox = enemy.get_hitbox();
 
                     // Check each bullet for collision with this enemy
                     for (const auto &bullet : bullets)
                     {
                         if (bullet.is_active())
                         {
-                            // Get hitboxes for collision check
                             Hitbox bullet_hitbox = bullet.get_hitbox();
-                            Hitbox enemy_hitbox = enemy.get_hitbox();
 
                             // Check for collision
                             if (bullet_hitbox.collides_with(enemy_hitbox))

@@ -122,21 +122,20 @@ namespace fe
         static bn::random random;
         _state_timer++;
 
-        // Distance to player
+        // Distance to player - cache expensive sqrt calculation
         bn::fixed dist_x = player_pos.x() - _pos.x();
         bn::fixed dist_y = player_pos.y() - _pos.y();
         bn::fixed dist_sq = dist_x * dist_x + dist_y * dist_y;
-        bn::fixed dist = bn::sqrt(dist_sq);
-        const bn::fixed follow_dist = 48;   // 6 tiles
-        const bn::fixed unfollow_dist = 64; // 8 tiles
+        const bn::fixed follow_dist_sq = 48 * 48;   // 6 tiles squared
+        const bn::fixed unfollow_dist_sq = 64 * 64; // 8 tiles squared
 
         // Aggro logic - enemies can't detect player when they're listening to NPCs
-        if (!player_listening && _state != EnemyState::FOLLOW && dist <= follow_dist)
+        if (!player_listening && _state != EnemyState::FOLLOW && dist_sq <= follow_dist_sq)
         {
             _state = EnemyState::FOLLOW;
             _state_timer = 0;
         }
-        else if (_state == EnemyState::FOLLOW && (dist > unfollow_dist || player_listening))
+        else if (_state == EnemyState::FOLLOW && (dist_sq > unfollow_dist_sq || player_listening))
         {
             _state = EnemyState::IDLE;
             _state_timer = 0;
@@ -149,9 +148,9 @@ namespace fe
         // State logic
         if (_state == EnemyState::FOLLOW)
         {
-            // Move toward player, slow lerp
+            // Move toward player, slow lerp - use cached distance calculation
             bn::fixed speed = 0.35;
-            bn::fixed len = bn::sqrt(dist_x * dist_x + dist_y * dist_y);
+            bn::fixed len = bn::sqrt(dist_sq);
             if (len > 0.1)
             {
                 _target_dx = (dist_x / len) * speed;

@@ -106,18 +106,21 @@ namespace fe
         bn::fixed_point quarter_top_left(position.x() - hitbox_width/4, position.y() - hitbox_height/2 + vertical_offset);
         bn::fixed_point quarter_top_right(position.x() + hitbox_width/4, position.y() - hitbox_height/2 + vertical_offset);
         
-        // Check each point for collision
+        // Check each point for collision - optimized to reduce redundant calculations
         bn::fixed_point check_points[] = {
             top_left, top_right, bottom_left, bottom_right,
             middle_top, quarter_top_left, quarter_top_right
         };
         
+        const int map_offset_x = (map_width * 4);
+        const int map_offset_y = (map_height * 4);
+        
         for(const auto& point : check_points)
         {
             // Convert position to cell coordinates
             // Assuming each cell is 8x8 pixels and the map is centered on the screen
-            int cell_x = ((point.x() + (map_width * 4)) / 8).integer();
-            int cell_y = ((point.y() + (map_height * 4)) / 8).integer();
+            int cell_x = ((point.x() + map_offset_x) / 8).integer();
+            int cell_y = ((point.y() + map_offset_y) / 8).integer();
             
             // Check if the cell position is within map bounds
             if(cell_x < 0 || cell_x >= map_width || cell_y < 0 || cell_y >= map_height)
