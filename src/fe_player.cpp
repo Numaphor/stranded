@@ -8,19 +8,12 @@
 #include "fe_enemy.h"
 #include "fe_collision.h"
 #include "bn_sprite_palette_ptr.h"
+#include "fe_bullet_manager.h"
 
 extern fe::Level *_level;
 
 namespace fe
 {
-
-    PlayerMovement::PlayerMovement() : _dx(0),
-                                       _dy(0),
-                                       _current_state(State::IDLE),
-                                       _facing_direction(Direction::DOWN)
-    {
-    }
-
     void PlayerMovement::move_right()
     {
         _dx = bn::clamp(_dx + acc_const, -max_speed, max_speed);
@@ -175,17 +168,21 @@ namespace fe
         }
     }
 
+    // PlayerMovement Implementation
+    PlayerMovement::PlayerMovement() : _dx(0), _dy(0), _current_state(State::IDLE), _facing_direction(Direction::DOWN)
+    {
+    }
+
     // Player Implementation
 
     fe::Player::Player(bn::sprite_ptr sprite)
-        : _sprite(sprite), _animation(bn::move(sprite)), _hitbox(0, 0, 16, 32), _gun_active(false)
+        : Entity(sprite), _animation(sprite), _gun_active(false)
     {
         // Set player z-order to 1 by default
-        _sprite.set_z_order(1);
+        set_sprite_z_order(1);
 
-        // Set hitbox to be centered on the sprite
-        _hitbox.set_x(_sprite.x() - 8);
-        _hitbox.set_y(_sprite.y() - 16);
+        // Initialize hitbox size for player (16x32)
+        _hitbox = Hitbox(0, 0, 16, 32);
 
         // Initialize health
         _healthbar.set_hp(_hp);
@@ -194,14 +191,9 @@ namespace fe
     void Player::spawn(bn::fixed_point pos, bn::camera_ptr camera)
     {
         _healthbar.set_hp(_hp);
-        _pos = pos;
-        _previous_pos = pos;
-        _sprite.set_position(pos);
-        _sprite.set_camera(camera);
+        set_position(pos);
+        set_camera(camera);
         _animation.apply_state(_movement.current_state(), _movement.facing_direction());
-        // Center hitbox on player
-        _hitbox.set_x(pos.x() - 8);
-        _hitbox.set_y(pos.y() - 16);
     }
 
     // Helper function to colorize a pixel in a sprite tile
@@ -223,102 +215,6 @@ namespace fe
         tile.data[pixel_y] = row;
     }
 
-    // Bullet implementation
-    Bullet::Bullet(bn::fixed_point pos, bn::fixed_point velocity, bn::camera_ptr camera, PlayerMovement::Direction direction) : _pos(pos),
-                                                                                                                                _velocity(velocity),
-                                                                                                                                _active(true),
-                                                                                                                                _hitbox(0, 0, 2, 2), // Small 2x2 hitbox for the bullet
-                                                                                                                                _lifetime(BULLET_LIFETIME)
-    {
-        // Create a bullet sprite using the hero sprite
-        _sprite = bn::sprite_items::hero.create_sprite(_pos.x(), _pos.y(), 0);
-        _sprite->set_camera(camera);
-        _sprite->set_z_order(-15); // Make sure bullets are in front of other sprites
-
-        // Make the bullet very small
-        _sprite->set_scale(0.15, 0.15);
-
-        // Set rotation based on direction
-        switch (direction)
-        {
-        case PlayerMovement::Direction::UP:
-            _sprite->set_rotation_angle(0);
-            break;
-        case PlayerMovement::Direction::RIGHT:
-            _sprite->set_rotation_angle(270);
-            break;
-        case PlayerMovement::Direction::DOWN:
-            _sprite->set_rotation_angle(180);
-            break;
-        case PlayerMovement::Direction::LEFT:
-            _sprite->set_rotation_angle(90);
-            break;
-        default:
-            // Default to right direction if unknown
-            _sprite->set_rotation_angle(270);
-            break;
-        }
-
-        // Set a high priority to make it appear on top of other elements
-        _sprite->set_bg_priority(0);
-
-        // Center hitbox on bullet
-        _hitbox.set_x(_pos.x() - 1);
-        _hitbox.set_y(_pos.y() - 1);
-    }
-
-    void Bullet::update()
-    {
-        if (!_active || !_sprite.has_value())
-        {
-            return;
-        }
-
-        // Update position based on velocity
-        _pos += _velocity;
-
-        // Update sprite position
-        _sprite->set_position(_pos);
-
-        // Update hitbox
-        _hitbox.set_x(_pos.x() - 1);
-        _hitbox.set_y(_pos.y() - 1);
-
-        // Decrease lifetime
-        _lifetime--;
-
-        // Deactivate if lifetime reaches zero
-        if (_lifetime <= 0)
-        {
-            deactivate();
-            _sprite.reset();
-        }
-    }
-
-    bool Bullet::check_enemy_collision(Enemy &enemy)
-    {
-        if (!_active)
-        {
-            return false;
-        }
-
-        // Get enemy hitbox
-        Hitbox enemy_hitbox = enemy.get_hitbox();
-
-        // Check if bullet hitbox intersects with enemy hitbox
-        if (_hitbox.collides_with(enemy_hitbox))
-        {
-            // Deactivate bullet
-            deactivate();
-            if (_sprite.has_value())
-            {
-                _sprite.reset();
-            }
-            return true;
-        }
-
-        return false;
-    }
 
     void Player::handle_input()
     {
@@ -408,15 +304,15 @@ namespace fe
             if (_gun_active)
             {
                 // Create gun sprite with correct z-order
-                _gun_sprite = bn::sprite_items::gun.create_sprite(_pos.x(), _pos.y());
+                _gun_sprite = bn::sprite_items::gun.create_sprite(pos().x(), pos().y());
                 // In Butano, sprites sorting takes BG priority first, then z_order.
                 // Match BG priority with player sprite so z_order determines layering.
-                _gun_sprite->set_bg_priority(_sprite.bg_priority());
-                _gun_sprite->set_z_order(_sprite.z_order() - 1);
-                if (_sprite.camera().has_value())
+                _gun_sprite->set_bg_priority(get_sprite()->bg_priority());
+                _gun_sprite->set_z_order(get_sprite()->z_order() - 1);
+                if (get_sprite()->camera().has_value())
                 {
-                    _gun_sprite->set_camera(_sprite.camera().value());
-                    _camera = _sprite.camera();
+                    _gun_sprite->set_camera(get_sprite()->camera().value());
+                    _bullet_manager.set_camera(get_sprite()->camera().value());
                 }
             }
             else
@@ -430,18 +326,11 @@ namespace fe
         }
 
         // Check B button for firing bullets when gun is active
-        if (_gun_active && bn::keypad::b_held() && _shoot_cooldown <= 0 && _camera.has_value())
+        if (_gun_active && bn::keypad::b_held())
         {
             // Use strafing direction if strafing, otherwise use movement direction
             PlayerMovement::Direction bullet_dir = _is_strafing ? _strafing_direction : _movement.facing_direction();
             fire_bullet(bullet_dir);
-            _shoot_cooldown = SHOOT_COOLDOWN_TIME;
-        }
-
-        // Update shoot cooldown
-        if (_shoot_cooldown > 0)
-        {
-            _shoot_cooldown--;
         }
 
         // Update gun position if active, regardless of input
@@ -466,7 +355,6 @@ namespace fe
 
     void Player::update()
     {
-        _previous_pos = _pos;
         handle_input();
 
         // Don't update physics when listening to NPCs
@@ -479,14 +367,14 @@ namespace fe
         extern fe::Level *_level; // Assuming _level is globally accessible as in fe_scene_world.cpp
         if (_level)
         {
-            if (!fe::Collision::check_hitbox_collision_with_level(_hitbox, _pos, fe::directions::down, *_level))
+            if (!fe::Collision::check_hitbox_collision_with_level(get_hitbox(), pos(), fe::directions::down, *_level))
             {
                 revert_position();
                 _movement.stop_movement();
             }
         }
 
-        _sprite.set_position(_pos);
+        update_sprite_position();
         _animation.update();
         _healthbar.update();
 
@@ -508,45 +396,41 @@ namespace fe
             // Flash the player sprite when invulnerable
             if ((inv_timer / 5) % 2 == 0)
             {
-                _sprite.set_visible(true);
+                set_visible(true);
             }
             else
             {
-                _sprite.set_visible(false);
+                set_visible(false);
             }
 
             // Reset invulnerability when timer reaches zero
             if (inv_timer <= 0)
             {
                 _state.set_invulnerable(false);
-                _sprite.set_visible(true);
+                set_visible(true);
             }
         }
     }
 
     void Player::update_physics()
     {
-        _pos += bn::fixed_point(_movement.dx(), _movement.dy());
+        set_position(pos() + bn::fixed_point(_movement.dx(), _movement.dy()));
     }
 
-    void Player::set_position(bn::fixed_point pos)
+    void Player::set_position(bn::fixed_point new_pos)
     {
-        _previous_pos = _pos;
-        _pos = pos;
-        _sprite.set_position(pos);
-        // Center hitbox on player
-        _hitbox.set_x(pos.x() - 8);
-        _hitbox.set_y(pos.y() - 16);
+        Entity::set_position(new_pos);
+        // Center hitbox on player - update the Entity's hitbox
+        _hitbox.set_x(new_pos.x() - 8);
+        _hitbox.set_y(new_pos.y() - 16);
     }
 
     void Player::revert_position()
     {
-        // Revert to previous valid position
-        _pos = _previous_pos;
-        _sprite.set_position(_pos);
-        // Center hitbox on player
-        _hitbox.set_x(_pos.x() - 8);
-        _hitbox.set_y(_pos.y() - 16);
+        Entity::revert_position();
+        // Center hitbox on player - update the Entity's hitbox
+        _hitbox.set_x(pos().x() - 8);
+        _hitbox.set_y(pos().y() - 16);
         // Reset velocity to prevent continued movement in the same direction
         _movement.stop_movement();
     }
@@ -567,23 +451,23 @@ namespace fe
         // When looking up (idx 0), player should be drawn over the gun
         if (idx == 0)
         {                                 // UP direction
-            _sprite.set_z_order(-10);     // Player in front
+            set_sprite_z_order(-10);      // Player in front
             _gun_sprite->set_z_order(-5); // Gun behind
         }
         else
         {
             _gun_sprite->set_z_order(-10); // Gun in front
-            _sprite.set_z_order(-5);       // Player behind
+            set_sprite_z_order(-5);       // Player behind
         }
 
         _gun_sprite->set_horizontal_flip(flips[idx]);
         _gun_sprite->set_rotation_angle(angles[idx]);
-        _gun_sprite->set_position(_pos.x() + xs[idx], _pos.y() + ys[idx]);
+        _gun_sprite->set_position(pos().x() + xs[idx], pos().y() + ys[idx]);
     }
 
     void Player::fire_bullet(PlayerMovement::Direction direction)
     {
-        if (!_gun_active || !_gun_sprite.has_value() || !_camera.has_value())
+        if (!_gun_active || !_gun_sprite.has_value())
         {
             return;
         }
@@ -594,45 +478,34 @@ namespace fe
         constexpr bn::fixed bullet_offsets_y[4] = {-12, 12, 0, 0};
 
         bn::fixed_point bullet_pos(
-            _pos.x() + bullet_offsets_x[idx],
-            _pos.y() + bullet_offsets_y[idx]);
+            pos().x() + bullet_offsets_x[idx],
+            pos().y() + bullet_offsets_y[idx]);
 
-        // Calculate bullet velocity based on direction
-        constexpr bn::fixed bullet_speed = 3;
-        constexpr bn::fixed bullet_vx[4] = {0, 0, -bullet_speed, bullet_speed};
-        constexpr bn::fixed bullet_vy[4] = {-bullet_speed, bullet_speed, 0, 0};
-
-        bn::fixed_point bullet_velocity(bullet_vx[idx], bullet_vy[idx]);
-
-        // Create a new bullet and add it to the bullets vector
-        // First check if we have space in the vector
-        if (_bullets.size() < 32)
+        fe::Direction bullet_dir;
+        switch (direction)
         {
-            _bullets.push_back(Bullet(bullet_pos, bullet_velocity, _camera.value(), direction));
+            case PlayerMovement::Direction::UP:
+                bullet_dir = fe::Direction::UP;
+                break;
+            case PlayerMovement::Direction::DOWN:
+                bullet_dir = fe::Direction::DOWN;
+                break;
+            case PlayerMovement::Direction::LEFT:
+                bullet_dir = fe::Direction::LEFT;
+                break;
+            case PlayerMovement::Direction::RIGHT:
+                bullet_dir = fe::Direction::RIGHT;
+                break;
+            default:
+                bullet_dir = fe::Direction::UP;
+                break;
         }
-        else
-        {
-            // If we've reached max bullets, find an inactive one to replace
-            for (int i = 0; i < _bullets.size(); ++i)
-            {
-                if (!_bullets[i].is_active())
-                {
-                    _bullets[i] = Bullet(bullet_pos, bullet_velocity, _camera.value(), direction);
-                    break;
-                }
-            }
-        }
+
+        _bullet_manager.fire_bullet(bullet_pos, bullet_dir);
     }
 
     void Player::update_bullets()
     {
-        // Update all active bullets
-        for (auto &bullet : _bullets)
-        {
-            if (bullet.is_active())
-            {
-                bullet.update();
-            }
-        }
+        _bullet_manager.update_bullets();
     }
 }

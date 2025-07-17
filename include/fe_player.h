@@ -10,6 +10,8 @@
 
 #include "fe_hitbox.h"
 #include "fe_healthbar.h"
+#include "fe_entity.h"
+#include "fe_bullet_manager.h"
 
 namespace fe
 {
@@ -133,40 +135,8 @@ namespace fe
     // Forward declaration of Enemy class
     class Enemy;
 
-    // Bullet class for player's gun
-    class Bullet
-    {
-    public:
-        Bullet(bn::fixed_point pos, bn::fixed_point velocity, bn::camera_ptr camera, PlayerMovement::Direction direction);
-
-        void update();
-        bool check_enemy_collision(Enemy &enemy);
-
-        [[nodiscard]] bool is_active() const { return _active; }
-        [[nodiscard]] bn::fixed_point position() const { return _pos; }
-        [[nodiscard]] Hitbox get_hitbox() const { return _hitbox; }
-        void deactivate()
-        {
-            _active = false;
-            if (_sprite.has_value())
-            {
-                _sprite.reset();
-            }
-        }
-
-    private:
-        bn::fixed_point _pos;
-        bn::fixed_point _velocity;
-        bn::optional<bn::sprite_ptr> _sprite;
-        bool _active;
-        Hitbox _hitbox;
-
-        static constexpr int BULLET_LIFETIME = 60; // Bullet disappears after 1 second
-        int _lifetime;
-    };
-
     // Main Player class (moved from fe_player.h)
-    class Player
+    class Player : public Entity
     {
     public:
         explicit Player(bn::sprite_ptr sprite);
@@ -174,17 +144,17 @@ namespace fe
         void spawn(bn::fixed_point pos, bn::camera_ptr camera);
         void update();
 
-        [[nodiscard]] bn::fixed_point pos() const { return _pos; }
+        [[nodiscard]] bn::fixed_point pos() const override { return Entity::pos(); }
         [[nodiscard]] bool is_moving() const { return _movement.is_moving(); }
         [[nodiscard]] bool is_state(PlayerMovement::State state) const { return _movement.is_state(state); }
         [[nodiscard]] PlayerMovement::Direction facing_direction() const { return _movement.facing_direction(); }
         [[nodiscard]] bool listening() const { return _state.listening(); }
         void set_listening(bool listening) { _state.set_listening(listening); }
 
-        void set_position(bn::fixed_point pos);
-        void revert_position();
-        void set_sprite_z_order(int z_order) { _sprite.set_z_order(z_order); }
-        bn::sprite_ptr &sprite() { return _sprite; }
+        void set_position(bn::fixed_point pos) override;
+        void revert_position() override;
+        void set_sprite_z_order(int z_order) override { Entity::set_sprite_z_order(z_order); }
+        bn::sprite_ptr* sprite() { return get_sprite(); }
 
         [[nodiscard]] int get_hp() const { return _hp; }
         void take_damage(int damage)
@@ -203,7 +173,7 @@ namespace fe
                 _state.set_inv_timer(60); // 1 second of invulnerability at 60 FPS
 
                 // Visual feedback for taking damage
-                _sprite.set_visible(false);
+                set_visible(false);
             }
         }
 
@@ -218,42 +188,32 @@ namespace fe
             _movement.reset();
             _healthbar.set_hp(_hp);
             _healthbar.update();
-            _sprite.set_visible(true);
-            _bullets.clear();
-            _shoot_cooldown = 0;
+            set_visible(true);
+            _bullet_manager.clear_bullets();
         }
 
         // Returns list of active bullets for collision checking
-        [[nodiscard]] const bn::vector<Bullet, 32> &bullets() const { return _bullets; }
+        [[nodiscard]] const bn::vector<Bullet, 32> &bullets() const { return _bullet_manager.bullets(); }
 
         // Hitbox for collision detection
-        [[nodiscard]] Hitbox get_hitbox() const { return _hitbox; }
+        [[nodiscard]] Hitbox get_hitbox() const override { return Entity::get_hitbox(); }
 
         void update_gun_position(PlayerMovement::Direction direction);
 
     private:
-        bn::sprite_ptr _sprite;
         PlayerMovement _movement;
         PlayerAnimation _animation;
         PlayerState _state;
-        bn::fixed_point _pos;
-        bn::fixed_point _previous_pos;
         int _hp = 3;
         bool _reset_required = false;
         fe::Healthbar _healthbar;
-
-        // Hitbox for collision detection
-        Hitbox _hitbox;
 
         // Gun sprite members
         bn::optional<bn::sprite_ptr> _gun_sprite;
         bool _gun_active = false;
 
         // Bullet management
-        bn::vector<Bullet, 32> _bullets;               // Store active bullets, limit to 32 max
-        int _shoot_cooldown = 0;                       // Cooldown between shots
-        static constexpr int SHOOT_COOLDOWN_TIME = 15; // 15 frames between shots (4 shots/second at 60 FPS)
-        bn::optional<bn::camera_ptr> _camera;          // Store camera reference for bullets
+        BulletManager _bullet_manager;
 
         // Strafing state
         bool _is_strafing = false;

@@ -117,7 +117,7 @@ namespace fe
 
         // Initialize minimap in top-right corner
         _minimap = new Minimap(bn::fixed_point(100, -80), bg_map_ptr, camera);
-        _player->sprite().set_camera(camera);
+        _player->set_camera(camera);
 
         // Create text generator for NPCs
         bn::sprite_text_generator text_generator(common::variable_8x8_sprite_font);

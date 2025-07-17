@@ -13,6 +13,7 @@
 #include "fe_extras.h"
 #include "fe_hitbox.h"
 #include "fe_level.h"
+#include "fe_entity.h"
 #include "fe_player.h"
 #include "fe_enemy.h"
 #include "fe_npc.h"
@@ -50,7 +51,31 @@ namespace fe
                    boxA.y() + boxA.height() / 2 > y - h / 2;
         }
 
-        // Bounding box collision between Player and Enemy using their hitboxes
+        // Generic entity collision detection using Entity base class
+        [[nodiscard]] static bool check_entity_collision(const Entity &entityA, const Entity &entityB)
+        {
+            // Get the hitboxes for both entities
+            Hitbox hitboxA = entityA.get_hitbox();
+            Hitbox hitboxB = entityB.get_hitbox();
+
+            // Get the positions
+            bn::fixed_point posA = entityA.pos();
+            bn::fixed_point posB = entityB.pos();
+
+            // Calculate the half sizes for each hitbox
+            bn::fixed halfWA = hitboxA.width() / 2;
+            bn::fixed halfHA = hitboxA.height() / 2;
+            bn::fixed halfWB = hitboxB.width() / 2;
+            bn::fixed halfHB = hitboxB.height() / 2;
+
+            // Check for overlap on both axes
+            bool xOverlap = bn::abs(posA.x() - posB.x()) < (halfWA + halfWB);
+            bool yOverlap = bn::abs(posA.y() - posB.y()) < (halfHA + halfHB);
+
+            return xOverlap && yOverlap;
+        }
+
+        // Backward compatibility wrapper: Player-Enemy collision
         [[nodiscard]] static bool check_player_enemy(const Player &player, const Enemy &enemy)
         {
             // Get the hitboxes for both player and enemy
@@ -60,8 +85,7 @@ namespace fe
             // Get the positions
             bn::fixed playerX = player.pos().x();
             bn::fixed playerY = player.pos().y();
-            bn::fixed enemyX = enemy.get_position().x();
-            bn::fixed enemyY = enemy.get_position().y();
+            bn::fixed_point enemyPos = enemy.get_position();
 
             // Calculate the half sizes for each hitbox
             bn::fixed playerHalfW = playerHitbox.width() / 2;
@@ -70,13 +94,13 @@ namespace fe
             bn::fixed enemyHalfH = enemyHitbox.height() / 2;
 
             // Check for overlap on both axes
-            bool xOverlap = bn::abs(playerX - enemyX) < (playerHalfW + enemyHalfW);
-            bool yOverlap = bn::abs(playerY - enemyY) < (playerHalfH + enemyHalfH);
+            bool xOverlap = bn::abs(playerX - enemyPos.x()) < (playerHalfW + enemyHalfW);
+            bool yOverlap = bn::abs(playerY - enemyPos.y()) < (playerHalfH + enemyHalfH);
 
             return xOverlap && yOverlap;
         }
 
-        // Bounding box collision between Player and NPC (like merchant)
+        // Backward compatibility wrapper: Player-NPC collision with custom sizing
         [[nodiscard]] static bool check_player_npc(const Player &player, const NPC &npc)
         {
             // Get player position and size - match the world scene hitbox sizes
