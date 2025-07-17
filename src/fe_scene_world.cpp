@@ -122,10 +122,10 @@ namespace fe
         // Create text generator for NPCs
         bn::sprite_text_generator text_generator(common::variable_8x8_sprite_font);
 
-        // Add some enemies
-        _enemies.push_back(Enemy(0, -100, camera, bg, ENEMY_TYPE::SLIME, 3));
-        _enemies.push_back(Enemy(50, -80, camera, bg, ENEMY_TYPE::SLIME, 3));
-        _enemies.push_back(Enemy(-50, -120, camera, bg, ENEMY_TYPE::SLIME, 3));
+        // Add some enemies (disabled)
+        // _enemies.push_back(Enemy(0, -100, camera, bg, ENEMY_TYPE::SLIME, 3));
+        // _enemies.push_back(Enemy(50, -80, camera, bg, ENEMY_TYPE::SLIME, 3));
+        // _enemies.push_back(Enemy(-50, -120, camera, bg, ENEMY_TYPE::SLIME, 3));
 
         // Add merchant NPC with 10 frame idle animation
         NPC merchant(bn::fixed_point(100, -50), camera, NPC_TYPE::MERCHANT, text_generator);
