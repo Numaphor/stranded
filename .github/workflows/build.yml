@@ -1,0 +1,78 @@
+name: Build GBA ROM
+
+on:
+  push:
+    branches: [ main, 'devin/**' ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+    
+    - name: Cache Wonderful Toolchain
+      uses: actions/cache@v3
+      with:
+        path: /opt/wonderful
+        key: wonderful-toolchain-${{ runner.os }}-v1
+        restore-keys: |
+          wonderful-toolchain-${{ runner.os }}-
+    
+    - name: Install Wonderful Toolchain
+      run: |
+        # Download and install Wonderful Toolchain
+        wget -O wf-pacman-install.sh https://wonderful.asie.pl/wf-pacman-install.sh
+        chmod +x wf-pacman-install.sh
+        sudo ./wf-pacman-install.sh /opt/wonderful
+        
+        # Add to PATH
+        echo "/opt/wonderful/bin" >> $GITHUB_PATH
+        export PATH="/opt/wonderful/bin:$PATH"
+        
+        # Install required packages
+        wf-pacman -Syu --noconfirm
+        wf-pacman -S --noconfirm make
+        wf-pacman -S --noconfirm wf-tools
+        wf-config repo enable blocksds
+        wf-pacman -Syu --noconfirm
+        wf-pacman -S --noconfirm target-gba
+        wf-pacman -S --noconfirm blocksds-toolchain
+    
+    - name: Install Python dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y python3 python-is-python3
+    
+    - name: Set environment variables
+      run: |
+        echo "WONDERFUL_TOOLCHAIN=/opt/wonderful" >> $GITHUB_ENV
+    
+    - name: Clean build
+      run: make clean
+    
+    - name: Build ROM
+      run: make -j$(nproc)
+    
+    - name: Verify ROM was created
+      run: |
+        if [ -f "stranded.gba" ]; then
+          echo "✅ ROM build successful: stranded.gba created"
+          ls -la stranded.gba
+        else
+          echo "❌ ROM build failed: stranded.gba not found"
+          exit 1
+        fi
+    
+    - name: Upload ROM artifact
+      uses: actions/upload-artifact@v3
+      if: success()
+      with:
+        name: stranded-rom
+        path: stranded.gba
+        retention-days: 30
