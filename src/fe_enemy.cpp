@@ -53,8 +53,7 @@ namespace fe
         return false;
     }
 
-    Enemy::Enemy(int x, int y, bn::camera_ptr camera, bn::regular_bg_ptr map, ENEMY_TYPE type, int hp) : _pos(x, y),
-                                                                                                         _hitbox(x - 4, y - 4, 8, 8), // Reduce hitbox size to 8x8, centered on the sprite
+    Enemy::Enemy(int x, int y, bn::camera_ptr camera, bn::regular_bg_ptr map, ENEMY_TYPE type, int hp) : Entity(bn::fixed_point(x, y)),
                                                                                                          _camera(camera),
                                                                                                          _type(type),
                                                                                                          _dir(0),
@@ -64,7 +63,7 @@ namespace fe
     {
         // Create sprite using builder with safe defaults
         bn::sprite_builder builder(bn::sprite_items::spearguard);
-        builder.set_position(_pos);
+        builder.set_position(pos());
         builder.set_bg_priority(1);
 
         _sprite = builder.build();
@@ -73,7 +72,9 @@ namespace fe
             return;
         }
 
-        _sprite->set_camera(_camera);
+        set_camera(_camera);
+        
+        _hitbox = Hitbox(pos().x() - 4, pos().y() - 4, 8, 8);
 
         // Setup initial animation with multiple frames
         _action = bn::create_sprite_animate_action_forever(
@@ -87,8 +88,8 @@ namespace fe
     void Enemy::update_hitbox()
     {
         // Adjust hitbox position to account for center-based sprite positioning
-        _hitbox.set_x(_pos.x() - 4); // Adjust for smaller hitbox
-        _hitbox.set_y(_pos.y() - 4);
+        _hitbox.set_x(pos().x() - 4); // Adjust for smaller hitbox
+        _hitbox.set_y(pos().y() - 4);
     }
 
     void Enemy::update(bn::fixed_point player_pos, const Level &level, bool player_listening)
@@ -99,8 +100,7 @@ namespace fe
             _knockback_timer--;
 
             // Apply knockback movement
-            _pos.set_x(_pos.x() + _knockback_dx);
-            _pos.set_y(_pos.y() + _knockback_dy);
+            set_position(bn::fixed_point(pos().x() + _knockback_dx, pos().y() + _knockback_dy));
 
             // Apply friction to knockback
             _knockback_dx *= 0.9;
@@ -124,8 +124,8 @@ namespace fe
         _state_timer++;
 
         // Distance to player - cache expensive sqrt calculation
-        bn::fixed dist_x = player_pos.x() - _pos.x();
-        bn::fixed dist_y = player_pos.y() - _pos.y();
+        bn::fixed dist_x = player_pos.x() - pos().x();
+        bn::fixed dist_y = player_pos.y() - pos().y();
         bn::fixed dist_sq = dist_x * dist_x + dist_y * dist_y;
         const bn::fixed follow_dist_sq = 48 * 48;   // 6 tiles squared
         const bn::fixed unfollow_dist_sq = 64 * 64; // 8 tiles squared
@@ -195,10 +195,14 @@ namespace fe
         const bn::fixed lerp = 0.1;
         _dx += (_target_dx - _dx) * lerp;
         _dy += (_target_dy - _dy) * lerp;
+        
+        // Update movement component
+        _movement.set_velocity(bn::fixed_point(_dx, _dy));
+        _movement.update();
 
         // Update position
-        bn::fixed new_x = _pos.x() + _dx;
-        bn::fixed new_y = _pos.y() + _dy;
+        bn::fixed new_x = pos().x() + _dx;
+        bn::fixed new_y = pos().y() + _dy;
         bn::fixed_point new_pos(new_x, new_y);
 
         // --- Robust collision check with proper direction ---
@@ -217,8 +221,7 @@ namespace fe
 
         if (fe::Collision::check_hitbox_collision_with_level(_hitbox, new_pos, check_direction, level))
         {
-            _pos = new_pos;
-            update_hitbox();
+            set_position(new_pos);
         }
         else
         {
@@ -229,7 +232,7 @@ namespace fe
             // Check X movement only
             if (_dx != 0)
             {
-                bn::fixed_point x_pos(_pos.x() + _dx, _pos.y());
+                bn::fixed_point x_pos(pos().x() + _dx, pos().y());
                 fe::directions x_dir = _dx > 0 ? fe::directions::right : fe::directions::left;
                 can_move_x = fe::Collision::check_hitbox_collision_with_level(_hitbox, x_pos, x_dir, level);
             }
@@ -237,31 +240,34 @@ namespace fe
             // Check Y movement only
             if (_dy != 0)
             {
-                bn::fixed_point y_pos(_pos.x(), _pos.y() + _dy);
+                bn::fixed_point y_pos(pos().x(), pos().y() + _dy);
                 fe::directions y_dir = _dy > 0 ? fe::directions::down : fe::directions::up;
                 can_move_y = fe::Collision::check_hitbox_collision_with_level(_hitbox, y_pos, y_dir, level);
             }
 
             // Apply movement on valid axes
+            bn::fixed_point current_pos = pos();
             if (can_move_x)
             {
-                _pos.set_x(_pos.x() + _dx);
+                current_pos.set_x(current_pos.x() + _dx);
             }
             else
             {
                 _dx = 0;
+                _movement.set_velocity(bn::fixed_point(_dx, _dy));
             }
 
             if (can_move_y)
             {
-                _pos.set_y(_pos.y() + _dy);
+                current_pos.set_y(current_pos.y() + _dy);
             }
             else
             {
                 _dy = 0;
+                _movement.set_velocity(bn::fixed_point(_dx, _dy));
             }
 
-            update_hitbox();
+            set_position(current_pos);
         }
 
         // Handle invulnerability timer
@@ -281,7 +287,7 @@ namespace fe
         // Update sprite if available
         if (_sprite.has_value())
         {
-            _sprite->set_position(_pos);
+            _sprite->set_position(pos());
             _sprite->set_horizontal_flip(_dx < 0);
             if (_action.has_value())
             {
@@ -290,14 +296,9 @@ namespace fe
         }
     }
 
-    void Enemy::set_pos(bn::fixed_point pos)
+    void Enemy::set_pos(bn::fixed_point new_pos)
     {
-        _pos = pos;
-        update_hitbox();
-        if (_sprite.has_value())
-        {
-            _sprite->set_position(pos);
-        }
+        set_position(new_pos);
     }
 
     bool Enemy::_take_damage(int damage)

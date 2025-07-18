@@ -34,8 +34,8 @@ namespace fe
         {
             const Enemy &enemy = enemies[i];
 
-            // Get enemy position (using friend access)
-            bn::fixed_point enemy_pos = enemy._pos;
+            // Get enemy position
+            bn::fixed_point enemy_pos = enemy.pos();
 
             // Find or create enemy dot - optimized sprite reuse
             if (i >= _enemy_dots.size())

@@ -17,13 +17,15 @@
 #include "fe_enemy_type.h"
 #include "fe_hitbox.h"
 #include "fe_level.h"
+#include "fe_entity.h"
+#include "fe_movement.h"
 
 namespace fe
 {
     // Forward declarations
     class Player;
 
-    class Enemy
+    class Enemy : public Entity
     {
     public:
         enum class EnemyState
@@ -38,15 +40,14 @@ namespace fe
         friend bool check_collisions_bb(Player &player, Enemy &enemy); // Allow collision function to access _pos
 
     private:
-        bn::fixed_point _pos;
-        Hitbox _hitbox; // Persistent hitbox for enemy
-        bn::fixed _dy = 0;
-        bn::fixed _dx = 0;
+        EnemyMovement _movement;
         EnemyState _state = EnemyState::IDLE;
         int _state_timer = 0;
         int _state_duration = 60;
         bn::fixed _target_dx = 0;
         bn::fixed _target_dy = 0;
+        bn::fixed _dx = 0;
+        bn::fixed _dy = 0;
         bn::camera_ptr _camera;
         ENEMY_TYPE _type;
         int _dir;
@@ -65,7 +66,6 @@ namespace fe
         static constexpr int KNOCKBACK_DURATION = 10; // Frames of knockback
         int _sound_timer = 0;
         bool _spotted_player = false;
-        bn::optional<bn::sprite_ptr> _sprite;
         bn::optional<bn::sprite_animate_action<4>> _action;
 
         bn::optional<bn::sprite_animate_action<10>> _mutant_action;
@@ -88,10 +88,11 @@ namespace fe
     public:
         Enemy(int x, int y, bn::camera_ptr camera, bn::regular_bg_ptr map, ENEMY_TYPE type, int hp);
         void update_hitbox();
+        void update() override { /* Default implementation */ }
         void update(bn::fixed_point player_pos, const Level &level, bool player_listening = false);
         [[nodiscard]] bn::fixed_point get_position() const
         {
-            return _pos;
+            return pos();
         }
         void set_pos(bn::fixed_point pos);
         bool is_hit(Hitbox attack);
@@ -103,9 +104,9 @@ namespace fe
         bool spotted_player();
         int hp();
         ENEMY_TYPE type();
-        [[nodiscard]] Hitbox get_hitbox() const
+        [[nodiscard]] Hitbox get_hitbox() const override
         {
-            return _hitbox;
+            return Entity::get_hitbox();
         }
     };
 }
