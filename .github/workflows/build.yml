@@ -26,14 +26,19 @@ jobs:
     
     - name: Install Wonderful Toolchain
       run: |
-        # Download and install Wonderful Toolchain
-        wget -O wf-pacman-install.sh https://wonderful.asie.pl/wf-pacman-install.sh
-        chmod +x wf-pacman-install.sh
-        sudo ./wf-pacman-install.sh /opt/wonderful
+        # Create installation directory
+        sudo mkdir -p /opt/wonderful
+        sudo chown -R $USER /opt/wonderful
         
-        # Add to PATH
+        # Extract local bootstrap file
+        cd /opt/wonderful
+        tar xzf $GITHUB_WORKSPACE/tools/wf-bootstrap-x86_64.tar.gz --strip-components=1
+        
+        # Add to PATH and set environment
         echo "/opt/wonderful/bin" >> $GITHUB_PATH
+        echo "WONDERFUL_TOOLCHAIN=/opt/wonderful" >> $GITHUB_ENV
         export PATH="/opt/wonderful/bin:$PATH"
+        export WONDERFUL_TOOLCHAIN="/opt/wonderful"
         
         # Install required packages
         wf-pacman -Syu --noconfirm
@@ -49,9 +54,6 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y python3 python-is-python3
     
-    - name: Set environment variables
-      run: |
-        echo "WONDERFUL_TOOLCHAIN=/opt/wonderful" >> $GITHUB_ENV
     
     - name: Clean build
       run: make clean
