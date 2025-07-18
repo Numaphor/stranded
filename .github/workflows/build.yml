@@ -17,7 +17,7 @@ jobs:
         submodules: recursive
     
     - name: Cache Wonderful Toolchain
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: /opt/wonderful
         key: wonderful-toolchain-${{ runner.os }}-v1
@@ -70,7 +70,7 @@ jobs:
         fi
     
     - name: Upload ROM artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: success()
       with:
         name: stranded-rom
