@@ -77,7 +77,8 @@ namespace fe
     World::World() : _player(nullptr),
                      _level(nullptr),
                      _minimap(nullptr),
-                     _sword_bg(bn::nullopt)
+                     _sword_bg(bn::nullopt),
+                     _merchant(nullptr)
     {
         // Create player sprite with correct shape and size
         bn::sprite_builder builder(bn::sprite_items::hero);
@@ -122,13 +123,8 @@ namespace fe
         // Create text generator for NPCs
         bn::sprite_text_generator text_generator(common::variable_8x8_sprite_font);
 
-        // Add some enemies (disabled)
-        // _enemies.push_back(Enemy(0, -100, camera, bg, ENEMY_TYPE::SLIME, 3));
-        // _enemies.push_back(Enemy(50, -80, camera, bg, ENEMY_TYPE::SLIME, 3));
-        // _enemies.push_back(Enemy(-50, -120, camera, bg, ENEMY_TYPE::SLIME, 3));
-
-        // Add merchant NPC with 10 frame idle animation
-        NPC merchant(bn::fixed_point(100, -50), camera, NPC_TYPE::MERCHANT, text_generator);
+        // Create merchant NPC
+        _merchant = new MerchantNPC(bn::fixed_point(100, -50), camera, text_generator);
 
         while (true)
         {
@@ -154,14 +150,46 @@ namespace fe
             bool colliding_with_sword = player_hitbox.collides_with(sword_hitbox);
 
             // Check collision between player and merchant using unified collision system
-            bool colliding_with_merchant = !merchant.is_talking() && !_player->listening() &&
-                                           fe::Collision::check_player_npc(*_player, merchant);
+            bool colliding_with_merchant = _merchant && !_merchant->is_talking() && !_player->listening() &&
+                                       fe::Collision::check_player_npc(*_player, *_merchant);
 
             // Check for zone collisions - prevent player from walking through zones
             // If new position is invalid or colliding with sword or merchant, revert position
             if (!_level->is_position_valid(new_pos) || colliding_with_sword || colliding_with_merchant)
             {
                 _player->revert_position();
+            }
+
+            // Update merchant NPC
+            if (_merchant) {
+                _merchant->update();
+                
+                // Dynamic z-ordering based on Y position for depth sorting
+                // Lower Y values (higher on screen) should appear in front
+                int player_z = -_player->pos().y().integer();
+                int merchant_z = -_merchant->pos().y().integer();
+                
+                // Set z-order based on Y position (sprites with lower Y appear in front)
+                _player->set_sprite_z_order(player_z);
+                _merchant->set_sprite_z_order(merchant_z);
+            }
+
+            // Check for merchant interaction
+            if (_merchant && _merchant->check_trigger(_player->pos()))
+            {
+                if (bn::keypad::a_pressed())
+                {
+                    _player->set_listening(true);
+                    _merchant->talk();
+                }
+                else if (!_merchant->is_talking())
+                {
+                    _player->set_listening(false);
+                }
+            }
+            else
+            {
+                _player->set_listening(false);
             }
 
             // Update minimap with player position and enemies
@@ -279,27 +307,6 @@ namespace fe
                 }
             }
 
-            // Update merchant NPC
-            merchant.update();
-
-            // Check for merchant interaction
-            if (merchant.check_trigger(_player->pos()))
-            {
-                if (bn::keypad::a_pressed())
-                {
-                    _player->set_listening(true);
-                    merchant.talk();
-                }
-                else if (!merchant.is_talking())
-                {
-                    _player->set_listening(false);
-                }
-            }
-            else
-            {
-                _player->set_listening(false);
-            }
-
             // Check game over conditions and reset if needed
             if (_player->is_reset_required())
             {
@@ -338,5 +345,6 @@ namespace fe
         delete _player;
         delete _level;
         delete _minimap;
+        delete _merchant;
     }
 }

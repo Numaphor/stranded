@@ -17,6 +17,7 @@
 #include "fe_enemy.h"
 #include "fe_level.h"
 #include "fe_minimap.h"
+#include "fe_npc_derived.h"  // Include NPC derived classes
 
 namespace fe
 {
@@ -34,6 +35,7 @@ namespace fe
         bn::vector<Enemy, 16> _enemies;
         Minimap* _minimap;
         bn::optional<bn::regular_bg_ptr> _sword_bg;
+        MerchantNPC* _merchant;  // Add MerchantNPC as a member
     };
 }
 
