@@ -68,22 +68,33 @@ jobs:
           echo "Available wf tools:"
           ls -la "$WONDERFUL_TOOLCHAIN/bin/"
           
-          # Update package database
-          wf-pacman -Sy --noconfirm
+          # Follow official Wonderful Toolchain setup sequence
+          echo "Step 1: Synchronize and update toolchain package manager"
+          wf-pacman -Syu --noconfirm
           
-          # List available packages to debug
-          echo "Available packages:"
-          wf-pacman -Sl | head -20
+          echo "Step 2: Install wf-tools first"
+          wf-pacman -S --noconfirm wf-tools
           
-          # Try to install GBA development tools
-          # Start with basic tools that should exist
-          wf-pacman -S --noconfirm wf-tools || echo "wf-tools not found"
-          wf-pacman -S --noconfirm target-gba || echo "target-gba not found"
+          echo "Step 3: Check if wf-config is now available"
+          ls -la "$WONDERFUL_TOOLCHAIN/bin/" | grep wf-config || echo "wf-config still not found"
           
-          # Try alternative package names for BlocksDS
-          wf-pacman -S --noconfirm blocksds || echo "blocksds not found"
-          wf-pacman -S --noconfirm gba-dev || echo "gba-dev not found"
-          wf-pacman -S --noconfirm devkitarm || echo "devkitarm not found"
+          echo "Step 4: Try to enable BlocksDS repository"
+          # Try wf-config if it exists, otherwise try alternative methods
+          if [ -f "$WONDERFUL_TOOLCHAIN/bin/wf-config" ]; then
+            echo "Using wf-config to enable BlocksDS repository"
+            wf-config repo enable blocksds
+          else
+            echo "wf-config not found, trying alternative methods"
+            # Try to manually configure or see what repositories are available
+            wf-pacman -Sl | grep -i blocksds || echo "No BlocksDS packages found"
+          fi
+          
+          echo "Step 5: Update package database after repo changes"
+          wf-pacman -Syu --noconfirm
+          
+          echo "Step 6: Install GBA development packages"
+          wf-pacman -S --noconfirm target-gba
+          wf-pacman -S --noconfirm blocksds-toolchain
       
       - name: Clean and Build ROM
         run: |
