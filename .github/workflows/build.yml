@@ -41,14 +41,34 @@ jobs:
           tar xzf $GITHUB_WORKSPACE/tools/wf-bootstrap-x86_64.tar.gz \
             -C $WONDERFUL_TOOLCHAIN --strip-components=1
       
-      - name: Set up Environment
+      - name: Set up Environment and Debug
         run: |
           echo "$WONDERFUL_TOOLCHAIN/bin" >> $GITHUB_PATH
           echo "WONDERFUL_TOOLCHAIN=$WONDERFUL_TOOLCHAIN" >> $GITHUB_ENV
+          
+          # Debug: Check if toolchain was installed
+          echo "Checking Wonderful Toolchain installation..."
+          ls -la $WONDERFUL_TOOLCHAIN/ || echo "Toolchain directory not found"
+          ls -la $WONDERFUL_TOOLCHAIN/bin/ || echo "Toolchain bin directory not found"
+          
+          # Check if wf-config exists and is executable
+          if [ -f "$WONDERFUL_TOOLCHAIN/bin/wf-config" ]; then
+            echo "wf-config found at $WONDERFUL_TOOLCHAIN/bin/wf-config"
+            ls -la "$WONDERFUL_TOOLCHAIN/bin/wf-config"
+          else
+            echo "wf-config not found in $WONDERFUL_TOOLCHAIN/bin/"
+          fi
       
       - name: Configure WF Repositories and Install Dependencies
         run: |
           export PATH="$WONDERFUL_TOOLCHAIN/bin:$PATH"
+          export WONDERFUL_TOOLCHAIN="$WONDERFUL_TOOLCHAIN"
+          
+          echo "Current PATH: $PATH"
+          echo "Looking for wf-config..."
+          which wf-config || echo "wf-config not found in PATH"
+          
+          # Try to run wf-config
           wf-config repo enable blocksds
           wf-pacman -Sy --noconfirm
           wf-pacman -S --noconfirm \
