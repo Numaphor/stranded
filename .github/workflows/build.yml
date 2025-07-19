@@ -46,13 +46,11 @@ jobs:
           echo "$WONDERFUL_TOOLCHAIN/bin" >> $GITHUB_PATH
           echo "WONDERFUL_TOOLCHAIN=$WONDERFUL_TOOLCHAIN" >> $GITHUB_ENV
       
-      - name: Configure WF Repositories
+      - name: Configure WF Repositories and Install Dependencies
         run: |
+          export PATH="$WONDERFUL_TOOLCHAIN/bin:$PATH"
           wf-config repo enable blocksds
           wf-pacman -Sy --noconfirm
-      
-      - name: Install GBA Build Dependencies
-        run: |
           wf-pacman -S --noconfirm \
             wf-tools \
             target-gba \
