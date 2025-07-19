@@ -68,13 +68,22 @@ jobs:
           echo "Available wf tools:"
           ls -la "$WONDERFUL_TOOLCHAIN/bin/"
           
-          # Update package database and install GBA tools
-          # Note: wf-config doesn't exist, using wf-pacman directly
+          # Update package database
           wf-pacman -Sy --noconfirm
-          wf-pacman -S --noconfirm \
-            wf-tools \
-            target-gba \
-            blocksds-toolchain
+          
+          # List available packages to debug
+          echo "Available packages:"
+          wf-pacman -Sl | head -20
+          
+          # Try to install GBA development tools
+          # Start with basic tools that should exist
+          wf-pacman -S --noconfirm wf-tools || echo "wf-tools not found"
+          wf-pacman -S --noconfirm target-gba || echo "target-gba not found"
+          
+          # Try alternative package names for BlocksDS
+          wf-pacman -S --noconfirm blocksds || echo "blocksds not found"
+          wf-pacman -S --noconfirm gba-dev || echo "gba-dev not found"
+          wf-pacman -S --noconfirm devkitarm || echo "devkitarm not found"
       
       - name: Clean and Build ROM
         run: |
