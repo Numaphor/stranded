@@ -59,17 +59,17 @@ jobs:
             echo "wf-config not found in $WONDERFUL_TOOLCHAIN/bin/"
           fi
       
-      - name: Configure WF Repositories and Install Dependencies
+      - name: Install GBA Build Dependencies
         run: |
           export PATH="$WONDERFUL_TOOLCHAIN/bin:$PATH"
           export WONDERFUL_TOOLCHAIN="$WONDERFUL_TOOLCHAIN"
           
           echo "Current PATH: $PATH"
-          echo "Looking for wf-config..."
-          which wf-config || echo "wf-config not found in PATH"
+          echo "Available wf tools:"
+          ls -la "$WONDERFUL_TOOLCHAIN/bin/"
           
-          # Try to run wf-config
-          wf-config repo enable blocksds
+          # Update package database and install GBA tools
+          # Note: wf-config doesn't exist, using wf-pacman directly
           wf-pacman -Sy --noconfirm
           wf-pacman -S --noconfirm \
             wf-tools \
