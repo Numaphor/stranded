@@ -2,80 +2,81 @@ name: Build GBA ROM
 
 on:
   push:
-    branches: [ main, 'devin/**' ]
+    branches: [main, 'devin/**']
   pull_request:
-    branches: [ main ]
+    branches: [main]
+
+env:
+  WONDERFUL_TOOLCHAIN: /opt/wonderful
 
 jobs:
   build:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        submodules: recursive
-    
-    - name: Cache Wonderful Toolchain
-      uses: actions/cache@v4
-      with:
-        path: /opt/wonderful
-        key: wonderful-toolchain-${{ runner.os }}-v1
-        restore-keys: |
-          wonderful-toolchain-${{ runner.os }}-
-    
-    - name: Install Wonderful Toolchain
-      run: |
-        # Create installation directory
-        sudo mkdir -p /opt/wonderful
-        sudo chown -R $USER /opt/wonderful
-        
-        # Extract local bootstrap file
-        cd /opt/wonderful
-        tar xzf $GITHUB_WORKSPACE/tools/wf-bootstrap-x86_64.tar.gz --strip-components=1
-        
-        # Add to PATH and set environment
-        echo "/opt/wonderful/bin" >> $GITHUB_PATH
-        echo "WONDERFUL_TOOLCHAIN=/opt/wonderful" >> $GITHUB_ENV
-        export PATH="/opt/wonderful/bin:$PATH"
-        export WONDERFUL_TOOLCHAIN="/opt/wonderful"
-        
-        # Install required packages
-        wf-pacman -Syu --noconfirm
-        wf-pacman -Syu --noconfirm
-        wf-pacman -S --noconfirm make
-        wf-pacman -S --noconfirm wf-tools
-        wf-config repo enable blocksds
-        wf-pacman -Syu --noconfirm
-        wf-pacman -S --noconfirm target-gba
-        wf-pacman -S --noconfirm blocksds-toolchain
-    
-    - name: Install Python dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y python3 python-is-python3
-    
-    
-    - name: Clean build
-      run: make clean
-    
-    - name: Build ROM
-      run: make -j$(nproc)
-    
-    - name: Verify ROM was created
-      run: |
-        if [ -f "stranded.gba" ]; then
-          echo "✅ ROM build successful: stranded.gba created"
-          ls -la stranded.gba
-        else
-          echo "❌ ROM build failed: stranded.gba not found"
-          exit 1
-        fi
-    
-    - name: Upload ROM artifact
-      uses: actions/upload-artifact@v4
-      if: success()
-      with:
-        name: stranded-rom
-        path: stranded.gba
-        retention-days: 30
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential python3 python-is-python3
+
+      - name: Cache Wonderful Toolchain
+        id: cache-toolchain
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.WONDERFUL_TOOLCHAIN }}
+          key: ${{ runner.os }}-wonderful-toolchain-v1
+          restore-keys: |
+            ${{ runner.os }}-wonderful-toolchain-
+  
+      - name: Install Wonderful Toolchain
+        if: steps.cache-toolchain.outputs.cache-hit != 'true'
+        run: |
+          sudo mkdir -p $WONDERFUL_TOOLCHAIN
+          sudo chown -R $USER $WONDERFUL_TOOLCHAIN
+          tar xzf $GITHUB_WORKSPACE/tools/wf-bootstrap-x86_64.tar.gz \
+            -C $WONDERFUL_TOOLCHAIN --strip-components=1
+      
+      - name: Set up Environment
+        run: |
+          echo "$WONDERFUL_TOOLCHAIN/bin" >> $GITHUB_PATH
+          echo "WONDERFUL_TOOLCHAIN=$WONDERFUL_TOOLCHAIN" >> $GITHUB_ENV
+      
+      - name: Configure WF Repositories
+        run: |
+          wf-config repo enable blocksds
+          wf-pacman -Sy --noconfirm
+      
+      - name: Install GBA Build Dependencies
+        run: |
+          wf-pacman -S --noconfirm \
+            wf-tools \
+            target-gba \
+            blocksds-toolchain
+      
+      - name: Clean and Build ROM
+        run: |
+          make clean
+          make -j$(nproc)
+      
+      - name: Verify ROM
+        run: |
+          if [[ -f "stranded.gba" ]]; then
+            echo "✅ ROM build successful: stranded.gba created"
+            ls -la stranded.gba
+          else
+            echo "❌ ROM build failed: stranded.gba not found"
+            exit 1
+          fi
+      
+      - name: Upload ROM Artifact
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: stranded-rom
+          path: stranded.gba
+          retention-days: 30
