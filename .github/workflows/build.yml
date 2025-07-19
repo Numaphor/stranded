@@ -80,6 +80,4 @@ jobs:
         with:
           name: stranded-rom
           path: stranded.gba
-          retention-days: 30name: stranded-rom
-    path: stranded.gba
-    retention-days: 30
+          retention-days: 30
