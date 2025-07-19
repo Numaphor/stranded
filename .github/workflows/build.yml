@@ -41,8 +41,7 @@ jobs:
         export WONDERFUL_TOOLCHAIN="/opt/wonderful"
 
         # Install required packages
-        wf-pacman -S --noconfirm make
-        wf-pacman -Syu --noconfirm
+        wf-pacman -Syu --noconfirm make
         wf-pacman -Syu --noconfirm
         wf-pacman -S --noconfirm wf-tools
         wf-config repo enable blocksds
