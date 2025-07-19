@@ -26,6 +26,14 @@ jobs:
     
     - name: Install Wonderful Toolchain
       run: |
+        # Create installation directory
+        sudo mkdir -p /opt/wonderful
+        sudo chown -R $USER /opt/wonderful
+        
+        # Extract local bootstrap file
+        cd /opt/wonderful
+        tar xzf $GITHUB_WORKSPACE/tools/wf-bootstrap-x86_64.tar.gz --strip-components=1
+
         # Install required packages
         wf-pacman -Syu --noconfirm
         wf-pacman -Syu --noconfirm
@@ -35,14 +43,6 @@ jobs:
         wf-pacman -Syu --noconfirm
         wf-pacman -S --noconfirm target-gba
         wf-pacman -S --noconfirm blocksds-toolchain
-
-        # Create installation directory
-        sudo mkdir -p /opt/wonderful
-        sudo chown -R $USER /opt/wonderful
-        
-        # Extract local bootstrap file
-        cd /opt/wonderful
-        tar xzf $GITHUB_WORKSPACE/tools/wf-bootstrap-x86_64.tar.gz --strip-components=1
         
         # Add to PATH and set environment
         echo "/opt/wonderful/bin" >> $GITHUB_PATH
