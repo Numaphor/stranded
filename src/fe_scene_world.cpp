@@ -130,6 +130,40 @@ namespace fe
         {
             bn::core::update();
 
+            // Handle NPC interactions BEFORE player input processing
+            // This ensures listening state is set before weapon equipping is checked
+            if (_merchant) {
+                _merchant->update();
+                
+                // Dynamic z-ordering based on Y position for depth sorting
+                // Lower Y values (higher on screen) should appear in front
+                int player_z = -_player->pos().y().integer();
+                int merchant_z = -_merchant->pos().y().integer();
+                
+                // Set z-order based on Y position (sprites with lower Y appear in front)
+                _player->set_sprite_z_order(player_z);
+                _merchant->set_sprite_z_order(merchant_z);
+            }
+
+            // Check for merchant interaction BEFORE player input
+            if (_merchant && _merchant->check_trigger(_player->pos()))
+            {
+                if (bn::keypad::a_pressed() && !_merchant->is_talking())
+                {
+                    _player->set_listening(true);
+                    _merchant->talk();
+                }
+                else if (!_merchant->is_talking())
+                {
+                    _player->set_listening(false);
+                }
+            }
+            else
+            {
+                _player->set_listening(false);
+            }
+
+            // Now update player (which includes input handling)
             _player->update();
             _player->update_gun_position(_player->facing_direction());
 
@@ -158,38 +192,6 @@ namespace fe
             if (!_level->is_position_valid(new_pos) || colliding_with_sword || colliding_with_merchant)
             {
                 _player->revert_position();
-            }
-
-            // Update merchant NPC
-            if (_merchant) {
-                _merchant->update();
-                
-                // Dynamic z-ordering based on Y position for depth sorting
-                // Lower Y values (higher on screen) should appear in front
-                int player_z = -_player->pos().y().integer();
-                int merchant_z = -_merchant->pos().y().integer();
-                
-                // Set z-order based on Y position (sprites with lower Y appear in front)
-                _player->set_sprite_z_order(player_z);
-                _merchant->set_sprite_z_order(merchant_z);
-            }
-
-            // Check for merchant interaction
-            if (_merchant && _merchant->check_trigger(_player->pos()))
-            {
-                if (bn::keypad::a_pressed())
-                {
-                    _player->set_listening(true);
-                    _merchant->talk();
-                }
-                else if (!_merchant->is_talking())
-                {
-                    _player->set_listening(false);
-                }
-            }
-            else
-            {
-                _player->set_listening(false);
             }
 
             // Update minimap with player position and enemies

@@ -66,6 +66,12 @@ namespace fe
                     _currentLine = 0;
                     _has_spoken_once = true;
                 }
+                else if (bn::keypad::a_pressed() || bn::keypad::up_pressed())
+                {
+                    // Skip to end of current line when A or UP is pressed
+                    _currentChar = _lines.at(_currentLine).size() * 2;
+                }
+                
                 int char_count = (_currentChar / 2) + 1;
                 if (char_count != _last_char_count) {
                     _currentChars = _lines.at(_currentLine).substr(0, char_count);

@@ -296,8 +296,8 @@ namespace fe
             }
         }
 
-        // Check A button for gun toggle
-        if (bn::keypad::a_pressed())
+        // Check A button for gun toggle (but not when listening to NPCs)
+        if (bn::keypad::a_pressed() && !_state.listening())
         {
             _gun_active = !_gun_active;
 
