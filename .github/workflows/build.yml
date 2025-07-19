@@ -26,6 +26,16 @@ jobs:
     
     - name: Install Wonderful Toolchain
       run: |
+        # Install required packages
+        wf-pacman -Syu --noconfirm
+        wf-pacman -Syu --noconfirm
+        wf-pacman -S --noconfirm make
+        wf-pacman -S --noconfirm wf-tools
+        wf-config repo enable blocksds
+        wf-pacman -Syu --noconfirm
+        wf-pacman -S --noconfirm target-gba
+        wf-pacman -S --noconfirm blocksds-toolchain
+
         # Create installation directory
         sudo mkdir -p /opt/wonderful
         sudo chown -R $USER /opt/wonderful
@@ -39,16 +49,6 @@ jobs:
         echo "WONDERFUL_TOOLCHAIN=/opt/wonderful" >> $GITHUB_ENV
         export PATH="/opt/wonderful/bin:$PATH"
         export WONDERFUL_TOOLCHAIN="/opt/wonderful"
-        
-        # Install required packages
-        wf-pacman -Syu --noconfirm
-        wf-pacman -Syu --noconfirm
-        wf-pacman -S --noconfirm make
-        wf-pacman -S --noconfirm wf-tools
-        wf-config repo enable blocksds
-        wf-pacman -Syu --noconfirm
-        wf-pacman -S --noconfirm target-gba
-        wf-pacman -S --noconfirm blocksds-toolchain
     
     - name: Install Python dependencies
       run: |
