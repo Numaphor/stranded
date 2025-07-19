@@ -2,67 +2,70 @@ name: Build GBA ROM
 
 on:
   push:
-    branches: [ main, 'devin/**' ]
+    branches: [main, 'devin/**']
   pull_request:
-    branches: [ main ]
+    branches: [main]
+
+env:
+  WONDERFUL_TOOLCHAIN: /opt/wonderful
 
 jobs:
   build:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      with:
-       submodules: recursive
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
-    - name: Cache Wonderful Toolchain
-      id: cache-toolchain
-      uses: actions/cache@v4
-      with:
-        path: ${{ env.WONDERFUL_TOOLCHAIN }}
-        key: ${{ runner.os }}-wonderful-toolchain-v1
-        restore-keys: |
-          ${{ runner.os }}-wonderful-toolchain-
+      - name: Cache Wonderful Toolchain
+        id: cache-toolchain
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.WONDERFUL_TOOLCHAIN }}
+          key: ${{ runner.os }}-wonderful-toolchain-v1
+          restore-keys: |
+            ${{ runner.os }}-wonderful-toolchain-
   
-    - name: Install Wonderful Toolchain
-      if: steps.cache-toolchain.outputs.cache-hit != 'true'
-      run: |
+      - name: Install Wonderful Toolchain
+        if: steps.cache-toolchain.outputs.cache-hit != 'true'
+        run: |
           sudo mkdir -p $WONDERFUL_TOOLCHAIN
           sudo chown -R $USER $WONDERFUL_TOOLCHAIN
           tar xzf $GITHUB_WORKSPACE/tools/wf-bootstrap-x86_64.tar.gz \
             -C $WONDERFUL_TOOLCHAIN --strip-components=1
       
-    - name: Set up Environment
-      run: |
+      - name: Set up Environment
+        run: |
           echo "$WONDERFUL_TOOLCHAIN/bin" >> $GITHUB_PATH
           echo "WONDERFUL_TOOLCHAIN=$WONDERFUL_TOOLCHAIN" >> $GITHUB_ENV
       
-    - name: Configure WF Repositories
-      run: |
+      - name: Configure WF Repositories
+        run: |
           wf-config repo enable blocksds
           wf-pacman -Sy --noconfirm
       
-    - name: Install GBA Build Dependencies
-      run: |
+      - name: Install GBA Build Dependencies
+        run: |
           wf-pacman -S --noconfirm \
             make \
             wf-tools \
             target-gba \
             blocksds-toolchain
       
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
           python-version: '3.x'
       
-    - name: Clean and Build ROM
-      run: |
+      - name: Clean and Build ROM
+        run: |
           make clean
           make -j$(nproc)
       
-    - name: Verify ROM
-      run: |
+      - name: Verify ROM
+        run: |
           if [[ -f "stranded.gba" ]]; then
             echo "✅ ROM build successful: stranded.gba created"
             ls -la stranded.gba
@@ -71,10 +74,10 @@ jobs:
             exit 1
           fi
       
-    - name: Upload ROM Artifact
-      uses: actions/upload-artifact@v4
-      if: success()
-      with:
+      - name: Upload ROM Artifact
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
           name: stranded-rom
           path: stranded.gba
           retention-days: 30
