@@ -111,9 +111,9 @@ namespace fe
     {
         if (!_finished && !_hidden)
         {
-            if (bn::abs(pos().x() - player_pos.x()) < 50)
+            if (bn::abs(pos().x() - player_pos.x()) < 25)
             {
-                if (bn::abs(pos().y() - player_pos.y()) < 50)
+                if (bn::abs(pos().y() - player_pos.y()) < 25)
                 {
                     _is_near_player = true;
                     return true;
