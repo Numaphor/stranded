@@ -38,7 +38,6 @@ jobs:
 
       - name: Set up Environment
         run: |
-          PATH: export PATH=/opt/wonderful/bin:$PATH
           export WONDERFUL_TOOLCHAIN=/opt/wonderful
           echo "$WONDERFUL_TOOLCHAIN/bin" >> $GITHUB_PATH
           echo "WONDERFUL_TOOLCHAIN=$WONDERFUL_TOOLCHAIN" >> $GITHUB_ENV
