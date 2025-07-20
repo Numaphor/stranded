@@ -108,7 +108,7 @@ namespace fe
     void Enemy::update(bn::fixed_point player_pos, const Level &level, bool player_listening)
     {
         // Handle death state first - if dead, only update animation and return (spearguard only)
-        if (_dead && _type == ENEMY_TYPE::MUTANT)
+        if (_dead && _type == ENEMY_TYPE::SLIME)
         {
             if (_death_timer == 0)
             {
@@ -127,7 +127,7 @@ namespace fe
         }
 
         // Handle attack state (spearguard only)
-        if (_type == ENEMY_TYPE::MUTANT && _attacking && _attack_timer > 0)
+        if (_type == ENEMY_TYPE::SLIME && _attacking && _attack_timer > 0)
         {
             _attack_timer--;
             if (_attack_timer <= 0)
@@ -183,7 +183,7 @@ namespace fe
         const bn::fixed unfollow_dist_sq = 64 * 64; // 8 tiles squared
 
         // Attack logic - if very close to player and not already attacking (spearguard only)
-        if (_type == ENEMY_TYPE::MUTANT && !player_listening && !_attacking && dist_sq <= attack_dist_sq)
+        if (_type == ENEMY_TYPE::SLIME && !player_listening && !_attacking && dist_sq <= attack_dist_sq)
         {
             _attacking = true;
             _attack_timer = 30; // Attack animation duration (30 frames = 0.5 seconds at 60fps)
@@ -379,7 +379,7 @@ namespace fe
         if (_hp <= 0)
         {
             _dead = true;
-            if (_type == ENEMY_TYPE::MUTANT)
+            if (_type == ENEMY_TYPE::SLIME)
             {
                 _state = EnemyState::DEAD;
                 _death_timer = 0; // Will be set to 1 in update()
@@ -466,9 +466,9 @@ namespace fe
 
     void Enemy::_update_animation()
     {
-        // Only apply advanced animation system to spearguard enemies (MUTANT type)
+        // Only apply advanced animation system to spearguard enemies (SLIME type)
         // Other enemy types use simple default animations
-        if (_type != ENEMY_TYPE::MUTANT)
+        if (_type != ENEMY_TYPE::SLIME)
         {
             // Simple animation for non-spearguard enemies - just update existing action
             if (_sprite.has_value() && _action.has_value())
