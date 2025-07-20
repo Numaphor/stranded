@@ -73,7 +73,8 @@ namespace fe
                                                                                                          _map(map),
                                                                                                          _map_cells(map.map().cells_ref().value())
     {
-        // Create sprite using builder with safe defaults
+        // Only use spearguard sprite and advanced animations for spearguard enemies
+        // For other enemy types, they would need their own sprite items to be implemented
         bn::sprite_builder builder(bn::sprite_items::spearguard);
         builder.set_position(pos());
         builder.set_bg_priority(1);
@@ -106,8 +107,8 @@ namespace fe
 
     void Enemy::update(bn::fixed_point player_pos, const Level &level, bool player_listening)
     {
-        // Handle death state first - if dead, only update animation and return
-        if (_dead)
+        // Handle death state first - if dead, only update animation and return (spearguard only)
+        if (_dead && _type == ENEMY_TYPE::MUTANT)
         {
             if (_death_timer == 0)
             {
@@ -125,8 +126,8 @@ namespace fe
             return;
         }
 
-        // Handle attack state
-        if (_attacking && _attack_timer > 0)
+        // Handle attack state (spearguard only)
+        if (_type == ENEMY_TYPE::MUTANT && _attacking && _attack_timer > 0)
         {
             _attack_timer--;
             if (_attack_timer <= 0)
@@ -181,8 +182,8 @@ namespace fe
         const bn::fixed follow_dist_sq = 48 * 48;   // 6 tiles squared
         const bn::fixed unfollow_dist_sq = 64 * 64; // 8 tiles squared
 
-        // Attack logic - if very close to player and not already attacking
-        if (!player_listening && !_attacking && dist_sq <= attack_dist_sq)
+        // Attack logic - if very close to player and not already attacking (spearguard only)
+        if (_type == ENEMY_TYPE::MUTANT && !player_listening && !_attacking && dist_sq <= attack_dist_sq)
         {
             _attacking = true;
             _attack_timer = 30; // Attack animation duration (30 frames = 0.5 seconds at 60fps)
@@ -378,8 +379,11 @@ namespace fe
         if (_hp <= 0)
         {
             _dead = true;
-            _state = EnemyState::DEAD;
-            _death_timer = 0; // Will be set to 1 in update()
+            if (_type == ENEMY_TYPE::MUTANT)
+            {
+                _state = EnemyState::DEAD;
+                _death_timer = 0; // Will be set to 1 in update()
+            }
             // Stop all movement when dead
             _dx = 0;
             _dy = 0;
@@ -462,6 +466,19 @@ namespace fe
 
     void Enemy::_update_animation()
     {
+        // Only apply advanced animation system to spearguard enemies (MUTANT type)
+        // Other enemy types use simple default animations
+        if (_type != ENEMY_TYPE::MUTANT)
+        {
+            // Simple animation for non-spearguard enemies - just update existing action
+            if (_sprite.has_value() && _action.has_value())
+            {
+                // Keep using the basic animation set up in constructor
+                return;
+            }
+        }
+
+        // Advanced animation system for spearguard enemies only
         // Determine which animation state should be active
         EnemyState target_animation_state = EnemyState::IDLE;
         
