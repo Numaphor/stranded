@@ -32,7 +32,9 @@ namespace fe
         {
             IDLE,
             WALK,
-            FOLLOW
+            FOLLOW,
+            ATTACK,
+            DEAD
         };
 
         friend class World;                                            // Allow World to access private members
@@ -59,6 +61,12 @@ namespace fe
         int _inv_timer = 0;
         bool _stunned = false;
 
+        // Animation state
+        EnemyState _current_animation_state = EnemyState::IDLE;
+        int _attack_timer = 0;
+        int _death_timer = 0;
+        bool _attacking = false;
+
         // Knockback state
         bn::fixed _knockback_dx = 0;
         bn::fixed _knockback_dy = 0;
@@ -84,6 +92,7 @@ namespace fe
     private:
         bool _take_damage(int damage);
         void _apply_knockback(bn::fixed dx, bn::fixed dy);
+        void _update_animation();
 
     public:
         Enemy(int x, int y, bn::camera_ptr camera, bn::regular_bg_ptr map, ENEMY_TYPE type, int hp);
