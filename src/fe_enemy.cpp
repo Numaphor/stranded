@@ -120,9 +120,8 @@ namespace fe
             );
         }
         
-        // Initialize the new state machine with IdleState
-        // Note: The new state machine is only used if _use_new_state_machine is set to true
-        // This allows for gradual migration and testing
+        // Initialize the state machine with IdleState
+        // This provides a clean starting state for all enemies
         bn::unique_ptr<IdleState> initial_state = bn::make_unique<IdleState>();
         _state_machine.initialize(bn::move(initial_state));
     }
@@ -130,9 +129,7 @@ namespace fe
     Enemy::Enemy(Enemy&& other) noexcept
         : Entity(bn::move(other)), // Move base class
           _movement(bn::move(other._movement)),
-          _state(other._state),
           _state_machine(bn::move(other._state_machine)),
-          _use_new_state_machine(other._use_new_state_machine),
           _state_timer(other._state_timer),
           _state_duration(other._state_duration),
           _target_dx(other._target_dx),
@@ -168,7 +165,6 @@ namespace fe
         // Reset moved-from object to a valid state
         other._hp = 0;
         other._dead = true;
-        other._use_new_state_machine = false;
     }
 
     Enemy& Enemy::operator=(Enemy&& other) noexcept
@@ -180,9 +176,7 @@ namespace fe
             
             // Move all members
             _movement = bn::move(other._movement);
-            _state = other._state;
             _state_machine = bn::move(other._state_machine);
-            _use_new_state_machine = other._use_new_state_machine;
             _state_timer = other._state_timer;
             _state_duration = other._state_duration;
             _target_dx = other._target_dx;
@@ -218,7 +212,6 @@ namespace fe
             // Reset moved-from object to a valid state
             other._hp = 0;
             other._dead = true;
-            other._use_new_state_machine = false;
         }
         return *this;
     }
@@ -232,15 +225,6 @@ namespace fe
 
     void Enemy::update(bn::fixed_point player_pos, const Level &level, bool player_listening)
     {
-        // Migration helper: use new state machine if enabled
-        if (_use_new_state_machine)
-        {
-            update_with_new_state_machine(player_pos, level, player_listening);
-            return;
-        }
-        
-        // Original implementation continues below for backward compatibility
-        
         // Handle knockback first
         if (_knockback_timer > 0)
         {
@@ -259,6 +243,10 @@ namespace fe
                 _knockback_dx = 0;
                 _knockback_dy = 0;
                 _stunned = false;
+                
+                // Transition to stunned state for recovery
+                bn::unique_ptr<StunnedState> stunned_state = bn::make_unique<StunnedState>();
+                _state_machine.transition_to(*this, bn::move(stunned_state));
             }
 
             // Update hitbox and return early - don't process normal AI during knockback
@@ -266,145 +254,8 @@ namespace fe
             return;
         }
 
-        // More natural movement: idle/walk/follow states, smooth velocity
-        static bn::random random;
-        _state_timer++;
-
-        // Distance to player - cache expensive sqrt calculation
-        bn::fixed dist_x = player_pos.x() - pos().x();
-        bn::fixed dist_y = player_pos.y() - pos().y();
-        bn::fixed dist_sq = dist_x * dist_x + dist_y * dist_y;
-        const bn::fixed follow_dist_sq = 48 * 48;   // 6 tiles squared
-        const bn::fixed unfollow_dist_sq = 64 * 64; // 8 tiles squared
-
-        // Aggro logic - enemies can't detect player when they're listening to NPCs
-        if (!player_listening && _state != EnemyState::FOLLOW && dist_sq <= follow_dist_sq)
-        {
-            _state = EnemyState::FOLLOW;
-            _state_timer = 0;
-            _returning_to_post = false; // Cancel return if player comes back in range
-        }
-        else if (_state == EnemyState::FOLLOW && (dist_sq > unfollow_dist_sq || player_listening))
-        {
-            // For spearguards, start returning to post instead of just going idle
-            if (_type == ENEMY_TYPE::SPEARGUARD)
-            {
-                _returning_to_post = true;
-                _state = EnemyState::WALK; // Use walk state for returning
-            }
-            else
-            {
-                _state = EnemyState::IDLE;
-                _target_dx = 0;
-                _target_dy = 0;
-                // Random idle duration
-                _state_duration = 20 + (random.get() % 40);
-            }
-            _state_timer = 0;
-        }
-
-        // State logic
-        if (_state == EnemyState::FOLLOW)
-        {
-            // Check if close enough to attack (spearguards only)
-            if (_type == ENEMY_TYPE::SPEARGUARD && dist_sq <= 32 * 32 && _attack_timer <= 0) { // 4 tiles attack range
-                _attack_timer = ATTACK_DURATION;
-                _target_dx = 0;
-                _target_dy = 0;
-            } else {
-                // Move toward player, slow lerp - use cached distance calculation
-                bn::fixed speed = 0.35;
-                bn::fixed len = bn::sqrt(dist_sq);
-                if (len > 0.1)
-                {
-                    _target_dx = (dist_x / len) * speed;
-                    _target_dy = (dist_y / len) * speed;
-                }
-                else
-                {
-                    _target_dx = 0;
-                    _target_dy = 0;
-                }
-            }
-        }
-        else
-        {
-            // Different behavior for spearguards vs other enemies
-            if (_type == ENEMY_TYPE::SPEARGUARD)
-            {
-                // Check if spearguard is returning to post
-                if (_returning_to_post)
-                {
-                    // Calculate distance to original position
-                    bn::fixed dist_to_post_x = _original_position.x() - pos().x();
-                    bn::fixed dist_to_post_y = _original_position.y() - pos().y();
-                    bn::fixed dist_to_post_sq = dist_to_post_x * dist_to_post_x + dist_to_post_y * dist_to_post_y;
-                    
-                    // If close enough to original position, stop and go idle
-                    if (dist_to_post_sq <= RETURN_THRESHOLD * RETURN_THRESHOLD)
-                    {
-                        _returning_to_post = false;
-                        _state = EnemyState::IDLE;
-                        _target_dx = 0;
-                        _target_dy = 0;
-                        // Snap to exact original position
-                        set_position(_original_position);
-                    }
-                    else
-                    {
-                        // Set state to WALK when returning to post
-                        _state = EnemyState::WALK;
-                        // Move toward original position
-                        bn::fixed speed = 0.25; // Slower return speed
-                        bn::fixed len = bn::sqrt(dist_to_post_sq);
-                        if (len > 0.1)
-                        {
-                            _target_dx = (dist_to_post_x / len) * speed;
-                            _target_dy = (dist_to_post_y / len) * speed;
-                        }
-                        else
-                        {
-                            _target_dx = 0;
-                            _target_dy = 0;
-                        }
-                    }
-                }
-                else
-                {
-                    // Spearguards stand still and wait - no wandering
-                    _state = EnemyState::IDLE;
-                    _target_dx = 0;
-                    _target_dy = 0;
-                }
-            }
-            else
-            {
-                // Other enemies wander/idle as before
-                if (_state_timer >= _state_duration)
-                {
-                    _state_timer = 0;
-                    if (_state == EnemyState::IDLE)
-                    {
-                        _state = EnemyState::WALK;
-                        // Pick random direction (angle for wandering)
-                        int angle = random.get() % 360;
-                        bn::fixed radians = angle * 3.14159 / 180;
-                        _target_dx = 0.35 * bn::sin(radians);
-                        _target_dy = 0.35 * bn::cos(radians);
-                        // Random walk duration (30-120 frames)
-                        _state_duration = 30 + (random.get() % 90);
-                    }
-                    else // WALK -> IDLE
-                    {
-                        _state = EnemyState::IDLE;
-                        _target_dx = 0;
-                        _target_dy = 0;
-                        // Random idle duration (20-60 frames)
-                        _state_duration = 20 + (random.get() % 40);
-                    }
-                }
-            }
-        }
+        // Update the state machine
+        _state_machine.update(*this, player_pos, level, player_listening);
 
         // Smoothly interpolate _dx/_dy to _target_dx/_target_dy
         const bn::fixed lerp = 0.1;
@@ -415,7 +266,7 @@ namespace fe
         _movement.set_velocity(bn::fixed_point(_dx, _dy));
         _movement.update();
 
-        // Update position
+        // Update position with collision checking
         bn::fixed new_x = pos().x() + _dx;
         bn::fixed new_y = pos().y() + _dy;
         bn::fixed_point new_pos(new_x, new_y);
@@ -503,148 +354,6 @@ namespace fe
         _update_spearguard_animation();
         
         // Update sprite if available
-        if (_sprite.has_value())
-        {
-            _sprite->set_position(pos());
-            _sprite->set_horizontal_flip(_dx < 0);
-            if (_action.has_value())
-            {
-                _action->update();
-            }
-        }
-    }
-
-    void Enemy::update_with_new_state_machine(bn::fixed_point player_pos, const Level &level, bool player_listening)
-    {
-        // Handle knockback first (same as before)
-        if (_knockback_timer > 0)
-        {
-            _knockback_timer--;
-
-            // Apply knockback movement
-            set_position(bn::fixed_point(pos().x() + _knockback_dx, pos().y() + _knockback_dy));
-
-            // Apply friction to knockback
-            _knockback_dx *= 0.9;
-            _knockback_dy *= 0.9;
-
-            // If knockback is done, clear the state
-            if (_knockback_timer == 0)
-            {
-                _knockback_dx = 0;
-                _knockback_dy = 0;
-                _stunned = false;
-                
-                // Transition to stunned state for recovery
-                bn::unique_ptr<StunnedState> stunned_state = bn::make_unique<StunnedState>();
-                _state_machine.transition_to(*this, bn::move(stunned_state));
-            }
-
-            // Update hitbox and return early - don't process normal AI during knockback
-            update_hitbox();
-            return;
-        }
-
-        // Update the state machine
-        _state_machine.update(*this, player_pos, level, player_listening);
-
-        // Smoothly interpolate _dx/_dy to _target_dx/_target_dy
-        const bn::fixed lerp = 0.1;
-        _dx += (_target_dx - _dx) * lerp;
-        _dy += (_target_dy - _dy) * lerp;
-        
-        // Update movement component
-        _movement.set_velocity(bn::fixed_point(_dx, _dy));
-        _movement.update();
-
-        // Update position with collision checking (same as before)
-        bn::fixed new_x = pos().x() + _dx;
-        bn::fixed new_y = pos().y() + _dy;
-        bn::fixed_point new_pos(new_x, new_y);
-
-        // --- Robust collision check with proper direction ---
-        // Determine movement direction for collision check
-        fe::directions check_direction = fe::directions::down; // Default
-        if (bn::abs(_dx) > bn::abs(_dy))
-        {
-            // Moving horizontally
-            check_direction = _dx > 0 ? fe::directions::right : fe::directions::left;
-        }
-        else
-        {
-            // Moving vertically
-            check_direction = _dy > 0 ? fe::directions::down : fe::directions::up;
-        }
-
-        if (fe::Collision::check_hitbox_collision_with_level(_hitbox, new_pos, check_direction, level))
-        {
-            set_position(new_pos);
-        }
-        else
-        {
-            // Try to slide along walls by checking individual axis movement
-            bool can_move_x = true;
-            bool can_move_y = true;
-
-            // Check X movement only
-            if (_dx != 0)
-            {
-                bn::fixed_point x_pos(pos().x() + _dx, pos().y());
-                fe::directions x_dir = _dx > 0 ? fe::directions::right : fe::directions::left;
-                can_move_x = fe::Collision::check_hitbox_collision_with_level(_hitbox, x_pos, x_dir, level);
-            }
-
-            // Check Y movement only
-            if (_dy != 0)
-            {
-                bn::fixed_point y_pos(pos().x(), pos().y() + _dy);
-                fe::directions y_dir = _dy > 0 ? fe::directions::down : fe::directions::up;
-                can_move_y = fe::Collision::check_hitbox_collision_with_level(_hitbox, y_pos, y_dir, level);
-            }
-
-            // Apply movement on valid axes
-            bn::fixed_point current_pos = pos();
-            if (can_move_x)
-            {
-                current_pos.set_x(current_pos.x() + _dx);
-            }
-            else
-            {
-                _dx = 0;
-                _movement.set_velocity(bn::fixed_point(_dx, _dy));
-            }
-
-            if (can_move_y)
-            {
-                current_pos.set_y(current_pos.y() + _dy);
-            }
-            else
-            {
-                _dy = 0;
-                _movement.set_velocity(bn::fixed_point(_dx, _dy));
-            }
-
-            set_position(current_pos);
-        }
-
-        // Handle invulnerability timer (same as before)
-        if (_invulnerable)
-        {
-            if (--_inv_timer <= 0)
-            {
-                _invulnerable = false;
-                _inv_timer = 0;
-                if (_sprite.has_value())
-                {
-                    _sprite->set_visible(true);
-                }
-            }
-        }
-
-        // Update spearguard animations
-        _update_spearguard_animation();
-        
-        // Update sprite if available (same as before)
         if (_sprite.has_value())
         {
             _sprite->set_position(pos());
@@ -766,7 +475,9 @@ namespace fe
             // Always prioritize attack animation if attack timer is active
             desired_animation = AnimationState::ATTACK;
             _attack_timer--;
-        } else if (_state == EnemyState::FOLLOW || _state == EnemyState::WALK) {
+        } else if (_state_machine.get_current_state_id() == EnemyStateId::CHASE || 
+                   _state_machine.get_current_state_id() == EnemyStateId::PATROL ||
+                   _state_machine.get_current_state_id() == EnemyStateId::RETURN_TO_POST) {
             // Only run if not attacking
             desired_animation = AnimationState::RUN;
         } else {
