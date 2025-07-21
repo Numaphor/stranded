@@ -61,8 +61,25 @@ namespace fe
                                                                                                          _map(map),
                                                                                                          _map_cells(map.map().cells_ref().value())
     {
-        // Create sprite using builder with safe defaults
-        bn::sprite_builder builder(bn::sprite_items::spearguard);
+        // Create sprite using builder based on enemy type
+        bn::sprite_builder builder(bn::sprite_items::spearguard); // Default to spearguard
+        
+        // Select appropriate sprite based on enemy type
+        switch (_type)
+        {
+            case ENEMY_TYPE::SPEARGUARD:
+                builder = bn::sprite_builder(bn::sprite_items::spearguard);
+                break;
+            case ENEMY_TYPE::SLIME:
+                builder = bn::sprite_builder(bn::sprite_items::spearguard); // Use spearguard for slime until proper slime sprite is available
+                break;
+            case ENEMY_TYPE::MUTANT:
+                builder = bn::sprite_builder(bn::sprite_items::spearguard); // Use spearguard for mutant until proper mutant sprite is available
+                break;
+            default:
+                builder = bn::sprite_builder(bn::sprite_items::spearguard);
+                break;
+        }
         builder.set_position(pos());
         builder.set_bg_priority(1);
 
@@ -75,14 +92,31 @@ namespace fe
         set_camera(_camera);
         
         _hitbox = Hitbox(pos().x() - 4, pos().y() - 4, 8, 8);
+        
+        // Store original position for spearguards to return to
+        if (_type == ENEMY_TYPE::SPEARGUARD) {
+            _original_position = pos();
+        }
 
-        // Setup initial animation with multiple frames
-        _action = bn::create_sprite_animate_action_forever(
-            *_sprite,
-            8,
-            bn::sprite_items::spearguard.tiles_item(),
-            0, 1, 2, 3 // Multiple frames for animation
-        );
+        // Setup initial animation based on enemy type
+        if (_type == ENEMY_TYPE::SPEARGUARD) {
+            // Start with Idle animation (frames 0-5)
+            _action = bn::create_sprite_animate_action_forever(
+                *_sprite,
+                12, // Slower animation speed for idle
+                bn::sprite_items::spearguard.tiles_item(),
+                0, 1, 2, 3, 4, 5 // Idle frames
+            );
+            _current_animation = AnimationState::IDLE;
+        } else {
+            // Default animation for other enemy types
+            _action = bn::create_sprite_animate_action_forever(
+                *_sprite,
+                8,
+                bn::sprite_items::spearguard.tiles_item(),
+                0, 1, 2, 3
+            );
+        }
     }
 
     void Enemy::update_hitbox()
@@ -135,58 +169,126 @@ namespace fe
         {
             _state = EnemyState::FOLLOW;
             _state_timer = 0;
+            _returning_to_post = false; // Cancel return if player comes back in range
         }
         else if (_state == EnemyState::FOLLOW && (dist_sq > unfollow_dist_sq || player_listening))
         {
-            _state = EnemyState::IDLE;
+            // For spearguards, start returning to post instead of just going idle
+            if (_type == ENEMY_TYPE::SPEARGUARD)
+            {
+                _returning_to_post = true;
+                _state = EnemyState::WALK; // Use walk state for returning
+            }
+            else
+            {
+                _state = EnemyState::IDLE;
+                _target_dx = 0;
+                _target_dy = 0;
+                // Random idle duration
+                _state_duration = 20 + (random.get() % 40);
+            }
             _state_timer = 0;
-            _target_dx = 0;
-            _target_dy = 0;
-            // Random idle duration
-            _state_duration = 20 + (random.get() % 40);
         }
 
         // State logic
         if (_state == EnemyState::FOLLOW)
         {
-            // Move toward player, slow lerp - use cached distance calculation
-            bn::fixed speed = 0.35;
-            bn::fixed len = bn::sqrt(dist_sq);
-            if (len > 0.1)
-            {
-                _target_dx = (dist_x / len) * speed;
-                _target_dy = (dist_y / len) * speed;
-            }
-            else
-            {
+            // Check if close enough to attack (spearguards only)
+            if (_type == ENEMY_TYPE::SPEARGUARD && dist_sq <= 32 * 32 && _attack_timer <= 0) { // 4 tiles attack range
+                _attack_timer = ATTACK_DURATION;
                 _target_dx = 0;
                 _target_dy = 0;
+            } else {
+                // Move toward player, slow lerp - use cached distance calculation
+                bn::fixed speed = 0.35;
+                bn::fixed len = bn::sqrt(dist_sq);
+                if (len > 0.1)
+                {
+                    _target_dx = (dist_x / len) * speed;
+                    _target_dy = (dist_y / len) * speed;
+                }
+                else
+                {
+                    _target_dx = 0;
+                    _target_dy = 0;
+                }
             }
         }
         else
         {
-            // Wander/idle as before
-            if (_state_timer >= _state_duration)
+            // Different behavior for spearguards vs other enemies
+            if (_type == ENEMY_TYPE::SPEARGUARD)
             {
-                _state_timer = 0;
-                if (_state == EnemyState::IDLE)
+                // Check if spearguard is returning to post
+                if (_returning_to_post)
                 {
-                    _state = EnemyState::WALK;
-                    // Pick random direction (angle for wandering)
-                    int angle = random.get() % 360;
-                    bn::fixed radians = angle * 3.14159 / 180;
-                    _target_dx = 0.35 * bn::sin(radians);
-                    _target_dy = 0.35 * bn::cos(radians);
-                    // Random walk duration (30-120 frames)
-                    _state_duration = 30 + (random.get() % 90);
+                    // Calculate distance to original position
+                    bn::fixed dist_to_post_x = _original_position.x() - pos().x();
+                    bn::fixed dist_to_post_y = _original_position.y() - pos().y();
+                    bn::fixed dist_to_post_sq = dist_to_post_x * dist_to_post_x + dist_to_post_y * dist_to_post_y;
+                    
+                    // If close enough to original position, stop and go idle
+                    if (dist_to_post_sq <= RETURN_THRESHOLD * RETURN_THRESHOLD)
+                    {
+                        _returning_to_post = false;
+                        _state = EnemyState::IDLE;
+                        _target_dx = 0;
+                        _target_dy = 0;
+                        // Snap to exact original position
+                        set_position(_original_position);
+                    }
+                    else
+                    {
+                        // Set state to WALK when returning to post
+                        _state = EnemyState::WALK;
+                        // Move toward original position
+                        bn::fixed speed = 0.25; // Slower return speed
+                        bn::fixed len = bn::sqrt(dist_to_post_sq);
+                        if (len > 0.1)
+                        {
+                            _target_dx = (dist_to_post_x / len) * speed;
+                            _target_dy = (dist_to_post_y / len) * speed;
+                        }
+                        else
+                        {
+                            _target_dx = 0;
+                            _target_dy = 0;
+                        }
+                    }
                 }
-                else // WALK -> IDLE
+                else
                 {
+                    // Spearguards stand still and wait - no wandering
                     _state = EnemyState::IDLE;
                     _target_dx = 0;
                     _target_dy = 0;
-                    // Random idle duration (20-60 frames)
-                    _state_duration = 20 + (random.get() % 40);
+                }
+            }
+            else
+            {
+                // Other enemies wander/idle as before
+                if (_state_timer >= _state_duration)
+                {
+                    _state_timer = 0;
+                    if (_state == EnemyState::IDLE)
+                    {
+                        _state = EnemyState::WALK;
+                        // Pick random direction (angle for wandering)
+                        int angle = random.get() % 360;
+                        bn::fixed radians = angle * 3.14159 / 180;
+                        _target_dx = 0.35 * bn::sin(radians);
+                        _target_dy = 0.35 * bn::cos(radians);
+                        // Random walk duration (30-120 frames)
+                        _state_duration = 30 + (random.get() % 90);
+                    }
+                    else // WALK -> IDLE
+                    {
+                        _state = EnemyState::IDLE;
+                        _target_dx = 0;
+                        _target_dy = 0;
+                        // Random idle duration (20-60 frames)
+                        _state_duration = 20 + (random.get() % 40);
+                    }
                 }
             }
         }
@@ -284,6 +386,9 @@ namespace fe
             }
         }
 
+        // Update spearguard animations
+        _update_spearguard_animation();
+        
         // Update sprite if available
         if (_sprite.has_value())
         {
@@ -323,11 +428,10 @@ namespace fe
 
     void Enemy::_apply_knockback(bn::fixed dx, bn::fixed dy)
     {
-        static constexpr int KNOCKBACK_DURATION = 10;
         const bn::fixed KNOCKBACK_STRENGTH = 2.5;
         _knockback_dx = dx * KNOCKBACK_STRENGTH;
         _knockback_dy = dy * KNOCKBACK_STRENGTH;
-        _knockback_timer = KNOCKBACK_DURATION; // Knockback duration
+        _knockback_timer = KNOCKBACK_DURATION; // Use class constant
         _stunned = true;
     }
 
@@ -387,5 +491,76 @@ namespace fe
     ENEMY_TYPE Enemy::type()
     {
         return _type;
+    }
+
+    void Enemy::_update_spearguard_animation()
+    {
+        if (_type != ENEMY_TYPE::SPEARGUARD || !_sprite.has_value()) {
+            return;
+        }
+
+        AnimationState desired_animation = AnimationState::IDLE;
+        
+        // Determine desired animation based on enemy state
+        if (_dead) {
+            desired_animation = AnimationState::DEAD;
+        } else if (_attack_timer > 0) {
+            // Always prioritize attack animation if attack timer is active
+            desired_animation = AnimationState::ATTACK;
+            _attack_timer--;
+        } else if (_state == EnemyState::FOLLOW || _state == EnemyState::WALK) {
+            // Only run if not attacking
+            desired_animation = AnimationState::RUN;
+        } else {
+            // Default to idle
+            desired_animation = AnimationState::IDLE;
+        }
+
+        // Only update animation if it changed
+        if (desired_animation != _current_animation) {
+            _current_animation = desired_animation;
+            
+            switch (_current_animation) {
+                case AnimationState::IDLE:
+                    _action = bn::create_sprite_animate_action_forever(
+                        *_sprite,
+                        12, // Slower for idle
+                        bn::sprite_items::spearguard.tiles_item(),
+                        0, 1, 2, 3, 4, 5 // Idle frames 0-5
+                    );
+                    break;
+                    
+                case AnimationState::RUN:
+                    _action = bn::create_sprite_animate_action_forever(
+                        *_sprite,
+                        8, // Faster for running
+                        bn::sprite_items::spearguard.tiles_item(),
+                        6, 7, 8, 9 // Run frames 6-9
+                    );
+                    break;
+                    
+                case AnimationState::ATTACK:
+                    _action = bn::create_sprite_animate_action_forever(
+                        *_sprite,
+                        6, // Fast for attack
+                        bn::sprite_items::spearguard.tiles_item(),
+                        10, 11, 12, 13, 14 // Attack frames 10-14
+                    );
+                    break;
+                    
+                case AnimationState::DEAD:
+                    _action = bn::create_sprite_animate_action_forever(
+                        *_sprite,
+                        10, // Medium speed for death
+                        bn::sprite_items::spearguard.tiles_item(),
+                        15, 16, 17, 18, 19, 20, 21, 22, 23, 24 // Dead frames 15-24 (reduced to 10 frames)
+                    );
+                    break;
+                    
+                default:
+                    // Default case to fix warning
+                    break;
+            }
+        }
     }
 }

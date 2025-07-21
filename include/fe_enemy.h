@@ -66,9 +66,23 @@ namespace fe
         static constexpr int KNOCKBACK_DURATION = 10; // Frames of knockback
         int _sound_timer = 0;
         bool _spotted_player = false;
-        bn::optional<bn::sprite_animate_action<4>> _action;
-
-        bn::optional<bn::sprite_animate_action<10>> _mutant_action;
+        bn::optional<bn::sprite_animate_action<16>> _action; // Increased to handle dead animation (16 frames)
+        
+        // Spearguard animation states
+        enum class AnimationState {
+            IDLE,
+            RUN,
+            ATTACK,
+            DEAD
+        };
+        AnimationState _current_animation = AnimationState::IDLE;
+        int _attack_timer = 0;
+        static constexpr int ATTACK_DURATION = 60; // Frames for attack animation
+        
+        // Spearguard return-to-post behavior
+        bn::fixed_point _original_position = bn::fixed_point(0, 0);
+        bool _returning_to_post = false;
+        static constexpr bn::fixed RETURN_THRESHOLD = 8; // Distance threshold to consider "at post"
 
         bn::fixed_point _target = bn::fixed_point(0, 0);
         bool _target_locked = false;
@@ -104,6 +118,7 @@ namespace fe
         bool spotted_player();
         int hp();
         ENEMY_TYPE type();
+        void _update_spearguard_animation();
         [[nodiscard]] Hitbox get_hitbox() const override
         {
             return Entity::get_hitbox();

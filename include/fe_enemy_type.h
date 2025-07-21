@@ -11,7 +11,8 @@ namespace fe
         WALL,
         BOSS,
         RAT,
-        MUTANT
+        MUTANT,
+        SPEARGUARD
     };
 }
 

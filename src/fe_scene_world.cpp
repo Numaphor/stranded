@@ -126,6 +126,11 @@ namespace fe
         // Create merchant NPC
         _merchant = new MerchantNPC(bn::fixed_point(100, -50), camera, text_generator);
 
+        // Spawn 3 spearguard enemies
+        _enemies.push_back(Enemy(0, -100, camera, bg, ENEMY_TYPE::SPEARGUARD, 3));
+        _enemies.push_back(Enemy(50, -80, camera, bg, ENEMY_TYPE::SPEARGUARD, 3));
+        _enemies.push_back(Enemy(-50, -120, camera, bg, ENEMY_TYPE::SPEARGUARD, 3));
+
         while (true)
         {
             bn::core::update();
@@ -325,9 +330,9 @@ namespace fe
                 _player->spawn(spawn_location, camera);
 
                 // Reset enemies
-                _enemies.push_back(Enemy(0, -100, camera, bg, ENEMY_TYPE::SLIME, 3));
-                _enemies.push_back(Enemy(50, -80, camera, bg, ENEMY_TYPE::SLIME, 3));
-                _enemies.push_back(Enemy(-50, -120, camera, bg, ENEMY_TYPE::SLIME, 3));
+                _enemies.push_back(Enemy(0, -100, camera, bg, ENEMY_TYPE::SPEARGUARD, 3));
+                _enemies.push_back(Enemy(50, -80, camera, bg, ENEMY_TYPE::SPEARGUARD, 3));
+                _enemies.push_back(Enemy(-50, -120, camera, bg, ENEMY_TYPE::SPEARGUARD, 3));
 
                 // Reset camera
                 camera.set_position(0, 0);
