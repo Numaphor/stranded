@@ -127,6 +127,102 @@ namespace fe
         _state_machine.initialize(bn::move(initial_state));
     }
 
+    Enemy::Enemy(Enemy&& other) noexcept
+        : Entity(bn::move(other)), // Move base class
+          _movement(bn::move(other._movement)),
+          _state(other._state),
+          _state_machine(bn::move(other._state_machine)),
+          _use_new_state_machine(other._use_new_state_machine),
+          _state_timer(other._state_timer),
+          _state_duration(other._state_duration),
+          _target_dx(other._target_dx),
+          _target_dy(other._target_dy),
+          _dx(other._dx),
+          _dy(other._dy),
+          _camera(other._camera),
+          _type(other._type),
+          _dir(other._dir),
+          _hp(other._hp),
+          _direction_timer(other._direction_timer),
+          _invulnerable(other._invulnerable),
+          _dead(other._dead),
+          _grounded(other._grounded),
+          _inv_timer(other._inv_timer),
+          _stunned(other._stunned),
+          _knockback_dx(other._knockback_dx),
+          _knockback_dy(other._knockback_dy),
+          _knockback_timer(other._knockback_timer),
+          _sound_timer(other._sound_timer),
+          _spotted_player(other._spotted_player),
+          _action(bn::move(other._action)),
+          _current_animation(other._current_animation),
+          _attack_timer(other._attack_timer),
+          _original_position(other._original_position),
+          _returning_to_post(other._returning_to_post),
+          _target(other._target),
+          _target_locked(other._target_locked),
+          _map(other._map),
+          _map_cells(other._map_cells),
+          _level(other._level)
+    {
+        // Reset moved-from object to a valid state
+        other._hp = 0;
+        other._dead = true;
+        other._use_new_state_machine = false;
+    }
+
+    Enemy& Enemy::operator=(Enemy&& other) noexcept
+    {
+        if (this != &other)
+        {
+            // Move base class
+            Entity::operator=(bn::move(other));
+            
+            // Move all members
+            _movement = bn::move(other._movement);
+            _state = other._state;
+            _state_machine = bn::move(other._state_machine);
+            _use_new_state_machine = other._use_new_state_machine;
+            _state_timer = other._state_timer;
+            _state_duration = other._state_duration;
+            _target_dx = other._target_dx;
+            _target_dy = other._target_dy;
+            _dx = other._dx;
+            _dy = other._dy;
+            _camera = other._camera;
+            _type = other._type;
+            _dir = other._dir;
+            _hp = other._hp;
+            _direction_timer = other._direction_timer;
+            _invulnerable = other._invulnerable;
+            _dead = other._dead;
+            _grounded = other._grounded;
+            _inv_timer = other._inv_timer;
+            _stunned = other._stunned;
+            _knockback_dx = other._knockback_dx;
+            _knockback_dy = other._knockback_dy;
+            _knockback_timer = other._knockback_timer;
+            _sound_timer = other._sound_timer;
+            _spotted_player = other._spotted_player;
+            _action = bn::move(other._action);
+            _current_animation = other._current_animation;
+            _attack_timer = other._attack_timer;
+            _original_position = other._original_position;
+            _returning_to_post = other._returning_to_post;
+            _target = other._target;
+            _target_locked = other._target_locked;
+            _map = other._map;
+            _map_cells = other._map_cells;
+            _level = other._level;
+            
+            // Reset moved-from object to a valid state
+            other._hp = 0;
+            other._dead = true;
+            other._use_new_state_machine = false;
+        }
+        return *this;
+    }
+
     void Enemy::update_hitbox()
     {
         // Adjust hitbox position to account for center-based sprite positioning

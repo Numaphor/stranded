@@ -9,6 +9,31 @@ namespace fe
     {
     }
 
+    EnemyStateMachine::EnemyStateMachine(EnemyStateMachine&& other) noexcept
+        : _current_state(bn::move(other._current_state)), 
+          _current_state_id(other._current_state_id), 
+          _state_timer(other._state_timer)
+    {
+        // Reset the moved-from object
+        other._current_state_id = EnemyStateId::IDLE;
+        other._state_timer = 0;
+    }
+
+    EnemyStateMachine& EnemyStateMachine::operator=(EnemyStateMachine&& other) noexcept
+    {
+        if (this != &other)
+        {
+            _current_state = bn::move(other._current_state);
+            _current_state_id = other._current_state_id;
+            _state_timer = other._state_timer;
+            
+            // Reset the moved-from object
+            other._current_state_id = EnemyStateId::IDLE;
+            other._state_timer = 0;
+        }
+        return *this;
+    }
+
     void EnemyStateMachine::initialize(bn::unique_ptr<EnemyState> initial_state)
     {
         if (initial_state)

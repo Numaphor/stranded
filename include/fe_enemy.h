@@ -117,6 +117,14 @@ namespace fe
 
     public:
         Enemy(int x, int y, bn::camera_ptr camera, bn::regular_bg_ptr map, ENEMY_TYPE type, int hp);
+        
+        // Move constructor and assignment operator (needed for EnemyStateMachine)
+        Enemy(Enemy&& other) noexcept;
+        Enemy& operator=(Enemy&& other) noexcept;
+        
+        // Delete copy constructor and assignment operator
+        Enemy(const Enemy&) = delete;
+        Enemy& operator=(const Enemy&) = delete;
         void update_hitbox();
         void update() override { /* Default implementation */ }
         void update(bn::fixed_point player_pos, const Level &level, bool player_listening = false);

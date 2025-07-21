@@ -26,6 +26,14 @@ namespace fe
         EnemyStateMachine();
         ~EnemyStateMachine() = default;
         
+        // Move constructor and assignment operator (unique_ptr is not copyable)
+        EnemyStateMachine(EnemyStateMachine&& other) noexcept;
+        EnemyStateMachine& operator=(EnemyStateMachine&& other) noexcept;
+        
+        // Delete copy constructor and assignment operator
+        EnemyStateMachine(const EnemyStateMachine&) = delete;
+        EnemyStateMachine& operator=(const EnemyStateMachine&) = delete;
+        
         /**
          * Initialize the state machine with the initial state
          * @param initial_state Initial state for the enemy
