@@ -103,8 +103,8 @@ namespace fe
             set_position(bn::fixed_point(pos().x() + _knockback_dx, pos().y() + _knockback_dy));
 
             // Apply friction to knockback
-            _knockback_dx *= 0.9;
-            _knockback_dy *= 0.9;
+            _knockback_dx *= KNOCKBACK_FRICTION;
+            _knockback_dy *= KNOCKBACK_FRICTION;
 
             // If knockback is done, clear the state
             if (_knockback_timer == 0)
@@ -133,94 +133,12 @@ namespace fe
         _dx += (_target_dx - _dx) * MOVEMENT_LERP;
         _dy += (_target_dy - _dy) * MOVEMENT_LERP;
         
-        // Update movement component
-        _movement.set_velocity(bn::fixed_point(_dx, _dy));
-        _movement.update();
+        // Apply movement with collision detection
+        _apply_movement_with_collision(level);
 
-        // Update position
-        bn::fixed new_x = pos().x() + _dx;
-        bn::fixed new_y = pos().y() + _dy;
-        bn::fixed_point new_pos(new_x, new_y);
-
-        // --- Robust collision check with proper direction ---
-        // Determine movement direction for collision check
-        fe::directions check_direction = _get_movement_direction();
-
-        if (fe::Collision::check_hitbox_collision_with_level(_hitbox, new_pos, check_direction, level))
-        {
-            set_position(new_pos);
-        }
-        else
-        {
-            // Try to slide along walls by checking individual axis movement
-            bool can_move_x = true;
-            bool can_move_y = true;
-
-            // Check X movement only
-            if (_dx != 0)
-            {
-                bn::fixed_point x_pos(pos().x() + _dx, pos().y());
-                fe::directions x_dir = _dx > 0 ? fe::directions::right : fe::directions::left;
-                can_move_x = fe::Collision::check_hitbox_collision_with_level(_hitbox, x_pos, x_dir, level);
-            }
-
-            // Check Y movement only
-            if (_dy != 0)
-            {
-                bn::fixed_point y_pos(pos().x(), pos().y() + _dy);
-                fe::directions y_dir = _dy > 0 ? fe::directions::down : fe::directions::up;
-                can_move_y = fe::Collision::check_hitbox_collision_with_level(_hitbox, y_pos, y_dir, level);
-            }
-
-            // Apply movement on valid axes
-            bn::fixed_point current_pos = pos();
-            if (can_move_x)
-            {
-                current_pos.set_x(current_pos.x() + _dx);
-            }
-            else
-            {
-                _dx = 0;
-                _movement.set_velocity(bn::fixed_point(_dx, _dy));
-            }
-
-            if (can_move_y)
-            {
-                current_pos.set_y(current_pos.y() + _dy);
-            }
-            else
-            {
-                _dy = 0;
-                _movement.set_velocity(bn::fixed_point(_dx, _dy));
-            }
-
-            set_position(current_pos);
-        }
-
-        // Handle invulnerability timer
-        if (_invulnerable)
-        {
-            if (--_inv_timer <= 0)
-            {
-                _invulnerable = false;
-                _inv_timer = 0;
-                if (_sprite.has_value())
-                {
-                    _sprite->set_visible(true);
-                }
-            }
-        }
-
-        // Update sprite if available
-        if (_sprite.has_value())
-        {
-            _sprite->set_position(pos());
-            _sprite->set_horizontal_flip(_dx < 0);
-            if (_action.has_value())
-            {
-                _action->update();
-            }
-        }
+        // Handle invulnerability and sprite updates
+        _update_invulnerability();
+        _update_sprite();
     }
 
     void Enemy::set_pos(bn::fixed_point new_pos)
@@ -402,6 +320,101 @@ namespace fe
                     // Random idle duration (20-60 frames)
                     _state_duration = MIN_IDLE_DURATION + (random.get() % IDLE_DURATION_RANGE);
                 }
+            }
+        }
+    }
+
+    void Enemy::_apply_movement_with_collision(const Level& level)
+    {
+        // Update movement component
+        _movement.set_velocity(bn::fixed_point(_dx, _dy));
+        _movement.update();
+
+        // Calculate new position
+        bn::fixed new_x = pos().x() + _dx;
+        bn::fixed new_y = pos().y() + _dy;
+        bn::fixed_point new_pos(new_x, new_y);
+
+        // Check collision for full movement first
+        fe::directions check_direction = _get_movement_direction();
+        
+        if (fe::Collision::check_hitbox_collision_with_level(_hitbox, new_pos, check_direction, level))
+        {
+            set_position(new_pos);
+        }
+        else
+        {
+            // Try to slide along walls by checking individual axis movement
+            bool can_move_x = true;
+            bool can_move_y = true;
+
+            // Check X movement only
+            if (_dx != 0)
+            {
+                bn::fixed_point x_pos(pos().x() + _dx, pos().y());
+                fe::directions x_dir = _dx > 0 ? fe::directions::right : fe::directions::left;
+                can_move_x = fe::Collision::check_hitbox_collision_with_level(_hitbox, x_pos, x_dir, level);
+            }
+
+            // Check Y movement only
+            if (_dy != 0)
+            {
+                bn::fixed_point y_pos(pos().x(), pos().y() + _dy);
+                fe::directions y_dir = _dy > 0 ? fe::directions::down : fe::directions::up;
+                can_move_y = fe::Collision::check_hitbox_collision_with_level(_hitbox, y_pos, y_dir, level);
+            }
+
+            // Apply movement on valid axes
+            bn::fixed_point current_pos = pos();
+            if (can_move_x)
+            {
+                current_pos.set_x(current_pos.x() + _dx);
+            }
+            else
+            {
+                _dx = 0;
+                _movement.set_velocity(bn::fixed_point(_dx, _dy));
+            }
+
+            if (can_move_y)
+            {
+                current_pos.set_y(current_pos.y() + _dy);
+            }
+            else
+            {
+                _dy = 0;
+                _movement.set_velocity(bn::fixed_point(_dx, _dy));
+            }
+
+            set_position(current_pos);
+        }
+    }
+
+    void Enemy::_update_invulnerability()
+    {
+        if (_invulnerable)
+        {
+            if (--_inv_timer <= 0)
+            {
+                _invulnerable = false;
+                _inv_timer = 0;
+                if (_sprite.has_value())
+                {
+                    _sprite->set_visible(true);
+                }
+            }
+        }
+    }
+
+    void Enemy::_update_sprite()
+    {
+        if (_sprite.has_value())
+        {
+            _sprite->set_position(pos());
+            _sprite->set_horizontal_flip(_dx < 0);
+            if (_action.has_value())
+            {
+                _action->update();
             }
         }
     }
