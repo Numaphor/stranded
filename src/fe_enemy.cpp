@@ -123,78 +123,15 @@ namespace fe
         static bn::random random;
         _state_timer++;
 
-        // Distance to player - cache expensive sqrt calculation
-        bn::fixed dist_x = player_pos.x() - pos().x();
-        bn::fixed dist_y = player_pos.y() - pos().y();
-        bn::fixed dist_sq = dist_x * dist_x + dist_y * dist_y;
-        const bn::fixed follow_dist_sq = 48 * 48;   // 6 tiles squared
-        const bn::fixed unfollow_dist_sq = 64 * 64; // 8 tiles squared
+        // Handle state transitions
+        _handle_state_transitions(player_pos, player_listening, random);
 
-        // Aggro logic - enemies can't detect player when they're listening to NPCs
-        if (!player_listening && _state != EnemyState::FOLLOW && dist_sq <= follow_dist_sq)
-        {
-            _state = EnemyState::FOLLOW;
-            _state_timer = 0;
-        }
-        else if (_state == EnemyState::FOLLOW && (dist_sq > unfollow_dist_sq || player_listening))
-        {
-            _state = EnemyState::IDLE;
-            _state_timer = 0;
-            _target_dx = 0;
-            _target_dy = 0;
-            // Random idle duration
-            _state_duration = 20 + (random.get() % 40);
-        }
-
-        // State logic
-        if (_state == EnemyState::FOLLOW)
-        {
-            // Move toward player, slow lerp - use cached distance calculation
-            bn::fixed speed = 0.35;
-            bn::fixed len = bn::sqrt(dist_sq);
-            if (len > 0.1)
-            {
-                _target_dx = (dist_x / len) * speed;
-                _target_dy = (dist_y / len) * speed;
-            }
-            else
-            {
-                _target_dx = 0;
-                _target_dy = 0;
-            }
-        }
-        else
-        {
-            // Wander/idle as before
-            if (_state_timer >= _state_duration)
-            {
-                _state_timer = 0;
-                if (_state == EnemyState::IDLE)
-                {
-                    _state = EnemyState::WALK;
-                    // Pick random direction (angle for wandering)
-                    int angle = random.get() % 360;
-                    bn::fixed radians = angle * 3.14159 / 180;
-                    _target_dx = 0.35 * bn::sin(radians);
-                    _target_dy = 0.35 * bn::cos(radians);
-                    // Random walk duration (30-120 frames)
-                    _state_duration = 30 + (random.get() % 90);
-                }
-                else // WALK -> IDLE
-                {
-                    _state = EnemyState::IDLE;
-                    _target_dx = 0;
-                    _target_dy = 0;
-                    // Random idle duration (20-60 frames)
-                    _state_duration = 20 + (random.get() % 40);
-                }
-            }
-        }
+        // Update movement targets based on current state
+        _update_movement_targets(player_pos, random);
 
         // Smoothly interpolate _dx/_dy to _target_dx/_target_dy
-        const bn::fixed lerp = 0.1;
-        _dx += (_target_dx - _dx) * lerp;
-        _dy += (_target_dy - _dy) * lerp;
+        _dx += (_target_dx - _dx) * MOVEMENT_LERP;
+        _dy += (_target_dy - _dy) * MOVEMENT_LERP;
         
         // Update movement component
         _movement.set_velocity(bn::fixed_point(_dx, _dy));
@@ -207,17 +144,7 @@ namespace fe
 
         // --- Robust collision check with proper direction ---
         // Determine movement direction for collision check
-        fe::directions check_direction = fe::directions::down; // Default
-        if (bn::abs(_dx) > bn::abs(_dy))
-        {
-            // Moving horizontally
-            check_direction = _dx > 0 ? fe::directions::right : fe::directions::left;
-        }
-        else
-        {
-            // Moving vertically
-            check_direction = _dy > 0 ? fe::directions::down : fe::directions::up;
-        }
+        fe::directions check_direction = _get_movement_direction();
 
         if (fe::Collision::check_hitbox_collision_with_level(_hitbox, new_pos, check_direction, level))
         {
@@ -310,7 +237,7 @@ namespace fe
 
         _hp -= damage;
         _invulnerable = true;
-        _inv_timer = 30; // Invincibility frames
+        _inv_timer = INVULNERABILITY_FRAMES; // Invincibility frames
         _stunned = true;
 
         if (_hp <= 0)
@@ -324,7 +251,6 @@ namespace fe
     void Enemy::_apply_knockback(bn::fixed dx, bn::fixed dy)
     {
         static constexpr int KNOCKBACK_DURATION = 10;
-        const bn::fixed KNOCKBACK_STRENGTH = 2.5;
         _knockback_dx = dx * KNOCKBACK_STRENGTH;
         _knockback_dy = dy * KNOCKBACK_STRENGTH;
         _knockback_timer = KNOCKBACK_DURATION; // Knockback duration
@@ -387,5 +313,96 @@ namespace fe
     ENEMY_TYPE Enemy::type()
     {
         return _type;
+    }
+
+    bn::fixed Enemy::_calculate_distance_squared(bn::fixed_point player_pos) const
+    {
+        bn::fixed dist_x = player_pos.x() - pos().x();
+        bn::fixed dist_y = player_pos.y() - pos().y();
+        return dist_x * dist_x + dist_y * dist_y;
+    }
+
+    fe::directions Enemy::_get_movement_direction() const
+    {
+        if (bn::abs(_dx) > bn::abs(_dy))
+        {
+            // Moving horizontally
+            return _dx > 0 ? fe::directions::right : fe::directions::left;
+        }
+        else
+        {
+            // Moving vertically
+            return _dy > 0 ? fe::directions::down : fe::directions::up;
+        }
+    }
+
+    void Enemy::_handle_state_transitions(bn::fixed_point player_pos, bool player_listening, bn::random& random)
+    {
+        bn::fixed dist_sq = _calculate_distance_squared(player_pos);
+
+        // Aggro logic - enemies can't detect player when they're listening to NPCs
+        if (!player_listening && _state != EnemyState::FOLLOW && dist_sq <= FOLLOW_DISTANCE_SQ)
+        {
+            _state = EnemyState::FOLLOW;
+            _state_timer = 0;
+        }
+        else if (_state == EnemyState::FOLLOW && (dist_sq > UNFOLLOW_DISTANCE_SQ || player_listening))
+        {
+            _state = EnemyState::IDLE;
+            _state_timer = 0;
+            _target_dx = 0;
+            _target_dy = 0;
+            // Random idle duration
+            _state_duration = MIN_IDLE_DURATION + (random.get() % IDLE_DURATION_RANGE);
+        }
+    }
+
+    void Enemy::_update_movement_targets(bn::fixed_point player_pos, bn::random& random)
+    {
+        if (_state == EnemyState::FOLLOW)
+        {
+            // Move toward player, slow lerp - use cached distance calculation
+            bn::fixed dist_x = player_pos.x() - pos().x();
+            bn::fixed dist_y = player_pos.y() - pos().y();
+            bn::fixed dist_sq = _calculate_distance_squared(player_pos);
+            bn::fixed len = bn::sqrt(dist_sq);
+            if (len > 0.1)
+            {
+                _target_dx = (dist_x / len) * MOVEMENT_SPEED;
+                _target_dy = (dist_y / len) * MOVEMENT_SPEED;
+            }
+            else
+            {
+                _target_dx = 0;
+                _target_dy = 0;
+            }
+        }
+        else
+        {
+            // Wander/idle as before
+            if (_state_timer >= _state_duration)
+            {
+                _state_timer = 0;
+                if (_state == EnemyState::IDLE)
+                {
+                    _state = EnemyState::WALK;
+                    // Pick random direction (angle for wandering)
+                    int angle = random.get() % 360;
+                    bn::fixed radians = angle * 3.14159 / 180;
+                    _target_dx = MOVEMENT_SPEED * bn::sin(radians);
+                    _target_dy = MOVEMENT_SPEED * bn::cos(radians);
+                    // Random walk duration (30-120 frames)
+                    _state_duration = MIN_WALK_DURATION + (random.get() % WALK_DURATION_RANGE);
+                }
+                else // WALK -> IDLE
+                {
+                    _state = EnemyState::IDLE;
+                    _target_dx = 0;
+                    _target_dy = 0;
+                    // Random idle duration (20-60 frames)
+                    _state_duration = MIN_IDLE_DURATION + (random.get() % IDLE_DURATION_RANGE);
+                }
+            }
+        }
     }
 }

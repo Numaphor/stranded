@@ -35,6 +35,18 @@ namespace fe
             FOLLOW
         };
 
+        // Movement and behavior constants
+        static constexpr bn::fixed MOVEMENT_SPEED = 0.35;
+        static constexpr bn::fixed MOVEMENT_LERP = 0.1;
+        static constexpr bn::fixed FOLLOW_DISTANCE_SQ = 48 * 48;   // 6 tiles squared
+        static constexpr bn::fixed UNFOLLOW_DISTANCE_SQ = 64 * 64; // 8 tiles squared
+        static constexpr bn::fixed KNOCKBACK_STRENGTH = 2.5;
+        static constexpr int INVULNERABILITY_FRAMES = 30;
+        static constexpr int MIN_IDLE_DURATION = 20;
+        static constexpr int IDLE_DURATION_RANGE = 40;
+        static constexpr int MIN_WALK_DURATION = 30;
+        static constexpr int WALK_DURATION_RANGE = 90;
+
         friend class World;                                            // Allow World to access private members
         friend class Minimap;                                          // Allow Minimap to access private members
         friend bool check_collisions_bb(Player &player, Enemy &enemy); // Allow collision function to access _pos
@@ -84,6 +96,12 @@ namespace fe
     private:
         bool _take_damage(int damage);
         void _apply_knockback(bn::fixed dx, bn::fixed dy);
+        
+        // Helper methods for state machine
+        [[nodiscard]] bn::fixed _calculate_distance_squared(bn::fixed_point player_pos) const;
+        [[nodiscard]] fe::directions _get_movement_direction() const;
+        void _update_movement_targets(bn::fixed_point player_pos, bn::random& random);
+        void _handle_state_transitions(bn::fixed_point player_pos, bool player_listening, bn::random& random);
 
     public:
         Enemy(int x, int y, bn::camera_ptr camera, bn::regular_bg_ptr map, ENEMY_TYPE type, int hp);
