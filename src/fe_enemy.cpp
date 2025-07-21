@@ -1,4 +1,5 @@
 #include "fe_enemy.h"
+#include "fe_enemy_states.h"
 #include "bn_fixed_point.h"
 #include "bn_sprite_ptr.h"
 #include "bn_camera_ptr.h"
@@ -9,6 +10,7 @@
 #include "bn_log.h"
 #include "bn_size.h"
 #include "bn_sprite_builder.h"
+#include "bn_memory.h"
 
 #include "bn_sprite_items_spearguard.h"
 
@@ -117,6 +119,10 @@ namespace fe
                 0, 1, 2, 3
             );
         }
+        
+        // Initialize the new state machine with IdleState
+        bn::unique_ptr<IdleState> initial_state = bn::make_unique<IdleState>();
+        _state_machine.initialize(bn::move(initial_state));
     }
 
     void Enemy::update_hitbox()
@@ -399,6 +405,151 @@ namespace fe
                 _action->update();
             }
         }
+    }
+
+    void Enemy::update_with_new_state_machine(bn::fixed_point player_pos, const Level &level, bool player_listening)
+    {
+        // Handle knockback first (same as before)
+        if (_knockback_timer > 0)
+        {
+            _knockback_timer--;
+
+            // Apply knockback movement
+            set_position(bn::fixed_point(pos().x() + _knockback_dx, pos().y() + _knockback_dy));
+
+            // Apply friction to knockback
+            _knockback_dx *= 0.9;
+            _knockback_dy *= 0.9;
+
+            // If knockback is done, clear the state
+            if (_knockback_timer == 0)
+            {
+                _knockback_dx = 0;
+                _knockback_dy = 0;
+                _stunned = false;
+                
+                // Transition to stunned state for recovery
+                bn::unique_ptr<StunnedState> stunned_state = bn::make_unique<StunnedState>();
+                _state_machine.transition_to(*this, bn::move(stunned_state));
+            }
+
+            // Update hitbox and return early - don't process normal AI during knockback
+            update_hitbox();
+            return;
+        }
+
+        // Update the state machine
+        _state_machine.update(*this, player_pos, level, player_listening);
+
+        // Smoothly interpolate _dx/_dy to _target_dx/_target_dy
+        const bn::fixed lerp = 0.1;
+        _dx += (_target_dx - _dx) * lerp;
+        _dy += (_target_dy - _dy) * lerp;
+        
+        // Update movement component
+        _movement.set_velocity(bn::fixed_point(_dx, _dy));
+        _movement.update();
+
+        // Update position with collision checking (same as before)
+        bn::fixed new_x = pos().x() + _dx;
+        bn::fixed new_y = pos().y() + _dy;
+        bn::fixed_point new_pos(new_x, new_y);
+
+        // --- Robust collision check with proper direction ---
+        // Determine movement direction for collision check
+        fe::directions check_direction = fe::directions::down; // Default
+        if (bn::abs(_dx) > bn::abs(_dy))
+        {
+            // Moving horizontally
+            check_direction = _dx > 0 ? fe::directions::right : fe::directions::left;
+        }
+        else
+        {
+            // Moving vertically
+            check_direction = _dy > 0 ? fe::directions::down : fe::directions::up;
+        }
+
+        if (fe::Collision::check_hitbox_collision_with_level(_hitbox, new_pos, check_direction, level))
+        {
+            set_position(new_pos);
+        }
+        else
+        {
+            // Try to slide along walls by checking individual axis movement
+            bool can_move_x = true;
+            bool can_move_y = true;
+
+            // Check X movement only
+            if (_dx != 0)
+            {
+                bn::fixed_point x_pos(pos().x() + _dx, pos().y());
+                fe::directions x_dir = _dx > 0 ? fe::directions::right : fe::directions::left;
+                can_move_x = fe::Collision::check_hitbox_collision_with_level(_hitbox, x_pos, x_dir, level);
+            }
+
+            // Check Y movement only
+            if (_dy != 0)
+            {
+                bn::fixed_point y_pos(pos().x(), pos().y() + _dy);
+                fe::directions y_dir = _dy > 0 ? fe::directions::down : fe::directions::up;
+                can_move_y = fe::Collision::check_hitbox_collision_with_level(_hitbox, y_pos, y_dir, level);
+            }
+
+            // Apply movement on valid axes
+            bn::fixed_point current_pos = pos();
+            if (can_move_x)
+            {
+                current_pos.set_x(current_pos.x() + _dx);
+            }
+            else
+            {
+                _dx = 0;
+                _movement.set_velocity(bn::fixed_point(_dx, _dy));
+            }
+
+            if (can_move_y)
+            {
+                current_pos.set_y(current_pos.y() + _dy);
+            }
+            else
+            {
+                _dy = 0;
+                _movement.set_velocity(bn::fixed_point(_dx, _dy));
+            }
+
+            set_position(current_pos);
+        }
+
+        // Handle invulnerability timer (same as before)
+        if (_invulnerable)
+        {
+            if (--_inv_timer <= 0)
+            {
+                _invulnerable = false;
+                _inv_timer = 0;
+                if (_sprite.has_value())
+                {
+                    _sprite->set_visible(true);
+                }
+            }
+        }
+
+        // Update spearguard animations
+        _update_spearguard_animation();
+        
+        // Update sprite if available (same as before)
+        if (_sprite.has_value())
+        {
+            _sprite->set_position(pos());
+            _sprite->set_horizontal_flip(_dx < 0);
+            if (_action.has_value())
+            {
+                _action->update();
+            }
+        }
+        
+        // Update hitbox
+        update_hitbox();
     }
 
     void Enemy::set_pos(bn::fixed_point new_pos)

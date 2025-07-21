@@ -19,11 +19,18 @@
 #include "fe_level.h"
 #include "fe_entity.h"
 #include "fe_movement.h"
+#include "fe_enemy_state_machine.h"
 
 namespace fe
 {
     // Forward declarations
     class Player;
+    class IdleState;
+    class PatrolState;
+    class ChaseState;
+    class AttackState;
+    class ReturnToPostState;
+    class StunnedState;
 
     class Enemy : public Entity
     {
@@ -38,10 +45,18 @@ namespace fe
         friend class World;                                            // Allow World to access private members
         friend class Minimap;                                          // Allow Minimap to access private members
         friend bool check_collisions_bb(Player &player, Enemy &enemy); // Allow collision function to access _pos
+        // Friend classes for new state machine
+        friend class IdleState;
+        friend class PatrolState;
+        friend class ChaseState;
+        friend class AttackState;
+        friend class ReturnToPostState;
+        friend class StunnedState;
 
     private:
         EnemyMovement _movement;
-        EnemyState _state = EnemyState::IDLE;
+        EnemyState _state = EnemyState::IDLE;  // Legacy state enum - will be deprecated
+        EnemyStateMachine _state_machine;      // New state machine
         int _state_timer = 0;
         int _state_duration = 60;
         bn::fixed _target_dx = 0;
@@ -104,6 +119,7 @@ namespace fe
         void update_hitbox();
         void update() override { /* Default implementation */ }
         void update(bn::fixed_point player_pos, const Level &level, bool player_listening = false);
+        void update_with_new_state_machine(bn::fixed_point player_pos, const Level &level, bool player_listening = false);
         [[nodiscard]] bn::fixed_point get_position() const
         {
             return pos();
