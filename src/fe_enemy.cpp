@@ -254,90 +254,100 @@ namespace fe
             return;
         }
 
-        // Update the state machine
-        _state_machine.update(*this, player_pos, level, player_listening);
+        // Don't update state machine if dead - let death animation play
+        if (!_dead) {
+            // Update the state machine
+            _state_machine.update(*this, player_pos, level, player_listening);
 
-        // Smoothly interpolate _dx/_dy to _target_dx/_target_dy
-        const bn::fixed lerp = 0.1;
-        _dx += (_target_dx - _dx) * lerp;
-        _dy += (_target_dy - _dy) * lerp;
-        
-        // Update movement component
-        _movement.set_velocity(bn::fixed_point(_dx, _dy));
-        _movement.update();
+            // Smoothly interpolate _dx/_dy to _target_dx/_target_dy
+            const bn::fixed lerp = 0.1;
+            _dx += (_target_dx - _dx) * lerp;
+            _dy += (_target_dy - _dy) * lerp;
+            
+            // Update movement component
+            _movement.set_velocity(bn::fixed_point(_dx, _dy));
+            _movement.update();
 
-        // Update position with collision checking
-        bn::fixed new_x = pos().x() + _dx;
-        bn::fixed new_y = pos().y() + _dy;
-        bn::fixed_point new_pos(new_x, new_y);
+            // Update position with collision checking
+            bn::fixed new_x = pos().x() + _dx;
+            bn::fixed new_y = pos().y() + _dy;
+            bn::fixed_point new_pos(new_x, new_y);
 
-        // --- Robust collision check with proper direction ---
-        // Determine movement direction for collision check
-        fe::directions check_direction = fe::directions::down; // Default
-        if (bn::abs(_dx) > bn::abs(_dy))
-        {
-            // Moving horizontally
-            check_direction = _dx > 0 ? fe::directions::right : fe::directions::left;
-        }
-        else
-        {
-            // Moving vertically
-            check_direction = _dy > 0 ? fe::directions::down : fe::directions::up;
-        }
-
-        if (fe::Collision::check_hitbox_collision_with_level(_hitbox, new_pos, check_direction, level))
-        {
-            set_position(new_pos);
-        }
-        else
-        {
-            // Try to slide along walls by checking individual axis movement
-            bool can_move_x = true;
-            bool can_move_y = true;
-
-            // Check X movement only
-            if (_dx != 0)
+            // --- Robust collision check with proper direction ---
+            // Determine movement direction for collision check
+            fe::directions check_direction = fe::directions::down; // Default
+            if (bn::abs(_dx) > bn::abs(_dy))
             {
-                bn::fixed_point x_pos(pos().x() + _dx, pos().y());
-                fe::directions x_dir = _dx > 0 ? fe::directions::right : fe::directions::left;
-                can_move_x = fe::Collision::check_hitbox_collision_with_level(_hitbox, x_pos, x_dir, level);
-            }
-
-            // Check Y movement only
-            if (_dy != 0)
-            {
-                bn::fixed_point y_pos(pos().x(), pos().y() + _dy);
-                fe::directions y_dir = _dy > 0 ? fe::directions::down : fe::directions::up;
-                can_move_y = fe::Collision::check_hitbox_collision_with_level(_hitbox, y_pos, y_dir, level);
-            }
-
-            // Apply movement on valid axes
-            bn::fixed_point current_pos = pos();
-            if (can_move_x)
-            {
-                current_pos.set_x(current_pos.x() + _dx);
+                // Moving horizontally
+                check_direction = _dx > 0 ? fe::directions::right : fe::directions::left;
             }
             else
             {
-                _dx = 0;
-                _movement.set_velocity(bn::fixed_point(_dx, _dy));
+                // Moving vertically
+                check_direction = _dy > 0 ? fe::directions::down : fe::directions::up;
             }
 
-            if (can_move_y)
+            if (fe::Collision::check_hitbox_collision_with_level(_hitbox, new_pos, check_direction, level))
             {
-                current_pos.set_y(current_pos.y() + _dy);
+                set_position(new_pos);
             }
             else
             {
-                _dy = 0;
-                _movement.set_velocity(bn::fixed_point(_dx, _dy));
-            }
+                // Try to slide along walls by checking individual axis movement
+                bool can_move_x = true;
+                bool can_move_y = true;
 
-            set_position(current_pos);
+                // Check X movement only
+                if (_dx != 0)
+                {
+                    bn::fixed_point x_pos(pos().x() + _dx, pos().y());
+                    fe::directions x_dir = _dx > 0 ? fe::directions::right : fe::directions::left;
+                    can_move_x = fe::Collision::check_hitbox_collision_with_level(_hitbox, x_pos, x_dir, level);
+                }
+
+                // Check Y movement only
+                if (_dy != 0)
+                {
+                    bn::fixed_point y_pos(pos().x(), pos().y() + _dy);
+                    fe::directions y_dir = _dy > 0 ? fe::directions::down : fe::directions::up;
+                    can_move_y = fe::Collision::check_hitbox_collision_with_level(_hitbox, y_pos, y_dir, level);
+                }
+
+                // Apply movement on valid axes
+                bn::fixed_point current_pos = pos();
+                if (can_move_x)
+                {
+                    current_pos.set_x(current_pos.x() + _dx);
+                }
+                else
+                {
+                    _dx = 0;
+                    _movement.set_velocity(bn::fixed_point(_dx, _dy));
+                }
+
+                if (can_move_y)
+                {
+                    current_pos.set_y(current_pos.y() + _dy);
+                }
+                else
+                {
+                    _dy = 0;
+                    _movement.set_velocity(bn::fixed_point(_dx, _dy));
+                }
+
+                set_position(current_pos);
+            }
+        } else {
+            // Dead enemies stop moving immediately
+            _dx = 0;
+            _dy = 0;
+            _target_dx = 0;
+            _target_dy = 0;
+            _movement.set_velocity(bn::fixed_point(0, 0));
         }
 
-        // Handle invulnerability timer
-        if (_invulnerable)
+        // Handle invulnerability timer (but not for dead enemies)
+        if (_invulnerable && !_dead)
         {
             if (--_inv_timer <= 0)
             {
@@ -348,6 +358,11 @@ namespace fe
                     _sprite->set_visible(true);
                 }
             }
+        }
+        else if (_dead && _sprite.has_value())
+        {
+            // Make sure dead enemies are always visible
+            _sprite->set_visible(true);
         }
 
         // Update spearguard animations
@@ -518,11 +533,12 @@ namespace fe
                     break;
                     
                 case AnimationState::DEAD:
-                    _action = bn::create_sprite_animate_action_forever(
+                    // Use all available death frames (15-30) and play only once
+                    _action = bn::create_sprite_animate_action_once(
                         *_sprite,
-                        10, // Medium speed for death
+                        8, // Medium speed for death
                         bn::sprite_items::spearguard.tiles_item(),
-                        15, 16, 17, 18, 19, 20, 21, 22, 23, 24 // Dead frames 15-24 (reduced to 10 frames)
+                        15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30 // All dead frames 15-30
                     );
                     break;
                     
