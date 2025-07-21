@@ -8,3 +8,7 @@ build/
 
 # windsurf rules
 .windsurfrules
+
+# temp files and demos  
+/tmp/
+*.tmp

@@ -19,29 +19,37 @@
 #include "fe_level.h"
 #include "fe_entity.h"
 #include "fe_movement.h"
+#include "fe_enemy_state_machine.h"
 
 namespace fe
 {
     // Forward declarations
     class Player;
+    class IdleState;
+    class PatrolState;
+    class ChaseState;
+    class AttackState;
+    class ReturnToPostState;
+    class StunnedState;
 
     class Enemy : public Entity
     {
     public:
-        enum class EnemyState
-        {
-            IDLE,
-            WALK,
-            FOLLOW
-        };
 
         friend class World;                                            // Allow World to access private members
         friend class Minimap;                                          // Allow Minimap to access private members
         friend bool check_collisions_bb(Player &player, Enemy &enemy); // Allow collision function to access _pos
+        // Friend classes for new state machine
+        friend class IdleState;
+        friend class PatrolState;
+        friend class ChaseState;
+        friend class AttackState;
+        friend class ReturnToPostState;
+        friend class StunnedState;
 
     private:
         EnemyMovement _movement;
-        EnemyState _state = EnemyState::IDLE;
+        EnemyStateMachine _state_machine;      // New state machine
         int _state_timer = 0;
         int _state_duration = 60;
         bn::fixed _target_dx = 0;
@@ -101,6 +109,14 @@ namespace fe
 
     public:
         Enemy(int x, int y, bn::camera_ptr camera, bn::regular_bg_ptr map, ENEMY_TYPE type, int hp);
+        
+        // Move constructor and assignment operator (needed for EnemyStateMachine)
+        Enemy(Enemy&& other) noexcept;
+        Enemy& operator=(Enemy&& other) noexcept;
+        
+        // Delete copy constructor and assignment operator
+        Enemy(const Enemy&) = delete;
+        Enemy& operator=(const Enemy&) = delete;
         void update_hitbox();
         void update() override { /* Default implementation */ }
         void update(bn::fixed_point player_pos, const Level &level, bool player_listening = false);
