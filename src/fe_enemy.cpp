@@ -146,6 +146,7 @@ namespace fe
           _grounded(other._grounded),
           _inv_timer(other._inv_timer),
           _stunned(other._stunned),
+          _death_timer(other._death_timer),
           _knockback_dx(other._knockback_dx),
           _knockback_dy(other._knockback_dy),
           _knockback_timer(other._knockback_timer),
@@ -193,6 +194,7 @@ namespace fe
             _grounded = other._grounded;
             _inv_timer = other._inv_timer;
             _stunned = other._stunned;
+            _death_timer = other._death_timer;
             _knockback_dx = other._knockback_dx;
             _knockback_dy = other._knockback_dy;
             _knockback_timer = other._knockback_timer;
@@ -344,6 +346,11 @@ namespace fe
             _target_dx = 0;
             _target_dy = 0;
             _movement.set_velocity(bn::fixed_point(0, 0));
+            
+            // Count down death timer
+            if (_death_timer > 0) {
+                _death_timer--;
+            }
         }
 
         // Handle invulnerability timer (but not for dead enemies)
@@ -403,6 +410,7 @@ namespace fe
         if (_hp <= 0)
         {
             _dead = true;
+            _death_timer = DEATH_ANIMATION_DURATION; // Start death timer
         }
 
         return true;
@@ -473,6 +481,11 @@ namespace fe
     ENEMY_TYPE Enemy::type()
     {
         return _type;
+    }
+
+    bool Enemy::is_ready_for_removal()
+    {
+        return _dead && _death_timer <= 0;
     }
 
     void Enemy::_update_spearguard_animation()

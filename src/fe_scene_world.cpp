@@ -303,8 +303,8 @@ namespace fe
                     }
                 }
 
-                // Remove dead enemies
-                if (enemy.hp() <= 0)
+                // Remove dead enemies only after death animation completes
+                if (enemy.is_ready_for_removal())
                 {
                     _enemies.erase(_enemies.begin() + i);
                 }
