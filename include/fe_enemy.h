@@ -57,6 +57,7 @@ namespace fe
         EnemyMovement _movement;
         EnemyState _state = EnemyState::IDLE;  // Legacy state enum - will be deprecated
         EnemyStateMachine _state_machine;      // New state machine
+        bool _use_new_state_machine = false;   // Migration flag - set to true to use new system
         int _state_timer = 0;
         int _state_duration = 60;
         bn::fixed _target_dx = 0;
@@ -120,6 +121,10 @@ namespace fe
         void update() override { /* Default implementation */ }
         void update(bn::fixed_point player_pos, const Level &level, bool player_listening = false);
         void update_with_new_state_machine(bn::fixed_point player_pos, const Level &level, bool player_listening = false);
+        
+        // Migration helper: allows gradual transition to new state machine
+        void set_use_new_state_machine(bool use_new = true) { _use_new_state_machine = use_new; }
+        bool is_using_new_state_machine() const { return _use_new_state_machine; }
         [[nodiscard]] bn::fixed_point get_position() const
         {
             return pos();

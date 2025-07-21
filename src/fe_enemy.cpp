@@ -121,6 +121,8 @@ namespace fe
         }
         
         // Initialize the new state machine with IdleState
+        // Note: The new state machine is only used if _use_new_state_machine is set to true
+        // This allows for gradual migration and testing
         bn::unique_ptr<IdleState> initial_state = bn::make_unique<IdleState>();
         _state_machine.initialize(bn::move(initial_state));
     }
@@ -134,6 +136,15 @@ namespace fe
 
     void Enemy::update(bn::fixed_point player_pos, const Level &level, bool player_listening)
     {
+        // Migration helper: use new state machine if enabled
+        if (_use_new_state_machine)
+        {
+            update_with_new_state_machine(player_pos, level, player_listening);
+            return;
+        }
+        
+        // Original implementation continues below for backward compatibility
+        
         // Handle knockback first
         if (_knockback_timer > 0)
         {
