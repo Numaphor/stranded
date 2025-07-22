@@ -155,6 +155,18 @@ namespace fe
     void PlayerMovement::stop_action()
     {
         _action_timer = 0;
+        
+        // Reset to appropriate state based on movement
+        if (bn::abs(_dx) > movement_threshold || bn::abs(_dy) > movement_threshold)
+        {
+            _current_state = State::WALKING;
+        }
+        else
+        {
+            _current_state = State::IDLE;
+        }
+        
+        // Ensure the state is properly updated
         update_state();
     }
 
@@ -466,8 +478,24 @@ namespace fe
         // Don't process movement input when listening to NPCs
         if (_state.listening())
         {
-            // Stop any existing movement when listening
-            _movement.stop_movement();
+            // Update action timer and abilities cooldowns
+            _movement.update_action_timer();
+            _abilities.update_cooldowns();
+        
+            // Check if action is finished and return to normal state
+            bool was_performing_action = _movement.is_performing_action();
+            if (was_performing_action && _movement.action_timer() <= 0)
+            {
+                _movement.stop_action();
+                // Force animation update after action completes
+                _animation.apply_state(_movement.current_state(), _movement.facing_direction());
+            }
+            if (was_performing_action && _movement.action_timer() <= 0)
+            {
+                _movement.stop_action();
+                // Force animation update after action completes
+                _animation.apply_state(_movement.current_state(), _movement.facing_direction());
+            }
             return;
         }
 
@@ -478,53 +506,71 @@ namespace fe
         auto old_direction = _movement.facing_direction();
         auto old_state = _movement.current_state();
 
-        // Check if R key is pressed to start strafing (only when not performing action)
-        if (!performing_action && bn::keypad::r_pressed())
+        // R button toggles strafe mode
+        if (bn::keypad::r_pressed() && !performing_action)
         {
-            _is_strafing = true;
-            _strafing_direction = _movement.facing_direction();
+            _is_strafing = !_is_strafing;
+            if (_is_strafing) {
+                _strafing_direction = _movement.facing_direction();
+            }
         }
-        // Check if R key is released to stop strafing
-        if (bn::keypad::r_released())
+
+        // L button toggles gun equip/unequip (can be done during any action)
+        if (bn::keypad::l_pressed())
         {
-            _is_strafing = false;
+            bool new_gun_state = !_gun_active;
+            
+            // Only update if state is actually changing
+            if (new_gun_state != _gun_active) {
+                _gun_active = new_gun_state;
+                
+                if (_gun_active) {
+                    // Equip gun
+                    if (!_gun_sprite.has_value()) {
+                        _gun_sprite = bn::sprite_items::gun.create_sprite(pos().x(), pos().y());
+                        _gun_sprite->set_bg_priority(get_sprite()->bg_priority());
+                        _gun_sprite->set_z_order(get_sprite()->z_order() - 1);
+                        if (get_sprite()->camera().has_value()) {
+                            _gun_sprite->set_camera(get_sprite()->camera().value());
+                            _bullet_manager.set_camera(get_sprite()->camera().value());
+                        }
+                        update_gun_position(_movement.facing_direction());
+                    }
+                } else {
+                    // Unequip gun
+                    _gun_sprite.reset();
+                }
+                
+                // Debug output
+                BN_LOG("Gun toggled: ", _gun_active ? "ON" : "OFF");
+            }
         }
 
         // New ability inputs (can be performed during movement but not during other actions)
         if (!performing_action)
         {
-            // X button for rolling
-            if (bn::keypad::x_pressed() && _abilities.rolling_available())
+            // B button for rolling
+            if (bn::keypad::b_pressed() && _abilities.rolling_available())
             {
                 _movement.start_rolling();
                 _abilities.set_roll_cooldown(120); // 2 seconds cooldown
                 performing_action = true;
             }
-            // Y button for chopping/slashing (alternate between them)
-            else if (bn::keypad::y_pressed())
+            // A button for slashing/attacking (or shooting if gun is equipped)
+            else if (bn::keypad::a_pressed())
             {
-                static bool use_chop = true;
-                if (use_chop && _abilities.chopping_available())
-                {
-                    _movement.start_chopping();
-                    _abilities.set_chop_cooldown(60); // 1 second cooldown
-                    use_chop = false;
-                }
-                else if (_abilities.slashing_available())
-                {
+                if (_gun_active) {
+                    // Shoot if gun is equipped
+                    PlayerMovement::Direction bullet_dir = _is_strafing ? _strafing_direction : _movement.facing_direction();
+                    fire_bullet(bullet_dir);
+                } else if (_abilities.slashing_available()) {
+                    // Slash if no gun
                     _movement.start_slashing();
                     _abilities.set_slash_cooldown(60); // 1 second cooldown
-                    use_chop = true;
+                    performing_action = true;
                 }
-                performing_action = true;
             }
-            // L button for special attack
-            else if (bn::keypad::l_pressed() && _abilities.slashing_available())
-            {
-                _movement.start_attacking();
-                _abilities.set_slash_cooldown(90); // 1.5 seconds cooldown
-                performing_action = true;
-            }
+
             // Buff abilities - Select + directional
             else if (bn::keypad::select_held() && _abilities.buff_abilities_available())
             {
@@ -564,8 +610,8 @@ namespace fe
             bool moving_up = bn::keypad::up_held();
             bool moving_down = bn::keypad::down_held();
 
-            // Check for running (hold Start button while moving)
-            bool should_run = bn::keypad::start_held() && _abilities.running_available();
+            // Running is now toggled by R button (when not in strafe mode)
+            bool should_run = !_is_strafing && _abilities.running_available();
 
             // Apply movement based on strafing state
             if (_is_strafing)
@@ -630,17 +676,17 @@ namespace fe
             }
         }
 
-        // Check A button for gun toggle (but not when listening to NPCs or performing actions)
-        if (bn::keypad::a_pressed() && !_state.listening() && !performing_action)
+        // L button cycles through weapons (including no weapon)
+        if (bn::keypad::l_pressed() && !_state.listening() && !performing_action)
         {
-            _gun_active = !_gun_active;
-
-            if (_gun_active)
-            {
-                // Create gun sprite with correct z-order
+            if (_gun_active) {
+                // If gun is active, deactivate it
+                _gun_active = false;
+                _gun_sprite.reset();
+            } else {
+                // If no gun, activate it
+                _gun_active = true;
                 _gun_sprite = bn::sprite_items::gun.create_sprite(pos().x(), pos().y());
-                // In Butano, sprites sorting takes BG priority first, then z_order.
-                // Match BG priority with player sprite so z_order determines layering.
                 _gun_sprite->set_bg_priority(get_sprite()->bg_priority());
                 _gun_sprite->set_z_order(get_sprite()->z_order() - 1);
                 if (get_sprite()->camera().has_value())
@@ -649,22 +695,13 @@ namespace fe
                     _bullet_manager.set_camera(get_sprite()->camera().value());
                 }
             }
-            else
-            {
-                // Remove gun sprite when toggled off
-                if (_gun_sprite.has_value())
-                {
-                    _gun_sprite.reset();
-                }
-            }
         }
 
-        // Check B button for firing bullets when gun is active (allowed during movement)
-        if (_gun_active && bn::keypad::b_held() && !performing_action)
+        // A button handles interaction when not attacking
+        if (bn::keypad::a_pressed() && !_gun_active && !_abilities.slashing_available() && !_state.listening() && !performing_action)
         {
-            // Use strafing direction if strafing, otherwise use movement direction
-            PlayerMovement::Direction bullet_dir = _is_strafing ? _strafing_direction : _movement.facing_direction();
-            fire_bullet(bullet_dir);
+            // TODO: Implement interaction with objects/NPCs
+            // This would trigger interaction with objects in front of the player
         }
 
         // Update gun position if active, regardless of input
@@ -692,33 +729,48 @@ namespace fe
 
     void Player::update()
     {
+        // Store the previous state before handling input
+        PlayerMovement::State old_state = _movement.current_state();
+        PlayerMovement::Direction old_direction = _movement.facing_direction();
+        bool was_performing_action = _movement.is_performing_action();
+
+        // Update ability cooldowns
+        _abilities.update_cooldowns();
+
         handle_input();
 
         // Don't update physics when listening to NPCs
         if (!_state.listening())
         {
             update_physics();
-        }
-
-        // Update action timer and abilities cooldowns
-        _movement.update_action_timer();
-        _abilities.update_cooldowns();
-        
-        // Check if action is finished and return to normal state
-        if (_movement.is_performing_action() && _movement.action_timer() <= 0)
-        {
-            _movement.stop_action();
-        }
-
-        // --- Robust collision check for all corners ---
-        extern fe::Level *_level; // Assuming _level is globally accessible as in fe_scene_world.cpp
-        if (_level)
-        {
-            if (!fe::Collision::check_hitbox_collision_with_level(get_hitbox(), pos(), fe::directions::down, *_level))
+            
+            // Check for ground collision
+            extern fe::Level* _level; // Forward declaration
+            if (_level)
             {
-                revert_position();
-                _movement.stop_movement();
+                if (!fe::Collision::check_hitbox_collision_with_level(get_hitbox(), pos(), fe::directions::down, *_level))
+                {
+                    revert_position();
+                    _movement.stop_movement();
+                }
             }
+        }
+
+        // Update action timer
+        _movement.update_action_timer();
+        
+        // Check if action just completed (timer reached zero)
+        if (was_performing_action && _movement.action_timer() <= 0)
+        {
+            // Action completed, reset to appropriate state
+            _movement.stop_action();
+            // Force animation update to show new state
+            _animation.apply_state(_movement.current_state(), _movement.facing_direction());
+        }
+        // Update animation if state or direction changed
+        else if (old_state != _movement.current_state() || old_direction != _movement.facing_direction())
+        {
+            _animation.apply_state(_movement.current_state(), _movement.facing_direction());
         }
 
         update_sprite_position();
