@@ -137,7 +137,10 @@ namespace fe
 
             // Handle NPC interactions BEFORE player input processing
             // This ensures listening state is set before weapon equipping is checked
+            bool merchant_was_talking = false;
             if (_merchant) {
+                // Capture talking state BEFORE update to detect conversation ending
+                merchant_was_talking = _merchant->is_talking();
                 _merchant->update();
                 
                 // Dynamic z-ordering based on Y position for depth sorting
@@ -153,18 +156,21 @@ namespace fe
             // Check for merchant interaction BEFORE player input
             if (_merchant && _merchant->check_trigger(_player->pos()))
             {
-                if (bn::keypad::a_pressed() && !_merchant->is_talking())
+                if (bn::keypad::a_pressed() && !merchant_was_talking && !_player->listening())
                 {
+                    // Start conversation
                     _player->set_listening(true);
                     _merchant->talk();
                 }
-                else if (!_merchant->is_talking())
+                else if (!_merchant->is_talking() && merchant_was_talking)
                 {
+                    // Conversation just ended
                     _player->set_listening(false);
                 }
             }
-            else
+            else if (_player->listening())
             {
+                // Clear listening state if player moves away
                 _player->set_listening(false);
             }
 
@@ -303,8 +309,8 @@ namespace fe
                     }
                 }
 
-                // Remove dead enemies
-                if (enemy.hp() <= 0)
+                // Remove dead enemies only after death animation completes
+                if (enemy.is_ready_for_removal())
                 {
                     _enemies.erase(_enemies.begin() + i);
                 }

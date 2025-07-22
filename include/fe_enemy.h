@@ -66,6 +66,10 @@ namespace fe
         bool _grounded = false;
         int _inv_timer = 0;
         bool _stunned = false;
+        
+        // Death animation timer
+        int _death_timer = 0;
+        static constexpr int DEATH_ANIMATION_DURATION = 150; // Frames to allow death animation to complete
 
         // Knockback state
         bn::fixed _knockback_dx = 0;
@@ -134,6 +138,7 @@ namespace fe
         bool spotted_player();
         int hp();
         ENEMY_TYPE type();
+        bool is_ready_for_removal(); // Check if dead enemy should be removed
         void _update_spearguard_animation();
         [[nodiscard]] Hitbox get_hitbox() const override
         {
