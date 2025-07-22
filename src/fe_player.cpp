@@ -676,26 +676,6 @@ namespace fe
             }
         }
 
-        // L button cycles through weapons (including no weapon)
-        if (bn::keypad::l_pressed() && !_state.listening() && !performing_action)
-        {
-            if (_gun_active) {
-                // If gun is active, deactivate it
-                _gun_active = false;
-                _gun_sprite.reset();
-            } else {
-                // If no gun, activate it
-                _gun_active = true;
-                _gun_sprite = bn::sprite_items::gun.create_sprite(pos().x(), pos().y());
-                _gun_sprite->set_bg_priority(get_sprite()->bg_priority());
-                _gun_sprite->set_z_order(get_sprite()->z_order() - 1);
-                if (get_sprite()->camera().has_value())
-                {
-                    _gun_sprite->set_camera(get_sprite()->camera().value());
-                    _bullet_manager.set_camera(get_sprite()->camera().value());
-                }
-            }
-        }
 
         // A button handles interaction when not attacking
         if (bn::keypad::a_pressed() && !_gun_active && !_abilities.slashing_available() && !_state.listening() && !performing_action)
