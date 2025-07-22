@@ -152,6 +152,7 @@ namespace fe
         void set_listening(bool listening) { _state.set_listening(listening); }
 
         void set_position(bn::fixed_point pos) override;
+        void update_sprite_position() override;
         void revert_position() override;
         void set_sprite_z_order(int z_order) override { Entity::set_sprite_z_order(z_order); }
         bn::sprite_ptr* sprite() { return get_sprite(); }

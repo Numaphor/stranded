@@ -150,11 +150,11 @@ namespace fe
                 make_anim(12, 10, 11, 12, 13);
                 break;
             case PlayerMovement::Direction::LEFT:
-                _sprite.set_horizontal_flip(false);
+                _sprite.set_horizontal_flip(true);  // Flip when facing left
                 make_anim(12, 6, 7, 8, 9);
                 break;
             case PlayerMovement::Direction::RIGHT:
-                _sprite.set_horizontal_flip(true);
+                _sprite.set_horizontal_flip(false);  // Don't flip when facing right
                 make_anim(12, 6, 7, 8, 9);
                 break;
             default:
@@ -419,10 +419,38 @@ namespace fe
 
     void Player::set_position(bn::fixed_point new_pos)
     {
+        // Call base class to update position
         Entity::set_position(new_pos);
-        // Center hitbox on player - update the Entity's hitbox
-        _hitbox.set_x(new_pos.x() - 8);
-        _hitbox.set_y(new_pos.y() - 16);
+        
+        // Update hitbox position (16x32 hitbox centered on the player)
+        _hitbox.set_x(new_pos.x() - 8);  // Center horizontally (16/2)
+        _hitbox.set_y(new_pos.y() - 16); // Center vertically (32/2)
+        
+        // Update sprite position with offset
+        update_sprite_position();
+    }
+    
+    void Player::update_sprite_position()
+    {
+        if (auto sprite = get_sprite())
+        {
+            // The hero sprite needs a 13-pixel offset to be centered correctly
+            // When facing left (flipped), we need to subtract this offset
+            // When facing right (not flipped), we add the offset
+            constexpr bn::fixed HORIZONTAL_OFFSET = 13;
+            
+            // Get the current position from the base class
+            bn::fixed_point pos = Entity::pos();
+            
+            // Adjust the offset based on the sprite's horizontal flip state
+            bn::fixed x_offset = sprite->horizontal_flip() ? -HORIZONTAL_OFFSET : HORIZONTAL_OFFSET;
+            
+            // Apply the offset to the sprite position
+            sprite->set_position(pos.x() + x_offset, pos.y());
+            
+            // Update z-order based on Y position for proper depth sorting
+            sprite->set_z_order(pos.y().integer());
+        }
     }
 
     void Player::revert_position()
