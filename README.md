@@ -4,7 +4,7 @@ A Game Boy Advance adventure game built with the [Butano](https://github.com/GVa
 
 ## About
 
-Stranded is a top-down action-adventure game where you play as a hero exploring mysterious lands, battling enemies, and uncovering ancient secrets through stone tablets. The game features classic 2D gameplay with modern programming practices, including a sophisticated enemy AI system and immersive storytelling elements.
+Stranded is a top-down action-adventure game where you play as a hero exploring mysterious lands, battling enemies, and uncovering ancient secrets.
 
 ## Features
 
@@ -36,8 +36,9 @@ Stranded is a top-down action-adventure game where you play as a hero exploring 
 ## Controls
 
 - **Arrow Keys / D-Pad** - Move character
-- **A Button** - Interact with objects, read/translate stone tablets
-- **B Button** - Cancel/Exit interactions
+- **A Button** - Interact with objects, take out gun
+- **B Button** - Shoot
+- **START Button** - Cancel/Exit interactions
 - **Up Arrow** - Interact with nearby objects when prompted
 
 ## Build Requirements
@@ -81,40 +82,3 @@ The enemy AI system has been completely refactored to follow SOLID principles:
 - **Single Responsibility** - Each state handles one specific behavior
 - **Open/Closed** - Easy to add new enemy behaviors without modifying existing code
 - **State Machine Pattern** - Clean separation of enemy behaviors into distinct states
-
-## Assets
-
-The game features extensive pixel art assets including:
-- Character sprites with multiple animation frames
-- Environmental tilesets for various biomes
-- UI elements (health bars, minimaps, icons)
-- Story elements (stone tablets, text backgrounds)
-- Multiple enemy and NPC sprites
-
-## Technical Details
-
-- **Platform**: Game Boy Advance
-- **Engine**: Butano (C++ GBA framework)
-- **Graphics**: 4-color bitmap format optimized for GBA hardware
-- **Memory Management**: EWRAM usage for large data structures
-- **Performance**: Optimized for 60 FPS gameplay on GBA hardware
-
-## Contributing
-
-This project follows modern C++ practices and includes:
-- Comprehensive documentation in `ENEMY_STATE_MACHINE_REFACTOR.md`
-- Clean architecture with separated concerns
-- Memory-safe programming with RAII principles
-- Extensive commenting and code organization
-
-## License
-
-[License information to be added]
-
-## Credits
-
-Game development using the Butano engine framework.
-
----
-
-*Experience the mystery of being stranded in an unknown world. Explore, fight, and discover the secrets hidden in ancient stone tablets.*
