@@ -23,6 +23,15 @@ namespace fe
         {
             IDLE,
             WALKING,
+            RUNNING,
+            ROLLING,
+            CHOPPING,
+            SLASHING,
+            ATTACKING,
+            HEAL_BUFF,
+            DEFENCE_BUFF,
+            POWER_BUFF,
+            ENERGY_BUFF,
             HIT,
             DEAD
         };
@@ -50,6 +59,16 @@ namespace fe
         void apply_friction();
         void reset();
         void stop_movement();
+        
+        // New movement methods for enhanced abilities
+        void start_running();
+        void stop_running();
+        void start_rolling();
+        void start_chopping();
+        void start_slashing();
+        void start_attacking();
+        void start_buff(State buff_type);
+        void stop_action(); // Stop any special action and return to normal movement
 
         [[nodiscard]] bn::fixed dx() const { return _dx; }
         [[nodiscard]] bn::fixed dy() const { return _dy; }
@@ -57,18 +76,30 @@ namespace fe
         [[nodiscard]] Direction facing_direction() const { return _facing_direction; }
         [[nodiscard]] bool is_state(State state) const { return _current_state == state; }
         [[nodiscard]] bool is_moving() const { return _dx != 0 || _dy != 0; }
+        [[nodiscard]] bool is_performing_action() const { 
+            return _current_state == State::ROLLING || _current_state == State::CHOPPING || 
+                   _current_state == State::SLASHING || _current_state == State::ATTACKING ||
+                   _current_state == State::HEAL_BUFF || _current_state == State::DEFENCE_BUFF ||
+                   _current_state == State::POWER_BUFF || _current_state == State::ENERGY_BUFF;
+        }
+        [[nodiscard]] int action_timer() const { return _action_timer; }
 
         void set_dx(bn::fixed dx) { _dx = dx; }
         void set_dy(bn::fixed dy) { _dy = dy; }
+        void set_action_timer(int timer) { _action_timer = timer; }
 
         // Update movement state based on current velocity
         void update_movement_state() { update_state(); }
+        
+        // Update action timer
+        void update_action_timer() { if (_action_timer > 0) _action_timer--; }
 
     private:
         bn::fixed _dx;
         bn::fixed _dy;
         State _current_state;
         Direction _facing_direction;
+        int _action_timer = 0; // Timer for actions like rolling, chopping, etc.
 
         void update_state();
     };
@@ -116,6 +147,19 @@ namespace fe
         bool _double_jump_available = true;
         bool _dash_attack_available = true;
         int _dash_attack_cooldown = 0;
+        
+        // New abilities for hero sprite
+        bool _running_available = true;
+        bool _rolling_available = true;
+        bool _chopping_available = true;
+        bool _slashing_available = true;
+        bool _buff_abilities_available = true;
+        
+        // Cooldowns for new abilities
+        int _roll_cooldown = 0;
+        int _chop_cooldown = 0;
+        int _slash_cooldown = 0;
+        int _buff_cooldown = 0;
 
     public:
         [[nodiscard]] bool double_jump_available() const { return _double_jump_available; }
@@ -124,11 +168,52 @@ namespace fe
         void set_dash_attack_available(bool available) { _dash_attack_available = available; }
         [[nodiscard]] int dash_attack_cooldown() const { return _dash_attack_cooldown; }
         void set_dash_attack_cooldown(int cooldown) { _dash_attack_cooldown = cooldown; }
+        
+        // New ability getters/setters
+        [[nodiscard]] bool running_available() const { return _running_available; }
+        void set_running_available(bool available) { _running_available = available; }
+        [[nodiscard]] bool rolling_available() const { return _rolling_available && _roll_cooldown <= 0; }
+        void set_rolling_available(bool available) { _rolling_available = available; }
+        [[nodiscard]] bool chopping_available() const { return _chopping_available && _chop_cooldown <= 0; }
+        void set_chopping_available(bool available) { _chopping_available = available; }
+        [[nodiscard]] bool slashing_available() const { return _slashing_available && _slash_cooldown <= 0; }
+        void set_slashing_available(bool available) { _slashing_available = available; }
+        [[nodiscard]] bool buff_abilities_available() const { return _buff_abilities_available && _buff_cooldown <= 0; }
+        void set_buff_abilities_available(bool available) { _buff_abilities_available = available; }
+        
+        // Cooldown management
+        [[nodiscard]] int roll_cooldown() const { return _roll_cooldown; }
+        void set_roll_cooldown(int cooldown) { _roll_cooldown = cooldown; }
+        [[nodiscard]] int chop_cooldown() const { return _chop_cooldown; }
+        void set_chop_cooldown(int cooldown) { _chop_cooldown = cooldown; }
+        [[nodiscard]] int slash_cooldown() const { return _slash_cooldown; }
+        void set_slash_cooldown(int cooldown) { _slash_cooldown = cooldown; }
+        [[nodiscard]] int buff_cooldown() const { return _buff_cooldown; }
+        void set_buff_cooldown(int cooldown) { _buff_cooldown = cooldown; }
+        
+        // Update cooldowns
+        void update_cooldowns()
+        {
+            if (_roll_cooldown > 0) _roll_cooldown--;
+            if (_chop_cooldown > 0) _chop_cooldown--;
+            if (_slash_cooldown > 0) _slash_cooldown--;
+            if (_buff_cooldown > 0) _buff_cooldown--;
+        }
+        
         void reset()
         {
             _double_jump_available = true;
             _dash_attack_available = true;
             _dash_attack_cooldown = 0;
+            _running_available = true;
+            _rolling_available = true;
+            _chopping_available = true;
+            _slashing_available = true;
+            _buff_abilities_available = true;
+            _roll_cooldown = 0;
+            _chop_cooldown = 0;
+            _slash_cooldown = 0;
+            _buff_cooldown = 0;
         }
     };
 
@@ -187,6 +272,7 @@ namespace fe
             _reset_required = false;
             _state.reset();
             _movement.reset();
+            _abilities.reset();
             _healthbar.set_hp(_hp);
             _healthbar.update();
             set_visible(true);
@@ -211,6 +297,7 @@ namespace fe
         PlayerMovement _movement;
         PlayerAnimation _animation;
         PlayerState _state;
+        PlayerAbilities _abilities;
         int _hp = 3;
         bool _reset_required = false;
         fe::Healthbar _healthbar;

@@ -65,6 +65,7 @@ namespace fe
         _dy = 0;
         _current_state = State::IDLE;
         _facing_direction = Direction::DOWN;
+        _action_timer = 0;
     }
 
     void PlayerMovement::stop_movement()
@@ -76,14 +77,85 @@ namespace fe
 
     void PlayerMovement::update_state()
     {
+        // Don't change state if we're performing an action with a timer
+        if (_action_timer > 0)
+        {
+            return;
+        }
+        
         if (bn::abs(_dx) > movement_threshold || bn::abs(_dy) > movement_threshold)
         {
-            _current_state = State::WALKING;
+            // Default to walking if moving, can be overridden by other methods
+            if (_current_state == State::IDLE || _current_state == State::WALKING || _current_state == State::RUNNING)
+            {
+                _current_state = State::WALKING;
+            }
         }
         else
         {
-            _current_state = State::IDLE;
+            // Only return to idle if not performing an action
+            if (_current_state == State::WALKING || _current_state == State::RUNNING)
+            {
+                _current_state = State::IDLE;
+            }
         }
+    }
+
+    // New movement methods implementation
+    void PlayerMovement::start_running()
+    {
+        if (_current_state == State::WALKING || _current_state == State::IDLE)
+        {
+            _current_state = State::RUNNING;
+        }
+    }
+
+    void PlayerMovement::stop_running()
+    {
+        if (_current_state == State::RUNNING)
+        {
+            update_state(); // Will set to WALKING or IDLE based on movement
+        }
+    }
+
+    void PlayerMovement::start_rolling()
+    {
+        _current_state = State::ROLLING;
+        _action_timer = 30; // 0.5 seconds at 60 FPS
+    }
+
+    void PlayerMovement::start_chopping()
+    {
+        _current_state = State::CHOPPING;
+        _action_timer = 20; // ~0.33 seconds at 60 FPS
+    }
+
+    void PlayerMovement::start_slashing()
+    {
+        _current_state = State::SLASHING;
+        _action_timer = 25; // ~0.4 seconds at 60 FPS
+    }
+
+    void PlayerMovement::start_attacking()
+    {
+        _current_state = State::ATTACKING;
+        _action_timer = 30; // 0.5 seconds at 60 FPS
+    }
+
+    void PlayerMovement::start_buff(State buff_type)
+    {
+        if (buff_type == State::HEAL_BUFF || buff_type == State::DEFENCE_BUFF || 
+            buff_type == State::POWER_BUFF || buff_type == State::ENERGY_BUFF)
+        {
+            _current_state = buff_type;
+            _action_timer = 90; // 1.5 seconds at 60 FPS for buff animations
+        }
+    }
+
+    void PlayerMovement::stop_action()
+    {
+        _action_timer = 0;
+        update_state();
     }
 
     // PlayerAnimation Implementation
@@ -106,19 +178,65 @@ namespace fe
         if (!should_change && _animation)
         {
             const auto &indexes = _animation->graphics_indexes();
+            int current_frame = indexes.front();
+            
+            // Check if we need to change animation based on new state and frame ranges
             switch (state)
             {
             case PlayerMovement::State::DEAD:
-                should_change = indexes.front() != 28;
+                should_change = (current_frame < 234 || current_frame > 246);
                 break;
             case PlayerMovement::State::HIT:
-                should_change = indexes.front() != 26;
+                // Use a substitute animation for hit - could use a frame from another animation
+                should_change = (current_frame < 0 || current_frame > 12); // Use idle_down frames for hit
+                break;
+            case PlayerMovement::State::IDLE:
+                switch (direction)
+                {
+                case PlayerMovement::Direction::DOWN:
+                    should_change = (current_frame < 0 || current_frame > 12);
+                    break;
+                case PlayerMovement::Direction::LEFT:
+                case PlayerMovement::Direction::RIGHT:
+                    should_change = (current_frame < 144 || current_frame > 155);
+                    break;
+                case PlayerMovement::Direction::UP:
+                    should_change = (current_frame < 187 || current_frame > 198);
+                    break;
+                }
                 break;
             case PlayerMovement::State::WALKING:
-                should_change = true;
+                switch (direction)
+                {
+                case PlayerMovement::Direction::DOWN:
+                    should_change = (current_frame < 109 || current_frame > 116);
+                    break;
+                case PlayerMovement::Direction::LEFT:
+                case PlayerMovement::Direction::RIGHT:
+                    should_change = (current_frame < 156 || current_frame > 163);
+                    break;
+                case PlayerMovement::Direction::UP:
+                    should_change = (current_frame < 199 || current_frame > 206);
+                    break;
+                }
+                break;
+            case PlayerMovement::State::RUNNING:
+                switch (direction)
+                {
+                case PlayerMovement::Direction::DOWN:
+                    should_change = (current_frame < 117 || current_frame > 124);
+                    break;
+                case PlayerMovement::Direction::LEFT:
+                case PlayerMovement::Direction::RIGHT:
+                    should_change = (current_frame < 164 || current_frame > 171);
+                    break;
+                case PlayerMovement::Direction::UP:
+                    should_change = (current_frame < 207 || current_frame > 214);
+                    break;
+                }
                 break;
             default:
-                should_change = indexes.front() >= 4;
+                should_change = true; // Force change for new states
                 break;
             }
         }
@@ -126,8 +244,16 @@ namespace fe
         if (!should_change)
             return;
 
-        auto make_anim = [&](int speed, int f0, int f1, int f2, int f3)
+        // Create animation based on state and direction using new frame ranges
+        auto make_anim_range = [&](int speed, int start_frame, int end_frame)
         {
+            // Calculate how many frames we need (up to 4 for the animation action)
+            int frame_count = (end_frame - start_frame + 1);
+            int f0 = start_frame;
+            int f1 = (frame_count > 1) ? start_frame + 1 : start_frame;
+            int f2 = (frame_count > 2) ? start_frame + 2 : f1;
+            int f3 = (frame_count > 3) ? start_frame + 3 : f2;
+            
             _animation = bn::create_sprite_animate_action_forever(
                 _sprite, speed, bn::sprite_items::hero.tiles_item(), f0, f1, f2, f3);
         };
@@ -135,41 +261,160 @@ namespace fe
         switch (state)
         {
         case PlayerMovement::State::DEAD:
-            make_anim(6, 28, 28, 28, 29);
+            make_anim_range(6, 234, 246); // death: 234-246
             break;
         case PlayerMovement::State::HIT:
-            make_anim(6, 26, 26, 26, 27);
+            // Use first few frames of idle_down for hit effect
+            make_anim_range(6, 0, 3);
+            break;
+        case PlayerMovement::State::HEAL_BUFF:
+            make_anim_range(4, 13, 36); // heal_buff: 13-36
+            break;
+        case PlayerMovement::State::DEFENCE_BUFF:
+            make_anim_range(4, 37, 60); // defence_buff: 37-60
+            break;
+        case PlayerMovement::State::POWER_BUFF:
+            make_anim_range(4, 61, 84); // power_buff: 61-84
+            break;
+        case PlayerMovement::State::ENERGY_BUFF:
+            make_anim_range(4, 85, 108); // energy_buff: 85-108
+            break;
+        case PlayerMovement::State::ROLLING:
+            switch (direction)
+            {
+            case PlayerMovement::Direction::DOWN:
+                make_anim_range(8, 136, 143); // roll_down: 136-143
+                break;
+            case PlayerMovement::Direction::UP:
+                make_anim_range(8, 226, 233); // roll_up: 226-233
+                break;
+            case PlayerMovement::Direction::LEFT:
+                _sprite.set_horizontal_flip(true);
+                make_anim_range(8, 172, 177); // lr_roll: 172-177
+                break;
+            case PlayerMovement::Direction::RIGHT:
+                _sprite.set_horizontal_flip(false);
+                make_anim_range(8, 172, 177); // lr_roll: 172-177
+                break;
+            }
+            break;
+        case PlayerMovement::State::CHOPPING:
+            switch (direction)
+            {
+            case PlayerMovement::Direction::DOWN:
+                make_anim_range(10, 125, 128); // chop_down: 125-128
+                break;
+            case PlayerMovement::Direction::UP:
+                make_anim_range(10, 215, 218); // chop_up: 215-218
+                break;
+            case PlayerMovement::Direction::LEFT:
+            case PlayerMovement::Direction::RIGHT:
+                // No left/right chop, use slash instead
+                _sprite.set_horizontal_flip(direction == PlayerMovement::Direction::LEFT);
+                make_anim_range(10, 178, 181); // lr_slash: 178-181
+                break;
+            }
+            break;
+        case PlayerMovement::State::SLASHING:
+            switch (direction)
+            {
+            case PlayerMovement::Direction::DOWN:
+                make_anim_range(8, 129, 135); // slash_down: 129-135
+                break;
+            case PlayerMovement::Direction::UP:
+                make_anim_range(8, 219, 225); // attack_up: 219-225 (using as slash_up)
+                break;
+            case PlayerMovement::Direction::LEFT:
+                _sprite.set_horizontal_flip(true);
+                make_anim_range(8, 178, 181); // lr_slash: 178-181
+                break;
+            case PlayerMovement::Direction::RIGHT:
+                _sprite.set_horizontal_flip(false);
+                make_anim_range(8, 178, 181); // lr_slash: 178-181
+                break;
+            }
+            break;
+        case PlayerMovement::State::ATTACKING:
+            switch (direction)
+            {
+            case PlayerMovement::Direction::DOWN:
+                make_anim_range(8, 129, 135); // Use slash_down for attack_down
+                break;
+            case PlayerMovement::Direction::UP:
+                make_anim_range(8, 219, 225); // attack_up: 219-225
+                break;
+            case PlayerMovement::Direction::LEFT:
+                _sprite.set_horizontal_flip(true);
+                make_anim_range(8, 182, 186); // lr_slash second variant: 182-186
+                break;
+            case PlayerMovement::Direction::RIGHT:
+                _sprite.set_horizontal_flip(false);
+                make_anim_range(8, 182, 186); // lr_slash second variant: 182-186
+                break;
+            }
+            break;
+        case PlayerMovement::State::RUNNING:
+            switch (direction)
+            {
+            case PlayerMovement::Direction::DOWN:
+                make_anim_range(8, 117, 124); // run_down: 117-124
+                break;
+            case PlayerMovement::Direction::UP:
+                make_anim_range(8, 207, 214); // run_up: 207-214
+                break;
+            case PlayerMovement::Direction::LEFT:
+                _sprite.set_horizontal_flip(true);
+                make_anim_range(8, 164, 171); // lr_run: 164-171
+                break;
+            case PlayerMovement::Direction::RIGHT:
+                _sprite.set_horizontal_flip(false);
+                make_anim_range(8, 164, 171); // lr_run: 164-171
+                break;
+            }
             break;
         case PlayerMovement::State::WALKING:
             switch (direction)
             {
-            case PlayerMovement::Direction::UP:
-                make_anim(12, 18, 19, 20, 21);
-                break;
             case PlayerMovement::Direction::DOWN:
-                make_anim(12, 10, 11, 12, 13);
+                make_anim_range(12, 109, 116); // move_down: 109-116
+                break;
+            case PlayerMovement::Direction::UP:
+                make_anim_range(12, 199, 206); // move_up: 199-206
                 break;
             case PlayerMovement::Direction::LEFT:
-                _sprite.set_horizontal_flip(true);  // Flip when facing left
-                make_anim(12, 6, 7, 8, 9);
+                _sprite.set_horizontal_flip(true);
+                make_anim_range(12, 156, 163); // lr_move: 156-163
                 break;
             case PlayerMovement::Direction::RIGHT:
-                _sprite.set_horizontal_flip(false);  // Don't flip when facing right
-                make_anim(12, 6, 7, 8, 9);
-                break;
-            default:
-                make_anim(12, 10, 11, 12, 13);
+                _sprite.set_horizontal_flip(false);
+                make_anim_range(12, 156, 163); // lr_move: 156-163
                 break;
             }
             break;
-        default:
-            make_anim(12, 2, 3, 4, 5);
+        default: // IDLE
+            switch (direction)
+            {
+            case PlayerMovement::Direction::DOWN:
+                make_anim_range(12, 0, 12); // idle_down: 0-12
+                break;
+            case PlayerMovement::Direction::UP:
+                make_anim_range(12, 187, 198); // idle_up: 187-198
+                break;
+            case PlayerMovement::Direction::LEFT:
+                _sprite.set_horizontal_flip(true);
+                make_anim_range(12, 144, 155); // lr_idle: 144-155
+                break;
+            case PlayerMovement::Direction::RIGHT:
+                _sprite.set_horizontal_flip(false);
+                make_anim_range(12, 144, 155); // lr_idle: 144-155
+                break;
+            }
             break;
         }
     }
 
     // PlayerMovement Implementation
-    PlayerMovement::PlayerMovement() : _dx(0), _dy(0), _current_state(State::IDLE), _facing_direction(Direction::DOWN)
+    PlayerMovement::PlayerMovement() : _dx(0), _dy(0), _current_state(State::IDLE), _facing_direction(Direction::DOWN), _action_timer(0)
     {
     }
 
@@ -226,12 +471,15 @@ namespace fe
             return;
         }
 
+        // Don't process most inputs while performing actions
+        bool performing_action = _movement.is_performing_action();
+
         bool was_moving = _movement.is_moving();
         auto old_direction = _movement.facing_direction();
         auto old_state = _movement.current_state();
 
-        // Check if R key is pressed to start strafing
-        if (bn::keypad::r_pressed())
+        // Check if R key is pressed to start strafing (only when not performing action)
+        if (!performing_action && bn::keypad::r_pressed())
         {
             _is_strafing = true;
             _strafing_direction = _movement.facing_direction();
@@ -242,62 +490,148 @@ namespace fe
             _is_strafing = false;
         }
 
-        // Store movement input
-        bool moving_right = bn::keypad::right_held();
-        bool moving_left = bn::keypad::left_held();
-        bool moving_up = bn::keypad::up_held();
-        bool moving_down = bn::keypad::down_held();
-
-        // Apply movement based on strafing state
-        if (_is_strafing)
+        // New ability inputs (can be performed during movement but not during other actions)
+        if (!performing_action)
         {
-            // When strafing, use the stored direction for facing
-            // but still allow movement in all directions
-            if (moving_right)
+            // X button for rolling
+            if (bn::keypad::x_pressed() && _abilities.rolling_available())
             {
-                _movement.set_dx(bn::clamp(_movement.dx() + _movement.acc_const, -_movement.max_speed, _movement.max_speed));
+                _movement.start_rolling();
+                _abilities.set_roll_cooldown(120); // 2 seconds cooldown
+                performing_action = true;
             }
-            else if (moving_left)
+            // Y button for chopping/slashing (alternate between them)
+            else if (bn::keypad::y_pressed())
             {
-                _movement.set_dx(bn::clamp(_movement.dx() - _movement.acc_const, -_movement.max_speed, _movement.max_speed));
+                static bool use_chop = true;
+                if (use_chop && _abilities.chopping_available())
+                {
+                    _movement.start_chopping();
+                    _abilities.set_chop_cooldown(60); // 1 second cooldown
+                    use_chop = false;
+                }
+                else if (_abilities.slashing_available())
+                {
+                    _movement.start_slashing();
+                    _abilities.set_slash_cooldown(60); // 1 second cooldown
+                    use_chop = true;
+                }
+                performing_action = true;
             }
-
-            if (moving_up)
+            // L button for special attack
+            else if (bn::keypad::l_pressed() && _abilities.slashing_available())
             {
-                _movement.set_dy(bn::clamp(_movement.dy() - _movement.acc_const, -_movement.max_speed, _movement.max_speed));
+                _movement.start_attacking();
+                _abilities.set_slash_cooldown(90); // 1.5 seconds cooldown
+                performing_action = true;
             }
-            else if (moving_down)
+            // Buff abilities - Select + directional
+            else if (bn::keypad::select_held() && _abilities.buff_abilities_available())
             {
-                _movement.set_dy(bn::clamp(_movement.dy() + _movement.acc_const, -_movement.max_speed, _movement.max_speed));
+                if (bn::keypad::up_pressed())
+                {
+                    _movement.start_buff(PlayerMovement::State::HEAL_BUFF);
+                    _abilities.set_buff_cooldown(300); // 5 seconds cooldown
+                    performing_action = true;
+                }
+                else if (bn::keypad::down_pressed())
+                {
+                    _movement.start_buff(PlayerMovement::State::DEFENCE_BUFF);
+                    _abilities.set_buff_cooldown(300);
+                    performing_action = true;
+                }
+                else if (bn::keypad::left_pressed())
+                {
+                    _movement.start_buff(PlayerMovement::State::POWER_BUFF);
+                    _abilities.set_buff_cooldown(300);
+                    performing_action = true;
+                }
+                else if (bn::keypad::right_pressed())
+                {
+                    _movement.start_buff(PlayerMovement::State::ENERGY_BUFF);
+                    _abilities.set_buff_cooldown(300);
+                    performing_action = true;
+                }
             }
-
-            // Update movement state but keep facing direction
-            _movement.update_movement_state();
         }
-        else
+
+        // Movement input (only when not performing actions)
+        if (!performing_action)
         {
-            // Normal movement - changes facing direction
-            if (moving_right)
-            {
-                _movement.move_right();
-            }
-            else if (moving_left)
-            {
-                _movement.move_left();
-            }
+            // Store movement input
+            bool moving_right = bn::keypad::right_held();
+            bool moving_left = bn::keypad::left_held();
+            bool moving_up = bn::keypad::up_held();
+            bool moving_down = bn::keypad::down_held();
 
-            if (moving_up)
+            // Check for running (hold Start button while moving)
+            bool should_run = bn::keypad::start_held() && _abilities.running_available();
+
+            // Apply movement based on strafing state
+            if (_is_strafing)
             {
-                _movement.move_up();
+                // When strafing, use the stored direction for facing
+                // but still allow movement in all directions
+                if (moving_right)
+                {
+                    _movement.set_dx(bn::clamp(_movement.dx() + _movement.acc_const, -_movement.max_speed, _movement.max_speed));
+                }
+                else if (moving_left)
+                {
+                    _movement.set_dx(bn::clamp(_movement.dx() - _movement.acc_const, -_movement.max_speed, _movement.max_speed));
+                }
+
+                if (moving_up)
+                {
+                    _movement.set_dy(bn::clamp(_movement.dy() - _movement.acc_const, -_movement.max_speed, _movement.max_speed));
+                }
+                else if (moving_down)
+                {
+                    _movement.set_dy(bn::clamp(_movement.dy() + _movement.acc_const, -_movement.max_speed, _movement.max_speed));
+                }
+
+                // Update movement state but keep facing direction
+                _movement.update_movement_state();
+                if (should_run && _movement.is_moving())
+                {
+                    _movement.start_running();
+                }
             }
-            else if (moving_down)
+            else
             {
-                _movement.move_down();
+                // Normal movement - changes facing direction
+                if (moving_right)
+                {
+                    _movement.move_right();
+                }
+                else if (moving_left)
+                {
+                    _movement.move_left();
+                }
+
+                if (moving_up)
+                {
+                    _movement.move_up();
+                }
+                else if (moving_down)
+                {
+                    _movement.move_down();
+                }
+
+                // Set running state after movement
+                if (should_run && _movement.is_moving())
+                {
+                    _movement.start_running();
+                }
+                else if (!should_run && _movement.is_state(PlayerMovement::State::RUNNING))
+                {
+                    _movement.stop_running();
+                }
             }
         }
 
-        // Check A button for gun toggle (but not when listening to NPCs)
-        if (bn::keypad::a_pressed() && !_state.listening())
+        // Check A button for gun toggle (but not when listening to NPCs or performing actions)
+        if (bn::keypad::a_pressed() && !_state.listening() && !performing_action)
         {
             _gun_active = !_gun_active;
 
@@ -325,8 +659,8 @@ namespace fe
             }
         }
 
-        // Check B button for firing bullets when gun is active
-        if (_gun_active && bn::keypad::b_held())
+        // Check B button for firing bullets when gun is active (allowed during movement)
+        if (_gun_active && bn::keypad::b_held() && !performing_action)
         {
             // Use strafing direction if strafing, otherwise use movement direction
             PlayerMovement::Direction bullet_dir = _is_strafing ? _strafing_direction : _movement.facing_direction();
@@ -341,8 +675,11 @@ namespace fe
             update_gun_position(gun_dir);
         }
 
-        // Apply friction when not holding movement keys
-        _movement.apply_friction();
+        // Apply friction when not holding movement keys and not performing action
+        if (!performing_action)
+        {
+            _movement.apply_friction();
+        }
 
         // Update animation if any movement state changed
         if (was_moving != _movement.is_moving() ||
@@ -361,6 +698,16 @@ namespace fe
         if (!_state.listening())
         {
             update_physics();
+        }
+
+        // Update action timer and abilities cooldowns
+        _movement.update_action_timer();
+        _abilities.update_cooldowns();
+        
+        // Check if action is finished and return to normal state
+        if (_movement.is_performing_action() && _movement.action_timer() <= 0)
+        {
+            _movement.stop_action();
         }
 
         // --- Robust collision check for all corners ---
