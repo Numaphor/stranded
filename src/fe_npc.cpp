@@ -195,7 +195,7 @@ namespace fe
         _currentLine = 0;
         _has_spoken_once = true;
         _text_sprites.clear();
-        _is_near_player = false; // Ensure we reset the near player state
+        // Don't reset _is_near_player here - let the scene world handle listening state properly
     }
 
 }
