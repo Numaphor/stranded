@@ -192,6 +192,12 @@ namespace fe
             _bullet_manager.clear_bullets();
         }
 
+        // Reset player movement state (position remains unchanged)
+        void reset_movement()
+        {
+            _movement.reset();
+        }
+
         // Returns list of active bullets for collision checking
         [[nodiscard]] const bn::vector<Bullet, 32> &bullets() const { return _bullet_manager.bullets(); }
 

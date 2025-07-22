@@ -28,23 +28,24 @@ namespace fe
 
         if (_is_talking)
         {
-            if (_currentChar == _lines.at(_currentLine).size() * 2)
+            // Only process input if we're not waiting for the last line to finish
+            if (_currentChar >= _lines.at(_currentLine).size() * 2)
             {
-                if (bn::keypad::up_pressed() || bn::keypad::a_pressed() || bn::keypad::a_held() || bn::keypad::up_held())
+                if (bn::keypad::up_pressed() || bn::keypad::a_pressed())
                 {
                     if (_currentLine == _lines.size() - 1)
                     {
-                        _is_talking = false;
-                        _currentChars = "";
-                        _currentChar = 0;
-                        _currentLine = 0;
-                        _has_spoken_once = true;
+                        // End conversation after last line
+                        end_conversation();
+                        return;
                     }
                     else
                     {
+                        // Move to next line
                         bn::sound_items::hello.play();
                         _currentLine += 1;
                         _currentChar = 0;
+                        _currentChars = "";
                     }
                 }
                 else if (bn::keypad::start_pressed())
@@ -66,24 +67,54 @@ namespace fe
                     _currentLine = 0;
                     _has_spoken_once = true;
                 }
-                else if (bn::keypad::a_pressed() || bn::keypad::up_pressed())
+                else if ((bn::keypad::a_pressed() || bn::keypad::up_pressed()))
                 {
-                    // Skip to end of current line when A or UP is pressed
-                    _currentChar = _lines.at(_currentLine).size() * 2;
+                    // If text is still being displayed, skip to end of current line
+                    if (_currentChar < _lines.at(_currentLine).size() * 2) {
+                        _currentChar = _lines.at(_currentLine).size() * 2;
+                        _currentChars = _lines.at(_currentLine); // Show full line immediately
+                        _last_char_count = _currentChars.size();
+                    }
                 }
                 
-                int char_count = (_currentChar / 2) + 1;
-                if (char_count != _last_char_count) {
-                    _currentChars = _lines.at(_currentLine).substr(0, char_count);
-                    _last_char_count = char_count;
-                }
-                if (bn::keypad::a_held() || bn::keypad::up_held())
-                {
-                    _currentChar += 2;
-                }
-                else
-                {
-                    ++_currentChar;
+                // Only auto-advance text if we're not already at the end
+                if (_currentChar < _lines.at(_currentLine).size() * 2) {
+                    int char_count = (_currentChar / 2) + 1;
+                    if (char_count != _last_char_count) {
+                        _currentChars = _lines.at(_currentLine).substr(0, char_count);
+                        _last_char_count = char_count;
+                    }
+                    
+                    // Always advance text, but faster when A/UP is held
+                    static int hold_counter = 0;
+                    bool should_advance = false;
+                    
+                    if (bn::keypad::a_held() || bn::keypad::up_held()) {
+                        // Faster text advancement when holding A/UP
+                        if (++hold_counter >= 2) {  // Adjust this number for desired speed
+                            should_advance = true;
+                            hold_counter = 0;
+                        }
+                    } else {
+                        // Normal speed when not holding
+                        hold_counter = 0;
+                        should_advance = true;
+                    }
+                    
+                    if (should_advance) {
+                        ++_currentChar;
+                        
+                        // Check if we've reached the end of a line
+                        if (_currentChar >= _lines.at(_currentLine).size() * 2) {
+                            // If this is the last line, wait for player input
+                            if (_currentLine == _lines.size() - 1) {
+                                _currentChars = _lines.at(_currentLine); // Make sure full line is shown
+                                _last_char_count = _currentChars.size();
+                                // Reset character counter to prevent auto-advancing
+                                _currentChar = _lines.at(_currentLine).size() * 2;
+                            }
+                        }
+                    }
                 }
             }
             _text_generator.set_left_alignment();
@@ -126,8 +157,15 @@ namespace fe
 
     void NPC::talk()
     {
-        _is_talking = true;
-        bn::sound_items::hello.play();
+        // Only start talking if we're not already in the middle of a conversation
+        if (!_is_talking) {
+            _is_talking = true;
+            _currentLine = 0;
+            _currentChar = 0;
+            _currentChars = "";
+            _has_spoken_once = true;
+            bn::sound_items::hello.play();
+        }
     }
 
     bool NPC::is_talking()
@@ -147,6 +185,17 @@ namespace fe
     bool NPC::hidden()
     {
         return _hidden;
+    }
+
+    void NPC::end_conversation()
+    {
+        _is_talking = false;
+        _currentChars = "";
+        _currentChar = 0;
+        _currentLine = 0;
+        _has_spoken_once = true;
+        _text_sprites.clear();
+        _is_near_player = false; // Ensure we reset the near player state
     }
 
 }

@@ -58,6 +58,10 @@ namespace fe
         bool finished_talking();
         void set_is_hidden(bool is_hidden);
         bool hidden();
+        
+    private:
+        // Private helper methods
+        void end_conversation();
 
     protected:
         // Virtual methods for derived classes to override

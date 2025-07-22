@@ -153,18 +153,23 @@ namespace fe
             // Check for merchant interaction BEFORE player input
             if (_merchant && _merchant->check_trigger(_player->pos()))
             {
-                if (bn::keypad::a_pressed() && !_merchant->is_talking())
+                bool was_talking = _merchant->is_talking();
+                
+                if (bn::keypad::a_pressed() && !was_talking && !_player->listening())
                 {
+                    // Start conversation
                     _player->set_listening(true);
                     _merchant->talk();
                 }
-                else if (!_merchant->is_talking())
+                else if (!_merchant->is_talking() && was_talking)
                 {
+                    // Conversation just ended
                     _player->set_listening(false);
                 }
             }
-            else
+            else if (_player->listening())
             {
+                // Clear listening state if player moves away
                 _player->set_listening(false);
             }
 

@@ -382,7 +382,11 @@ namespace fe
             _sprite->set_horizontal_flip(_dx < 0);
             if (_action.has_value())
             {
-                _action->update();
+                // Only update action if it's not done (prevents error with completed "once" animations)
+                if (!_action->done())
+                {
+                    _action->update();
+                }
             }
         }
         
