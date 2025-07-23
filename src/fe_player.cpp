@@ -793,7 +793,42 @@ namespace fe
 
     void Player::update_physics()
     {
-        set_position(pos() + bn::fixed_point(_movement.dx(), _movement.dy()));
+        // Get current position and movement deltas
+        bn::fixed_point new_pos = pos() + bn::fixed_point(_movement.dx(), _movement.dy());
+        
+        // Apply roll movement if in rolling state
+        if (_movement.current_state() == PlayerMovement::State::ROLLING)
+        {
+            // Calculate roll speed (slightly faster than walking but not too fast)
+            bn::fixed roll_speed = 1.2;
+            bn::fixed roll_x = 0;
+            bn::fixed roll_y = 0;
+            
+            // Get movement direction based on facing direction
+            switch (_movement.facing_direction())
+            {
+                case PlayerMovement::Direction::UP:
+                    roll_y = -roll_speed;
+                    break;
+                case PlayerMovement::Direction::DOWN:
+                    roll_y = roll_speed;
+                    break;
+                case PlayerMovement::Direction::LEFT:
+                    roll_x = -roll_speed;
+                    break;
+                case PlayerMovement::Direction::RIGHT:
+                    roll_x = roll_speed;
+                    break;
+                default:
+                    break;
+            }
+            
+            // Apply roll movement
+            new_pos.set_x(new_pos.x() + roll_x);
+            new_pos.set_y(new_pos.y() + roll_y);
+        }
+        
+        set_position(new_pos);
     }
 
     void Player::set_position(bn::fixed_point new_pos)
@@ -882,7 +917,7 @@ namespace fe
         // Calculate bullet starting position (gun tip)
         const int idx = int(direction);
         constexpr bn::fixed bullet_offsets_x[4] = {0, 0, -12, 12};
-        constexpr bn::fixed bullet_offsets_y[4] = {-12, 12, 0, 0};
+        constexpr bn::fixed bullet_offsets_y[4] = {-15, 15, -3, -3};  // Increased height by 3 pixels
 
         bn::fixed_point bullet_pos(
             pos().x() + bullet_offsets_x[idx],
