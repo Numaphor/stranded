@@ -59,7 +59,7 @@ namespace fe
         void apply_friction();
         void reset();
         void stop_movement();
-        
+
         // New movement methods for enhanced abilities
         void start_running();
         void stop_running();
@@ -76,8 +76,9 @@ namespace fe
         [[nodiscard]] Direction facing_direction() const { return _facing_direction; }
         [[nodiscard]] bool is_state(State state) const { return _current_state == state; }
         [[nodiscard]] bool is_moving() const { return _dx != 0 || _dy != 0; }
-        [[nodiscard]] bool is_performing_action() const { 
-            return _current_state == State::ROLLING || _current_state == State::CHOPPING || 
+        [[nodiscard]] bool is_performing_action() const
+        {
+            return _current_state == State::ROLLING || _current_state == State::CHOPPING ||
                    _current_state == State::SLASHING || _current_state == State::ATTACKING ||
                    _current_state == State::HEAL_BUFF || _current_state == State::DEFENCE_BUFF ||
                    _current_state == State::POWER_BUFF || _current_state == State::ENERGY_BUFF;
@@ -90,9 +91,13 @@ namespace fe
 
         // Update movement state based on current velocity
         void update_movement_state() { update_state(); }
-        
+
         // Update action timer
-        void update_action_timer() { if (_action_timer > 0) _action_timer--; }
+        void update_action_timer()
+        {
+            if (_action_timer > 0)
+                _action_timer--;
+        }
 
     private:
         bn::fixed _dx;
@@ -147,14 +152,14 @@ namespace fe
         bool _double_jump_available = true;
         bool _dash_attack_available = true;
         int _dash_attack_cooldown = 0;
-        
+
         // New abilities for hero sprite
         bool _running_available = true;
         bool _rolling_available = true;
         bool _chopping_available = true;
         bool _slashing_available = true;
         bool _buff_abilities_available = true;
-        
+
         // Cooldowns for new abilities
         int _roll_cooldown = 0;
         int _chop_cooldown = 0;
@@ -168,7 +173,7 @@ namespace fe
         void set_dash_attack_available(bool available) { _dash_attack_available = available; }
         [[nodiscard]] int dash_attack_cooldown() const { return _dash_attack_cooldown; }
         void set_dash_attack_cooldown(int cooldown) { _dash_attack_cooldown = cooldown; }
-        
+
         // New ability getters/setters
         [[nodiscard]] bool running_available() const { return _running_available; }
         void set_running_available(bool available) { _running_available = available; }
@@ -180,7 +185,7 @@ namespace fe
         void set_slashing_available(bool available) { _slashing_available = available; }
         [[nodiscard]] bool buff_abilities_available() const { return _buff_abilities_available && _buff_cooldown <= 0; }
         void set_buff_abilities_available(bool available) { _buff_abilities_available = available; }
-        
+
         // Cooldown management
         [[nodiscard]] int roll_cooldown() const { return _roll_cooldown; }
         void set_roll_cooldown(int cooldown) { _roll_cooldown = cooldown; }
@@ -190,16 +195,20 @@ namespace fe
         void set_slash_cooldown(int cooldown) { _slash_cooldown = cooldown; }
         [[nodiscard]] int buff_cooldown() const { return _buff_cooldown; }
         void set_buff_cooldown(int cooldown) { _buff_cooldown = cooldown; }
-        
+
         // Update cooldowns
         void update_cooldowns()
         {
-            if (_roll_cooldown > 0) _roll_cooldown--;
-            if (_chop_cooldown > 0) _chop_cooldown--;
-            if (_slash_cooldown > 0) _slash_cooldown--;
-            if (_buff_cooldown > 0) _buff_cooldown--;
+            if (_roll_cooldown > 0)
+                _roll_cooldown--;
+            if (_chop_cooldown > 0)
+                _chop_cooldown--;
+            if (_slash_cooldown > 0)
+                _slash_cooldown--;
+            if (_buff_cooldown > 0)
+                _buff_cooldown--;
         }
-        
+
         void reset()
         {
             _double_jump_available = true;
@@ -240,7 +249,7 @@ namespace fe
         void update_sprite_position() override;
         void revert_position() override;
         void set_sprite_z_order(int z_order) override { Entity::set_sprite_z_order(z_order); }
-        bn::sprite_ptr* sprite() { return get_sprite(); }
+        bn::sprite_ptr *sprite() { return get_sprite(); }
 
         [[nodiscard]] int get_hp() const { return _hp; }
         void take_damage(int damage)

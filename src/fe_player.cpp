@@ -84,7 +84,7 @@ namespace fe
         {
             return;
         }
-        
+
         if (bn::abs(_dx) > movement_threshold || bn::abs(_dy) > movement_threshold)
         {
             // Default to walking if moving, can be overridden by other methods
@@ -146,7 +146,7 @@ namespace fe
 
     void PlayerMovement::start_buff(State buff_type)
     {
-        if (buff_type == State::HEAL_BUFF || buff_type == State::DEFENCE_BUFF || 
+        if (buff_type == State::HEAL_BUFF || buff_type == State::DEFENCE_BUFF ||
             buff_type == State::POWER_BUFF || buff_type == State::ENERGY_BUFF)
         {
             _current_state = buff_type;
@@ -157,7 +157,7 @@ namespace fe
     void PlayerMovement::stop_action()
     {
         _action_timer = 0;
-        
+
         // Reset to appropriate state based on movement
         if (bn::abs(_dx) > movement_threshold || bn::abs(_dy) > movement_threshold)
         {
@@ -167,7 +167,7 @@ namespace fe
         {
             _current_state = State::IDLE;
         }
-        
+
         // Ensure the state is properly updated
         update_state();
     }
@@ -193,7 +193,7 @@ namespace fe
         {
             const auto &indexes = _animation->graphics_indexes();
             int current_frame = indexes.front();
-            
+
             // Check if we need to change animation based on new state and frame ranges
             switch (state)
             {
@@ -212,7 +212,8 @@ namespace fe
                     break;
                 case PlayerMovement::Direction::LEFT:
                 case PlayerMovement::Direction::RIGHT:
-                    should_change = (current_frame < 144 || current_frame > 155);
+                    should_change = (current_frame < 144 || current_frame > 155) ||
+                                    (_sprite.horizontal_flip() != (direction == PlayerMovement::Direction::LEFT));
                     break;
                 case PlayerMovement::Direction::UP:
                     should_change = (current_frame < 187 || current_frame > 198);
@@ -227,7 +228,8 @@ namespace fe
                     break;
                 case PlayerMovement::Direction::LEFT:
                 case PlayerMovement::Direction::RIGHT:
-                    should_change = (current_frame < 156 || current_frame > 163);
+                    should_change = (current_frame < 156 || current_frame > 163) ||
+                                    (_sprite.horizontal_flip() != (direction == PlayerMovement::Direction::LEFT));
                     break;
                 case PlayerMovement::Direction::UP:
                     should_change = (current_frame < 199 || current_frame > 206);
@@ -242,7 +244,8 @@ namespace fe
                     break;
                 case PlayerMovement::Direction::LEFT:
                 case PlayerMovement::Direction::RIGHT:
-                    should_change = (current_frame < 164 || current_frame > 171);
+                    should_change = (current_frame < 164 || current_frame > 171) ||
+                                    (_sprite.horizontal_flip() != (direction == PlayerMovement::Direction::LEFT));
                     break;
                 case PlayerMovement::Direction::UP:
                     should_change = (current_frame < 207 || current_frame > 214);
@@ -263,17 +266,17 @@ namespace fe
         {
             // Calculate how many frames we need
             int frame_count = (end_frame - start_frame + 1);
-            
+
             // Create array with all frame indices
             bn::vector<uint16_t, 32> frame_indices;
-            for(int i = 0; i < frame_count; ++i)
+            for (int i = 0; i < frame_count; ++i)
             {
                 frame_indices.push_back(start_frame + i);
             }
-            
+
             // Use the span-based factory method for variable-length animations
             _animation = bn::sprite_animate_action<32>::forever(
-                _sprite, speed, bn::sprite_items::hero.tiles_item(), 
+                _sprite, speed, bn::sprite_items::hero.tiles_item(),
                 bn::span<const uint16_t>(frame_indices.data(), frame_indices.size()));
         };
 
@@ -479,7 +482,6 @@ namespace fe
         tile.data[pixel_y] = row;
     }
 
-
     void Player::handle_input()
     {
         // Don't process movement input when listening to NPCs
@@ -488,7 +490,7 @@ namespace fe
             // Update action timer and abilities cooldowns
             _movement.update_action_timer();
             _abilities.update_cooldowns();
-        
+
             // Check if action is finished and return to normal state
             bool was_performing_action = _movement.is_performing_action();
             if (was_performing_action && _movement.action_timer() <= 0)
@@ -517,7 +519,8 @@ namespace fe
         if (bn::keypad::r_pressed() && !performing_action)
         {
             _is_strafing = !_is_strafing;
-            if (_is_strafing) {
+            if (_is_strafing)
+            {
                 _strafing_direction = _movement.facing_direction();
             }
         }
@@ -526,28 +529,34 @@ namespace fe
         if (bn::keypad::l_pressed())
         {
             bool new_gun_state = !_gun_active;
-            
+
             // Only update if state is actually changing
-            if (new_gun_state != _gun_active) {
+            if (new_gun_state != _gun_active)
+            {
                 _gun_active = new_gun_state;
-                
-                if (_gun_active) {
+
+                if (_gun_active)
+                {
                     // Equip gun
-                    if (!_gun_sprite.has_value()) {
+                    if (!_gun_sprite.has_value())
+                    {
                         _gun_sprite = bn::sprite_items::gun.create_sprite(pos().x(), pos().y());
                         _gun_sprite->set_bg_priority(get_sprite()->bg_priority());
                         _gun_sprite->set_z_order(get_sprite()->z_order() - 1);
-                        if (get_sprite()->camera().has_value()) {
+                        if (get_sprite()->camera().has_value())
+                        {
                             _gun_sprite->set_camera(get_sprite()->camera().value());
                             _bullet_manager.set_camera(get_sprite()->camera().value());
                         }
                         update_gun_position(_movement.facing_direction());
                     }
-                } else {
+                }
+                else
+                {
                     // Unequip gun
                     _gun_sprite.reset();
                 }
-                
+
                 // Debug output
                 BN_LOG("Gun toggled: ", _gun_active ? "ON" : "OFF");
             }
@@ -566,11 +575,14 @@ namespace fe
             // A button for slashing/attacking (or shooting if gun is equipped)
             else if (bn::keypad::a_pressed())
             {
-                if (_gun_active) {
+                if (_gun_active)
+                {
                     // Shoot if gun is equipped
                     PlayerMovement::Direction bullet_dir = _is_strafing ? _strafing_direction : _movement.facing_direction();
                     fire_bullet(bullet_dir);
-                } else if (_abilities.slashing_available()) {
+                }
+                else if (_abilities.slashing_available())
+                {
                     // Slash if no gun
                     _movement.start_slashing();
                     _abilities.set_slash_cooldown(60); // 1 second cooldown
@@ -683,7 +695,6 @@ namespace fe
             }
         }
 
-
         // A button handles interaction when not attacking
         if (bn::keypad::a_pressed() && !_gun_active && !_abilities.slashing_available() && !_state.listening() && !performing_action)
         {
@@ -730,9 +741,9 @@ namespace fe
         if (!_state.listening())
         {
             update_physics();
-            
+
             // Check for ground collision
-            extern fe::Level* _level; // Forward declaration
+            extern fe::Level *_level; // Forward declaration
             if (_level)
             {
                 if (!fe::Collision::check_hitbox_collision_with_level(get_hitbox(), pos(), fe::directions::down, *_level))
@@ -745,7 +756,7 @@ namespace fe
 
         // Update action timer
         _movement.update_action_timer();
-        
+
         // Check if action just completed (timer reached zero)
         if (was_performing_action && _movement.action_timer() <= 0)
         {
@@ -802,7 +813,7 @@ namespace fe
     {
         // Get current position and movement deltas
         bn::fixed_point new_pos = pos() + bn::fixed_point(_movement.dx(), _movement.dy());
-        
+
         // Apply roll movement if in rolling state
         if (_movement.current_state() == PlayerMovement::State::ROLLING)
         {
@@ -810,31 +821,31 @@ namespace fe
             bn::fixed roll_speed = 1.2;
             bn::fixed roll_x = 0;
             bn::fixed roll_y = 0;
-            
+
             // Get movement direction based on facing direction
             switch (_movement.facing_direction())
             {
-                case PlayerMovement::Direction::UP:
-                    roll_y = -roll_speed;
-                    break;
-                case PlayerMovement::Direction::DOWN:
-                    roll_y = roll_speed;
-                    break;
-                case PlayerMovement::Direction::LEFT:
-                    roll_x = -roll_speed;
-                    break;
-                case PlayerMovement::Direction::RIGHT:
-                    roll_x = roll_speed;
-                    break;
-                default:
-                    break;
+            case PlayerMovement::Direction::UP:
+                roll_y = -roll_speed;
+                break;
+            case PlayerMovement::Direction::DOWN:
+                roll_y = roll_speed;
+                break;
+            case PlayerMovement::Direction::LEFT:
+                roll_x = -roll_speed;
+                break;
+            case PlayerMovement::Direction::RIGHT:
+                roll_x = roll_speed;
+                break;
+            default:
+                break;
             }
-            
+
             // Apply roll movement
             new_pos.set_x(new_pos.x() + roll_x);
             new_pos.set_y(new_pos.y() + roll_y);
         }
-        
+
         set_position(new_pos);
     }
 
@@ -842,15 +853,15 @@ namespace fe
     {
         // Call base class to update position
         Entity::set_position(new_pos);
-        
+
         // Update hitbox position (16x32 hitbox centered on the player)
         _hitbox.set_x(new_pos.x() - 8);  // Center horizontally (16/2)
         _hitbox.set_y(new_pos.y() - 16); // Center vertically (32/2)
-        
+
         // Update sprite position with offset
         update_sprite_position();
     }
-    
+
     void Player::update_sprite_position()
     {
         if (auto sprite = get_sprite())
@@ -859,16 +870,16 @@ namespace fe
             // When facing left (flipped), we need to subtract this offset
             // When facing right (not flipped), we add the offset
             constexpr bn::fixed HORIZONTAL_OFFSET = 13;
-            
+
             // Get the current position from the base class
             bn::fixed_point pos = Entity::pos();
-            
+
             // Adjust the offset based on the sprite's horizontal flip state
             bn::fixed x_offset = sprite->horizontal_flip() ? -HORIZONTAL_OFFSET : HORIZONTAL_OFFSET;
-            
+
             // Apply the offset to the sprite position
             sprite->set_position(pos.x() + x_offset, pos.y());
-            
+
             // Update z-order based on Y position for proper depth sorting
             sprite->set_z_order(pos.y().integer());
         }
@@ -906,7 +917,7 @@ namespace fe
         else
         {
             _gun_sprite->set_z_order(-10); // Gun in front
-            set_sprite_z_order(-5);       // Player behind
+            set_sprite_z_order(-5);        // Player behind
         }
 
         _gun_sprite->set_horizontal_flip(flips[idx]);
@@ -923,8 +934,9 @@ namespace fe
 
         // Calculate bullet starting position (gun tip)
         const int idx = int(direction);
-        constexpr bn::fixed bullet_offsets_x[4] = {0, 0, -12, 12};
-        constexpr bn::fixed bullet_offsets_y[4] = {-15, 15, -3, -3};  // Increased height by 3 pixels
+        constexpr bn::fixed bullet_offsets_x[4] = {+1, -1, -12, 11}; // UP, DOWN, LEFT, RIGHT
+        // Adjust RIGHT offset to match LEFT bullet height
+        constexpr bn::fixed bullet_offsets_y[4] = {-9, 9, -3, +1}; // UP, DOWN, LEFT, RIGHT
 
         bn::fixed_point bullet_pos(
             pos().x() + bullet_offsets_x[idx],
@@ -933,21 +945,21 @@ namespace fe
         fe::Direction bullet_dir;
         switch (direction)
         {
-            case PlayerMovement::Direction::UP:
-                bullet_dir = fe::Direction::UP;
-                break;
-            case PlayerMovement::Direction::DOWN:
-                bullet_dir = fe::Direction::DOWN;
-                break;
-            case PlayerMovement::Direction::LEFT:
-                bullet_dir = fe::Direction::LEFT;
-                break;
-            case PlayerMovement::Direction::RIGHT:
-                bullet_dir = fe::Direction::RIGHT;
-                break;
-            default:
-                bullet_dir = fe::Direction::UP;
-                break;
+        case PlayerMovement::Direction::UP:
+            bullet_dir = fe::Direction::UP;
+            break;
+        case PlayerMovement::Direction::DOWN:
+            bullet_dir = fe::Direction::DOWN;
+            break;
+        case PlayerMovement::Direction::LEFT:
+            bullet_dir = fe::Direction::LEFT;
+            break;
+        case PlayerMovement::Direction::RIGHT:
+            bullet_dir = fe::Direction::RIGHT;
+            break;
+        default:
+            bullet_dir = fe::Direction::UP;
+            break;
         }
 
         _bullet_manager.fire_bullet(bullet_pos, bullet_dir);
