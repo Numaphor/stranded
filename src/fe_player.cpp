@@ -463,24 +463,7 @@ namespace fe
         _animation.apply_state(_movement.current_state(), _movement.facing_direction());
     }
 
-    // Helper function to colorize a pixel in a sprite tile
-    void colorize_sprite_pixel(bn::span<bn::tile> tile_span, int x, int y, uint8_t value)
-    {
-        int tile_index = (x / 8) + 2 * (y / 8);
-        bn::tile &tile = tile_span[tile_index];
-        int pixel_y = y % 8; // Get the y position within the tile
-        int pixel_x = x % 8; // Get the x position within the tile
 
-        // In 4bpp mode, 8 pixels are stored in each 32-bit row
-        // Each pixel uses 4 bits (nibble)
-        uint32_t row = tile.data[pixel_y];
-
-        int shift_amount = (7 - pixel_x) * 4; // High nibble is leftmost
-        row &= ~(0xF << shift_amount);
-        row |= (value & 0xF) << shift_amount;
-
-        tile.data[pixel_y] = row;
-    }
 
     void Player::handle_input()
     {
@@ -493,12 +476,6 @@ namespace fe
 
             // Check if action is finished and return to normal state
             bool was_performing_action = _movement.is_performing_action();
-            if (was_performing_action && _movement.action_timer() <= 0)
-            {
-                _movement.stop_action();
-                // Force animation update after action completes
-                _animation.apply_state(_movement.current_state(), _movement.facing_direction());
-            }
             if (was_performing_action && _movement.action_timer() <= 0)
             {
                 _movement.stop_action();
@@ -695,11 +672,10 @@ namespace fe
             }
         }
 
-        // A button handles interaction when not attacking
+        // Interaction with objects/NPCs
         if (bn::keypad::a_pressed() && !_gun_active && !_abilities.slashing_available() && !_state.listening() && !performing_action)
         {
-            // TODO: Implement interaction with objects/NPCs
-            // This would trigger interaction with objects in front of the player
+            // Interaction logic would be handled by the scene or level
         }
 
         // Update gun position if active, regardless of input
