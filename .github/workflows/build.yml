@@ -78,26 +78,26 @@ jobs:
           echo "Step 3: Check if wf-config is now available"
           ls -la "$WONDERFUL_TOOLCHAIN/bin/" | grep wf-config || echo "wf-config still not found"
           
-          echo "Step 4: Try to enable BlocksDS repository"
-          # Try wf-config if it exists, otherwise try alternative methods
-          if [ -f "$WONDERFUL_TOOLCHAIN/bin/wf-config" ]; then
-            echo "Using wf-config to enable BlocksDS repository"
-            wf-config repo enable blocksds
-          else
-            echo "wf-config not found, trying alternative methods"
-            # Try to manually configure or see what repositories are available
-            wf-pacman -Sl | grep -i blocksds || echo "No BlocksDS packages found"
-          fi
-          
-          echo "Step 5: Update package database after repo changes"
-          wf-pacman -Syu --noconfirm
-          
-          echo "Step 6: Install GBA development packages"
+          echo "Step 4: Install GBA development packages"
           wf-pacman -S --noconfirm target-gba
-          wf-pacman -S --noconfirm blocksds-toolchain
+          
+          echo "Step 5: Check available packages"
+          wf-pacman -Sl | grep -i gba || echo "Listing all available packages"
+          
+          echo "Step 6: Verify toolchain installation"
+          export PATH="$WONDERFUL_TOOLCHAIN/bin:$PATH"
+          which arm-none-eabi-gcc || echo "GCC not found in PATH"
+          ls -la "$WONDERFUL_TOOLCHAIN/toolchain/gcc-arm-none-eabi/bin/" || echo "Toolchain bin directory not found"
       
       - name: Clean and Build ROM
         run: |
+          export WONDERFUL_TOOLCHAIN=/opt/wonderful
+          export PATH="$WONDERFUL_TOOLCHAIN/bin:$WONDERFUL_TOOLCHAIN/toolchain/gcc-arm-none-eabi/bin:$PATH"
+          
+          echo "Verifying build environment..."
+          which arm-none-eabi-gcc || echo "arm-none-eabi-gcc not found"
+          
+          echo "Starting build..."
           make clean
           make -j$(nproc)
       
