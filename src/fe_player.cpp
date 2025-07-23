@@ -7,7 +7,6 @@
 #include "bn_log.h"
 #include "fe_enemy.h"
 #include "fe_collision.h"
-#include "bn_sprite_palette_ptr.h"
 #include "fe_bullet_manager.h"
 #include "bn_vector.h"
 #include "bn_span.h"
@@ -311,11 +310,8 @@ namespace fe
                 make_anim_range(8, 226, 233); // roll_up: 226-233
                 break;
             case PlayerMovement::Direction::LEFT:
-                _sprite.set_horizontal_flip(true);
-                make_anim_range(8, 172, 177); // lr_roll: 172-177
-                break;
             case PlayerMovement::Direction::RIGHT:
-                _sprite.set_horizontal_flip(false);
+                _sprite.set_horizontal_flip(direction == PlayerMovement::Direction::LEFT);
                 make_anim_range(8, 172, 177); // lr_roll: 172-177
                 break;
             }
@@ -347,11 +343,8 @@ namespace fe
                 make_anim_range(8, 219, 225); // attack_up: 219-225 (using as slash_up)
                 break;
             case PlayerMovement::Direction::LEFT:
-                _sprite.set_horizontal_flip(true);
-                make_anim_range(8, 178, 181); // lr_slash: 178-181
-                break;
             case PlayerMovement::Direction::RIGHT:
-                _sprite.set_horizontal_flip(false);
+                _sprite.set_horizontal_flip(direction == PlayerMovement::Direction::LEFT);
                 make_anim_range(8, 178, 181); // lr_slash: 178-181
                 break;
             }
@@ -366,11 +359,8 @@ namespace fe
                 make_anim_range(8, 219, 225); // attack_up: 219-225
                 break;
             case PlayerMovement::Direction::LEFT:
-                _sprite.set_horizontal_flip(true);
-                make_anim_range(8, 182, 186); // lr_slash second variant: 182-186
-                break;
             case PlayerMovement::Direction::RIGHT:
-                _sprite.set_horizontal_flip(false);
+                _sprite.set_horizontal_flip(direction == PlayerMovement::Direction::LEFT);
                 make_anim_range(8, 182, 186); // lr_slash second variant: 182-186
                 break;
             }
@@ -385,11 +375,8 @@ namespace fe
                 make_anim_range(8, 207, 214); // run_up: 207-214
                 break;
             case PlayerMovement::Direction::LEFT:
-                _sprite.set_horizontal_flip(true);
-                make_anim_range(8, 164, 171); // lr_run: 164-171
-                break;
             case PlayerMovement::Direction::RIGHT:
-                _sprite.set_horizontal_flip(false);
+                _sprite.set_horizontal_flip(direction == PlayerMovement::Direction::LEFT);
                 make_anim_range(8, 164, 171); // lr_run: 164-171
                 break;
             }
@@ -404,11 +391,8 @@ namespace fe
                 make_anim_range(12, 199, 206); // move_up: 199-206
                 break;
             case PlayerMovement::Direction::LEFT:
-                _sprite.set_horizontal_flip(true);
-                make_anim_range(12, 156, 163); // lr_move: 156-163
-                break;
             case PlayerMovement::Direction::RIGHT:
-                _sprite.set_horizontal_flip(false);
+                _sprite.set_horizontal_flip(direction == PlayerMovement::Direction::LEFT);
                 make_anim_range(12, 156, 163); // lr_move: 156-163
                 break;
             }
@@ -423,11 +407,8 @@ namespace fe
                 make_anim_range(12, 187, 198); // idle_up: 187-198
                 break;
             case PlayerMovement::Direction::LEFT:
-                _sprite.set_horizontal_flip(true);
-                make_anim_range(12, 144, 155); // lr_idle: 144-155
-                break;
             case PlayerMovement::Direction::RIGHT:
-                _sprite.set_horizontal_flip(false);
+                _sprite.set_horizontal_flip(direction == PlayerMovement::Direction::LEFT);
                 make_anim_range(12, 144, 155); // lr_idle: 144-155
                 break;
             }

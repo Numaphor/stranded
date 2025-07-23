@@ -149,10 +149,6 @@ namespace fe
     class PlayerAbilities
     {
     private:
-        bool _double_jump_available = true;
-        bool _dash_attack_available = true;
-        int _dash_attack_cooldown = 0;
-
         // New abilities for hero sprite
         bool _running_available = true;
         bool _rolling_available = true;
@@ -167,13 +163,6 @@ namespace fe
         int _buff_cooldown = 0;
 
     public:
-        [[nodiscard]] bool double_jump_available() const { return _double_jump_available; }
-        void set_double_jump_available(bool available) { _double_jump_available = available; }
-        [[nodiscard]] bool dash_attack_available() const { return _dash_attack_available; }
-        void set_dash_attack_available(bool available) { _dash_attack_available = available; }
-        [[nodiscard]] int dash_attack_cooldown() const { return _dash_attack_cooldown; }
-        void set_dash_attack_cooldown(int cooldown) { _dash_attack_cooldown = cooldown; }
-
         // New ability getters/setters
         [[nodiscard]] bool running_available() const { return _running_available; }
         void set_running_available(bool available) { _running_available = available; }
@@ -211,9 +200,6 @@ namespace fe
 
         void reset()
         {
-            _double_jump_available = true;
-            _dash_attack_available = true;
-            _dash_attack_cooldown = 0;
             _running_available = true;
             _rolling_available = true;
             _chopping_available = true;
