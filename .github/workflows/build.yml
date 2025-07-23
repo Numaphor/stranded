@@ -24,70 +24,17 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential python3 python-is-python3
 
-      - name: Cache Wonderful Toolchain
-        id: cache-toolchain
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.WONDERFUL_TOOLCHAIN }}
-          key: ${{ runner.os }}-wonderful-toolchain-v1
-          restore-keys: |
-            ${{ runner.os }}-wonderful-toolchain-
-  
-      - name: Install Wonderful Toolchain
-        if: steps.cache-toolchain.outputs.cache-hit != 'true'
-        run: |
-          sudo mkdir -p $WONDERFUL_TOOLCHAIN
-          sudo chown -R $USER $WONDERFUL_TOOLCHAIN
-          tar xzf $GITHUB_WORKSPACE/tools/wf-bootstrap-x86_64.tar.gz \
-            -C $WONDERFUL_TOOLCHAIN --strip-components=1
-      
-      - name: Set up Environment and Debug
+      - name: Set up Wonderful Toolchain Environment
         run: |
           echo "$WONDERFUL_TOOLCHAIN/bin" >> $GITHUB_PATH
+          echo "$WONDERFUL_TOOLCHAIN/toolchain/gcc-arm-none-eabi/bin" >> $GITHUB_PATH
           echo "WONDERFUL_TOOLCHAIN=$WONDERFUL_TOOLCHAIN" >> $GITHUB_ENV
           
-          # Debug: Check if toolchain was installed
-          echo "Checking Wonderful Toolchain installation..."
+          # Verify the pre-installed toolchain from setup steps
+          echo "Verifying pre-installed Wonderful Toolchain..."
           ls -la $WONDERFUL_TOOLCHAIN/ || echo "Toolchain directory not found"
           ls -la $WONDERFUL_TOOLCHAIN/bin/ || echo "Toolchain bin directory not found"
-          
-          # Check if wf-config exists and is executable
-          if [ -f "$WONDERFUL_TOOLCHAIN/bin/wf-config" ]; then
-            echo "wf-config found at $WONDERFUL_TOOLCHAIN/bin/wf-config"
-            ls -la "$WONDERFUL_TOOLCHAIN/bin/wf-config"
-          else
-            echo "wf-config not found in $WONDERFUL_TOOLCHAIN/bin/"
-          fi
-      
-      - name: Install GBA Build Dependencies
-        run: |
-          export PATH="$WONDERFUL_TOOLCHAIN/bin:$PATH"
-          export WONDERFUL_TOOLCHAIN="$WONDERFUL_TOOLCHAIN"
-          
-          echo "Current PATH: $PATH"
-          echo "Available wf tools:"
-          ls -la "$WONDERFUL_TOOLCHAIN/bin/"
-          
-          # Follow official Wonderful Toolchain setup sequence
-          echo "Step 1: Synchronize and update toolchain package manager"
-          wf-pacman -Syu --noconfirm
-          
-          echo "Step 2: Install wf-tools first"
-          wf-pacman -S --noconfirm wf-tools
-          
-          echo "Step 3: Check if wf-config is now available"
-          ls -la "$WONDERFUL_TOOLCHAIN/bin/" | grep wf-config || echo "wf-config still not found"
-          
-          echo "Step 4: Install GBA development packages"
-          wf-pacman -S --noconfirm target-gba
-          
-          echo "Step 5: Check available packages"
-          wf-pacman -Sl | grep -i gba || echo "Listing all available packages"
-          
-          echo "Step 6: Verify toolchain installation"
-          export PATH="$WONDERFUL_TOOLCHAIN/bin:$PATH"
-          which arm-none-eabi-gcc || echo "GCC not found in PATH"
-          ls -la "$WONDERFUL_TOOLCHAIN/toolchain/gcc-arm-none-eabi/bin/" || echo "Toolchain bin directory not found"
+          ls -la $WONDERFUL_TOOLCHAIN/toolchain/gcc-arm-none-eabi/bin/ || echo "GBA toolchain not found"
       
       - name: Clean and Build ROM
         run: |
@@ -96,8 +43,9 @@ jobs:
           
           echo "Verifying build environment..."
           which arm-none-eabi-gcc || echo "arm-none-eabi-gcc not found"
+          arm-none-eabi-gcc --version || echo "GCC version check failed"
           
-          echo "Starting build..."
+          echo "Starting clean build..."
           make clean
           make -j$(nproc)
       
