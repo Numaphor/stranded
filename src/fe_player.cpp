@@ -441,7 +441,7 @@ namespace fe
         _healthbar.set_hp(_hp);
         set_position(pos);
         set_camera(camera);
-        _animation.apply_state(_movement.current_state(), _movement.facing_direction());
+        update_animation();
     }
 
 
@@ -461,7 +461,7 @@ namespace fe
             {
                 _movement.stop_action();
                 // Force animation update after action completes
-                _animation.apply_state(_movement.current_state(), _movement.facing_direction());
+                update_animation();
             }
             return;
         }
@@ -678,7 +678,7 @@ namespace fe
             old_direction != _movement.facing_direction() ||
             old_state != _movement.current_state())
         {
-            _animation.apply_state(_movement.current_state(), _movement.facing_direction());
+            update_animation();
         }
     }
 
@@ -720,12 +720,12 @@ namespace fe
             // Action completed, reset to appropriate state
             _movement.stop_action();
             // Force animation update to show new state
-            _animation.apply_state(_movement.current_state(), _movement.facing_direction());
+            update_animation();
         }
         // Update animation if state or direction changed
         else if (old_state != _movement.current_state() || old_direction != _movement.facing_direction())
         {
-            _animation.apply_state(_movement.current_state(), _movement.facing_direction());
+            update_animation();
         }
 
         update_sprite_position();
@@ -925,5 +925,10 @@ namespace fe
     void Player::update_bullets()
     {
         _bullet_manager.update_bullets();
+    }
+
+    void Player::update_animation()
+    {
+        _animation.apply_state(_movement.current_state(), _movement.facing_direction());
     }
 }

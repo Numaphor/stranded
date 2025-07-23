@@ -310,6 +310,7 @@ namespace fe
 
         void handle_input();
         void update_physics();
+        void update_animation(); // Helper to update animation state
         void fire_bullet(PlayerMovement::Direction direction);
         void update_bullets();
     };
