@@ -114,7 +114,7 @@ namespace fe
 
     private:
         bn::sprite_ptr _sprite;
-        bn::optional<bn::sprite_animate_action<4>> _animation;
+        bn::optional<bn::sprite_animate_action<32>> _animation;
     };
 
     // PlayerState class (moved from fe_player_state.h)

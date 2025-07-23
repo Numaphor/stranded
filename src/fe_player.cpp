@@ -9,6 +9,8 @@
 #include "fe_collision.h"
 #include "bn_sprite_palette_ptr.h"
 #include "fe_bullet_manager.h"
+#include "bn_vector.h"
+#include "bn_span.h"
 
 extern fe::Level *_level;
 
@@ -121,7 +123,7 @@ namespace fe
     void PlayerMovement::start_rolling()
     {
         _current_state = State::ROLLING;
-        _action_timer = 30; // 0.5 seconds at 60 FPS
+        _action_timer = 64; // Match longest roll animation duration (8 frames × 8 speed = 64 frames)
     }
 
     void PlayerMovement::start_chopping()
@@ -148,7 +150,7 @@ namespace fe
             buff_type == State::POWER_BUFF || buff_type == State::ENERGY_BUFF)
         {
             _current_state = buff_type;
-            _action_timer = 90; // 1.5 seconds at 60 FPS for buff animations
+            _action_timer = 96; // Match animation duration (24 frames × 4 speed = 96 frames)
         }
     }
 
@@ -259,15 +261,20 @@ namespace fe
         // Create animation based on state and direction using new frame ranges
         auto make_anim_range = [&](int speed, int start_frame, int end_frame)
         {
-            // Calculate how many frames we need (up to 4 for the animation action)
+            // Calculate how many frames we need
             int frame_count = (end_frame - start_frame + 1);
-            int f0 = start_frame;
-            int f1 = (frame_count > 1) ? start_frame + 1 : start_frame;
-            int f2 = (frame_count > 2) ? start_frame + 2 : f1;
-            int f3 = (frame_count > 3) ? start_frame + 3 : f2;
             
-            _animation = bn::create_sprite_animate_action_forever(
-                _sprite, speed, bn::sprite_items::hero.tiles_item(), f0, f1, f2, f3);
+            // Create array with all frame indices
+            bn::vector<uint16_t, 32> frame_indices;
+            for(int i = 0; i < frame_count; ++i)
+            {
+                frame_indices.push_back(start_frame + i);
+            }
+            
+            // Use the span-based factory method for variable-length animations
+            _animation = bn::sprite_animate_action<32>::forever(
+                _sprite, speed, bn::sprite_items::hero.tiles_item(), 
+                bn::span<const uint16_t>(frame_indices.data(), frame_indices.size()));
         };
 
         switch (state)
@@ -553,7 +560,7 @@ namespace fe
             if (bn::keypad::b_pressed() && _abilities.rolling_available())
             {
                 _movement.start_rolling();
-                _abilities.set_roll_cooldown(120); // 2 seconds cooldown
+                _abilities.set_roll_cooldown(64); // Match animation duration (8 frames × 8 speed = 64 frames)
                 performing_action = true;
             }
             // A button for slashing/attacking (or shooting if gun is equipped)
@@ -577,25 +584,25 @@ namespace fe
                 if (bn::keypad::up_pressed())
                 {
                     _movement.start_buff(PlayerMovement::State::HEAL_BUFF);
-                    _abilities.set_buff_cooldown(300); // 5 seconds cooldown
+                    _abilities.set_buff_cooldown(96); // Match animation duration (24 frames × 4 speed = 96 frames)
                     performing_action = true;
                 }
                 else if (bn::keypad::down_pressed())
                 {
                     _movement.start_buff(PlayerMovement::State::DEFENCE_BUFF);
-                    _abilities.set_buff_cooldown(300);
+                    _abilities.set_buff_cooldown(96);
                     performing_action = true;
                 }
                 else if (bn::keypad::left_pressed())
                 {
                     _movement.start_buff(PlayerMovement::State::POWER_BUFF);
-                    _abilities.set_buff_cooldown(300);
+                    _abilities.set_buff_cooldown(96);
                     performing_action = true;
                 }
                 else if (bn::keypad::right_pressed())
                 {
                     _movement.start_buff(PlayerMovement::State::ENERGY_BUFF);
-                    _abilities.set_buff_cooldown(300);
+                    _abilities.set_buff_cooldown(96);
                     performing_action = true;
                 }
             }
