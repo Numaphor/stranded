@@ -936,4 +936,60 @@ namespace fe
     {
         _animation.apply_state(_movement.current_state(), _movement.facing_direction());
     }
+
+    Hitbox Player::get_attack_hitbox() const
+    {
+        // Only provide extended attack hitbox when actually performing melee attacks
+        if (!is_attacking())
+        {
+            return get_hitbox();
+        }
+
+        // Get player position and facing direction
+        bn::fixed_point player_pos = pos();
+        PlayerMovement::Direction facing_dir = _movement.facing_direction();
+
+        // Attack reach distance
+        constexpr bn::fixed ATTACK_REACH = 20;
+
+        // Base hitbox dimensions (from Entity class - should match player's normal hitbox)
+        constexpr bn::fixed HITBOX_WIDTH = 16;
+        constexpr bn::fixed HITBOX_HEIGHT = 32;
+
+        // Create extended hitbox based on facing direction
+        switch (facing_dir)
+        {
+        case PlayerMovement::Direction::UP:
+            // Extend upward
+            return Hitbox(player_pos.x() - HITBOX_WIDTH / 2,
+                          player_pos.y() - HITBOX_HEIGHT / 2 - ATTACK_REACH,
+                          HITBOX_WIDTH,
+                          HITBOX_HEIGHT + ATTACK_REACH);
+
+        case PlayerMovement::Direction::DOWN:
+            // Extend downward
+            return Hitbox(player_pos.x() - HITBOX_WIDTH / 2,
+                          player_pos.y() - HITBOX_HEIGHT / 2,
+                          HITBOX_WIDTH,
+                          HITBOX_HEIGHT + ATTACK_REACH);
+
+        case PlayerMovement::Direction::LEFT:
+            // Extend leftward
+            return Hitbox(player_pos.x() - HITBOX_WIDTH / 2 - ATTACK_REACH,
+                          player_pos.y() - HITBOX_HEIGHT / 2,
+                          HITBOX_WIDTH + ATTACK_REACH,
+                          HITBOX_HEIGHT);
+
+        case PlayerMovement::Direction::RIGHT:
+            // Extend rightward
+            return Hitbox(player_pos.x() - HITBOX_WIDTH / 2,
+                          player_pos.y() - HITBOX_HEIGHT / 2,
+                          HITBOX_WIDTH + ATTACK_REACH,
+                          HITBOX_HEIGHT);
+
+        default:
+            // Default to normal hitbox
+            return get_hitbox();
+        }
+    }
 }

@@ -351,6 +351,32 @@ namespace fe
                     }
                 }
 
+                // Check for collision with player's melee attacks
+                if (_player->is_attacking())
+                {
+                    Hitbox player_attack_hitbox = _player->get_attack_hitbox();
+                    Hitbox enemy_hitbox = enemy.get_hitbox();
+
+                    // Check for collision between player attack hitbox and enemy
+                    if (player_attack_hitbox.collides_with(enemy_hitbox))
+                    {
+                        fe::Collision::log_collision("Player Attack", "Enemy",
+                                                     _player->pos(), enemy.get_position());
+
+                        // Determine damage direction based on player position relative to enemy
+                        bool damage_from_left = _player->pos().x() < enemy.get_position().x();
+
+                        if (damage_from_left)
+                        {
+                            enemy.damage_from_left(1);
+                        }
+                        else
+                        {
+                            enemy.damage_from_right(1);
+                        }
+                    }
+                }
+
                 // Remove dead enemies only after death animation completes
                 if (enemy.is_ready_for_removal())
                 {

@@ -302,6 +302,17 @@ namespace fe
         // Hitbox for collision detection
         [[nodiscard]] Hitbox get_hitbox() const override { return Entity::get_hitbox(); }
 
+        // Check if player is currently performing a melee attack
+        [[nodiscard]] bool is_attacking() const
+        {
+            return _movement.current_state() == PlayerMovement::State::CHOPPING ||
+                   _movement.current_state() == PlayerMovement::State::SLASHING ||
+                   _movement.current_state() == PlayerMovement::State::ATTACKING;
+        }
+
+        // Get extended attack hitbox when performing melee attacks
+        [[nodiscard]] Hitbox get_attack_hitbox() const;
+
         void update_gun_position(PlayerMovement::Direction direction);
 
     private:
