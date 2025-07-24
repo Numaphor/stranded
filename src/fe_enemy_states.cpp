@@ -129,8 +129,7 @@ namespace fe
         bn::fixed dist_x = player_pos.x() - enemy.pos().x();
         bn::fixed dist_y = player_pos.y() - enemy.pos().y();
         bn::fixed dist_sq = dist_x * dist_x + dist_y * dist_y;
-        const bn::fixed unfollow_dist_sq = 64 * 64;                         // 8 tiles squared
-        const bn::fixed attack_dist_sq = ATTACK_DISTANCE * ATTACK_DISTANCE; // 3.75 tiles squared for spearguards
+        const bn::fixed unfollow_dist_sq = 64 * 64; // 8 tiles squared
 
         // Check if player is too far away or listening to NPCs
         if (dist_sq > unfollow_dist_sq || player_listening)
@@ -154,20 +153,54 @@ namespace fe
         }
 
         // Check if close enough to attack (spearguards only)
-        if (enemy.type() == ENEMY_TYPE::SPEARGUARD && dist_sq <= attack_dist_sq && enemy._attack_timer <= 0)
+        if (enemy.type() == ENEMY_TYPE::SPEARGUARD && enemy._attack_timer <= 0)
         {
-            // Transition to attack state
-            bn::unique_ptr<AttackState> attack_state = bn::make_unique<AttackState>();
-            enemy._state_machine.transition_to(enemy, bn::move(attack_state));
-            return;
+            // Spearguards should only attack when player is to their left or right
+            // since the spear extends horizontally, not vertically
+            bn::fixed abs_dist_x = bn::abs(dist_x);
+            bn::fixed abs_dist_y = bn::abs(dist_y);
+
+            // Only attack if the horizontal distance is significant relative to vertical distance
+            // and the player is within reasonable attack range horizontally
+            // Also ensure we're roughly Y-aligned (vertical distance is small)
+            if (abs_dist_x <= ATTACK_DISTANCE && abs_dist_x >= abs_dist_y * 0.5 && abs_dist_y <= 16)
+            {
+                // Transition to attack state
+                bn::unique_ptr<AttackState> attack_state = bn::make_unique<AttackState>();
+                enemy._state_machine.transition_to(enemy, bn::move(attack_state));
+                return;
+            }
         }
 
-        // Move toward player
+        // Move toward player (spearguards prioritize getting to the same Y level for horizontal attacks)
         bn::fixed len = bn::sqrt(dist_sq);
         if (len > 0.1)
         {
-            enemy._target_dx = (dist_x / len) * _chase_speed;
-            enemy._target_dy = (dist_y / len) * _chase_speed;
+            if (enemy.type() == ENEMY_TYPE::SPEARGUARD)
+            {
+                // Spearguards prioritize vertical alignment first, then horizontal positioning
+                bn::fixed abs_dist_x = bn::abs(dist_x);
+                bn::fixed abs_dist_y = bn::abs(dist_y);
+
+                // If not Y-aligned, prioritize vertical movement
+                if (abs_dist_y > 8) // Allow small Y tolerance
+                {
+                    enemy._target_dx = (dist_x / len) * _chase_speed * 0.3; // Slower horizontal movement
+                    enemy._target_dy = (dist_y / len) * _chase_speed;       // Full vertical movement
+                }
+                else
+                {
+                    // Y-aligned, now move horizontally to attack position
+                    enemy._target_dx = (dist_x / len) * _chase_speed;
+                    enemy._target_dy = (dist_y / len) * _chase_speed * 0.3; // Maintain Y position
+                }
+            }
+            else
+            {
+                // Other enemies move normally
+                enemy._target_dx = (dist_x / len) * _chase_speed;
+                enemy._target_dy = (dist_y / len) * _chase_speed;
+            }
         }
         else
         {

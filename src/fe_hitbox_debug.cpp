@@ -204,9 +204,9 @@ namespace fe
         }
 
         // Calculate marker positions for player with visual adjustments
-        bn::fixed_point top_left_pos = _calculate_top_left_marker_pos(hitbox, 
-            fe::hitbox_constants::PLAYER_MARKER_X_OFFSET, 
-            fe::hitbox_constants::PLAYER_MARKER_Y_OFFSET);
+        bn::fixed_point top_left_pos = _calculate_top_left_marker_pos(hitbox,
+                                                                      fe::hitbox_constants::PLAYER_MARKER_X_OFFSET,
+                                                                      fe::hitbox_constants::PLAYER_MARKER_Y_OFFSET);
         bn::fixed_point bottom_right_pos = _calculate_bottom_right_marker_pos(hitbox);
 
         // Create or update top-left marker
@@ -241,19 +241,19 @@ namespace fe
 
         // Calculate merchant marker positions using simplified offsets
         // Top-left marker: base position adjusted for merchant visibility
-        bn::fixed top_left_x_offset = fe::hitbox_constants::PLAYER_MARKER_X_OFFSET - 
-                                     fe::hitbox_constants::MERCHANT_BASE_OFFSET + 
-                                     fe::hitbox_constants::MERCHANT_X_ADJUSTMENT;
-        bn::fixed top_left_y_offset = fe::hitbox_constants::PLAYER_MARKER_Y_OFFSET - 
-                                     fe::hitbox_constants::MERCHANT_BASE_OFFSET + 
-                                     fe::hitbox_constants::MERCHANT_Y_ADJUSTMENT;
-        
+        bn::fixed top_left_x_offset = fe::hitbox_constants::PLAYER_MARKER_X_OFFSET -
+                                      fe::hitbox_constants::MERCHANT_BASE_OFFSET +
+                                      fe::hitbox_constants::MERCHANT_X_ADJUSTMENT;
+        bn::fixed top_left_y_offset = fe::hitbox_constants::PLAYER_MARKER_Y_OFFSET -
+                                      fe::hitbox_constants::MERCHANT_BASE_OFFSET +
+                                      fe::hitbox_constants::MERCHANT_Y_ADJUSTMENT;
+
         bn::fixed_point top_left_pos = _calculate_top_left_marker_pos(hitbox, top_left_x_offset, top_left_y_offset);
-        
+
         // Bottom-right marker: standard position with merchant-specific offsets
-        bn::fixed_point bottom_right_pos = _calculate_bottom_right_marker_pos(hitbox, 
-            -fe::hitbox_constants::MERCHANT_BR_X_OFFSET, 
-            -fe::hitbox_constants::MERCHANT_BR_Y_OFFSET);
+        bn::fixed_point bottom_right_pos = _calculate_bottom_right_marker_pos(hitbox,
+                                                                              -fe::hitbox_constants::MERCHANT_BR_X_OFFSET,
+                                                                              -fe::hitbox_constants::MERCHANT_BR_Y_OFFSET);
 
         // Create or update top-left marker
         if (!markers.top_left.has_value())
@@ -359,7 +359,6 @@ namespace fe
         // Subtract marker size to align properly, then apply additional offsets
         return bn::fixed_point(
             hitbox.x() + hitbox.width() - fe::hitbox_constants::MARKER_SPRITE_SIZE + x_offset,
-            hitbox.y() + hitbox.height() - fe::hitbox_constants::MARKER_SPRITE_SIZE + y_offset
-        );
+            hitbox.y() + hitbox.height() - fe::hitbox_constants::MARKER_SPRITE_SIZE + y_offset);
     }
 }
