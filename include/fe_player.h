@@ -129,19 +129,35 @@ namespace fe
         bool _invulnerable = false;
         bool _listening = false;
         int _inv_timer = 0;
+        int _dialog_cooldown = 0;
 
     public:
         [[nodiscard]] bool invulnerable() const { return _invulnerable; }
         void set_invulnerable(bool invulnerable) { _invulnerable = invulnerable; }
         [[nodiscard]] bool listening() const { return _listening; }
-        void set_listening(bool listening) { _listening = listening; }
+        void set_listening(bool listening)
+        {
+            if (_listening && !listening)
+            {
+                // Dialog just ended, set cooldown
+                _dialog_cooldown = 10; // 10 frame cooldown
+            }
+            _listening = listening;
+        }
         [[nodiscard]] int inv_timer() const { return _inv_timer; }
         void set_inv_timer(int inv_timer) { _inv_timer = inv_timer; }
+        [[nodiscard]] int dialog_cooldown() const { return _dialog_cooldown; }
+        void update_dialog_cooldown()
+        {
+            if (_dialog_cooldown > 0)
+                _dialog_cooldown--;
+        }
         void reset()
         {
             _invulnerable = false;
             _listening = false;
             _inv_timer = 0;
+            _dialog_cooldown = 0;
         }
     };
 

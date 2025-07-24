@@ -10,7 +10,7 @@
 
 namespace fe
 {
-    constexpr bn::fixed ATTACK_DISTANCE = 30;
+    constexpr bn::fixed ATTACK_DISTANCE = 20;
 
     // IdleState implementation
     void IdleState::enter(Enemy &enemy)

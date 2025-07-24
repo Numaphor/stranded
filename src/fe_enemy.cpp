@@ -645,8 +645,8 @@ namespace fe
         int frames_elapsed = ATTACK_DURATION - _attack_timer;
         int current_anim_frame = (frames_elapsed / ATTACK_FRAMES_PER_SPRITE) % TOTAL_ATTACK_FRAMES; // 5 attack frames total
 
-        // Extend hitbox during frames 1, 2, and 3 (when spear is extending and fully extended)
-        // This covers the thrust forward, full extension, and start of retraction
-        return current_anim_frame >= 1 && current_anim_frame <= 3;
+        // Delay damage until frames 2 and 3 (when spear is fully extending and extended)
+        // This gives a wind-up period before the spear can actually hurt the player
+        return current_anim_frame >= 3 && current_anim_frame <= 3;
     }
 }

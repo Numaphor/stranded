@@ -529,7 +529,7 @@ namespace fe
                 performing_action = true;
             }
             // A button for slashing/attacking (or shooting if gun is equipped)
-            else if (bn::keypad::a_pressed())
+            else if (bn::keypad::a_pressed() && !_state.listening() && _state.dialog_cooldown() == 0)
             {
                 if (_gun_active)
                 {
@@ -652,7 +652,7 @@ namespace fe
         }
 
         // Interaction with objects/NPCs
-        if (bn::keypad::a_pressed() && !_gun_active && !_abilities.slashing_available() && !_state.listening() && !performing_action)
+        if (bn::keypad::a_pressed() && !_gun_active && !_abilities.slashing_available() && !_state.listening() && _state.dialog_cooldown() == 0 && !performing_action)
         {
             // Interaction logic would be handled by the scene or level
         }
@@ -686,6 +686,9 @@ namespace fe
 
         // Update ability cooldowns
         _abilities.update_cooldowns();
+
+        // Update dialog cooldown
+        _state.update_dialog_cooldown();
 
         handle_input();
 
@@ -769,8 +772,8 @@ namespace fe
         // Apply roll movement if in rolling state
         if (_movement.current_state() == PlayerMovement::State::ROLLING)
         {
-            // Calculate roll speed (slightly faster than walking but not too fast)
-            constexpr bn::fixed ROLL_SPEED = 0.6;
+            // Calculate roll speed (faster dash for better mobility)
+            constexpr bn::fixed ROLL_SPEED = 1.2;
             bn::fixed roll_speed = ROLL_SPEED;
             bn::fixed roll_x = 0;
             bn::fixed roll_y = 0;
@@ -808,9 +811,9 @@ namespace fe
         Entity::set_position(new_pos);
 
         // Update hitbox position (centered on the player)
-        bn::fixed_point hitbox_pos = Hitbox::calculate_centered_position(new_pos, 
-            fe::hitbox_constants::PLAYER_HITBOX_WIDTH, 
-            fe::hitbox_constants::PLAYER_HITBOX_HEIGHT);
+        bn::fixed_point hitbox_pos = Hitbox::calculate_centered_position(new_pos,
+                                                                         fe::hitbox_constants::PLAYER_HITBOX_WIDTH,
+                                                                         fe::hitbox_constants::PLAYER_HITBOX_HEIGHT);
         _hitbox.set_x(hitbox_pos.x());
         _hitbox.set_y(hitbox_pos.y());
 
@@ -845,9 +848,9 @@ namespace fe
     {
         Entity::revert_position();
         // Center hitbox on player using helper function
-        bn::fixed_point hitbox_pos = Hitbox::calculate_centered_position(pos(), 
-            fe::hitbox_constants::PLAYER_HITBOX_WIDTH, 
-            fe::hitbox_constants::PLAYER_HITBOX_HEIGHT);
+        bn::fixed_point hitbox_pos = Hitbox::calculate_centered_position(pos(),
+                                                                         fe::hitbox_constants::PLAYER_HITBOX_WIDTH,
+                                                                         fe::hitbox_constants::PLAYER_HITBOX_HEIGHT);
         _hitbox.set_x(hitbox_pos.x());
         _hitbox.set_y(hitbox_pos.y());
         // Reset velocity to prevent continued movement in the same direction
