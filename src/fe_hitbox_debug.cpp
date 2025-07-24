@@ -169,15 +169,9 @@ namespace fe
             return;
         }
 
-        // Calculate marker positions
-        // Top-left marker at the top-left corner of the hitbox
-        bn::fixed_point top_left_pos(hitbox.x(), hitbox.y());
-
-        // Bottom-right marker at the bottom-right corner of the hitbox
-        // Since we're using only the top-left 4x4 of the sprite, position it so the 4x4 marker
-        // aligns with the bottom-right corner of the hitbox
-        bn::fixed_point bottom_right_pos(hitbox.x() + hitbox.width() - 4,
-                                         hitbox.y() + hitbox.height() - 4);
+        // Calculate marker positions using helper functions
+        bn::fixed_point top_left_pos = _calculate_top_left_marker_pos(hitbox);
+        bn::fixed_point bottom_right_pos = _calculate_bottom_right_marker_pos(hitbox);
 
         // Create or update top-left marker
         if (!markers.top_left.has_value())
@@ -209,13 +203,11 @@ namespace fe
             return;
         }
 
-        // Calculate marker positions for player with adjusted top-left position
-        // Top-left marker adjusted by +4x, +20y for better visual accuracy
-        bn::fixed_point top_left_pos(hitbox.x() + 4, hitbox.y() + 20);
-
-        // Bottom-right marker at the bottom-right corner of the hitbox (unchanged)
-        bn::fixed_point bottom_right_pos(hitbox.x() + hitbox.width() - 4,
-                                         hitbox.y() + hitbox.height() - 4);
+        // Calculate marker positions for player with visual adjustments
+        bn::fixed_point top_left_pos = _calculate_top_left_marker_pos(hitbox, 
+            fe::hitbox_constants::PLAYER_MARKER_X_OFFSET, 
+            fe::hitbox_constants::PLAYER_MARKER_Y_OFFSET);
+        bn::fixed_point bottom_right_pos = _calculate_bottom_right_marker_pos(hitbox);
 
         // Create or update top-left marker
         if (!markers.top_left.has_value())
@@ -247,16 +239,21 @@ namespace fe
             return;
         }
 
-        // Calculate marker positions for merchant with adjusted top-left position for visibility
-        // Move top-left marker up-left by ~36 pixels, then adjust right by 16 and down by 4, then further right by 4 and down by 4, then down by 4 more
-        bn::fixed_point top_left_pos(hitbox.x() + 4 - 36 + 16 + 4, hitbox.y() + 20 - 36 + 4 + 4 + 4);
-
-        // Bottom-right marker adjusted: move up-left by half tile (4 pixels each direction)
-        // Previous: higher by 4 pixels (-4) and left by 12 pixels (-12)
-        // New: up by 4 pixels (-4 from previous) and left by 4 pixels (-4 from previous)
-        // Final: higher by 8 pixels (-8) and left by 16 pixels (-16)
-        bn::fixed_point bottom_right_pos(hitbox.x() + hitbox.width() - 4 - 16,  // 16 pixels more to the left
-                                         hitbox.y() + hitbox.height() - 4 - 8); // 8 pixels higher
+        // Calculate merchant marker positions using simplified offsets
+        // Top-left marker: base position adjusted for merchant visibility
+        bn::fixed top_left_x_offset = fe::hitbox_constants::PLAYER_MARKER_X_OFFSET - 
+                                     fe::hitbox_constants::MERCHANT_BASE_OFFSET + 
+                                     fe::hitbox_constants::MERCHANT_X_ADJUSTMENT;
+        bn::fixed top_left_y_offset = fe::hitbox_constants::PLAYER_MARKER_Y_OFFSET - 
+                                     fe::hitbox_constants::MERCHANT_BASE_OFFSET + 
+                                     fe::hitbox_constants::MERCHANT_Y_ADJUSTMENT;
+        
+        bn::fixed_point top_left_pos = _calculate_top_left_marker_pos(hitbox, top_left_x_offset, top_left_y_offset);
+        
+        // Bottom-right marker: standard position with merchant-specific offsets
+        bn::fixed_point bottom_right_pos = _calculate_bottom_right_marker_pos(hitbox, 
+            -fe::hitbox_constants::MERCHANT_BR_X_OFFSET, 
+            -fe::hitbox_constants::MERCHANT_BR_Y_OFFSET);
 
         // Create or update top-left marker
         if (!markers.top_left.has_value())
@@ -349,5 +346,20 @@ namespace fe
             _zone_markers.bottom_right->set_position(bottom_right_pos);
             _zone_markers.bottom_right->set_visible(_enabled);
         }
+    }
+
+    bn::fixed_point HitboxDebug::_calculate_top_left_marker_pos(const Hitbox &hitbox, bn::fixed x_offset, bn::fixed y_offset) const
+    {
+        return bn::fixed_point(hitbox.x() + x_offset, hitbox.y() + y_offset);
+    }
+
+    bn::fixed_point HitboxDebug::_calculate_bottom_right_marker_pos(const Hitbox &hitbox, bn::fixed x_offset, bn::fixed y_offset) const
+    {
+        // Position marker so its top-left corner aligns with the hitbox's bottom-right corner
+        // Subtract marker size to align properly, then apply additional offsets
+        return bn::fixed_point(
+            hitbox.x() + hitbox.width() - fe::hitbox_constants::MARKER_SPRITE_SIZE + x_offset,
+            hitbox.y() + hitbox.height() - fe::hitbox_constants::MARKER_SPRITE_SIZE + y_offset
+        );
     }
 }

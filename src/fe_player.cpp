@@ -429,8 +429,8 @@ namespace fe
         // Set player z-order to 1 by default
         set_sprite_z_order(1);
 
-        // Initialize hitbox size for player (16x32)
-        _hitbox = Hitbox(0, 0, 16, 32);
+        // Initialize hitbox size for player using constants
+        _hitbox = Hitbox(0, 0, fe::hitbox_constants::PLAYER_HITBOX_WIDTH, fe::hitbox_constants::PLAYER_HITBOX_HEIGHT);
 
         // Initialize health
         _healthbar.set_hp(_hp);
@@ -810,9 +810,12 @@ namespace fe
         // Call base class to update position
         Entity::set_position(new_pos);
 
-        // Update hitbox position (16x32 hitbox centered on the player)
-        _hitbox.set_x(new_pos.x() - 8);  // Center horizontally (16/2)
-        _hitbox.set_y(new_pos.y() - 16); // Center vertically (32/2)
+        // Update hitbox position (centered on the player)
+        bn::fixed_point hitbox_pos = Hitbox::calculate_centered_position(new_pos, 
+            fe::hitbox_constants::PLAYER_HITBOX_WIDTH, 
+            fe::hitbox_constants::PLAYER_HITBOX_HEIGHT);
+        _hitbox.set_x(hitbox_pos.x());
+        _hitbox.set_y(hitbox_pos.y());
 
         // Update sprite position with offset
         update_sprite_position();
@@ -844,9 +847,12 @@ namespace fe
     void Player::revert_position()
     {
         Entity::revert_position();
-        // Center hitbox on player - update the Entity's hitbox
-        _hitbox.set_x(pos().x() - 8);
-        _hitbox.set_y(pos().y() - 16);
+        // Center hitbox on player using helper function
+        bn::fixed_point hitbox_pos = Hitbox::calculate_centered_position(pos(), 
+            fe::hitbox_constants::PLAYER_HITBOX_WIDTH, 
+            fe::hitbox_constants::PLAYER_HITBOX_HEIGHT);
+        _hitbox.set_x(hitbox_pos.x());
+        _hitbox.set_y(hitbox_pos.y());
         // Reset velocity to prevent continued movement in the same direction
         _movement.stop_movement();
     }

@@ -133,6 +133,24 @@ namespace fe
          */
         bn::sprite_ptr _create_marker(bn::fixed_point position, bool rotated = false);
 
+        /**
+         * @brief Calculate top-left marker position for a hitbox
+         * @param hitbox The hitbox to position marker for
+         * @param x_offset Additional X offset for visual adjustment
+         * @param y_offset Additional Y offset for visual adjustment
+         * @return Position for the top-left marker
+         */
+        [[nodiscard]] bn::fixed_point _calculate_top_left_marker_pos(const Hitbox &hitbox, bn::fixed x_offset = 0, bn::fixed y_offset = 0) const;
+
+        /**
+         * @brief Calculate bottom-right marker position for a hitbox
+         * @param hitbox The hitbox to position marker for
+         * @param x_offset Additional X offset for visual adjustment (negative moves left)
+         * @param y_offset Additional Y offset for visual adjustment (negative moves up)
+         * @return Position for the bottom-right marker
+         */
+        [[nodiscard]] bn::fixed_point _calculate_bottom_right_marker_pos(const Hitbox &hitbox, bn::fixed x_offset = 0, bn::fixed y_offset = 0) const;
+
         bn::optional<bn::camera_ptr> _camera;
         HitboxMarkers _player_markers;
         bn::vector<HitboxMarkers, 32> _enemy_markers; // Support up to 32 enemies
