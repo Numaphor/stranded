@@ -95,7 +95,7 @@ namespace fe
         };
         AnimationState _current_animation = AnimationState::IDLE;
         int _attack_timer = 0;
-        static constexpr int ATTACK_DURATION = 60; // Frames for attack animation
+        static constexpr int ATTACK_DURATION = 60;   // Frames for attack animation
         static constexpr bn::fixed SPEAR_REACH = 24; // Spear reach distance in pixels
 
         // Spearguard return-to-post behavior

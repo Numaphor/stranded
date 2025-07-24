@@ -107,9 +107,12 @@ namespace fe
         }
 
         // Check if this is a merchant NPC and use specialized positioning
-        if (npc.type() == NPC_TYPE::MERCHANT) {
+        if (npc.type() == NPC_TYPE::MERCHANT)
+        {
             _update_merchant_markers(hitbox, *markers);
-        } else {
+        }
+        else
+        {
             _update_markers(hitbox, *markers);
         }
     }
@@ -252,7 +255,7 @@ namespace fe
         // New: up by 4 pixels (-4 from previous) and left by 4 pixels (-4 from previous)
         // Final: higher by 8 pixels (-8) and left by 16 pixels (-16)
         bn::fixed_point bottom_right_pos(hitbox.x() + hitbox.width() - 4 - 16,  // 16 pixels more to the left
-                                         hitbox.y() + hitbox.height() - 4 - 8);  // 8 pixels higher
+                                         hitbox.y() + hitbox.height() - 4 - 8); // 8 pixels higher
 
         // Create or update top-left marker
         if (!markers.top_left.has_value())

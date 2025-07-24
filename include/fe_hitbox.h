@@ -14,7 +14,7 @@ namespace fe
         right
     };
 
-    class Collision; // Forward declaration
+    class Collision;   // Forward declaration
     class HitboxDebug; // Forward declaration
 
     class Hitbox
@@ -23,7 +23,7 @@ namespace fe
         Hitbox();
         Hitbox(bn::fixed x, bn::fixed y, bn::fixed width, bn::fixed height);
 
-        friend class Collision; // Allow Collision to access private members
+        friend class Collision;   // Allow Collision to access private members
         friend class HitboxDebug; // Allow HitboxDebug to access private members
 
     public:

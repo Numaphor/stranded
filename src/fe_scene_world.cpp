@@ -168,7 +168,7 @@ namespace fe
                 // Set z-order based on Y position (sprites with lower Y appear in front)
                 _player->set_sprite_z_order(player_z);
                 _merchant->set_sprite_z_order(merchant_z);
-                
+
                 // Update hitbox debug visualization for merchant
                 if (_hitbox_debug.is_enabled())
                 {
@@ -205,7 +205,7 @@ namespace fe
             if (_hitbox_debug.is_enabled())
             {
                 _hitbox_debug.update_player_hitbox(*_player);
-                
+
                 // Update zone tiles visualization
                 _hitbox_debug.update_zone_tiles(*_level, bg);
             }

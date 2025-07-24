@@ -13,7 +13,7 @@ namespace fe
     constexpr bn::fixed ATTACK_DISTANCE = 30;
 
     // IdleState implementation
-    void IdleState::enter(Enemy& enemy)
+    void IdleState::enter(Enemy &enemy)
     {
         // Stop movement when entering idle
         enemy._target_dx = 0;
@@ -22,7 +22,7 @@ namespace fe
         enemy._dy = 0;
     }
 
-    void IdleState::update(Enemy& enemy, bn::fixed_point player_pos, const Level& level, bool player_listening)
+    void IdleState::update(Enemy &enemy, bn::fixed_point player_pos, const Level &level, bool player_listening)
     {
         // Calculate distance to player for state transitions
         bn::fixed dist_x = player_pos.x() - enemy.pos().x();
@@ -53,20 +53,20 @@ namespace fe
         enemy._target_dy = 0;
     }
 
-    void IdleState::exit(Enemy& enemy)
+    void IdleState::exit(Enemy &enemy)
     {
         // No cleanup needed for idle state
     }
 
     // PatrolState implementation
-    void PatrolState::enter(Enemy& enemy)
+    void PatrolState::enter(Enemy &enemy)
     {
         _direction_set = false;
         _target_dx = 0;
         _target_dy = 0;
     }
 
-    void PatrolState::update(Enemy& enemy, bn::fixed_point player_pos, const Level& level, bool player_listening)
+    void PatrolState::update(Enemy &enemy, bn::fixed_point player_pos, const Level &level, bool player_listening)
     {
         // Calculate distance to player for state transitions
         bn::fixed dist_x = player_pos.x() - enemy.pos().x();
@@ -110,7 +110,7 @@ namespace fe
         }
     }
 
-    void PatrolState::exit(Enemy& enemy)
+    void PatrolState::exit(Enemy &enemy)
     {
         // Stop movement when exiting patrol
         enemy._target_dx = 0;
@@ -118,19 +118,19 @@ namespace fe
     }
 
     // ChaseState implementation
-    void ChaseState::enter(Enemy& enemy)
+    void ChaseState::enter(Enemy &enemy)
     {
         // No special setup needed for chase
     }
 
-    void ChaseState::update(Enemy& enemy, bn::fixed_point player_pos, const Level& level, bool player_listening)
+    void ChaseState::update(Enemy &enemy, bn::fixed_point player_pos, const Level &level, bool player_listening)
     {
         // Calculate distance to player
         bn::fixed dist_x = player_pos.x() - enemy.pos().x();
         bn::fixed dist_y = player_pos.y() - enemy.pos().y();
         bn::fixed dist_sq = dist_x * dist_x + dist_y * dist_y;
-        const bn::fixed unfollow_dist_sq = 64 * 64; // 8 tiles squared
-        const bn::fixed attack_dist_sq = ATTACK_DISTANCE * ATTACK_DISTANCE;   // 3.75 tiles squared for spearguards
+        const bn::fixed unfollow_dist_sq = 64 * 64;                         // 8 tiles squared
+        const bn::fixed attack_dist_sq = ATTACK_DISTANCE * ATTACK_DISTANCE; // 3.75 tiles squared for spearguards
 
         // Check if player is too far away or listening to NPCs
         if (dist_sq > unfollow_dist_sq || player_listening)
@@ -176,13 +176,13 @@ namespace fe
         }
     }
 
-    void ChaseState::exit(Enemy& enemy)
+    void ChaseState::exit(Enemy &enemy)
     {
         // No special cleanup needed
     }
 
     // AttackState implementation
-    void AttackState::enter(Enemy& enemy)
+    void AttackState::enter(Enemy &enemy)
     {
         // Start attack animation and stop movement
         enemy._attack_timer = _attack_duration;
@@ -190,7 +190,7 @@ namespace fe
         enemy._target_dy = 0;
     }
 
-    void AttackState::update(Enemy& enemy, bn::fixed_point player_pos, const Level& level, bool player_listening)
+    void AttackState::update(Enemy &enemy, bn::fixed_point player_pos, const Level &level, bool player_listening)
     {
         // Keep enemy stationary during attack
         enemy._target_dx = 0;
@@ -236,19 +236,19 @@ namespace fe
         }
     }
 
-    void AttackState::exit(Enemy& enemy)
+    void AttackState::exit(Enemy &enemy)
     {
         // Reset attack timer
         enemy._attack_timer = 0;
     }
 
     // ReturnToPostState implementation
-    void ReturnToPostState::enter(Enemy& enemy)
+    void ReturnToPostState::enter(Enemy &enemy)
     {
         // No special setup needed
     }
 
-    void ReturnToPostState::update(Enemy& enemy, bn::fixed_point player_pos, const Level& level, bool player_listening)
+    void ReturnToPostState::update(Enemy &enemy, bn::fixed_point player_pos, const Level &level, bool player_listening)
     {
         // Calculate distance to original position
         bn::fixed dist_to_post_x = enemy._original_position.x() - enemy.pos().x();
@@ -293,20 +293,20 @@ namespace fe
         }
     }
 
-    void ReturnToPostState::exit(Enemy& enemy)
+    void ReturnToPostState::exit(Enemy &enemy)
     {
         // No special cleanup needed
     }
 
     // StunnedState implementation
-    void StunnedState::enter(Enemy& enemy)
+    void StunnedState::enter(Enemy &enemy)
     {
         // Stop movement while stunned
         enemy._target_dx = 0;
         enemy._target_dy = 0;
     }
 
-    void StunnedState::update(Enemy& enemy, bn::fixed_point player_pos, const Level& level, bool player_listening)
+    void StunnedState::update(Enemy &enemy, bn::fixed_point player_pos, const Level &level, bool player_listening)
     {
         // Keep enemy stationary while stunned
         enemy._target_dx = 0;
@@ -336,7 +336,7 @@ namespace fe
         }
     }
 
-    void StunnedState::exit(Enemy& enemy)
+    void StunnedState::exit(Enemy &enemy)
     {
         // Clear stunned flag
         enemy._stunned = false;
