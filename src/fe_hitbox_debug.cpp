@@ -247,8 +247,9 @@ namespace fe
             return;
         }
 
-        // Calculate marker positions for merchant with standard top-left position
-        bn::fixed_point top_left_pos(hitbox.x(), hitbox.y());
+        // Calculate marker positions for merchant with adjusted top-left position for visibility
+        // Move top-left marker up-left by ~36 pixels, then adjust right by 16 and down by 4, then further right by 4 and down by 4, then down by 4 more
+        bn::fixed_point top_left_pos(hitbox.x() + 4 - 36 + 16 + 4, hitbox.y() + 20 - 36 + 4 + 4 + 4);
 
         // Bottom-right marker adjusted: move up-left by half tile (4 pixels each direction)
         // Previous: higher by 4 pixels (-4) and left by 12 pixels (-12)
