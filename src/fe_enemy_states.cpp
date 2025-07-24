@@ -10,6 +10,8 @@
 
 namespace fe
 {
+    constexpr bn::fixed ATTACK_DISTANCE = 30;
+
     // IdleState implementation
     void IdleState::enter(Enemy& enemy)
     {
@@ -128,7 +130,7 @@ namespace fe
         bn::fixed dist_y = player_pos.y() - enemy.pos().y();
         bn::fixed dist_sq = dist_x * dist_x + dist_y * dist_y;
         const bn::fixed unfollow_dist_sq = 64 * 64; // 8 tiles squared
-        const bn::fixed attack_dist_sq = 32 * 32;   // 4 tiles squared for spearguards
+        const bn::fixed attack_dist_sq = ATTACK_DISTANCE * ATTACK_DISTANCE;   // 3.75 tiles squared for spearguards
 
         // Check if player is too far away or listening to NPCs
         if (dist_sq > unfollow_dist_sq || player_listening)

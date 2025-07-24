@@ -50,6 +50,7 @@ namespace fe
         
         // Override Entity methods
         void update() override;
+        void update_hitbox() override; // Override to center NPC hitbox properly
         
         // NPC-specific methods
         bool check_trigger(bn::fixed_point player_pos);
@@ -58,6 +59,7 @@ namespace fe
         bool finished_talking();
         void set_is_hidden(bool is_hidden);
         bool hidden();
+        NPC_TYPE type() const { return _type; }
         
     private:
         // Private helper methods

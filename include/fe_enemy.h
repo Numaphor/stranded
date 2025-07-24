@@ -18,6 +18,12 @@
 #include "fe_hitbox.h"
 #include "fe_level.h"
 #include "fe_entity.h"
+#include "fe_enemy_state_machine.h"
+
+#include "fe_enemy_type.h"
+#include "fe_hitbox.h"
+#include "fe_level.h"
+#include "fe_entity.h"
 #include "fe_movement.h"
 #include "fe_enemy_state_machine.h"
 
@@ -35,7 +41,6 @@ namespace fe
     class Enemy : public Entity
     {
     public:
-
         friend class World;                                            // Allow World to access private members
         friend class Minimap;                                          // Allow Minimap to access private members
         friend bool check_collisions_bb(Player &player, Enemy &enemy); // Allow collision function to access _pos
@@ -49,7 +54,7 @@ namespace fe
 
     private:
         EnemyMovement _movement;
-        EnemyStateMachine _state_machine;      // New state machine
+        EnemyStateMachine _state_machine; // New state machine
         int _state_timer = 0;
         int _state_duration = 60;
         bn::fixed _target_dx = 0;
@@ -66,7 +71,7 @@ namespace fe
         bool _grounded = false;
         int _inv_timer = 0;
         bool _stunned = false;
-        
+
         // Death animation timer
         int _death_timer = 0;
         static constexpr int DEATH_ANIMATION_DURATION = 150; // Frames to allow death animation to complete
@@ -79,9 +84,10 @@ namespace fe
         int _sound_timer = 0;
         bool _spotted_player = false;
         bn::optional<bn::sprite_animate_action<16>> _action; // Increased to handle dead animation (16 frames)
-        
+
         // Spearguard animation states
-        enum class AnimationState {
+        enum class AnimationState
+        {
             IDLE,
             RUN,
             ATTACK,
@@ -90,7 +96,8 @@ namespace fe
         AnimationState _current_animation = AnimationState::IDLE;
         int _attack_timer = 0;
         static constexpr int ATTACK_DURATION = 60; // Frames for attack animation
-        
+        static constexpr bn::fixed SPEAR_REACH = 24; // Spear reach distance in pixels
+
         // Spearguard return-to-post behavior
         bn::fixed_point _original_position = bn::fixed_point(0, 0);
         bool _returning_to_post = false;
@@ -113,14 +120,14 @@ namespace fe
 
     public:
         Enemy(int x, int y, bn::camera_ptr camera, bn::regular_bg_ptr map, ENEMY_TYPE type, int hp);
-        
+
         // Move constructor and assignment operator (needed for EnemyStateMachine)
-        Enemy(Enemy&& other) noexcept;
-        Enemy& operator=(Enemy&& other) noexcept;
-        
+        Enemy(Enemy &&other) noexcept;
+        Enemy &operator=(Enemy &&other) noexcept;
+
         // Delete copy constructor and assignment operator
-        Enemy(const Enemy&) = delete;
-        Enemy& operator=(const Enemy&) = delete;
+        Enemy(const Enemy &) = delete;
+        Enemy &operator=(const Enemy &) = delete;
         void update_hitbox();
         void update() override { /* Default implementation */ }
         void update(bn::fixed_point player_pos, const Level &level, bool player_listening = false);
@@ -144,6 +151,16 @@ namespace fe
         {
             return Entity::get_hitbox();
         }
+
+        // Get extended attack hitbox for spearguards during attack
+        // This extends the hitbox by 24 pixels in the direction the spearguard is facing
+        // but only during frames 1-3 of the spear jab animation (when spear is extending/extended)
+        [[nodiscard]] Hitbox get_attack_hitbox() const;
+
+        // Check if the enemy is currently in attack state with extended reach
+        // For spearguards, this returns true during frames 1-3 of the attack animation
+        // (covering spear thrust, full extension, and start of retraction)
+        [[nodiscard]] bool is_attacking() const;
     };
 }
 

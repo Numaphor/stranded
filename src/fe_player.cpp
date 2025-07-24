@@ -444,8 +444,6 @@ namespace fe
         update_animation();
     }
 
-
-
     void Player::handle_input()
     {
         // Don't process movement input when listening to NPCs
@@ -775,7 +773,8 @@ namespace fe
         if (_movement.current_state() == PlayerMovement::State::ROLLING)
         {
             // Calculate roll speed (slightly faster than walking but not too fast)
-            bn::fixed roll_speed = 1.2;
+            constexpr bn::fixed ROLL_SPEED = 0.6;
+            bn::fixed roll_speed = ROLL_SPEED;
             bn::fixed roll_x = 0;
             bn::fixed roll_y = 0;
 
@@ -837,8 +836,8 @@ namespace fe
             // Apply the offset to the sprite position
             sprite->set_position(pos.x() + x_offset, pos.y());
 
-            // Update z-order based on Y position for proper depth sorting
-            sprite->set_z_order(pos.y().integer());
+            // Z-order is now handled by the world scene for proper depth sorting
+            // No need to set z-order here as it would override the scene's depth logic
         }
     }
 

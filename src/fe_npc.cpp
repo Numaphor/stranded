@@ -19,6 +19,14 @@ namespace fe
         _text_generator.set_bg_priority(0);
     }
 
+    void NPC::update_hitbox()
+    {
+        // Center the 32x32 NPC hitbox on the NPC position
+        // This matches the visual sprite positioning
+        _hitbox.set_x(_pos.x() - 16);  // Center horizontally (32/2)
+        _hitbox.set_y(_pos.y() - 16);  // Center vertically (32/2)
+    }
+
     void NPC::update()
     {
         if (_action.has_value())
