@@ -665,11 +665,8 @@ namespace fe
             update_gun_position(gun_dir);
         }
 
-        // Apply friction when not holding movement keys and not performing action
-        if (!performing_action)
-        {
-            _movement.apply_friction();
-        }
+        // Apply friction to gradually slow down movement
+        _movement.apply_friction();
 
         // Update animation if any movement state changed
         if (was_moving != _movement.is_moving() ||
