@@ -7,14 +7,14 @@ namespace fe
 {
     enum class SpriteLayer
     {
-        BACKGROUND = 0,
-        GROUND_OBJECTS = 100,
-        NPCS = 200,
+        UI = 0,
+        EFFECTS = 100,
+        COMPANION_FLYING = 200,
+        COMPANION_GROUNDED = 250,
         PLAYER = 300,
-        COMPANION_GROUNDED = 350,
-        COMPANION_FLYING = 400,
-        EFFECTS = 500,
-        UI = 600
+        NPCS = 400,
+        GROUND_OBJECTS = 500,
+        BACKGROUND = 600
     };
 
     class SpritePriority

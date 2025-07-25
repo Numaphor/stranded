@@ -1314,6 +1314,7 @@ namespace fe
             bn::sprite_ptr companion_sprite = bn::sprite_items::companion.create_sprite(pos());
             _companion = PlayerCompanion(bn::move(companion_sprite));
             _companion->spawn(pos(), camera);
+            _companion->set_flying(true); // Companion is always flying
             _companion_initialized = true;
         }
     }
