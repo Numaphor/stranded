@@ -3,6 +3,7 @@
 #include "bn_sprite_items_hero.h"
 #include "bn_sprite_items_gun.h"
 #include "bn_sprite_items_companion.h"
+#include "bn_sprite_animate_actions.h"
 #include "bn_math.h"
 #include "fe_level.h"
 #include "bn_log.h"
@@ -265,6 +266,8 @@ namespace fe
                 case PlayerMovement::Direction::UP:
                     should_change = needs_animation_change(current_frame, 187, 198);
                     break;
+                default:
+                    break;
                 }
                 break;
             case PlayerMovement::State::WALKING:
@@ -281,6 +284,8 @@ namespace fe
                 case PlayerMovement::Direction::UP:
                     should_change = needs_animation_change(current_frame, 199, 206);
                     break;
+                default:
+                    break;
                 }
                 break;
             case PlayerMovement::State::RUNNING:
@@ -296,6 +301,8 @@ namespace fe
                     break;
                 case PlayerMovement::Direction::UP:
                     should_change = needs_animation_change(current_frame, 207, 214);
+                    break;
+                default:
                     break;
                 }
                 break;
@@ -344,6 +351,8 @@ namespace fe
                 set_horizontal_flip_for_direction(direction);
                 make_anim_range(8, 172, 177); // lr_roll: 172-177
                 break;
+            default:
+                break;
             }
             break;
         case PlayerMovement::State::CHOPPING:
@@ -361,6 +370,8 @@ namespace fe
                 set_horizontal_flip_for_direction(direction);
                 make_anim_range(10, 178, 181); // lr_slash: 178-181
                 break;
+            default:
+                break;
             }
             break;
         case PlayerMovement::State::SLASHING:
@@ -376,6 +387,8 @@ namespace fe
             case PlayerMovement::Direction::RIGHT:
                 set_horizontal_flip_for_direction(direction);
                 make_anim_range(8, 178, 181); // lr_slash: 178-181
+                break;
+            default:
                 break;
             }
             break;
@@ -393,6 +406,8 @@ namespace fe
                 set_horizontal_flip_for_direction(direction);
                 make_anim_range(8, 182, 186); // lr_slash second variant: 182-186
                 break;
+            default:
+                break;
             }
             break;
         case PlayerMovement::State::RUNNING:
@@ -408,6 +423,8 @@ namespace fe
             case PlayerMovement::Direction::RIGHT:
                 set_horizontal_flip_for_direction(direction);
                 make_anim_range(8, 164, 171); // lr_run: 164-171
+                break;
+            default:
                 break;
             }
             break;
@@ -425,6 +442,8 @@ namespace fe
                 set_horizontal_flip_for_direction(direction);
                 make_anim_range(12, 156, 163); // lr_move: 156-163
                 break;
+            default:
+                break;
             }
             break;
         default: // IDLE
@@ -440,6 +459,8 @@ namespace fe
             case PlayerMovement::Direction::RIGHT:
                 set_horizontal_flip_for_direction(direction);
                 make_anim_range(12, 144, 155); // lr_idle: 144-155
+                break;
+            default:
                 break;
             }
             break;
@@ -829,7 +850,7 @@ namespace fe
             if (_state.invulnerable())
             {
                 // Sync companion visibility with player flashing
-                _companion->set_visible(is_visible());
+                _companion->set_visible(_sprite.value().visible());
             }
             else
             {
@@ -1122,8 +1143,9 @@ namespace fe
         if (_is_dead)
         {
             // Death animation (frames 12-21) - play once
-            _animation = bn::sprite_animate_action<32>::once(_sprite, 8, 
-                bn::sprite_items::companion.tiles_item(), 12, 13, 14, 15, 16, 17, 18, 19, 20, 21);
+            _animation = bn::create_sprite_animate_action_once(
+                _sprite, 8, bn::sprite_items::companion.tiles_item(), 
+                12, 13, 14, 15, 16, 17, 18, 19, 20, 21);
         }
         else
         {
@@ -1132,18 +1154,23 @@ namespace fe
             {
             case Position::RIGHT:
                 // Right of player animation (frames 0-3)
-                _animation = bn::sprite_animate_action<32>::forever(_sprite, 12,
-                    bn::sprite_items::companion.tiles_item(), 0, 1, 2, 3);
+                _animation = bn::create_sprite_animate_action_forever(
+                    _sprite, 12, bn::sprite_items::companion.tiles_item(), 0, 1, 2, 3);
                 break;
             case Position::LEFT:
                 // Left of player animation (frames 4-7)
-                _animation = bn::sprite_animate_action<32>::forever(_sprite, 12,
-                    bn::sprite_items::companion.tiles_item(), 4, 5, 6, 7);
+                _animation = bn::create_sprite_animate_action_forever(
+                    _sprite, 12, bn::sprite_items::companion.tiles_item(), 4, 5, 6, 7);
                 break;
             case Position::BELOW:
                 // Below player animation (frames 8-11)
-                _animation = bn::sprite_animate_action<32>::forever(_sprite, 12,
-                    bn::sprite_items::companion.tiles_item(), 8, 9, 10, 11);
+                _animation = bn::create_sprite_animate_action_forever(
+                    _sprite, 12, bn::sprite_items::companion.tiles_item(), 8, 9, 10, 11);
+                break;
+            default:
+                // Default to right animation
+                _animation = bn::create_sprite_animate_action_forever(
+                    _sprite, 12, bn::sprite_items::companion.tiles_item(), 0, 1, 2, 3);
                 break;
             }
         }

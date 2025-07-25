@@ -254,7 +254,7 @@ namespace fe
     private:
         bn::sprite_ptr _sprite;
         bn::fixed_point _position;
-        bn::optional<bn::sprite_animate_action<32>> _animation;
+        bn::optional<bn::sprite_animate_action<10>> _animation;
         Position _position_side = Position::RIGHT;
         bool _is_dead = false;
         int _follow_delay = 0;
