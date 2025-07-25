@@ -231,6 +231,40 @@ namespace fe
         }
     };
 
+    // Companion class for player companion
+    class PlayerCompanion
+    {
+    public:
+        enum class Position
+        {
+            RIGHT,
+            LEFT,
+            BELOW
+        };
+
+        explicit PlayerCompanion(bn::sprite_ptr sprite);
+        void spawn(bn::fixed_point player_pos, bn::camera_ptr camera);
+        void update(bn::fixed_point player_pos, bool player_is_dead);
+        void set_visible(bool visible);
+        void set_position_side(Position side);
+        [[nodiscard]] Position get_position_side() const { return _position_side; }
+        [[nodiscard]] bn::fixed_point pos() const { return _position; }
+
+    private:
+        bn::sprite_ptr _sprite;
+        bn::fixed_point _position;
+        bn::optional<bn::sprite_animate_action<32>> _animation;
+        Position _position_side = Position::RIGHT;
+        bool _is_dead = false;
+        int _follow_delay = 0;
+        bn::fixed_point _target_offset;
+
+        void update_animation();
+        void update_position(bn::fixed_point player_pos);
+        bn::fixed_point calculate_companion_offset() const;
+        void start_death_animation();
+    };
+
     // Forward declaration of Enemy class
     class Enemy;
 
@@ -291,6 +325,12 @@ namespace fe
             _healthbar.update();
             set_visible(true);
             _bullet_manager.clear_bullets();
+            
+            // Reset companion if it exists
+            if (_companion.has_value())
+            {
+                _companion->set_visible(true);
+            }
         }
 
         // Reset player movement state (position remains unchanged)
@@ -338,11 +378,16 @@ namespace fe
         bool _is_strafing = false;
         PlayerMovement::Direction _strafing_direction = PlayerMovement::Direction::DOWN;
 
+        // Companion
+        bn::optional<PlayerCompanion> _companion;
+        bool _companion_initialized = false;
+
         void handle_input();
         void update_physics();
         void update_animation(); // Helper to update animation state
         void fire_bullet(PlayerMovement::Direction direction);
         void update_bullets();
+        void initialize_companion(bn::camera_ptr camera);
     };
 
     // ... other members ...
