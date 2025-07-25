@@ -120,7 +120,7 @@ namespace fe
     private:
         bn::sprite_ptr _sprite;
         bn::optional<bn::sprite_animate_action<32>> _animation;
-        
+
         // Helper method to create animation ranges
         void make_anim_range(int speed, int start_frame, int end_frame);
     };
@@ -254,7 +254,7 @@ namespace fe
     private:
         bn::sprite_ptr _sprite;
         bn::fixed_point _position;
-        bn::optional<bn::sprite_animate_action<10>> _animation;
+        bn::optional<bn::sprite_animate_action<32>> _animation;
         Position _position_side = Position::RIGHT;
         bool _is_dead = false;
         int _follow_delay = 0;
@@ -287,9 +287,14 @@ namespace fe
 
         void set_position(bn::fixed_point pos) override;
         void update_sprite_position() override;
+        void update_z_order();
         void revert_position() override;
-        void set_sprite_z_order(int z_order) override { Entity::set_sprite_z_order(z_order); }
+        void set_sprite_z_order(int z_order) override;
         bn::sprite_ptr *sprite() { return get_sprite(); }
+
+        // Companion accessors
+        [[nodiscard]] bool has_companion() const { return _companion.has_value(); }
+        [[nodiscard]] PlayerCompanion *get_companion() { return _companion.has_value() ? &(*_companion) : nullptr; }
 
         [[nodiscard]] int get_hp() const { return _hp; }
         void take_damage(int damage)
@@ -326,7 +331,7 @@ namespace fe
             _healthbar.update();
             set_visible(true);
             _bullet_manager.clear_bullets();
-            
+
             // Reset companion if it exists
             if (_companion.has_value())
             {

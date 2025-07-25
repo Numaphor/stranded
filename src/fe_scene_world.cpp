@@ -160,14 +160,13 @@ namespace fe
                 merchant_was_talking = _merchant->is_talking();
                 _merchant->update();
 
-                // Dynamic z-ordering based on Y position for depth sorting
-                // Lower Y values (higher on screen) should appear in front
-                int player_z = -_player->pos().y().integer();
-                int merchant_z = -_merchant->pos().y().integer();
+                // Update z-ordering for player, companion, and gun
+                _player->update_z_order();
 
-                // Set z-order based on Y position (sprites with lower Y appear in front)
-                _player->set_sprite_z_order(player_z);
+                // Update merchant's z-order based on Y position
+                int merchant_z = -_merchant->pos().y().integer();
                 _merchant->set_sprite_z_order(merchant_z);
+
 
                 // Update hitbox debug visualization for merchant
                 if (_hitbox_debug.is_enabled())

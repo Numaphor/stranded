@@ -26,23 +26,23 @@ namespace fe
         constexpr bn::fixed ATTACK_REACH = 20;
         constexpr bn::fixed HITBOX_WIDTH = 16;
         constexpr bn::fixed HITBOX_HEIGHT = 32;
-        
+
         // Gun positioning arrays
         constexpr bn::fixed GUN_OFFSET_X[4] = {0, 0, -8, 8}; // UP, DOWN, LEFT, RIGHT
         constexpr bn::fixed GUN_OFFSET_Y[4] = {-6, 6, 0, 0};
         constexpr bn::fixed BULLET_OFFSET_X[4] = {+1, -1, -12, 11}; // UP, DOWN, LEFT, RIGHT
-        constexpr bn::fixed BULLET_OFFSET_Y[4] = {-9, 9, -3, +1}; // UP, DOWN, LEFT, RIGHT
-        constexpr bool GUN_FLIPS[4] = {false, false, true, false}; // UP, DOWN, LEFT, RIGHT
+        constexpr bn::fixed BULLET_OFFSET_Y[4] = {-9, 9, -3, +1};   // UP, DOWN, LEFT, RIGHT
+        constexpr bool GUN_FLIPS[4] = {false, false, true, false};  // UP, DOWN, LEFT, RIGHT
     }
 
     // Helper function to convert PlayerMovement::Direction to fe::Direction
     fe::Direction player_direction_to_bullet_direction(PlayerMovement::Direction direction)
     {
         constexpr fe::Direction direction_map[4] = {
-            fe::Direction::UP,    // PlayerMovement::Direction::UP
-            fe::Direction::DOWN,  // PlayerMovement::Direction::DOWN  
-            fe::Direction::LEFT,  // PlayerMovement::Direction::LEFT
-            fe::Direction::RIGHT  // PlayerMovement::Direction::RIGHT
+            fe::Direction::UP,   // PlayerMovement::Direction::UP
+            fe::Direction::DOWN, // PlayerMovement::Direction::DOWN
+            fe::Direction::LEFT, // PlayerMovement::Direction::LEFT
+            fe::Direction::RIGHT // PlayerMovement::Direction::RIGHT
         };
         return direction_map[static_cast<int>(direction)];
     }
@@ -54,7 +54,7 @@ namespace fe
     }
 
     // Helper function to check horizontal flip change for left/right directions
-    bool needs_horizontal_flip_change(bn::sprite_ptr& sprite, PlayerMovement::Direction direction)
+    bool needs_horizontal_flip_change(bn::sprite_ptr &sprite, PlayerMovement::Direction direction)
     {
         return sprite.horizontal_flip() != (direction == PlayerMovement::Direction::LEFT);
     }
@@ -231,7 +231,8 @@ namespace fe
     void PlayerAnimation::apply_state(PlayerMovement::State state, PlayerMovement::Direction direction)
     {
         // Helper function to set horizontal flip for left/right directions
-        auto set_horizontal_flip_for_direction = [&](PlayerMovement::Direction dir) {
+        auto set_horizontal_flip_for_direction = [&](PlayerMovement::Direction dir)
+        {
             _sprite.set_horizontal_flip(dir == PlayerMovement::Direction::LEFT);
         };
 
@@ -511,7 +512,7 @@ namespace fe
         set_position(pos);
         set_camera(camera);
         update_animation();
-        
+
         // Initialize companion
         initialize_companion(camera);
     }
@@ -835,26 +836,12 @@ namespace fe
             }
         }
 
-        // Update companion (ensure it's always initialized)
-        if (!_companion.has_value() && _companion_initialized == false)
-        {
-            // Reinitialize companion if somehow it got lost
-            if (get_sprite()->camera().has_value())
-            {
-                initialize_companion(get_sprite()->camera().value());
-            }
-        }
-        
+        // Update companion
         if (_companion.has_value())
         {
             bool player_dead = (_hp <= 0);
             _companion->update(pos(), player_dead);
-            
-            // Update companion z-order based on position (similar to world scene logic)
-            // Sprites with lower Y appear in front, companion should be slightly behind player
-            int companion_z = -_companion->pos().y().integer() + 1; // +1 to put it behind player
-            _companion->set_z_order(companion_z);
-            
+
             // Update companion visibility to match player
             if (_state.invulnerable())
             {
@@ -946,6 +933,11 @@ namespace fe
         }
     }
 
+    void Player::set_sprite_z_order(int z_order)
+    {
+        Entity::set_sprite_z_order(z_order);
+    }
+
     void Player::revert_position()
     {
         Entity::revert_position();
@@ -959,6 +951,41 @@ namespace fe
         _movement.stop_movement();
     }
 
+    void Player::update_z_order()
+    {
+        int player_z_order;
+
+        if (_gun_active && _gun_sprite.has_value())
+        {
+            // Gun is active, use fixed z-ordering
+            const int idx = int(_movement.facing_direction());
+            if (idx == 0) // UP
+            {
+                player_z_order = -10; // Player in front
+                _gun_sprite->set_z_order(-5); // Gun behind
+            }
+            else
+            {
+                player_z_order = -5; // Player behind
+                _gun_sprite->set_z_order(-10); // Gun in front
+            }
+        }
+        else
+        {
+            // Gun is not active, use dynamic z-ordering based on Y position
+            player_z_order = static_cast<int>(pos().y().integer());
+        }
+
+        // Set player's z-order
+        set_sprite_z_order(player_z_order);
+
+        // Set companion's z-order to be in front of the player
+        if (_companion.has_value())
+        {
+            _companion->set_z_order(player_z_order - 1);
+        }
+    }
+
     void Player::update_gun_position(PlayerMovement::Direction direction)
     {
         if (!_gun_sprite)
@@ -968,18 +995,6 @@ namespace fe
         // Update angles to rotate gun 90 degrees when looking up or down
         constexpr int angles[4] = {90, 270, 0, 0};
 
-        // Adjust z-order based on direction
-        // When looking up (idx 0), player should be drawn over the gun
-        if (idx == 0)
-        {                                 // UP direction
-            set_sprite_z_order(-10);      // Player in front
-            _gun_sprite->set_z_order(-5); // Gun behind
-        }
-        else
-        {
-            _gun_sprite->set_z_order(-10); // Gun in front
-            set_sprite_z_order(-5);        // Player behind
-        }
 
         _gun_sprite->set_horizontal_flip(player_constants::GUN_FLIPS[idx]);
         _gun_sprite->set_rotation_angle(angles[idx]);
@@ -1069,13 +1084,13 @@ namespace fe
     }
 
     // PlayerCompanion implementation
-    PlayerCompanion::PlayerCompanion(bn::sprite_ptr sprite) :
-        _sprite(bn::move(sprite)),
-        _position(0, 0),
-        _position_side(Position::RIGHT),
-        _is_dead(false),
-        _follow_delay(0),
-        _target_offset(24, 0) // Start to the right of player
+    PlayerCompanion::PlayerCompanion(bn::sprite_ptr sprite)
+        : _sprite(bn::move(sprite)),
+          _position(0, 0),
+          _position_side(Position::RIGHT),
+          _is_dead(false),
+          _follow_delay(0),
+          _target_offset(24, 0) // Start to the right of player
     {
         // Z-order will be set properly when companion is spawned and updated
         _sprite.set_z_order(0);
@@ -1083,16 +1098,21 @@ namespace fe
 
     void PlayerCompanion::spawn(bn::fixed_point player_pos, bn::camera_ptr camera)
     {
-        // Start the companion at the right side of the player
+        // Start the companion at a slightly offset position to determine initial side
+        // This simulates the companion "approaching" from the right initially
+        bn::fixed_point initial_offset(32, 0); // Start further to the right
+        _position = player_pos + initial_offset;
+
+        // Determine initial position side based on spawn approach
+        // Since we start to the right, initial side is RIGHT
         _position_side = Position::RIGHT;
         _target_offset = calculate_companion_offset();
-        _position = player_pos + _target_offset;
-        
+
         _sprite.set_position(_position);
         _sprite.set_camera(camera);
         _sprite.set_visible(true);
         _is_dead = false;
-        
+
         update_animation();
     }
 
@@ -1115,9 +1135,6 @@ namespace fe
             update_position(player_pos);
         }
 
-        // Always update sprite position
-        _sprite.set_position(_position);
-
         // Update animation
         if (_animation && !_animation->done())
         {
@@ -1132,7 +1149,7 @@ namespace fe
 
     void PlayerCompanion::set_z_order(int z_order)
     {
-        _sprite.set_z_order(z_order);
+        _sprite.set_z_order(z_order + 1); // Ensure companion is always on top
     }
 
     void PlayerCompanion::set_position_side(Position side)
@@ -1151,7 +1168,7 @@ namespace fe
         {
             // Death animation (frames 12-21) - play once
             _animation = bn::create_sprite_animate_action_once(
-                _sprite, 8, bn::sprite_items::companion.tiles_item(), 
+                _sprite, 8, bn::sprite_items::companion.tiles_item(),
                 12, 13, 14, 15, 16, 17, 18, 19, 20, 21);
         }
         else
@@ -1162,22 +1179,22 @@ namespace fe
             case Position::RIGHT:
                 // Right of player animation (frames 0-3)
                 _animation = bn::create_sprite_animate_action_forever(
-                    _sprite, 10, bn::sprite_items::companion.tiles_item(), 0, 1, 2, 3);
+                    _sprite, 12, bn::sprite_items::companion.tiles_item(), 0, 1, 2, 3);
                 break;
             case Position::LEFT:
                 // Left of player animation (frames 4-7)
                 _animation = bn::create_sprite_animate_action_forever(
-                    _sprite, 10, bn::sprite_items::companion.tiles_item(), 4, 5, 6, 7);
+                    _sprite, 12, bn::sprite_items::companion.tiles_item(), 4, 5, 6, 7);
                 break;
             case Position::BELOW:
                 // Below player animation (frames 8-11)
                 _animation = bn::create_sprite_animate_action_forever(
-                    _sprite, 10, bn::sprite_items::companion.tiles_item(), 8, 9, 10, 11);
+                    _sprite, 12, bn::sprite_items::companion.tiles_item(), 8, 9, 10, 11);
                 break;
             default:
                 // Default to right animation
                 _animation = bn::create_sprite_animate_action_forever(
-                    _sprite, 10, bn::sprite_items::companion.tiles_item(), 0, 1, 2, 3);
+                    _sprite, 12, bn::sprite_items::companion.tiles_item(), 0, 1, 2, 3);
                 break;
             }
         }
@@ -1185,44 +1202,80 @@ namespace fe
 
     void PlayerCompanion::update_position(bn::fixed_point player_pos)
     {
-        // Calculate the target position based on current side
+        // Calculate target position based on current side
         bn::fixed_point target_pos = player_pos + _target_offset;
-        
-        // Calculate the vector from current position to target
-        bn::fixed_point movement_vector = target_pos - _position;
-        
-        // Move smoothly towards target - always move if there's any distance
-        _position += movement_vector * 0.15; // 15% interpolation per frame
-        
-        // Very simple side switching - only switch when companion gets very far from player
-        bn::fixed distance_to_player = bn::sqrt((player_pos.x() - _position.x()) * (player_pos.x() - _position.x()) + 
-                                               (player_pos.y() - _position.y()) * (player_pos.y() - _position.y()));
-        
-        // If companion is more than 60 pixels away, pick the closest side
-        if (distance_to_player > 60)
+
+        // Calculate distance to target position
+        bn::fixed_point diff = target_pos - _position;
+        bn::fixed distance = bn::sqrt(diff.x() * diff.x() + diff.y() * diff.y());
+
+        // Check if player is approaching the companion
+        bn::fixed_point player_to_companion = _position - player_pos;
+        bn::fixed distance_to_companion = bn::sqrt(player_to_companion.x() * player_to_companion.x() +
+                                                   player_to_companion.y() * player_to_companion.y());
+
+        // If player is very close to companion (within 30 units), wait for them to pass
+        bool player_approaching = distance_to_companion < 30;
+
+        // Only move if not waiting for player to pass
+        if (!player_approaching && distance > 1) // Very small threshold to almost always follow
         {
-            bn::fixed_point relative_pos = _position - player_pos;
-            
-            Position new_side = Position::RIGHT; // Default
-            
-            if (bn::abs(relative_pos.x()) > bn::abs(relative_pos.y()))
+            // Calculate normalized direction
+            bn::fixed_point normalized_diff = diff / distance;
+
+            // Base movement speed that scales with distance
+            bn::fixed movement_speed = (distance * 0.08 < 1.2) ? distance * 0.08 : 1.2; // Cap max speed
+
+            // Minimum speed to prevent stopping when close
+            movement_speed = (movement_speed > 0.3) ? movement_speed : 0.3;
+
+            // Apply smooth movement
+            _position += normalized_diff * movement_speed;
+        }
+
+        // Check if we need to recalculate which side to be on
+        // Only do this when companion is reasonably far and stable
+        bn::fixed distance_to_player = bn::sqrt(player_to_companion.x() * player_to_companion.x() +
+                                                player_to_companion.y() * player_to_companion.y());
+
+        // Use a consistent low threshold for responsive switching in all cases
+        bn::fixed switch_threshold = 15; // Low threshold for fast switching
+
+        // Only recalculate side if companion is far enough from player
+        if (distance_to_player > switch_threshold)
+        {
+            Position new_side = _position_side;
+
+            // Determine side based on where companion currently is relative to player
+            bn::fixed abs_x = bn::abs(player_to_companion.x());
+            bn::fixed abs_y = bn::abs(player_to_companion.y());
+
+            if (abs_x > abs_y + 10) // Increased bias to make side switching less sensitive
             {
-                // More horizontal than vertical
-                new_side = relative_pos.x() > 0 ? Position::RIGHT : Position::LEFT;
+                // Companion is more to the side than above/below
+                new_side = player_to_companion.x() > 0 ? Position::RIGHT : Position::LEFT;
             }
-            else if (relative_pos.y() > 0)
+            else if (player_to_companion.y() > 15) // Increased threshold
             {
-                // More vertical and below
+                // Companion is clearly below player
                 new_side = Position::BELOW;
             }
-            
-            if (new_side != _position_side)
+            else if (player_to_companion.y() < -15) // Player is below companion
             {
-                _position_side = new_side;
-                _target_offset = calculate_companion_offset();
-                update_animation();
+                // When player is below companion, choose left or right side based on X offset
+                // This prevents the companion from getting stuck above the player
+                new_side = player_to_companion.x() >= 0 ? Position::RIGHT : Position::LEFT;
             }
+            // If companion is too close to center, keep current side
+
+            set_position_side(new_side);
         }
+
+        // Always render companion on top of the player with a high z-order
+        _sprite.set_z_order(100);
+    
+        // Update the sprite position
+        _sprite.set_position(_position);
     }
 
     bn::fixed_point PlayerCompanion::calculate_companion_offset() const
@@ -1230,13 +1283,13 @@ namespace fe
         switch (_position_side)
         {
         case Position::RIGHT:
-            return bn::fixed_point(28, 4); // Slightly right and below player
+            return bn::fixed_point(16, 0); // Right side of player (closer)
         case Position::LEFT:
-            return bn::fixed_point(-28, 4); // Slightly left and below player
+            return bn::fixed_point(-16, 0); // Left side of player (closer)
         case Position::BELOW:
-            return bn::fixed_point(0, 24); // Below player
+            return bn::fixed_point(0, 12); // Below player (closer)
         default:
-            return bn::fixed_point(28, 4);
+            return bn::fixed_point(16, 0);
         }
     }
 
@@ -1255,8 +1308,6 @@ namespace fe
             _companion = PlayerCompanion(bn::move(companion_sprite));
             _companion->spawn(pos(), camera);
             _companion_initialized = true;
-            
-            BN_LOG("Companion initialized at position: ", pos().x().integer(), ", ", pos().y().integer());
         }
     }
 }
