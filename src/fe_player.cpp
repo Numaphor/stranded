@@ -835,7 +835,16 @@ namespace fe
             }
         }
 
-        // Update companion
+        // Update companion (ensure it's always initialized)
+        if (!_companion.has_value() && _companion_initialized == false)
+        {
+            // Reinitialize companion if somehow it got lost
+            if (get_sprite()->camera().has_value())
+            {
+                initialize_companion(get_sprite()->camera().value());
+            }
+        }
+        
         if (_companion.has_value())
         {
             bool player_dead = (_hp <= 0);
@@ -850,7 +859,7 @@ namespace fe
             if (_state.invulnerable())
             {
                 // Sync companion visibility with player flashing
-                _companion->set_visible(_sprite.value().visible());
+                _companion->set_visible(get_sprite()->visible());
             }
             else
             {
@@ -1106,6 +1115,9 @@ namespace fe
             update_position(player_pos);
         }
 
+        // Always update sprite position
+        _sprite.set_position(_position);
+
         // Update animation
         if (_animation && !_animation->done())
         {
@@ -1150,22 +1162,22 @@ namespace fe
             case Position::RIGHT:
                 // Right of player animation (frames 0-3)
                 _animation = bn::create_sprite_animate_action_forever(
-                    _sprite, 12, bn::sprite_items::companion.tiles_item(), 0, 1, 2, 3);
+                    _sprite, 10, bn::sprite_items::companion.tiles_item(), 0, 1, 2, 3);
                 break;
             case Position::LEFT:
                 // Left of player animation (frames 4-7)
                 _animation = bn::create_sprite_animate_action_forever(
-                    _sprite, 12, bn::sprite_items::companion.tiles_item(), 4, 5, 6, 7);
+                    _sprite, 10, bn::sprite_items::companion.tiles_item(), 4, 5, 6, 7);
                 break;
             case Position::BELOW:
                 // Below player animation (frames 8-11)
                 _animation = bn::create_sprite_animate_action_forever(
-                    _sprite, 12, bn::sprite_items::companion.tiles_item(), 8, 9, 10, 11);
+                    _sprite, 10, bn::sprite_items::companion.tiles_item(), 8, 9, 10, 11);
                 break;
             default:
                 // Default to right animation
                 _animation = bn::create_sprite_animate_action_forever(
-                    _sprite, 12, bn::sprite_items::companion.tiles_item(), 0, 1, 2, 3);
+                    _sprite, 10, bn::sprite_items::companion.tiles_item(), 0, 1, 2, 3);
                 break;
             }
         }
@@ -1173,47 +1185,43 @@ namespace fe
 
     void PlayerCompanion::update_position(bn::fixed_point player_pos)
     {
-        // Calculate target position based on current side
+        // Calculate the target position based on current side
         bn::fixed_point target_pos = player_pos + _target_offset;
         
-        // Calculate distance and direction to target
-        bn::fixed_point diff = target_pos - _position;
-        bn::fixed distance = bn::sqrt(diff.x() * diff.x() + diff.y() * diff.y());
+        // Calculate the vector from current position to target
+        bn::fixed_point movement_vector = target_pos - _position;
         
-        // Always follow the player - remove distance threshold that was preventing movement
-        if (distance > 0.5) // Very small threshold to prevent jitter
-        {
-            // Move 15% of the way towards target each frame for smooth following
-            _position += diff * 0.15;
-            _sprite.set_position(_position);
-        }
+        // Move smoothly towards target - always move if there's any distance
+        _position += movement_vector * 0.15; // 15% interpolation per frame
         
-        // Simplified side determination based on distance from player
-        // Only change sides if companion gets significantly far from player
-        if (distance > 50) // Increased threshold to prevent frequent side switching
+        // Very simple side switching - only switch when companion gets very far from player
+        bn::fixed distance_to_player = bn::sqrt((player_pos.x() - _position.x()) * (player_pos.x() - _position.x()) + 
+                                               (player_pos.y() - _position.y()) * (player_pos.y() - _position.y()));
+        
+        // If companion is more than 60 pixels away, pick the closest side
+        if (distance_to_player > 60)
         {
-            bn::fixed_point player_to_companion = _position - player_pos;
-            bn::fixed abs_x = bn::abs(player_to_companion.x());
-            bn::fixed abs_y = bn::abs(player_to_companion.y());
+            bn::fixed_point relative_pos = _position - player_pos;
             
-            Position new_side = _position_side;
+            Position new_side = Position::RIGHT; // Default
             
-            // Determine best side based on relative position
-            if (abs_x > abs_y + 10) // Horizontal preference with hysteresis
+            if (bn::abs(relative_pos.x()) > bn::abs(relative_pos.y()))
             {
-                new_side = player_to_companion.x() > 0 ? Position::RIGHT : Position::LEFT;
+                // More horizontal than vertical
+                new_side = relative_pos.x() > 0 ? Position::RIGHT : Position::LEFT;
             }
-            else if (player_to_companion.y() > 10) // Below player with threshold
+            else if (relative_pos.y() > 0)
             {
+                // More vertical and below
                 new_side = Position::BELOW;
             }
-            // Default to right side if above or near center
-            else if (abs_x < 10 && abs_y < 10)
-            {
-                new_side = Position::RIGHT;
-            }
             
-            set_position_side(new_side);
+            if (new_side != _position_side)
+            {
+                _position_side = new_side;
+                _target_offset = calculate_companion_offset();
+                update_animation();
+            }
         }
     }
 
@@ -1247,6 +1255,8 @@ namespace fe
             _companion = PlayerCompanion(bn::move(companion_sprite));
             _companion->spawn(pos(), camera);
             _companion_initialized = true;
+            
+            BN_LOG("Companion initialized at position: ", pos().x().integer(), ", ", pos().y().integer());
         }
     }
 }
