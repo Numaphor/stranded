@@ -820,6 +820,11 @@ namespace fe
             bool player_dead = (_hp <= 0);
             _companion->update(pos(), player_dead);
             
+            // Update companion z-order based on position (similar to world scene logic)
+            // Sprites with lower Y appear in front, companion should be slightly behind player
+            int companion_z = -_companion->pos().y().integer() + 1; // +1 to put it behind player
+            _companion->set_z_order(companion_z);
+            
             // Update companion visibility to match player
             if (_state.invulnerable())
             {
@@ -1042,16 +1047,21 @@ namespace fe
         _follow_delay(0),
         _target_offset(24, 0) // Start to the right of player
     {
-        _sprite.set_z_order(-1); // Behind player by default
+        // Z-order will be set properly when companion is spawned and updated
+        _sprite.set_z_order(0);
     }
 
     void PlayerCompanion::spawn(bn::fixed_point player_pos, bn::camera_ptr camera)
     {
+        // Start the companion at a slightly offset position to determine initial side
+        // This simulates the companion "approaching" from the right initially
+        bn::fixed_point initial_offset(32, 0); // Start further to the right
+        _position = player_pos + initial_offset;
+        
         // Determine initial position side based on spawn approach
-        // For now, default to right side, but this could be enhanced
+        // Since we start to the right, initial side is RIGHT
         _position_side = Position::RIGHT;
         _target_offset = calculate_companion_offset();
-        _position = player_pos + _target_offset;
         
         _sprite.set_position(_position);
         _sprite.set_camera(camera);
@@ -1092,6 +1102,11 @@ namespace fe
         _sprite.set_visible(visible);
     }
 
+    void PlayerCompanion::set_z_order(int z_order)
+    {
+        _sprite.set_z_order(z_order);
+    }
+
     void PlayerCompanion::set_position_side(Position side)
     {
         if (_position_side != side)
@@ -1106,13 +1121,13 @@ namespace fe
     {
         if (_is_dead)
         {
-            // Death animation (frames 12-21)
+            // Death animation (frames 12-21) - play once
             _animation = bn::sprite_animate_action<32>::once(_sprite, 8, 
                 bn::sprite_items::companion.tiles_item(), 12, 13, 14, 15, 16, 17, 18, 19, 20, 21);
         }
         else
         {
-            // Living animations based on position
+            // Living animations based on position - play forever
             switch (_position_side)
             {
             case Position::RIGHT:
@@ -1146,24 +1161,24 @@ namespace fe
         bn::fixed distance_to_player = bn::sqrt(player_to_companion.x() * player_to_companion.x() + 
                                                player_to_companion.y() * player_to_companion.y());
         
-        if (distance_to_player > 30) // If companion is getting too far, pick best side
+        if (distance_to_player > 40) // If companion is getting too far, pick best side
         {
             // Determine side based on where companion currently is relative to player
-            if (bn::abs(player_to_companion.x()) > bn::abs(player_to_companion.y()))
+            // Add some hysteresis to prevent constant side switching
+            bn::fixed abs_x = bn::abs(player_to_companion.x());
+            bn::fixed abs_y = bn::abs(player_to_companion.y());
+            
+            if (abs_x > abs_y + 8) // Add bias to prefer horizontal positioning
             {
                 // Companion is more to the side than above/below
                 new_side = player_to_companion.x() > 0 ? Position::RIGHT : Position::LEFT;
             }
-            else if (player_to_companion.y() > 0)
+            else if (player_to_companion.y() > 8) // Add threshold to avoid jitter
             {
-                // Companion is below player
+                // Companion is clearly below player
                 new_side = Position::BELOW;
             }
-            else
-            {
-                // Default to right if above (companion doesn't have above animation)
-                new_side = Position::RIGHT;
-            }
+            // If companion is above or too close to center, keep current side
             
             set_position_side(new_side);
         }
@@ -1177,8 +1192,9 @@ namespace fe
         
         if (distance > 4) // Only move if far enough away
         {
-            // Move 20% of the way towards target each frame for smooth following
-            _position += diff * 0.2;
+            // Move 15% of the way towards target each frame for smooth following
+            // Reduced from 20% to make following feel more natural
+            _position += diff * 0.15;
             _sprite.set_position(_position);
         }
     }

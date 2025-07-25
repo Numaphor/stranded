@@ -247,6 +247,7 @@ namespace fe
         void update(bn::fixed_point player_pos, bool player_is_dead);
         void set_visible(bool visible);
         void set_position_side(Position side);
+        void set_z_order(int z_order);
         [[nodiscard]] Position get_position_side() const { return _position_side; }
         [[nodiscard]] bn::fixed_point pos() const { return _position; }
 
