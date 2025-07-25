@@ -1074,15 +1074,10 @@ namespace fe
 
     void PlayerCompanion::spawn(bn::fixed_point player_pos, bn::camera_ptr camera)
     {
-        // Start the companion at a slightly offset position to determine initial side
-        // This simulates the companion "approaching" from the right initially
-        bn::fixed_point initial_offset(32, 0); // Start further to the right
-        _position = player_pos + initial_offset;
-        
-        // Determine initial position side based on spawn approach
-        // Since we start to the right, initial side is RIGHT
+        // Start the companion at the right side of the player
         _position_side = Position::RIGHT;
         _target_offset = calculate_companion_offset();
+        _position = player_pos + _target_offset;
         
         _sprite.set_position(_position);
         _sprite.set_camera(camera);
@@ -1178,51 +1173,47 @@ namespace fe
 
     void PlayerCompanion::update_position(bn::fixed_point player_pos)
     {
-        // Determine optimal position side based on player's relative position
-        bn::fixed_point player_to_companion = _position - player_pos;
-        
-        // Determine which side the companion should be on based on current relative position
-        Position new_side = _position_side;
-        
-        // If companion is far from player, recalculate best side
-        bn::fixed distance_to_player = bn::sqrt(player_to_companion.x() * player_to_companion.x() + 
-                                               player_to_companion.y() * player_to_companion.y());
-        
-        if (distance_to_player > 40) // If companion is getting too far, pick best side
-        {
-            // Determine side based on where companion currently is relative to player
-            // Add some hysteresis to prevent constant side switching
-            bn::fixed abs_x = bn::abs(player_to_companion.x());
-            bn::fixed abs_y = bn::abs(player_to_companion.y());
-            
-            if (abs_x > abs_y + 8) // Add bias to prefer horizontal positioning
-            {
-                // Companion is more to the side than above/below
-                new_side = player_to_companion.x() > 0 ? Position::RIGHT : Position::LEFT;
-            }
-            else if (player_to_companion.y() > 8) // Add threshold to avoid jitter
-            {
-                // Companion is clearly below player
-                new_side = Position::BELOW;
-            }
-            // If companion is above or too close to center, keep current side
-            
-            set_position_side(new_side);
-        }
-        
-        // Simple following behavior with some delay
+        // Calculate target position based on current side
         bn::fixed_point target_pos = player_pos + _target_offset;
         
-        // Move towards target position with some smoothing
+        // Calculate distance and direction to target
         bn::fixed_point diff = target_pos - _position;
         bn::fixed distance = bn::sqrt(diff.x() * diff.x() + diff.y() * diff.y());
         
-        if (distance > 4) // Only move if far enough away
+        // Always follow the player - remove distance threshold that was preventing movement
+        if (distance > 0.5) // Very small threshold to prevent jitter
         {
             // Move 15% of the way towards target each frame for smooth following
-            // Reduced from 20% to make following feel more natural
             _position += diff * 0.15;
             _sprite.set_position(_position);
+        }
+        
+        // Simplified side determination based on distance from player
+        // Only change sides if companion gets significantly far from player
+        if (distance > 50) // Increased threshold to prevent frequent side switching
+        {
+            bn::fixed_point player_to_companion = _position - player_pos;
+            bn::fixed abs_x = bn::abs(player_to_companion.x());
+            bn::fixed abs_y = bn::abs(player_to_companion.y());
+            
+            Position new_side = _position_side;
+            
+            // Determine best side based on relative position
+            if (abs_x > abs_y + 10) // Horizontal preference with hysteresis
+            {
+                new_side = player_to_companion.x() > 0 ? Position::RIGHT : Position::LEFT;
+            }
+            else if (player_to_companion.y() > 10) // Below player with threshold
+            {
+                new_side = Position::BELOW;
+            }
+            // Default to right side if above or near center
+            else if (abs_x < 10 && abs_y < 10)
+            {
+                new_side = Position::RIGHT;
+            }
+            
+            set_position_side(new_side);
         }
     }
 
@@ -1231,13 +1222,13 @@ namespace fe
         switch (_position_side)
         {
         case Position::RIGHT:
-            return bn::fixed_point(24, 0); // Right side of player
+            return bn::fixed_point(28, 4); // Slightly right and below player
         case Position::LEFT:
-            return bn::fixed_point(-24, 0); // Left side of player
+            return bn::fixed_point(-28, 4); // Slightly left and below player
         case Position::BELOW:
-            return bn::fixed_point(0, 20); // Below player
+            return bn::fixed_point(0, 24); // Below player
         default:
-            return bn::fixed_point(24, 0);
+            return bn::fixed_point(28, 4);
         }
     }
 
