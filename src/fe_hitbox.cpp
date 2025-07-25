@@ -55,43 +55,56 @@ namespace fe
 
     void Hitbox::get_collision_points(bn::fixed_point pos, fe::directions direction, bn::fixed_point points[4]) const
     {
+        // Edge offset to stay within bounds (one pixel inside the edge)
+        constexpr bn::fixed EDGE_OFFSET = 1;
+        
+        // Calculate edge coordinates
+        bn::fixed left = pos.x();
+        bn::fixed right = pos.x() + _width - EDGE_OFFSET;
+        bn::fixed top = pos.y();
+        bn::fixed bottom = pos.y() + _height - EDGE_OFFSET;
+        bn::fixed middle_x = pos.x() + _width / 2;
+        bn::fixed quarter_x = pos.x() + _width / 4;
+        bn::fixed middle_y = pos.y() + _height / 2;
+        bn::fixed quarter_y = pos.y() + _height / 4;
+
         // Calculate points based on direction to check appropriate edges
         switch (direction)
         {
         case fe::directions::up:
             // Check top edge and corners when moving up
-            points[0] = bn::fixed_point(pos.x(), pos.y());              // Top-left
-            points[1] = bn::fixed_point(pos.x() + _width - 1, pos.y()); // Top-right
-            points[2] = bn::fixed_point(pos.x() + _width / 2, pos.y()); // Top-middle
-            points[3] = bn::fixed_point(pos.x() + _width / 4, pos.y()); // Top-quarter
+            points[0] = bn::fixed_point(left, top);     // Top-left
+            points[1] = bn::fixed_point(right, top);    // Top-right
+            points[2] = bn::fixed_point(middle_x, top); // Top-middle
+            points[3] = bn::fixed_point(quarter_x, top);// Top-quarter
             break;
         case fe::directions::down:
             // Check bottom edge and corners when moving down
-            points[0] = bn::fixed_point(pos.x(), pos.y() + _height - 1);              // Bottom-left
-            points[1] = bn::fixed_point(pos.x() + _width - 1, pos.y() + _height - 1); // Bottom-right
-            points[2] = bn::fixed_point(pos.x() + _width / 2, pos.y() + _height - 1); // Bottom-middle
-            points[3] = bn::fixed_point(pos.x() + _width / 4, pos.y() + _height - 1); // Bottom-quarter
+            points[0] = bn::fixed_point(left, bottom);     // Bottom-left
+            points[1] = bn::fixed_point(right, bottom);    // Bottom-right
+            points[2] = bn::fixed_point(middle_x, bottom); // Bottom-middle
+            points[3] = bn::fixed_point(quarter_x, bottom);// Bottom-quarter
             break;
         case fe::directions::left:
             // Check left edge and corners when moving left
-            points[0] = bn::fixed_point(pos.x(), pos.y());               // Top-left
-            points[1] = bn::fixed_point(pos.x(), pos.y() + _height - 1); // Bottom-left
-            points[2] = bn::fixed_point(pos.x(), pos.y() + _height / 2); // Middle-left
-            points[3] = bn::fixed_point(pos.x(), pos.y() + _height / 4); // Quarter-left
+            points[0] = bn::fixed_point(left, top);       // Top-left
+            points[1] = bn::fixed_point(left, bottom);    // Bottom-left
+            points[2] = bn::fixed_point(left, middle_y);  // Middle-left
+            points[3] = bn::fixed_point(left, quarter_y); // Quarter-left
             break;
         case fe::directions::right:
             // Check right edge and corners when moving right
-            points[0] = bn::fixed_point(pos.x() + _width - 1, pos.y());               // Top-right
-            points[1] = bn::fixed_point(pos.x() + _width - 1, pos.y() + _height - 1); // Bottom-right
-            points[2] = bn::fixed_point(pos.x() + _width - 1, pos.y() + _height / 2); // Middle-right
-            points[3] = bn::fixed_point(pos.x() + _width - 1, pos.y() + _height / 4); // Quarter-right
+            points[0] = bn::fixed_point(right, top);       // Top-right
+            points[1] = bn::fixed_point(right, bottom);    // Bottom-right
+            points[2] = bn::fixed_point(right, middle_y);  // Middle-right
+            points[3] = bn::fixed_point(right, quarter_y); // Quarter-right
             break;
         default:
             // Default to all four corners
-            points[0] = bn::fixed_point(pos.x(), pos.y());                            // Top-left
-            points[1] = bn::fixed_point(pos.x() + _width - 1, pos.y());               // Top-right
-            points[2] = bn::fixed_point(pos.x(), pos.y() + _height - 1);              // Bottom-left
-            points[3] = bn::fixed_point(pos.x() + _width - 1, pos.y() + _height - 1); // Bottom-right
+            points[0] = bn::fixed_point(left, top);    // Top-left
+            points[1] = bn::fixed_point(right, top);   // Top-right
+            points[2] = bn::fixed_point(left, bottom); // Bottom-left
+            points[3] = bn::fixed_point(right, bottom);// Bottom-right
             break;
         }
     }

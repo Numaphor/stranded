@@ -13,10 +13,18 @@
 namespace fe
 {
 
-    NPC::NPC(bn::fixed_point pos, bn::camera_ptr &camera, NPC_TYPE type, bn::sprite_text_generator &text_generator) 
+    NPC::NPC(bn::fixed_point pos, bn::camera_ptr &camera, NPC_TYPE type, bn::sprite_text_generator &text_generator)
         : Entity(pos), _type(type), _camera(camera), _text_generator(text_generator)
     {
         _text_generator.set_bg_priority(0);
+    }
+
+    void NPC::update_hitbox()
+    {
+        // Center the 32x32 NPC hitbox on the NPC position
+        // This matches the visual sprite positioning
+        _hitbox.set_x(_pos.x() - 16); // Center horizontally (32/2)
+        _hitbox.set_y(_pos.y() - 16); // Center vertically (32/2)
     }
 
     void NPC::update()
@@ -70,44 +78,54 @@ namespace fe
                 else if ((bn::keypad::a_pressed() || bn::keypad::up_pressed()))
                 {
                     // If text is still being displayed, skip to end of current line
-                    if (_currentChar < _lines.at(_currentLine).size() * 2) {
+                    if (_currentChar < _lines.at(_currentLine).size() * 2)
+                    {
                         _currentChar = _lines.at(_currentLine).size() * 2;
                         _currentChars = _lines.at(_currentLine); // Show full line immediately
                         _last_char_count = _currentChars.size();
                     }
                 }
-                
+
                 // Only auto-advance text if we're not already at the end
-                if (_currentChar < _lines.at(_currentLine).size() * 2) {
+                if (_currentChar < _lines.at(_currentLine).size() * 2)
+                {
                     int char_count = (_currentChar / 2) + 1;
-                    if (char_count != _last_char_count) {
+                    if (char_count != _last_char_count)
+                    {
                         _currentChars = _lines.at(_currentLine).substr(0, char_count);
                         _last_char_count = char_count;
                     }
-                    
+
                     // Always advance text, but faster when A/UP is held
                     static int hold_counter = 0;
                     bool should_advance = false;
-                    
-                    if (bn::keypad::a_held() || bn::keypad::up_held()) {
+
+                    if (bn::keypad::a_held() || bn::keypad::up_held())
+                    {
                         // Faster text advancement when holding A/UP
-                        if (++hold_counter >= 2) {  // Adjust this number for desired speed
+                        if (++hold_counter >= 2)
+                        { // Adjust this number for desired speed
                             should_advance = true;
                             hold_counter = 0;
                         }
-                    } else {
+                    }
+                    else
+                    {
                         // Normal speed when not holding
                         hold_counter = 0;
                         should_advance = true;
                     }
-                    
-                    if (should_advance) {
+
+                    if (should_advance)
+                    {
                         ++_currentChar;
-                        
+
                         // Check if we've reached the end of a line
-                        if (_currentChar >= _lines.at(_currentLine).size() * 2) {
+                        if (_currentChar >= _lines.at(_currentLine).size() * 2)
+                        {
                             // If this is the last line, wait for player input
-                            if (_currentLine == _lines.size() - 1) {
+                            if (_currentLine == _lines.size() - 1)
+                            {
                                 _currentChars = _lines.at(_currentLine); // Make sure full line is shown
                                 _last_char_count = _currentChars.size();
                                 // Reset character counter to prevent auto-advancing
@@ -158,7 +176,8 @@ namespace fe
     void NPC::talk()
     {
         // Only start talking if we're not already in the middle of a conversation
-        if (!_is_talking) {
+        if (!_is_talking)
+        {
             _is_talking = true;
             _currentLine = 0;
             _currentChar = 0;

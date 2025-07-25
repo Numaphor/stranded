@@ -26,20 +26,20 @@ namespace fe
         // Basic bounding box collision between two Hitboxes
         [[nodiscard]] static bool check_bb(const Hitbox &boxA, const Hitbox &boxB)
         {
-            const bn::fixed centerX_A = boxA.x();
-            const bn::fixed centerY_A = boxA.y();
-            const bn::fixed centerX_B = boxB.x();
-            const bn::fixed centerY_B = boxB.y();
+            // Treat hitbox x,y as top-left corner, not center
+            // Calculate the actual bounds of each hitbox
+            const bn::fixed left_A = boxA.x();
+            const bn::fixed right_A = boxA.x() + boxA.width();
+            const bn::fixed top_A = boxA.y();
+            const bn::fixed bottom_A = boxA.y() + boxA.height();
 
-            const bn::fixed halfWidth_A = boxA.width() / 2;
-            const bn::fixed halfHeight_A = boxA.height() / 4; // Compressed vertical height
-            const bn::fixed halfWidth_B = boxB.width() / 2;
-            const bn::fixed halfHeight_B = boxB.height() / 4;
+            const bn::fixed left_B = boxB.x();
+            const bn::fixed right_B = boxB.x() + boxB.width();
+            const bn::fixed top_B = boxB.y();
+            const bn::fixed bottom_B = boxB.y() + boxB.height();
 
-            const bn::fixed dx = bn::abs(centerX_A - centerX_B);
-            const bn::fixed dy = bn::abs(centerY_A - centerY_B);
-
-            return (dx / (halfWidth_A + halfWidth_B) + dy / (halfHeight_A + halfHeight_B)) <= 1;
+            // Standard AABB collision detection
+            return !(right_A <= left_B || left_A >= right_B || bottom_A <= top_B || top_A >= bottom_B);
         }
 
         // Bounding box collision with point and dimensions
@@ -148,7 +148,7 @@ namespace fe
         }
 
         // Shared collision validation utilities
-        [[nodiscard]] static bool validate_position_points(const bn::fixed_point points[4], const Level& level)
+        [[nodiscard]] static bool validate_position_points(const bn::fixed_point points[4], const Level &level)
         {
             for (int i = 0; i < 4; ++i)
             {
@@ -160,7 +160,7 @@ namespace fe
             return true;
         }
 
-        [[nodiscard]] static bool check_hitbox_collision_with_level(const Hitbox& hitbox, bn::fixed_point pos, fe::directions direction, const Level& level)
+        [[nodiscard]] static bool check_hitbox_collision_with_level(const Hitbox &hitbox, bn::fixed_point pos, fe::directions direction, const Level &level)
         {
             bn::fixed_point points[4];
             hitbox.get_collision_points(pos, direction, points);

@@ -1,6 +1,7 @@
 #include "fe_scene_world.h"
 #include "fe_collision.h"
 #include "fe_npc.h"
+#include "fe_hitbox_debug.h"
 #include "bn_core.h"
 #include "bn_keypad.h"
 #include "bn_sprite_builder.h"
@@ -126,6 +127,9 @@ namespace fe
         // Create merchant NPC
         _merchant = new MerchantNPC(bn::fixed_point(100, -50), camera, text_generator);
 
+        // Initialize hitbox debug system
+        _hitbox_debug.initialize(camera);
+
         // Spawn 3 spearguard enemies
         _enemies.push_back(Enemy(0, -100, camera, bg, ENEMY_TYPE::SPEARGUARD, 3));
         _enemies.push_back(Enemy(50, -80, camera, bg, ENEMY_TYPE::SPEARGUARD, 3));
@@ -135,22 +139,41 @@ namespace fe
         {
             bn::core::update();
 
+            // Debug input handling - Toggle hitbox visualization with SELECT key
+            if (bn::keypad::select_pressed())
+            {
+                _hitbox_debug.set_enabled(!_hitbox_debug.is_enabled());
+            }
+
+            // Clear hitbox debug markers from previous frame
+            if (_hitbox_debug.is_enabled())
+            {
+                _hitbox_debug.clear_all();
+            }
+
             // Handle NPC interactions BEFORE player input processing
             // This ensures listening state is set before weapon equipping is checked
             bool merchant_was_talking = false;
-            if (_merchant) {
+            if (_merchant)
+            {
                 // Capture talking state BEFORE update to detect conversation ending
                 merchant_was_talking = _merchant->is_talking();
                 _merchant->update();
-                
+
                 // Dynamic z-ordering based on Y position for depth sorting
                 // Lower Y values (higher on screen) should appear in front
                 int player_z = -_player->pos().y().integer();
                 int merchant_z = -_merchant->pos().y().integer();
-                
+
                 // Set z-order based on Y position (sprites with lower Y appear in front)
                 _player->set_sprite_z_order(player_z);
                 _merchant->set_sprite_z_order(merchant_z);
+
+                // Update hitbox debug visualization for merchant
+                if (_hitbox_debug.is_enabled())
+                {
+                    _hitbox_debug.update_npc_hitbox(*_merchant);
+                }
             }
 
             // Check for merchant interaction BEFORE player input
@@ -178,6 +201,15 @@ namespace fe
             _player->update();
             _player->update_gun_position(_player->facing_direction());
 
+            // Update hitbox debug visualization for player
+            if (_hitbox_debug.is_enabled())
+            {
+                _hitbox_debug.update_player_hitbox(*_player);
+
+                // Update zone tiles visualization
+                _hitbox_debug.update_zone_tiles(*_level, bg);
+            }
+
             // Update player position and check for collisions
             bn::fixed_point new_pos = _player->pos();
 
@@ -196,7 +228,7 @@ namespace fe
 
             // Check collision between player and merchant using unified collision system
             bool colliding_with_merchant = _merchant && !_merchant->is_talking() && !_player->listening() &&
-                                       fe::Collision::check_player_npc(*_player, *_merchant);
+                                           fe::Collision::check_player_npc(*_player, *_merchant);
 
             // Check for zone collisions - prevent player from walking through zones
             // If new position is invalid or colliding with sword or merchant, revert position
@@ -252,8 +284,18 @@ namespace fe
                 Enemy &enemy = _enemies[i];
                 enemy.update(_player->pos(), *_level, _player->listening());
 
+                // Update hitbox debug visualization for this enemy
+                if (_hitbox_debug.is_enabled())
+                {
+                    _hitbox_debug.update_enemy_hitbox(enemy);
+                }
+
                 // Check for collision with player
-                if (fe::Collision::check_player_enemy(*_player, enemy))
+                // Use extended attack hitbox for spearguards during attack
+                Hitbox collision_hitbox = enemy.is_attacking() ? enemy.get_attack_hitbox() : enemy.get_hitbox();
+                Hitbox player_hitbox = _player->get_hitbox();
+
+                if (fe::Collision::check_bb(player_hitbox, collision_hitbox))
                 {
                     fe::Collision::log_collision("Player", "Enemy",
                                                  _player->pos(), enemy.get_position());
@@ -274,7 +316,7 @@ namespace fe
                 {
                     // Get reference to bullets vector to avoid copying
                     const auto &bullets = _player->bullets();
-                    
+
                     Hitbox enemy_hitbox = enemy.get_hitbox();
 
                     // Check each bullet for collision with this enemy
@@ -305,6 +347,32 @@ namespace fe
                                 // No need to check other bullets for this enemy
                                 break;
                             }
+                        }
+                    }
+                }
+
+                // Check for collision with player's melee attacks
+                if (_player->is_attacking())
+                {
+                    Hitbox player_attack_hitbox = _player->get_attack_hitbox();
+                    Hitbox enemy_hitbox = enemy.get_hitbox();
+
+                    // Check for collision between player attack hitbox and enemy
+                    if (player_attack_hitbox.collides_with(enemy_hitbox))
+                    {
+                        fe::Collision::log_collision("Player Attack", "Enemy",
+                                                     _player->pos(), enemy.get_position());
+
+                        // Determine damage direction based on player position relative to enemy
+                        bool damage_from_left = _player->pos().x() < enemy.get_position().x();
+
+                        if (damage_from_left)
+                        {
+                            enemy.damage_from_left(1);
+                        }
+                        else
+                        {
+                            enemy.damage_from_right(1);
                         }
                     }
                 }

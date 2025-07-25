@@ -17,7 +17,8 @@
 #include "fe_enemy.h"
 #include "fe_level.h"
 #include "fe_minimap.h"
-#include "fe_npc_derived.h"  // Include NPC derived classes
+#include "fe_npc_derived.h" // Include NPC derived classes
+#include "fe_hitbox_debug.h"
 
 namespace fe
 {
@@ -30,12 +31,13 @@ namespace fe
         fe::Scene execute(bn::fixed_point spawn_location);
 
     private:
-        Player* _player;
-        Level* _level;
+        Player *_player;
+        Level *_level;
         bn::vector<Enemy, 16> _enemies;
-        Minimap* _minimap;
+        Minimap *_minimap;
         bn::optional<bn::regular_bg_ptr> _sword_bg;
-        MerchantNPC* _merchant;  // Add MerchantNPC as a member
+        MerchantNPC *_merchant;    // Add MerchantNPC as a member
+        HitboxDebug _hitbox_debug; // Hitbox visualization system
     };
 }
 

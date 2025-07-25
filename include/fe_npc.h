@@ -43,14 +43,14 @@ namespace fe
         int _last_char_count = -1;
         bn::string_view _currentChars = "";
 
-
     public:
         NPC(bn::fixed_point pos, bn::camera_ptr &camera, NPC_TYPE type, bn::sprite_text_generator &text_generator);
         virtual ~NPC() = default;
-        
+
         // Override Entity methods
         void update() override;
-        
+        void update_hitbox() override; // Override to center NPC hitbox properly
+
         // NPC-specific methods
         bool check_trigger(bn::fixed_point player_pos);
         bool is_talking();
@@ -58,7 +58,8 @@ namespace fe
         bool finished_talking();
         void set_is_hidden(bool is_hidden);
         bool hidden();
-        
+        NPC_TYPE type() const { return _type; }
+
     private:
         // Private helper methods
         void end_conversation();
@@ -67,7 +68,6 @@ namespace fe
         // Virtual methods for derived classes to override
         virtual void initialize_sprite() {}
         virtual void initialize_dialogue() {}
-
     };
 }
 
