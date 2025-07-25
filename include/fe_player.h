@@ -248,8 +248,10 @@ namespace fe
         void set_visible(bool visible);
         void set_position_side(Position side);
         void set_z_order(int z_order);
+        void set_flying(bool flying);
         [[nodiscard]] Position get_position_side() const { return _position_side; }
         [[nodiscard]] bn::fixed_point pos() const { return _position; }
+        [[nodiscard]] bool is_flying() const { return _is_flying; }
 
     private:
         bn::sprite_ptr _sprite;
@@ -257,6 +259,7 @@ namespace fe
         bn::optional<bn::sprite_animate_action<32>> _animation;
         Position _position_side = Position::RIGHT;
         bool _is_dead = false;
+        bool _is_flying = false;
         int _follow_delay = 0;
         bn::fixed_point _target_offset;
 

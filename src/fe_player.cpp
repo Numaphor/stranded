@@ -12,6 +12,7 @@
 #include "fe_bullet_manager.h"
 #include "bn_vector.h"
 #include "bn_span.h"
+#include "fe_sprite_priority.h"
 
 extern fe::Level *_level;
 
@@ -972,17 +973,19 @@ namespace fe
         }
         else
         {
-            // Gun is not active, use dynamic z-ordering based on Y position
-            player_z_order = static_cast<int>(pos().y().integer());
+            // Use centralized sprite priority system
+            player_z_order = SpritePriority::get_player_z_order(pos());
         }
 
         // Set player's z-order
         set_sprite_z_order(player_z_order);
 
-        // Set companion's z-order to be in front of the player
+        // Update companion z-order based on its flying state
         if (_companion.has_value())
         {
-            _companion->set_z_order(player_z_order - 1);
+            int companion_z_order = SpritePriority::get_companion_z_order(
+                _companion->pos(), pos(), _companion->is_flying());
+            _companion->set_z_order(companion_z_order);
         }
     }
 
@@ -1149,7 +1152,12 @@ namespace fe
 
     void PlayerCompanion::set_z_order(int z_order)
     {
-        _sprite.set_z_order(z_order + 1); // Ensure companion is always on top
+        _sprite.set_z_order(z_order);
+    }
+
+    void PlayerCompanion::set_flying(bool flying)
+    {
+        _is_flying = flying;
     }
 
     void PlayerCompanion::set_position_side(Position side)
@@ -1271,8 +1279,7 @@ namespace fe
             set_position_side(new_side);
         }
 
-        // Always render companion on top of the player with a high z-order
-        _sprite.set_z_order(100);
+        // Z-order is now managed by the centralized priority system
     
         // Update the sprite position
         _sprite.set_position(_position);
