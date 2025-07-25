@@ -120,6 +120,9 @@ namespace fe
     private:
         bn::sprite_ptr _sprite;
         bn::optional<bn::sprite_animate_action<32>> _animation;
+        
+        // Helper method to create animation ranges
+        void make_anim_range(int speed, int start_frame, int end_frame);
     };
 
     // PlayerState class (moved from fe_player_state.h)

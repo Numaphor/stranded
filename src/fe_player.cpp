@@ -15,6 +15,48 @@ extern fe::Level *_level;
 
 namespace fe
 {
+    // Player animation and movement constants
+    namespace player_constants
+    {
+        // Movement constants
+        constexpr bn::fixed ROLL_SPEED = 1.2;
+        constexpr bn::fixed HORIZONTAL_OFFSET = 13;
+        constexpr bn::fixed ATTACK_REACH = 20;
+        constexpr bn::fixed HITBOX_WIDTH = 16;
+        constexpr bn::fixed HITBOX_HEIGHT = 32;
+        
+        // Gun positioning arrays
+        constexpr bn::fixed GUN_OFFSET_X[4] = {0, 0, -8, 8}; // UP, DOWN, LEFT, RIGHT
+        constexpr bn::fixed GUN_OFFSET_Y[4] = {-6, 6, 0, 0};
+        constexpr bn::fixed BULLET_OFFSET_X[4] = {+1, -1, -12, 11}; // UP, DOWN, LEFT, RIGHT
+        constexpr bn::fixed BULLET_OFFSET_Y[4] = {-9, 9, -3, +1}; // UP, DOWN, LEFT, RIGHT
+        constexpr bool GUN_FLIPS[4] = {false, false, true, false}; // UP, DOWN, LEFT, RIGHT
+    }
+
+    // Helper function to convert PlayerMovement::Direction to fe::Direction
+    fe::Direction player_direction_to_bullet_direction(PlayerMovement::Direction direction)
+    {
+        constexpr fe::Direction direction_map[4] = {
+            fe::Direction::UP,    // PlayerMovement::Direction::UP
+            fe::Direction::DOWN,  // PlayerMovement::Direction::DOWN  
+            fe::Direction::LEFT,  // PlayerMovement::Direction::LEFT
+            fe::Direction::RIGHT  // PlayerMovement::Direction::RIGHT
+        };
+        return direction_map[static_cast<int>(direction)];
+    }
+
+    // Helper function to check if animation needs to change based on frame range
+    bool needs_animation_change(int current_frame, int start_frame, int end_frame)
+    {
+        return (current_frame < start_frame || current_frame > end_frame);
+    }
+
+    // Helper function to check horizontal flip change for left/right directions
+    bool needs_horizontal_flip_change(bn::sprite_ptr& sprite, PlayerMovement::Direction direction)
+    {
+        return sprite.horizontal_flip() != (direction == PlayerMovement::Direction::LEFT);
+    }
+
     void PlayerMovement::move_right()
     {
         _dx = bn::clamp(_dx + acc_const, -max_speed, max_speed);
@@ -186,6 +228,11 @@ namespace fe
 
     void PlayerAnimation::apply_state(PlayerMovement::State state, PlayerMovement::Direction direction)
     {
+        // Helper function to set horizontal flip for left/right directions
+        auto set_horizontal_flip_for_direction = [&](PlayerMovement::Direction dir) {
+            _sprite.set_horizontal_flip(dir == PlayerMovement::Direction::LEFT);
+        };
+
         bool should_change = !_animation.has_value();
 
         if (!should_change && _animation)
@@ -197,25 +244,25 @@ namespace fe
             switch (state)
             {
             case PlayerMovement::State::DEAD:
-                should_change = (current_frame < 234 || current_frame > 246);
+                should_change = needs_animation_change(current_frame, 234, 246);
                 break;
             case PlayerMovement::State::HIT:
                 // Use a substitute animation for hit - could use a frame from another animation
-                should_change = (current_frame < 0 || current_frame > 12); // Use idle_down frames for hit
+                should_change = needs_animation_change(current_frame, 0, 12); // Use idle_down frames for hit
                 break;
             case PlayerMovement::State::IDLE:
                 switch (direction)
                 {
                 case PlayerMovement::Direction::DOWN:
-                    should_change = (current_frame < 0 || current_frame > 12);
+                    should_change = needs_animation_change(current_frame, 0, 12);
                     break;
                 case PlayerMovement::Direction::LEFT:
                 case PlayerMovement::Direction::RIGHT:
-                    should_change = (current_frame < 144 || current_frame > 155) ||
-                                    (_sprite.horizontal_flip() != (direction == PlayerMovement::Direction::LEFT));
+                    should_change = needs_animation_change(current_frame, 144, 155) ||
+                                    needs_horizontal_flip_change(_sprite, direction);
                     break;
                 case PlayerMovement::Direction::UP:
-                    should_change = (current_frame < 187 || current_frame > 198);
+                    should_change = needs_animation_change(current_frame, 187, 198);
                     break;
                 }
                 break;
@@ -223,15 +270,15 @@ namespace fe
                 switch (direction)
                 {
                 case PlayerMovement::Direction::DOWN:
-                    should_change = (current_frame < 109 || current_frame > 116);
+                    should_change = needs_animation_change(current_frame, 109, 116);
                     break;
                 case PlayerMovement::Direction::LEFT:
                 case PlayerMovement::Direction::RIGHT:
-                    should_change = (current_frame < 156 || current_frame > 163) ||
-                                    (_sprite.horizontal_flip() != (direction == PlayerMovement::Direction::LEFT));
+                    should_change = needs_animation_change(current_frame, 156, 163) ||
+                                    needs_horizontal_flip_change(_sprite, direction);
                     break;
                 case PlayerMovement::Direction::UP:
-                    should_change = (current_frame < 199 || current_frame > 206);
+                    should_change = needs_animation_change(current_frame, 199, 206);
                     break;
                 }
                 break;
@@ -239,15 +286,15 @@ namespace fe
                 switch (direction)
                 {
                 case PlayerMovement::Direction::DOWN:
-                    should_change = (current_frame < 117 || current_frame > 124);
+                    should_change = needs_animation_change(current_frame, 117, 124);
                     break;
                 case PlayerMovement::Direction::LEFT:
                 case PlayerMovement::Direction::RIGHT:
-                    should_change = (current_frame < 164 || current_frame > 171) ||
-                                    (_sprite.horizontal_flip() != (direction == PlayerMovement::Direction::LEFT));
+                    should_change = needs_animation_change(current_frame, 164, 171) ||
+                                    needs_horizontal_flip_change(_sprite, direction);
                     break;
                 case PlayerMovement::Direction::UP:
-                    should_change = (current_frame < 207 || current_frame > 214);
+                    should_change = needs_animation_change(current_frame, 207, 214);
                     break;
                 }
                 break;
@@ -261,24 +308,6 @@ namespace fe
             return;
 
         // Create animation based on state and direction using new frame ranges
-        auto make_anim_range = [&](int speed, int start_frame, int end_frame)
-        {
-            // Calculate how many frames we need
-            int frame_count = (end_frame - start_frame + 1);
-
-            // Create array with all frame indices
-            bn::vector<uint16_t, 32> frame_indices;
-            for (int i = 0; i < frame_count; ++i)
-            {
-                frame_indices.push_back(start_frame + i);
-            }
-
-            // Use the span-based factory method for variable-length animations
-            _animation = bn::sprite_animate_action<32>::forever(
-                _sprite, speed, bn::sprite_items::hero.tiles_item(),
-                bn::span<const uint16_t>(frame_indices.data(), frame_indices.size()));
-        };
-
         switch (state)
         {
         case PlayerMovement::State::DEAD:
@@ -311,7 +340,7 @@ namespace fe
                 break;
             case PlayerMovement::Direction::LEFT:
             case PlayerMovement::Direction::RIGHT:
-                _sprite.set_horizontal_flip(direction == PlayerMovement::Direction::LEFT);
+                set_horizontal_flip_for_direction(direction);
                 make_anim_range(8, 172, 177); // lr_roll: 172-177
                 break;
             }
@@ -328,7 +357,7 @@ namespace fe
             case PlayerMovement::Direction::LEFT:
             case PlayerMovement::Direction::RIGHT:
                 // No left/right chop, use slash instead
-                _sprite.set_horizontal_flip(direction == PlayerMovement::Direction::LEFT);
+                set_horizontal_flip_for_direction(direction);
                 make_anim_range(10, 178, 181); // lr_slash: 178-181
                 break;
             }
@@ -344,7 +373,7 @@ namespace fe
                 break;
             case PlayerMovement::Direction::LEFT:
             case PlayerMovement::Direction::RIGHT:
-                _sprite.set_horizontal_flip(direction == PlayerMovement::Direction::LEFT);
+                set_horizontal_flip_for_direction(direction);
                 make_anim_range(8, 178, 181); // lr_slash: 178-181
                 break;
             }
@@ -360,7 +389,7 @@ namespace fe
                 break;
             case PlayerMovement::Direction::LEFT:
             case PlayerMovement::Direction::RIGHT:
-                _sprite.set_horizontal_flip(direction == PlayerMovement::Direction::LEFT);
+                set_horizontal_flip_for_direction(direction);
                 make_anim_range(8, 182, 186); // lr_slash second variant: 182-186
                 break;
             }
@@ -376,7 +405,7 @@ namespace fe
                 break;
             case PlayerMovement::Direction::LEFT:
             case PlayerMovement::Direction::RIGHT:
-                _sprite.set_horizontal_flip(direction == PlayerMovement::Direction::LEFT);
+                set_horizontal_flip_for_direction(direction);
                 make_anim_range(8, 164, 171); // lr_run: 164-171
                 break;
             }
@@ -392,7 +421,7 @@ namespace fe
                 break;
             case PlayerMovement::Direction::LEFT:
             case PlayerMovement::Direction::RIGHT:
-                _sprite.set_horizontal_flip(direction == PlayerMovement::Direction::LEFT);
+                set_horizontal_flip_for_direction(direction);
                 make_anim_range(12, 156, 163); // lr_move: 156-163
                 break;
             }
@@ -408,12 +437,30 @@ namespace fe
                 break;
             case PlayerMovement::Direction::LEFT:
             case PlayerMovement::Direction::RIGHT:
-                _sprite.set_horizontal_flip(direction == PlayerMovement::Direction::LEFT);
+                set_horizontal_flip_for_direction(direction);
                 make_anim_range(12, 144, 155); // lr_idle: 144-155
                 break;
             }
             break;
         }
+    }
+
+    void PlayerAnimation::make_anim_range(int speed, int start_frame, int end_frame)
+    {
+        // Calculate how many frames we need
+        int frame_count = (end_frame - start_frame + 1);
+
+        // Create array with all frame indices
+        bn::vector<uint16_t, 32> frame_indices;
+        for (int i = 0; i < frame_count; ++i)
+        {
+            frame_indices.push_back(start_frame + i);
+        }
+
+        // Use the span-based factory method for variable-length animations
+        _animation = bn::sprite_animate_action<32>::forever(
+            _sprite, speed, bn::sprite_items::hero.tiles_item(),
+            bn::span<const uint16_t>(frame_indices.data(), frame_indices.size()));
     }
 
     // PlayerMovement Implementation
@@ -773,8 +820,7 @@ namespace fe
         if (_movement.current_state() == PlayerMovement::State::ROLLING)
         {
             // Calculate roll speed (faster dash for better mobility)
-            constexpr bn::fixed ROLL_SPEED = 1.2;
-            bn::fixed roll_speed = ROLL_SPEED;
+            bn::fixed roll_speed = player_constants::ROLL_SPEED;
             bn::fixed roll_x = 0;
             bn::fixed roll_y = 0;
 
@@ -828,13 +874,12 @@ namespace fe
             // The hero sprite needs a 13-pixel offset to be centered correctly
             // When facing left (flipped), we need to subtract this offset
             // When facing right (not flipped), we add the offset
-            constexpr bn::fixed HORIZONTAL_OFFSET = 13;
 
             // Get the current position from the base class
             bn::fixed_point pos = Entity::pos();
 
             // Adjust the offset based on the sprite's horizontal flip state
-            bn::fixed x_offset = sprite->horizontal_flip() ? -HORIZONTAL_OFFSET : HORIZONTAL_OFFSET;
+            bn::fixed x_offset = sprite->horizontal_flip() ? -player_constants::HORIZONTAL_OFFSET : player_constants::HORIZONTAL_OFFSET;
 
             // Apply the offset to the sprite position
             sprite->set_position(pos.x() + x_offset, pos.y());
@@ -863,9 +908,6 @@ namespace fe
             return;
 
         const int idx = int(direction);
-        constexpr bn::fixed xs[4] = {0, 0, -8, 8};
-        constexpr bn::fixed ys[4] = {-6, 6, 0, 0};
-        constexpr bool flips[4] = {false, false, true, false};
         // Update angles to rotate gun 90 degrees when looking up or down
         constexpr int angles[4] = {90, 270, 0, 0};
 
@@ -882,9 +924,9 @@ namespace fe
             set_sprite_z_order(-5);        // Player behind
         }
 
-        _gun_sprite->set_horizontal_flip(flips[idx]);
+        _gun_sprite->set_horizontal_flip(player_constants::GUN_FLIPS[idx]);
         _gun_sprite->set_rotation_angle(angles[idx]);
-        _gun_sprite->set_position(pos().x() + xs[idx], pos().y() + ys[idx]);
+        _gun_sprite->set_position(pos().x() + player_constants::GUN_OFFSET_X[idx], pos().y() + player_constants::GUN_OFFSET_Y[idx]);
     }
 
     void Player::fire_bullet(PlayerMovement::Direction direction)
@@ -896,33 +938,12 @@ namespace fe
 
         // Calculate bullet starting position (gun tip)
         const int idx = int(direction);
-        constexpr bn::fixed bullet_offsets_x[4] = {+1, -1, -12, 11}; // UP, DOWN, LEFT, RIGHT
-        // Adjust RIGHT offset to match LEFT bullet height
-        constexpr bn::fixed bullet_offsets_y[4] = {-9, 9, -3, +1}; // UP, DOWN, LEFT, RIGHT
 
         bn::fixed_point bullet_pos(
-            pos().x() + bullet_offsets_x[idx],
-            pos().y() + bullet_offsets_y[idx]);
+            pos().x() + player_constants::BULLET_OFFSET_X[idx],
+            pos().y() + player_constants::BULLET_OFFSET_Y[idx]);
 
-        fe::Direction bullet_dir;
-        switch (direction)
-        {
-        case PlayerMovement::Direction::UP:
-            bullet_dir = fe::Direction::UP;
-            break;
-        case PlayerMovement::Direction::DOWN:
-            bullet_dir = fe::Direction::DOWN;
-            break;
-        case PlayerMovement::Direction::LEFT:
-            bullet_dir = fe::Direction::LEFT;
-            break;
-        case PlayerMovement::Direction::RIGHT:
-            bullet_dir = fe::Direction::RIGHT;
-            break;
-        default:
-            bullet_dir = fe::Direction::UP;
-            break;
-        }
+        fe::Direction bullet_dir = player_direction_to_bullet_direction(direction);
 
         _bullet_manager.fire_bullet(bullet_pos, bullet_dir);
     }
@@ -950,42 +971,39 @@ namespace fe
         PlayerMovement::Direction facing_dir = _movement.facing_direction();
 
         // Attack reach distance
-        constexpr bn::fixed ATTACK_REACH = 20;
 
         // Base hitbox dimensions (from Entity class - should match player's normal hitbox)
-        constexpr bn::fixed HITBOX_WIDTH = 16;
-        constexpr bn::fixed HITBOX_HEIGHT = 32;
 
         // Create extended hitbox based on facing direction
         switch (facing_dir)
         {
         case PlayerMovement::Direction::UP:
             // Extend upward
-            return Hitbox(player_pos.x() - HITBOX_WIDTH / 2,
-                          player_pos.y() - HITBOX_HEIGHT / 2 - ATTACK_REACH,
-                          HITBOX_WIDTH,
-                          HITBOX_HEIGHT + ATTACK_REACH);
+            return Hitbox(player_pos.x() - player_constants::HITBOX_WIDTH / 2,
+                          player_pos.y() - player_constants::HITBOX_HEIGHT / 2 - player_constants::ATTACK_REACH,
+                          player_constants::HITBOX_WIDTH,
+                          player_constants::HITBOX_HEIGHT + player_constants::ATTACK_REACH);
 
         case PlayerMovement::Direction::DOWN:
             // Extend downward
-            return Hitbox(player_pos.x() - HITBOX_WIDTH / 2,
-                          player_pos.y() - HITBOX_HEIGHT / 2,
-                          HITBOX_WIDTH,
-                          HITBOX_HEIGHT + ATTACK_REACH);
+            return Hitbox(player_pos.x() - player_constants::HITBOX_WIDTH / 2,
+                          player_pos.y() - player_constants::HITBOX_HEIGHT / 2,
+                          player_constants::HITBOX_WIDTH,
+                          player_constants::HITBOX_HEIGHT + player_constants::ATTACK_REACH);
 
         case PlayerMovement::Direction::LEFT:
             // Extend leftward
-            return Hitbox(player_pos.x() - HITBOX_WIDTH / 2 - ATTACK_REACH,
-                          player_pos.y() - HITBOX_HEIGHT / 2,
-                          HITBOX_WIDTH + ATTACK_REACH,
-                          HITBOX_HEIGHT);
+            return Hitbox(player_pos.x() - player_constants::HITBOX_WIDTH / 2 - player_constants::ATTACK_REACH,
+                          player_pos.y() - player_constants::HITBOX_HEIGHT / 2,
+                          player_constants::HITBOX_WIDTH + player_constants::ATTACK_REACH,
+                          player_constants::HITBOX_HEIGHT);
 
         case PlayerMovement::Direction::RIGHT:
             // Extend rightward
-            return Hitbox(player_pos.x() - HITBOX_WIDTH / 2,
-                          player_pos.y() - HITBOX_HEIGHT / 2,
-                          HITBOX_WIDTH + ATTACK_REACH,
-                          HITBOX_HEIGHT);
+            return Hitbox(player_pos.x() - player_constants::HITBOX_WIDTH / 2,
+                          player_pos.y() - player_constants::HITBOX_HEIGHT / 2,
+                          player_constants::HITBOX_WIDTH + player_constants::ATTACK_REACH,
+                          player_constants::HITBOX_HEIGHT);
 
         default:
             // Default to normal hitbox
