@@ -12,3 +12,8 @@ build/
 # temp files and demos  
 /tmp/
 *.tmp
+
+# IDE specific files
+.vscode/
+.idea/
+.windsurf/
