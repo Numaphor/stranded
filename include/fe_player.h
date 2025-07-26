@@ -12,6 +12,7 @@
 #include "fe_healthbar.h"
 #include "fe_entity.h"
 #include "fe_bullet_manager.h"
+#include "fe_player_companion.h"
 
 namespace fe
 {
@@ -121,6 +122,8 @@ namespace fe
     private:
         bn::sprite_ptr _sprite;
         bn::optional<bn::sprite_animate_action<32>> _animation;
+        PlayerMovement::State _last_state;
+        PlayerMovement::Direction _last_direction;
 
         // Helper method to create animation ranges
         void make_anim_range(int speed, int start_frame, int end_frame);
@@ -231,46 +234,6 @@ namespace fe
             _slash_cooldown = 0;
             _buff_cooldown = 0;
         }
-    };
-
-    // Companion class for player companion
-    class PlayerCompanion
-    {
-    public:
-        enum class Position
-        {
-            RIGHT,
-            LEFT,
-            BELOW
-        };
-
-        explicit PlayerCompanion(bn::sprite_ptr sprite);
-        void spawn(bn::fixed_point player_pos, bn::camera_ptr camera);
-        void update(bn::fixed_point player_pos, bool player_is_dead);
-        void set_visible(bool visible);
-        void set_position_side(Position side);
-        void update_position_side(bn::fixed_point player_pos);
-        void set_z_order(int z_order);
-        void set_flying(bool flying);
-        [[nodiscard]] Position get_position_side() const { return _position_side; }
-        [[nodiscard]] bn::fixed_point pos() const { return _position; }
-        [[nodiscard]] bool is_flying() const { return _is_flying; }
-        [[nodiscard]] bn::sprite_ptr get_sprite() const { return _sprite; }
-
-    private:
-        bn::sprite_ptr _sprite;
-        bn::fixed_point _position;
-        bn::optional<bn::sprite_animate_action<32>> _animation;
-        Position _position_side = Position::RIGHT;
-        bool _is_dead = false;
-        bool _is_flying = false;
-        int _follow_delay = 0;
-        bn::fixed_point _target_offset;
-
-        void update_animation();
-        void update_position(bn::fixed_point player_pos);
-        bn::fixed_point calculate_companion_offset() const;
-        void start_death_animation();
     };
 
     // Forward declaration of Enemy class
@@ -395,27 +358,13 @@ namespace fe
         bn::optional<PlayerCompanion> _companion;
         bool _companion_initialized = false;
 
-        void update_physics();
         void update_animation(); // Helper to update animation state
         void fire_bullet(PlayerMovement::Direction direction);
         void update_bullets();
         void initialize_companion(bn::camera_ptr camera);
         void handle_input();
-        void handle_action_inputs();
-        void handle_buff_inputs();
-        void handle_movement_inputs();
-        void handle_normal_movement();
-        void handle_strafe_movement();
         void toggle_gun();
         void update_gun_if_active();
-        void update_timers();
-        void check_collision();
-        void update_action_completion(bool was_performing_action);
-        void update_animation_if_changed(PlayerMovement::State old_state, PlayerMovement::Direction old_direction);
-        void update_components();
-        void handle_invulnerability();
-        void update_companion();
-        bn::fixed_point get_roll_offset() const;
     };
 
     // ... other members ...
