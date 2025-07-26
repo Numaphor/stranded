@@ -67,6 +67,26 @@ namespace fe
         }
     }
 
+    bool Level::is_in_sword_zone(const bn::fixed_point &position) const
+    {
+        // Define sword zone tile coordinates and map offset
+        constexpr int sword_zone_tile_left = 147;
+        constexpr int sword_zone_tile_right = 157; // exclusive upper bound
+        constexpr int sword_zone_tile_top = 162;
+        constexpr int sword_zone_tile_bottom = 166; // exclusive upper bound
+        constexpr int tile_size = 8;
+        constexpr int map_offset = 1280;
+
+        // Calculate world coordinates from tile coordinates
+        const bn::fixed zone_left = sword_zone_tile_left * tile_size - map_offset;
+        const bn::fixed zone_right = sword_zone_tile_right * tile_size - map_offset;
+        const bn::fixed zone_top = sword_zone_tile_top * tile_size - map_offset;
+        const bn::fixed zone_bottom = sword_zone_tile_bottom * tile_size - map_offset;
+
+        return position.x() >= zone_left && position.x() < zone_right &&
+               position.y() >= zone_top && position.y() < zone_bottom;
+    }
+
     bool Level::is_position_valid(const bn::fixed_point &position) const
     {
         // If we don't have a background map, any position is valid
@@ -111,6 +131,16 @@ namespace fe
             top_left, top_right, bottom_left, bottom_right,
             middle_top, quarter_top_left, quarter_top_right};
 
+        // First check for hardcoded sword zone collision (independent of visual tiles)
+        for (const auto &point : check_points)
+        {
+            if (is_in_sword_zone(point))
+            {
+                return false; // Collision with sword zone
+            }
+        }
+
+        // Then check for other tile-based collisions (if any other zone tiles exist)
         const int map_offset_x = (map_width * 4);
         const int map_offset_y = (map_height * 4);
 
@@ -139,12 +169,12 @@ namespace fe
             bn::regular_bg_map_cell cell = cells.at(cell_index);
             int tile_index = bn::regular_bg_map_cell_info(cell).tile_index();
 
-            // Check if the tile is a zone tile
+            // Only check for zone tiles other than 2 (since sword zone is handled separately)
             for (int zone_tile : _zone_tiles)
             {
-                if (tile_index == zone_tile)
+                if (tile_index == zone_tile && zone_tile != 2)
                 {
-                    // It's a zone tile, so we can't move here
+                    // It's a non-sword zone tile, so we can't move here
                     return false;
                 }
             }

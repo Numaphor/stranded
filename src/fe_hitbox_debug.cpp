@@ -4,7 +4,10 @@
 #include "fe_npc.h"
 #include "fe_level.h"
 #include "bn_sprite_items_hitbox_marker.h"
+#include "bn_sprite_palette_ptr.h"
 #include "bn_regular_bg_map_cell_info.h"
+#include "bn_colors.h"
+#include "bn_blending.h"
 
 namespace fe
 {
@@ -16,6 +19,9 @@ namespace fe
     {
         _camera = camera;
         _initialized = true;
+
+        // Set up blending for visual distinction between marker types
+        bn::blending::set_transparency_alpha(0.7); // Make blended sprites semi-transparent
     }
 
     void HitboxDebug::update_player_hitbox(const Player &player)
@@ -109,7 +115,9 @@ namespace fe
         // Check if this is a merchant NPC and use specialized positioning
         if (npc.type() == NPC_TYPE::MERCHANT)
         {
-            _update_merchant_markers(hitbox, *markers);
+            // Show both action radius and actual hitbox for merchants
+            _update_merchant_action_radius_markers(hitbox, *markers);
+            _update_merchant_hitbox_markers(hitbox, *markers);
         }
         else
         {
@@ -207,7 +215,9 @@ namespace fe
         bn::fixed_point top_left_pos = _calculate_top_left_marker_pos(hitbox,
                                                                       fe::hitbox_constants::PLAYER_MARKER_X_OFFSET,
                                                                       fe::hitbox_constants::PLAYER_MARKER_Y_OFFSET);
-        bn::fixed_point bottom_right_pos = _calculate_bottom_right_marker_pos(hitbox);
+        constexpr bn::fixed PLAYER_MARKER_BR_X_OFFSET = -1;
+        constexpr bn::fixed PLAYER_MARKER_BR_Y_OFFSET = -1;
+        bn::fixed_point bottom_right_pos = _calculate_bottom_right_marker_pos(hitbox, PLAYER_MARKER_BR_X_OFFSET, PLAYER_MARKER_BR_Y_OFFSET);
 
         // Create or update top-left marker
         if (!markers.top_left.has_value())
@@ -232,21 +242,21 @@ namespace fe
         }
     }
 
-    void HitboxDebug::_update_merchant_markers(const Hitbox &hitbox, HitboxMarkers &markers)
+    void HitboxDebug::_update_merchant_action_radius_markers(const Hitbox &hitbox, HitboxMarkers &markers)
     {
         if (!_camera.has_value())
         {
             return;
         }
 
-        // Calculate merchant marker positions using simplified offsets
-        // Top-left marker: base position adjusted for merchant visibility
+        // Calculate merchant action radius marker positions using simplified offsets
+        // Top-left marker: base position adjusted for merchant action radius visibility, moved 2 pixels up-left
         bn::fixed top_left_x_offset = fe::hitbox_constants::PLAYER_MARKER_X_OFFSET -
                                       fe::hitbox_constants::MERCHANT_BASE_OFFSET +
-                                      fe::hitbox_constants::MERCHANT_X_ADJUSTMENT;
+                                      fe::hitbox_constants::MERCHANT_X_ADJUSTMENT - 2;
         bn::fixed top_left_y_offset = fe::hitbox_constants::PLAYER_MARKER_Y_OFFSET -
                                       fe::hitbox_constants::MERCHANT_BASE_OFFSET +
-                                      fe::hitbox_constants::MERCHANT_Y_ADJUSTMENT;
+                                      fe::hitbox_constants::MERCHANT_Y_ADJUSTMENT - 2;
 
         bn::fixed_point top_left_pos = _calculate_top_left_marker_pos(hitbox, top_left_x_offset, top_left_y_offset);
 
@@ -275,6 +285,66 @@ namespace fe
         {
             markers.bottom_right->set_position(bottom_right_pos);
             markers.bottom_right->set_visible(_enabled);
+        }
+    }
+
+    void HitboxDebug::_update_merchant_hitbox_markers(const Hitbox &hitbox, HitboxMarkers &markers)
+    {
+        if (!_camera.has_value())
+        {
+            return;
+        }
+
+        // Use the same base positioning as action radius markers but create smaller 16x16 area
+        // Calculate the action radius center point first
+        bn::fixed action_top_left_x_offset = fe::hitbox_constants::PLAYER_MARKER_X_OFFSET -
+                                             fe::hitbox_constants::MERCHANT_BASE_OFFSET +
+                                             fe::hitbox_constants::MERCHANT_X_ADJUSTMENT - 2;
+        bn::fixed action_top_left_y_offset = fe::hitbox_constants::PLAYER_MARKER_Y_OFFSET -
+                                             fe::hitbox_constants::MERCHANT_BASE_OFFSET +
+                                             fe::hitbox_constants::MERCHANT_Y_ADJUSTMENT - 2;
+
+        // Get the action radius marker positions to find the center
+        bn::fixed_point action_top_left = _calculate_top_left_marker_pos(hitbox, action_top_left_x_offset, action_top_left_y_offset);
+        bn::fixed_point action_bottom_right = _calculate_bottom_right_marker_pos(hitbox,
+                                                                                 -fe::hitbox_constants::MERCHANT_BR_X_OFFSET,
+                                                                                 -fe::hitbox_constants::MERCHANT_BR_Y_OFFSET);
+
+        // Calculate center of action radius area
+        bn::fixed action_center_x = (action_top_left.x() + action_bottom_right.x() + fe::hitbox_constants::MARKER_SPRITE_SIZE) / 2;
+        bn::fixed action_center_y = (action_top_left.y() + action_bottom_right.y() + fe::hitbox_constants::MARKER_SPRITE_SIZE) / 2;
+        
+        // Create 16x16 hitbox area centered within the action radius
+        bn::fixed_point hitbox_top_left_pos(action_center_x - 8, action_center_y - 8);
+        bn::fixed_point hitbox_bottom_right_pos(
+            action_center_x + 8 - fe::hitbox_constants::MARKER_SPRITE_SIZE,
+            action_center_y + 8 - fe::hitbox_constants::MARKER_SPRITE_SIZE
+        );
+
+        // Create or update hitbox top-left marker with blending effect
+        if (!markers.hitbox_top_left.has_value())
+        {
+            markers.hitbox_top_left = _create_marker(hitbox_top_left_pos, false);
+            // Enable blending to distinguish hitbox markers from action radius markers
+            markers.hitbox_top_left->set_blending_enabled(true);
+        }
+        else
+        {
+            markers.hitbox_top_left->set_position(hitbox_top_left_pos);
+            markers.hitbox_top_left->set_visible(_enabled);
+        }
+
+        // Create or update hitbox bottom-right marker (rotated 180 degrees) with blending effect
+        if (!markers.hitbox_bottom_right.has_value())
+        {
+            markers.hitbox_bottom_right = _create_marker(hitbox_bottom_right_pos, true);
+            // Enable blending to distinguish hitbox markers from action radius markers
+            markers.hitbox_bottom_right->set_blending_enabled(true);
+        }
+        else
+        {
+            markers.hitbox_bottom_right->set_position(hitbox_bottom_right_pos);
+            markers.hitbox_bottom_right->set_visible(_enabled);
         }
     }
 

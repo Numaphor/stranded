@@ -59,6 +59,12 @@ namespace fe
                     cells[cell_index] = bn::regular_bg_map_cell(1); // Set a default tile index
                 }
             }
+        }
+
+        // Method to show/hide zone tiles for collision and debug visualization
+        void set_zone_visible(bool visible)
+        {
+            int tile_index = visible ? 2 : 1; // Use tile 2 for zone when visible, tile 1 when hidden
 
             // Draw a 9x4 rectangle (width increased by 50% to the right) moved down-left by 64 pixels from center
             for (int x = (columns / 2) - (6 / 2) - 10; x < (columns / 2) + (15 / 2) - 10; x++)
@@ -66,7 +72,7 @@ namespace fe
                 for (int y = (rows / 2) - (4 / 2) + 4; y < (rows / 2) + (4 / 2) + 4; y++)
                 {
                     int cell_index = x + y * columns;
-                    cells[cell_index] = bn::regular_bg_map_cell(2); // Set a different tile index
+                    cells[cell_index] = bn::regular_bg_map_cell(tile_index);
                 }
             }
         }
@@ -91,10 +97,10 @@ namespace fe
     {
         bn::camera_ptr camera = bn::camera_ptr::create(0, 0);
 
-        bg_map bg_map;
+        bg_map bg_map_obj;
         bn::regular_bg_tiles_ptr tiles = bn::regular_bg_tiles_items::tiles.create_tiles();
         bn::bg_palette_ptr palette = bn::bg_palette_items::palette.create_palette();
-        bn::regular_bg_map_ptr bg_map_ptr = bg_map.map_item.create_map(tiles, palette);
+        bn::regular_bg_map_ptr bg_map_ptr = bg_map_obj.map_item.create_map(tiles, palette);
         bn::regular_bg_ptr bg = bn::regular_bg_ptr::create(bg_map_ptr);
         bg.set_camera(camera);
 
@@ -139,10 +145,17 @@ namespace fe
         {
             bn::core::update();
 
-            // Debug input handling - Toggle hitbox visualization with SELECT key
-            if (bn::keypad::select_pressed())
+            // Debug input handling - Toggle hitbox visualization with START + SELECT keys
+            if (bn::keypad::select_held() && bn::keypad::start_pressed())
             {
-                _hitbox_debug.set_enabled(!_hitbox_debug.is_enabled());
+                bool new_debug_state = !_hitbox_debug.is_enabled();
+                _hitbox_debug.set_enabled(new_debug_state);
+
+                // Also toggle zone visibility for visual debugging (not collision)
+                bg_map_obj.set_zone_visible(new_debug_state);
+
+                // Reload the background to reflect changes
+                bg_map_ptr.reload_cells_ref();
             }
 
             // Clear hitbox debug markers from previous frame

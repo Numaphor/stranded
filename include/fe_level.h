@@ -17,6 +17,9 @@ namespace fe
             bn::vector<int,8> _zone_tiles;  // New vector to store zone tile indices
             bn::optional<bn::regular_bg_map_ptr> _bg_map_ptr;  // Make it optional to allow default construction
             
+            // Hardcoded sword zone area for collision (independent of visual tiles)
+            bool is_in_sword_zone(const bn::fixed_point& position) const;
+            
         public:
             Level() = default;  // Now this is valid since _bg_map_ptr is optional
             Level(bn::regular_bg_map_ptr bg);  

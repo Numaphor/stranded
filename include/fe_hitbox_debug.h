@@ -6,6 +6,8 @@
 #include "bn_optional.h"
 #include "bn_vector.h"
 #include "bn_regular_bg_ptr.h"
+#include "bn_color.h"
+#include "bn_colors.h"
 #include "fe_hitbox.h"
 #include "fe_npc_type.h"
 
@@ -84,11 +86,16 @@ namespace fe
         {
             bn::optional<bn::sprite_ptr> top_left;
             bn::optional<bn::sprite_ptr> bottom_right;
+            // Additional markers for merchant hitbox visualization (distinct from action radius)
+            bn::optional<bn::sprite_ptr> hitbox_top_left;
+            bn::optional<bn::sprite_ptr> hitbox_bottom_right;
 
             void clear()
             {
                 top_left.reset();
                 bottom_right.reset();
+                hitbox_top_left.reset();
+                hitbox_bottom_right.reset();
             }
 
             void set_visible(bool visible)
@@ -100,6 +107,14 @@ namespace fe
                 if (bottom_right.has_value())
                 {
                     bottom_right->set_visible(visible);
+                }
+                if (hitbox_top_left.has_value())
+                {
+                    hitbox_top_left->set_visible(visible);
+                }
+                if (hitbox_bottom_right.has_value())
+                {
+                    hitbox_bottom_right->set_visible(visible);
                 }
             }
         };
@@ -119,11 +134,18 @@ namespace fe
         void _update_player_markers(const Hitbox &hitbox, HitboxMarkers &markers);
 
         /**
-         * @brief Create or update merchant hitbox markers with specialized positioning
-         * @param hitbox The merchant hitbox to visualize
+         * @brief Create or update merchant action radius markers with specialized positioning
+         * @param hitbox The merchant hitbox to visualize (adjusted to show action radius)
          * @param markers The marker sprites to update
          */
-        void _update_merchant_markers(const Hitbox &hitbox, HitboxMarkers &markers);
+        void _update_merchant_action_radius_markers(const Hitbox &hitbox, HitboxMarkers &markers);
+
+        /**
+         * @brief Create or update merchant hitbox markers with specialized positioning and red tinting
+         * @param hitbox The merchant hitbox to visualize (actual collision boundaries)
+         * @param markers The marker sprites to update
+         */
+        void _update_merchant_hitbox_markers(const Hitbox &hitbox, HitboxMarkers &markers);
 
         /**
          * @brief Create a new marker sprite
