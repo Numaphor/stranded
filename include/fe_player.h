@@ -12,6 +12,7 @@
 #include "fe_healthbar.h"
 #include "fe_entity.h"
 #include "fe_bullet_manager.h"
+#include "fe_player_companion.h"
 
 namespace fe
 {
@@ -56,10 +57,12 @@ namespace fe
         void move_left();
         void move_up();
         void move_down();
+        void move_direction(Direction dir);
         void apply_friction();
         void reset();
         void stop_movement();
-
+        void start_action(State action, int timer);
+        void stop_action();
         // New movement methods for enhanced abilities
         void start_running();
         void stop_running();
@@ -68,7 +71,6 @@ namespace fe
         void start_slashing();
         void start_attacking();
         void start_buff(State buff_type);
-        void stop_action(); // Stop any special action and return to normal movement
 
         [[nodiscard]] bn::fixed dx() const { return _dx; }
         [[nodiscard]] bn::fixed dy() const { return _dy; }
@@ -120,9 +122,12 @@ namespace fe
     private:
         bn::sprite_ptr _sprite;
         bn::optional<bn::sprite_animate_action<32>> _animation;
+        PlayerMovement::State _last_state;
+        PlayerMovement::Direction _last_direction;
 
         // Helper method to create animation ranges
         void make_anim_range(int speed, int start_frame, int end_frame);
+        bool should_change_animation(PlayerMovement::State state, PlayerMovement::Direction direction);
     };
 
     // PlayerState class (moved from fe_player_state.h)
@@ -229,44 +234,6 @@ namespace fe
             _slash_cooldown = 0;
             _buff_cooldown = 0;
         }
-    };
-
-    // Companion class for player companion
-    class PlayerCompanion
-    {
-    public:
-        enum class Position
-        {
-            RIGHT,
-            LEFT,
-            BELOW
-        };
-
-        explicit PlayerCompanion(bn::sprite_ptr sprite);
-        void spawn(bn::fixed_point player_pos, bn::camera_ptr camera);
-        void update(bn::fixed_point player_pos, bool player_is_dead);
-        void set_visible(bool visible);
-        void set_position_side(Position side);
-        void set_z_order(int z_order);
-        void set_flying(bool flying);
-        [[nodiscard]] Position get_position_side() const { return _position_side; }
-        [[nodiscard]] bn::fixed_point pos() const { return _position; }
-        [[nodiscard]] bool is_flying() const { return _is_flying; }
-
-    private:
-        bn::sprite_ptr _sprite;
-        bn::fixed_point _position;
-        bn::optional<bn::sprite_animate_action<32>> _animation;
-        Position _position_side = Position::RIGHT;
-        bool _is_dead = false;
-        bool _is_flying = false;
-        int _follow_delay = 0;
-        bn::fixed_point _target_offset;
-
-        void update_animation();
-        void update_position(bn::fixed_point player_pos);
-        bn::fixed_point calculate_companion_offset() const;
-        void start_death_animation();
     };
 
     // Forward declaration of Enemy class
@@ -391,12 +358,13 @@ namespace fe
         bn::optional<PlayerCompanion> _companion;
         bool _companion_initialized = false;
 
-        void handle_input();
-        void update_physics();
         void update_animation(); // Helper to update animation state
         void fire_bullet(PlayerMovement::Direction direction);
         void update_bullets();
         void initialize_companion(bn::camera_ptr camera);
+        void handle_input();
+        void toggle_gun();
+        void update_gun_if_active();
     };
 
     // ... other members ...

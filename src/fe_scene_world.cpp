@@ -252,15 +252,15 @@ namespace fe
             // Update sword position and priority based on player position
             if (_sword_bg)
             {
-                constexpr bn::fixed sword_x = 0;
-                constexpr bn::fixed sword_y = 0;
+                constexpr bn::fixed sword_sprite_x = 0;
+                constexpr bn::fixed sword_sprite_y = 0;
 
                 // Get the internal window and update its position
                 bn::rect_window internal_window = bn::rect_window::internal();
 
                 // Calculate the sword's position in screen coordinates
                 bn::fixed_point camera_pos(camera.x(), camera.y());
-                bn::fixed_point sword_screen_pos = bn::fixed_point(sword_x, sword_y) - camera_pos;
+                bn::fixed_point sword_screen_pos = bn::fixed_point(sword_sprite_x, sword_sprite_y) - camera_pos;
 
                 // Update window boundaries to be centered on the sword
                 internal_window.set_boundaries(
