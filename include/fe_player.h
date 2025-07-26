@@ -56,10 +56,12 @@ namespace fe
         void move_left();
         void move_up();
         void move_down();
+        void move_direction(Direction dir);
         void apply_friction();
         void reset();
         void stop_movement();
-
+        void start_action(State action, int timer);
+        void stop_action();
         // New movement methods for enhanced abilities
         void start_running();
         void stop_running();
@@ -68,7 +70,6 @@ namespace fe
         void start_slashing();
         void start_attacking();
         void start_buff(State buff_type);
-        void stop_action(); // Stop any special action and return to normal movement
 
         [[nodiscard]] bn::fixed dx() const { return _dx; }
         [[nodiscard]] bn::fixed dy() const { return _dy; }
@@ -123,6 +124,7 @@ namespace fe
 
         // Helper method to create animation ranges
         void make_anim_range(int speed, int start_frame, int end_frame);
+        bool should_change_animation(PlayerMovement::State state, PlayerMovement::Direction direction);
     };
 
     // PlayerState class (moved from fe_player_state.h)
@@ -247,11 +249,13 @@ namespace fe
         void update(bn::fixed_point player_pos, bool player_is_dead);
         void set_visible(bool visible);
         void set_position_side(Position side);
+        void update_position_side(bn::fixed_point player_pos);
         void set_z_order(int z_order);
         void set_flying(bool flying);
         [[nodiscard]] Position get_position_side() const { return _position_side; }
         [[nodiscard]] bn::fixed_point pos() const { return _position; }
         [[nodiscard]] bool is_flying() const { return _is_flying; }
+        [[nodiscard]] bn::sprite_ptr get_sprite() const { return _sprite; }
 
     private:
         bn::sprite_ptr _sprite;
@@ -391,12 +395,27 @@ namespace fe
         bn::optional<PlayerCompanion> _companion;
         bool _companion_initialized = false;
 
-        void handle_input();
         void update_physics();
         void update_animation(); // Helper to update animation state
         void fire_bullet(PlayerMovement::Direction direction);
         void update_bullets();
         void initialize_companion(bn::camera_ptr camera);
+        void handle_input();
+        void handle_action_inputs();
+        void handle_buff_inputs();
+        void handle_movement_inputs();
+        void handle_normal_movement();
+        void handle_strafe_movement();
+        void toggle_gun();
+        void update_gun_if_active();
+        void update_timers();
+        void check_collision();
+        void update_action_completion(bool was_performing_action);
+        void update_animation_if_changed(PlayerMovement::State old_state, PlayerMovement::Direction old_direction);
+        void update_components();
+        void handle_invulnerability();
+        void update_companion();
+        bn::fixed_point get_roll_offset() const;
     };
 
     // ... other members ...
