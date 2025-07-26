@@ -135,8 +135,8 @@ namespace fe
 
         _zone_markers.clear();
 
-        // Reset zone cache when clearing all
-        _zone_bounds_cached = false;
+        // Don't reset zone cache - it should persist across frames for performance
+        // Zone boundaries don't change during gameplay
     }
 
     void HitboxDebug::set_enabled(bool enabled)
@@ -289,8 +289,12 @@ namespace fe
             marker.set_camera(_camera.value());
         }
 
-        // Set high z-order to ensure markers are drawn on top
-        marker.set_z_order(-100);
+        // Set highest z-order to ensure markers are always drawn on top of everything including sword
+        marker.set_z_order(-32767); // Maximum negative z-order value for highest priority
+        marker.set_bg_priority(0);  // Must be 0 to appear above background layers with priority 0-3
+
+        // Ensure marker is not affected by windows (sword uses window system)
+        marker.set_window_enabled(false);
 
         // Rotate 180 degrees if requested
         if (rotated)
@@ -319,11 +323,70 @@ namespace fe
             return;
         }
 
-        // Temporary test: Just show markers at fixed positions to see if they're visible
-        // Marker offset: half of a 24x24 tile (12 pixels) to center the marker within the tile.
-        constexpr int MARKER_HALF_TILE_OFFSET = 12; // Half of 24px tile size
-        bn::fixed_point top_left_pos(-MARKER_HALF_TILE_OFFSET, -MARKER_HALF_TILE_OFFSET);
-        bn::fixed_point bottom_right_pos(MARKER_HALF_TILE_OFFSET - 1, MARKER_HALF_TILE_OFFSET - 1);
+        // Use cached zone bounds if available to avoid expensive map scanning every frame
+        if (!_zone_bounds_cached)
+        {
+            // Only scan the background map once to find zone boundaries
+            const bn::span<const bn::regular_bg_map_cell> cells = bg.map().cells_ref().value();
+            int map_width = bg.map().dimensions().width();
+            int map_height = bg.map().dimensions().height();
+
+            // Find min/max cell coordinates for zone tiles
+            int min_cell_x = map_width, max_cell_x = -1;
+            int min_cell_y = map_height, max_cell_y = -1;
+            bool found_zone = false;
+
+            for (int y = 0; y < map_height; ++y)
+            {
+                for (int x = 0; x < map_width; ++x)
+                {
+                    int cell_index = y * map_width + x;
+                    if (cell_index < cells.size())
+                    {
+                        bn::regular_bg_map_cell cell = cells.at(cell_index);
+                        int tile_index = bn::regular_bg_map_cell_info(cell).tile_index();
+
+                        // Check if this tile is one of our zone tiles
+                        for (int zone_tile : zone_tiles)
+                        {
+                            if (tile_index == zone_tile)
+                            {
+                                found_zone = true;
+                                min_cell_x = bn::min(min_cell_x, x);
+                                max_cell_x = bn::max(max_cell_x, x);
+                                min_cell_y = bn::min(min_cell_y, y);
+                                max_cell_y = bn::max(max_cell_y, y);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (!found_zone)
+            {
+                _zone_markers.set_visible(false);
+                return;
+            }
+
+            // Convert cell coordinates to world positions and cache them
+            // Each cell is 8x8 pixels, map is offset by (map_width * 4, map_height * 4)
+            const int map_offset_x = (map_width * 4);
+            const int map_offset_y = (map_height * 4);
+
+            // Calculate zone bounds in world coordinates and cache them
+            _zone_min_x = min_cell_x * 8 - map_offset_x;
+            _zone_max_x = (max_cell_x + 1) * 8 - map_offset_x - 1;
+            _zone_min_y = min_cell_y * 8 - map_offset_y;
+            _zone_max_y = (max_cell_y + 1) * 8 - map_offset_y - 1;
+
+            _zone_bounds_cached = true;
+        }
+
+        // Use cached zone bounds for marker positions
+        // Move markers inward by 4x4 pixels for better visibility
+        bn::fixed_point top_left_pos(_zone_min_x + 4, _zone_min_y + 4);
+        bn::fixed_point bottom_right_pos(_zone_max_x - 4, _zone_max_y - 4);
 
         // Create or update top-left marker
         if (!_zone_markers.top_left.has_value())

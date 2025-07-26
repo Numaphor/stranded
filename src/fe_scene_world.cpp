@@ -60,10 +60,10 @@ namespace fe
                 }
             }
 
-            // Draw a 4x4 square in the middle of the screen
-            for (int x = (columns / 2) - (4 / 2); x < (columns / 2) + (4 / 2); x++)
+            // Draw a 9x4 rectangle (width increased by 50% to the right) moved down-left by 64 pixels from center
+            for (int x = (columns / 2) - (6 / 2) - 10; x < (columns / 2) + (15 / 2) - 10; x++)
             {
-                for (int y = (rows / 2) - (4 / 2); y < (rows / 2) + (4 / 2); y++)
+                for (int y = (rows / 2) - (4 / 2) + 4; y < (rows / 2) + (4 / 2) + 4; y++)
                 {
                     int cell_index = x + y * columns;
                     cells[cell_index] = bn::regular_bg_map_cell(2); // Set a different tile index
@@ -167,7 +167,6 @@ namespace fe
                 int merchant_z = -_merchant->pos().y().integer();
                 _merchant->set_sprite_z_order(merchant_z);
 
-
                 // Update hitbox debug visualization for merchant
                 if (_hitbox_debug.is_enabled())
                 {
@@ -205,33 +204,20 @@ namespace fe
             {
                 _hitbox_debug.update_player_hitbox(*_player);
 
-                // Update zone tiles visualization
+                // Update zone tiles visualization (now with performance optimization)
                 _hitbox_debug.update_zone_tiles(*_level, bg);
             }
 
             // Update player position and check for collisions
             bn::fixed_point new_pos = _player->pos();
 
-            // Check for collision with sword using Hitbox system
-            constexpr bn::fixed sword_x = -64;     // 64 pixels left of center
-            constexpr bn::fixed sword_y = 20;      // 20 pixels down from center
-            constexpr bn::fixed sword_width = 64;  // Width of 64
-            constexpr bn::fixed sword_height = 20; // Reduced height by ~70% (from 64 to ~20)
-
-            // Create sword and player hitboxes
-            fe::Hitbox sword_hitbox(sword_x, sword_y, sword_width, sword_height);
-            fe::Hitbox player_hitbox(new_pos.x(), new_pos.y(), 32, 32);
-
-            // Check collision between player and sword using Hitbox
-            bool colliding_with_sword = player_hitbox.collides_with(sword_hitbox);
-
             // Check collision between player and merchant using unified collision system
             bool colliding_with_merchant = _merchant && !_merchant->is_talking() && !_player->listening() &&
                                            fe::Collision::check_player_npc(*_player, *_merchant);
 
             // Check for zone collisions - prevent player from walking through zones
-            // If new position is invalid or colliding with sword or merchant, revert position
-            if (!_level->is_position_valid(new_pos) || colliding_with_sword || colliding_with_merchant)
+            // If new position is invalid or colliding with merchant, revert position
+            if (!_level->is_position_valid(new_pos) || colliding_with_merchant)
             {
                 _player->revert_position();
             }
@@ -256,14 +242,14 @@ namespace fe
                 constexpr bn::fixed sword_sprite_y = 0;
 
                 // Get the internal window and update its position
-                bn::rect_window internal_window = bn::rect_window::internal();
+                bn::rect_window &window_ref = internal_window;
 
                 // Calculate the sword's position in screen coordinates
                 bn::fixed_point camera_pos(camera.x(), camera.y());
                 bn::fixed_point sword_screen_pos = bn::fixed_point(sword_sprite_x, sword_sprite_y) - camera_pos;
 
                 // Update window boundaries to be centered on the sword
-                internal_window.set_boundaries(
+                window_ref.set_boundaries(
                     sword_screen_pos.y() - SWORD_HALF_HEIGHT, // top
                     sword_screen_pos.x() - SWORD_HALF_WIDTH,  // left
                     sword_screen_pos.y() + SWORD_HALF_HEIGHT, // bottom
@@ -273,7 +259,8 @@ namespace fe
                 // Set priority based on player's Y position relative to the sword
                 // When player is above the sword (lower Y), they should be behind it (higher priority)
                 // When player is below the sword (higher Y), they should be in front of it (lower priority)
-                const int sword_priority = (player_pos.y() > sword_y) ? 2 : 0; // 0 = above player, 2 = below player
+                // Threshold lowered by 8 pixels so player goes behind sword earlier
+                const int sword_priority = (player_pos.y() > sword_sprite_y - 8) ? 2 : 0; // 0 = above player, 2 = below player
                 _sword_bg->set_priority(sword_priority);
             }
 
