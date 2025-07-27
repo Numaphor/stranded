@@ -85,7 +85,8 @@ namespace fe
                      _level(nullptr),
                      _minimap(nullptr),
                      _sword_bg(bn::nullopt),
-                     _merchant(nullptr)
+                     _merchant(nullptr),
+                     _current_world_id(0)
     {
         // Create player sprite with correct shape and size
         bn::sprite_builder builder(bn::sprite_items::hero);
@@ -93,8 +94,19 @@ namespace fe
         _player = new Player(builder.release_build());
     }
 
-    fe::Scene fe::World::execute(bn::fixed_point spawn_location)
+    fe::Scene fe::World::execute(bn::fixed_point spawn_location, int world_id)
     {
+        _current_world_id = world_id;
+        
+        // Load saved state if available
+        WorldStateManager& state_manager = WorldStateManager::instance();
+        if(state_manager.has_saved_state(world_id))
+        {
+            WorldState saved_state = state_manager.load_world_state(world_id);
+            spawn_location = saved_state.player_position;
+            // Could restore other state like health here
+        }
+
         bn::camera_ptr camera = bn::camera_ptr::create(0, 0);
 
         bg_map bg_map_obj;
@@ -130,20 +142,23 @@ namespace fe
         // Create text generator for NPCs
         bn::sprite_text_generator text_generator(common::variable_8x8_sprite_font);
 
-        // Create merchant NPC
-        _merchant = new MerchantNPC(bn::fixed_point(100, -50), camera, text_generator);
+        // Initialize world-specific content
+        _init_world_specific_content(world_id, camera, bg, text_generator);
 
         // Initialize hitbox debug system
         _hitbox_debug.initialize(camera);
 
-        // Spawn 3 spearguard enemies
-        _enemies.push_back(Enemy(0, -100, camera, bg, ENEMY_TYPE::SPEARGUARD, 3));
-        _enemies.push_back(Enemy(50, -80, camera, bg, ENEMY_TYPE::SPEARGUARD, 3));
-        _enemies.push_back(Enemy(-50, -120, camera, bg, ENEMY_TYPE::SPEARGUARD, 3));
-
         while (true)
         {
             bn::core::update();
+
+            // Check for menu access - START button opens world selection menu
+            if (bn::keypad::start_pressed() && !bn::keypad::select_held())
+            {
+                // Save current state before going to menu
+                _save_current_state();
+                return fe::Scene::MENU;
+            }
 
             // Debug input handling - Toggle hitbox visualization with START + SELECT keys
             if (bn::keypad::select_held() && bn::keypad::start_pressed())
@@ -426,5 +441,68 @@ namespace fe
         delete _level;
         delete _minimap;
         delete _merchant;
+    }
+
+    void World::_init_world_specific_content(int world_id, bn::camera_ptr& camera, bn::regular_bg_ptr& bg, bn::sprite_text_generator& text_generator)
+    {
+        // Clear existing enemies
+        _enemies.clear();
+        
+        // Initialize different content based on world ID
+        switch(world_id)
+        {
+            case 0: // Main World
+                // Create merchant NPC
+                _merchant = new MerchantNPC(bn::fixed_point(100, -50), camera, text_generator);
+                
+                // Spawn 3 spearguard enemies
+                _enemies.push_back(Enemy(0, -100, camera, bg, ENEMY_TYPE::SPEARGUARD, 3));
+                _enemies.push_back(Enemy(50, -80, camera, bg, ENEMY_TYPE::SPEARGUARD, 3));
+                _enemies.push_back(Enemy(-50, -120, camera, bg, ENEMY_TYPE::SPEARGUARD, 3));
+                break;
+                
+            case 1: // Forest Area
+                // Create a different NPC setup
+                _merchant = new GolemNPC(bn::fixed_point(80, -60), camera, text_generator);
+                
+                // Spawn different enemy configuration
+                _enemies.push_back(Enemy(-100, -50, camera, bg, ENEMY_TYPE::SPEARGUARD, 2));
+                _enemies.push_back(Enemy(80, -100, camera, bg, ENEMY_TYPE::SPEARGUARD, 2));
+                break;
+                
+            case 2: // Desert Zone
+                // Desert-specific setup
+                _merchant = new TortoiseNPC(bn::fixed_point(-80, 100), camera, text_generator);
+                
+                // More challenging enemies
+                _enemies.push_back(Enemy(0, 0, camera, bg, ENEMY_TYPE::SPEARGUARD, 4));
+                _enemies.push_back(Enemy(100, 20, camera, bg, ENEMY_TYPE::SPEARGUARD, 4));
+                _enemies.push_back(Enemy(-100, 40, camera, bg, ENEMY_TYPE::SPEARGUARD, 4));
+                _enemies.push_back(Enemy(0, 80, camera, bg, ENEMY_TYPE::SPEARGUARD, 4));
+                break;
+                
+            case 3: // Ocean Side
+                // Ocean-specific setup
+                _merchant = new PenguinNPC(bn::fixed_point(-60, 40), camera, text_generator);
+                
+                // Fewer but stronger enemies
+                _enemies.push_back(Enemy(-80, 0, camera, bg, ENEMY_TYPE::SPEARGUARD, 5));
+                _enemies.push_back(Enemy(80, 100, camera, bg, ENEMY_TYPE::SPEARGUARD, 5));
+                break;
+                
+            default: // Default to main world
+                _merchant = new MerchantNPC(bn::fixed_point(100, -50), camera, text_generator);
+                _enemies.push_back(Enemy(0, -100, camera, bg, ENEMY_TYPE::SPEARGUARD, 3));
+                break;
+        }
+    }
+
+    void World::_save_current_state()
+    {
+        if(_player)
+        {
+            WorldStateManager& state_manager = WorldStateManager::instance();
+            state_manager.save_world_state(_current_world_id, _player->pos(), _player->get_hp());
+        }
     }
 }
