@@ -21,8 +21,8 @@ namespace fe
         // Set appropriate hitbox size based on NPC type
         if (_type == NPC_TYPE::MERCHANT)
         {
-            // MERCHANT gets a wider and taller hitbox: increased from standard 32x32 to 40x64
-            _hitbox = Hitbox(pos.x(), pos.y(), 40, 64);
+            // MERCHANT gets a wider and taller hitbox: increased from standard 32x32 to 40x80
+            _hitbox = Hitbox(pos.x(), pos.y(), 40, 80);
         }
         else
         {
@@ -33,12 +33,12 @@ namespace fe
     void NPC::update_hitbox()
     {
         // Center the NPC hitbox on the NPC position
-        // MERCHANT gets a wider hitbox (40x32), other NPCs use standard 32x32
+        // MERCHANT gets a wider hitbox (40x80), other NPCs use standard 32x32
         if (_type == NPC_TYPE::MERCHANT)
         {
-            // Center the 40x64 MERCHANT hitbox on the NPC position
+            // Center the 40x80 MERCHANT hitbox on the NPC position
             _hitbox.set_x(_pos.x() - 20); // Center horizontally (40/2)
-            _hitbox.set_y(_pos.y() - 32); // Center vertically (64/2)
+            _hitbox.set_y(_pos.y() - 40); // Center vertically (80/2)
         }
         else
         {
