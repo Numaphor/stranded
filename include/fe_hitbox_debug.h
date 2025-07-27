@@ -117,7 +117,7 @@ namespace fe
 
         /**
          * @brief Centralized marker positioning configuration
-         * 
+         *
          * This struct contains all offset values for different entity types,
          * replacing scattered magic numbers with documented, maintainable constants.
          */
@@ -127,7 +127,7 @@ namespace fe
             bn::fixed top_left_y;
             bn::fixed bottom_right_x;
             bn::fixed bottom_right_y;
-            
+
             // Constructor for easy initialization
             MarkerOffsetConfig(bn::fixed tl_x, bn::fixed tl_y, bn::fixed br_x, bn::fixed br_y)
                 : top_left_x(tl_x), top_left_y(tl_y), bottom_right_x(br_x), bottom_right_y(br_y) {}
@@ -213,9 +213,9 @@ namespace fe
          * @param use_hitbox_markers If true, use hitbox_top_left/hitbox_bottom_right instead of top_left/bottom_right
          * @param enable_blending If true, enable blending for visual distinction
          */
-        void _update_markers_with_config(const Hitbox &hitbox, HitboxMarkers &markers, 
-                                         const MarkerOffsetConfig &config, 
-                                         bool use_hitbox_markers = false, 
+        void _update_markers_with_config(const Hitbox &hitbox, HitboxMarkers &markers,
+                                         const MarkerOffsetConfig &config,
+                                         bool use_hitbox_markers = false,
                                          bool enable_blending = false);
 
         /**
