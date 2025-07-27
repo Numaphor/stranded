@@ -202,7 +202,7 @@ namespace fe
          * @brief Create or update merchant hitbox markers with specialized positioning and red tinting
          * @param hitbox The merchant hitbox to visualize (actual collision boundaries)
          * @param markers The marker sprites to update
-         * 
+         *
          * Note: These markers use fixed positioning that is decoupled from MERCHANT_ACTION_RADIUS_CONFIG
          * to ensure the hitbox visualization remains at the original collision boundaries regardless
          * of any changes to the action radius configuration.
