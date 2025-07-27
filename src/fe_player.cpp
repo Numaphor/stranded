@@ -260,6 +260,12 @@ namespace fe
     // Player Implementation
     Player::Player(bn::sprite_ptr sprite) : Entity(sprite), _animation(sprite), _gun_active(false)
     {
+        // Set player bg_priority to 0 to match companion and enable z-order sorting
+        // Both player and companion need same bg_priority for z_order comparison to work
+        if (auto player_sprite = get_sprite())
+        {
+            player_sprite->set_bg_priority(0);
+        }
         set_sprite_z_order(1);
         _hitbox = Hitbox(0, 0, player_constants::HITBOX_WIDTH, player_constants::HITBOX_HEIGHT);
         _healthbar.set_hp(_hp);
@@ -549,11 +555,10 @@ namespace fe
 
         bn::sprite_ptr companion_sprite = bn::sprite_items::companion.create_sprite(pos());
 
-        // Ensure companion has same bg_priority as player
-        if (auto player_sprite = get_sprite())
-        {
-            companion_sprite.set_bg_priority(player_sprite->bg_priority());
-        }
+        // Set companion bg_priority to 0 to ensure it never goes behind the sword
+        // The sword background uses priorities 0-2, so companion at priority 0
+        // will always be visible (sprites cover backgrounds of same priority)
+        companion_sprite.set_bg_priority(0);
 
         _companion = PlayerCompanion(bn::move(companion_sprite));
         _companion->spawn(pos(), camera);

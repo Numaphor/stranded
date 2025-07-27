@@ -313,13 +313,12 @@ namespace fe
         // Calculate center of action radius area
         bn::fixed action_center_x = (action_top_left.x() + action_bottom_right.x() + fe::hitbox_constants::MARKER_SPRITE_SIZE) / 2;
         bn::fixed action_center_y = (action_top_left.y() + action_bottom_right.y() + fe::hitbox_constants::MARKER_SPRITE_SIZE) / 2;
-        
+
         // Create 16x16 hitbox area centered within the action radius
         bn::fixed_point hitbox_top_left_pos(action_center_x - 8, action_center_y - 8);
         bn::fixed_point hitbox_bottom_right_pos(
             action_center_x + 8 - fe::hitbox_constants::MARKER_SPRITE_SIZE,
-            action_center_y + 8 - fe::hitbox_constants::MARKER_SPRITE_SIZE
-        );
+            action_center_y + 8 - fe::hitbox_constants::MARKER_SPRITE_SIZE);
 
         // Create or update hitbox top-left marker with blending effect
         if (!markers.hitbox_top_left.has_value())

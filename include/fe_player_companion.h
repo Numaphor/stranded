@@ -40,6 +40,7 @@ namespace fe
         Position _position_side = Position::RIGHT;
         bool _is_dead = false;
         bool _is_flying = false;
+        bool _player_too_close = false;
         int _follow_delay = 0;
         bn::fixed_point _target_offset;
 

@@ -272,8 +272,8 @@ namespace fe
                 // Set priority based on player's Y position relative to the sword
                 // When player is above the sword (lower Y), they should be behind it (higher priority)
                 // When player is below the sword (higher Y), they should be in front of it (lower priority)
-                // Threshold lowered by 8 pixels so player goes behind sword earlier
-                const int sword_priority = (player_pos.y() > sword_sprite_y - 8) ? 2 : 0; // 0 = above player, 2 = below player
+                // Threshold lowered by 16 pixels so player goes behind sword earlier
+                const int sword_priority = (player_pos.y() > sword_sprite_y + 8) ? 2 : 0; // 0 = above player, 2 = below player
                 _sword_bg->set_priority(sword_priority);
             }
 
