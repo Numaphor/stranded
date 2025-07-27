@@ -100,24 +100,15 @@ namespace fe
             return xOverlap && yOverlap;
         }
 
-        // Backward compatibility wrapper: Player-NPC collision with custom sizing
+        // Backward compatibility wrapper: Player-NPC collision using actual hitboxes
         [[nodiscard]] static bool check_player_npc(const Player &player, const NPC &npc)
         {
-            // Get player position and size - match the world scene hitbox sizes
-            bn::fixed_point player_pos = player.pos();
-            constexpr bn::fixed player_half_width = 16; // Half of 32 to match world scene
-            constexpr bn::fixed player_half_height = 4; // Half of 32 to match world scene
+            // Get the actual hitboxes for both player and NPC
+            Hitbox playerHitbox = player.get_hitbox();
+            Hitbox npcHitbox = npc.get_hitbox();
 
-            // Get NPC position and size - reduced by 50% width, 75% height
-            bn::fixed_point npc_pos = npc.pos();
-            constexpr bn::fixed npc_half_width = 4;  // Half of 8 (50% of original 16)
-            constexpr bn::fixed npc_half_height = 4; // Half of 8 (25% of original 32)
-
-            // Check for overlap on both axes
-            bool xOverlap = bn::abs(player_pos.x() - npc_pos.x()) < (player_half_width + npc_half_width);
-            bool yOverlap = bn::abs(player_pos.y() - npc_pos.y()) < (player_half_height + npc_half_height);
-
-            return xOverlap && yOverlap;
+            // Use the standard bounding box collision detection
+            return check_bb(playerHitbox, npcHitbox);
         }
 
         // Generic hitbox collision check
