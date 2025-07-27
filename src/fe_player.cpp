@@ -50,6 +50,12 @@ namespace fe
             }
         }
 
+        int get_gun_z_offset(PlayerMovement::Direction dir)
+        {
+            // Gun should be behind player when looking up, in front for all other directions
+            return (dir == PlayerMovement::Direction::UP) ? 1 : -1;
+        }
+
         void setup_gun(bn::sprite_ptr &gun_sprite, PlayerMovement::Direction dir, bn::fixed_point pos)
         {
             const int idx = int(dir);
@@ -423,7 +429,12 @@ namespace fe
         {
             _gun_sprite = bn::sprite_items::gun.create_sprite(pos().x(), pos().y());
             _gun_sprite->set_bg_priority(get_sprite()->bg_priority());
-            _gun_sprite->set_z_order(get_sprite()->z_order() - 1); // Gun in front of player
+            
+            // Set initial z_order based on facing direction
+            PlayerMovement::Direction gun_dir = _is_strafing ? _strafing_direction : _movement.facing_direction();
+            int gun_z_offset = direction_utils::get_gun_z_offset(gun_dir);
+            _gun_sprite->set_z_order(get_sprite()->z_order() + gun_z_offset);
+            
             if (get_sprite()->camera().has_value())
             {
                 _gun_sprite->set_camera(get_sprite()->camera().value());
@@ -604,7 +615,9 @@ namespace fe
 
         if (_gun_sprite.has_value())
         {
-            _gun_sprite->set_z_order(z_order - 1); // Gun in front of player
+            PlayerMovement::Direction gun_dir = _is_strafing ? _strafing_direction : _movement.facing_direction();
+            int gun_z_offset = direction_utils::get_gun_z_offset(gun_dir);
+            _gun_sprite->set_z_order(z_order + gun_z_offset);
         }
 
         if (_companion.has_value())
