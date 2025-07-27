@@ -17,7 +17,10 @@ namespace fe
         fe::hitbox_constants::PLAYER_MARKER_X_OFFSET,
         fe::hitbox_constants::PLAYER_MARKER_Y_OFFSET,
         -1, -1);
-    const HitboxDebug::MarkerOffsetConfig HitboxDebug::MERCHANT_ACTION_RADIUS_CONFIG(-14, -6, -16, -8);
+    // Action radius markers: show the interaction area for the merchant (can be changed independently)
+    const HitboxDebug::MarkerOffsetConfig HitboxDebug::MERCHANT_ACTION_RADIUS_CONFIG(-14, -6, -24, -40);
+    // Hitbox markers: These are now positioned using fixed offsets in _update_merchant_hitbox_markers
+    // This config is kept for compatibility but the actual implementation uses hardcoded fixed positioning
     const HitboxDebug::MarkerOffsetConfig HitboxDebug::MERCHANT_HITBOX_CONFIG(-4, -16, -4, -16);
 
     HitboxDebug::HitboxDebug() : _enabled(false), _zone_bounds_cached(false), _initialized(false)
@@ -201,30 +204,28 @@ namespace fe
             return;
         }
 
-        // Get the action radius marker positions to find the center
-        bn::fixed_point action_top_left = _calculate_top_left_marker_pos(hitbox,
-                                                                         MERCHANT_ACTION_RADIUS_CONFIG.top_left_x, MERCHANT_ACTION_RADIUS_CONFIG.top_left_y);
-        bn::fixed_point action_bottom_right = _calculate_bottom_right_marker_pos(hitbox,
-                                                                                 MERCHANT_ACTION_RADIUS_CONFIG.bottom_right_x, MERCHANT_ACTION_RADIUS_CONFIG.bottom_right_y);
+        // Use fixed center position based on the merchant's actual hitbox, independent of action radius
+        // This ensures hitbox markers stay at their original positions regardless of action radius changes
+        bn::fixed hitbox_center_x = hitbox.x() + (hitbox.width() / 2);
+        bn::fixed hitbox_center_y = hitbox.y() + (hitbox.height() / 2);
 
-        // Calculate center of action radius area
-        bn::fixed action_center_x = (action_top_left.x() + action_bottom_right.x() + fe::hitbox_constants::MARKER_SPRITE_SIZE) / 2;
-        bn::fixed action_center_y = (action_top_left.y() + action_bottom_right.y() + fe::hitbox_constants::MARKER_SPRITE_SIZE) / 2;
-
-        // Create 20x20 hitbox area centered within the action radius with perfect user-determined offsets
+        // Create 20x20 hitbox area centered within the merchant's actual hitbox with fixed offsets
         constexpr bn::fixed HITBOX_HALF_SIZE = 10;      // Half of 20x20 hitbox area
-        constexpr bn::fixed HITBOX_Y_OFFSET = 16;       // Perfect upward offset (user-determined)
-        constexpr bn::fixed HITBOX_X_OFFSET = 4;        // Perfect leftward offset (user-determined)
-        constexpr bn::fixed HITBOX_VERTICAL_ADJUST = 2; // Fine-tuning for vertical centering
+        constexpr bn::fixed HITBOX_X_OFFSET = 19;       // Perfect leftward offset (user-determined) - moved right 1 pixel
+        constexpr bn::fixed HITBOX_Y_OFFSET_LEFT = 11;  // Y offset for left marker (moved up 3 more pixels)
+        constexpr bn::fixed HITBOX_Y_OFFSET_RIGHT = 35; // Y offset for right marker (moved up 3 more pixels)
+        constexpr bn::fixed HITBOX_VERTICAL_ADJUST = 0; // Additional vertical adjustment if needed
 
+        // Position hitbox markers using fixed offsets from the merchant's hitbox center (independent of action radius)
         bn::fixed_point hitbox_top_left_pos(
-            action_center_x - HITBOX_HALF_SIZE - HITBOX_X_OFFSET,
-            action_center_y + HITBOX_VERTICAL_ADJUST - HITBOX_Y_OFFSET);
-        bn::fixed_point hitbox_bottom_right_pos(
-            action_center_x + HITBOX_HALF_SIZE - fe::hitbox_constants::MARKER_SPRITE_SIZE - HITBOX_X_OFFSET,
-            action_center_y - HITBOX_VERTICAL_ADJUST - fe::hitbox_constants::MARKER_SPRITE_SIZE - HITBOX_Y_OFFSET);
+            hitbox_center_x - HITBOX_HALF_SIZE - HITBOX_X_OFFSET,
+            hitbox_center_y - HITBOX_HALF_SIZE - HITBOX_Y_OFFSET_LEFT - HITBOX_VERTICAL_ADJUST);
 
-        // Create or update hitbox markers with blending for visual distinction
+        bn::fixed_point hitbox_bottom_right_pos(
+            hitbox_center_x + HITBOX_HALF_SIZE - fe::hitbox_constants::MARKER_SPRITE_SIZE - HITBOX_X_OFFSET,
+            hitbox_center_y + HITBOX_HALF_SIZE - fe::hitbox_constants::MARKER_SPRITE_SIZE - HITBOX_Y_OFFSET_RIGHT - HITBOX_VERTICAL_ADJUST);
+
+        // Create or update hitbox top-left marker with fixed position
         if (!markers.hitbox_top_left.has_value())
         {
             markers.hitbox_top_left = _create_marker(hitbox_top_left_pos, false);
@@ -236,6 +237,7 @@ namespace fe
             markers.hitbox_top_left->set_visible(_enabled);
         }
 
+        // Create or update hitbox bottom-right marker (rotated 180 degrees) with fixed position
         if (!markers.hitbox_bottom_right.has_value())
         {
             markers.hitbox_bottom_right = _create_marker(hitbox_bottom_right_pos, true);
