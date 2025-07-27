@@ -44,12 +44,12 @@ namespace fe
         // Define proximity thresholds for idle behavior
         constexpr bn::fixed IDLE_DISTANCE = 12;   // Stop moving when player gets this close
         constexpr bn::fixed RESUME_DISTANCE = 20; // Resume following when player moves this far away
-        
+
         // Calculate direct distance from companion to player
         bn::fixed_point companion_to_player = player_pos - _position;
-        bn::fixed player_distance = bn::sqrt(companion_to_player.x() * companion_to_player.x() + 
-                                            companion_to_player.y() * companion_to_player.y());
-        
+        bn::fixed player_distance = bn::sqrt(companion_to_player.x() * companion_to_player.x() +
+                                             companion_to_player.y() * companion_to_player.y());
+
         // Update proximity state with hysteresis to prevent oscillation
         if (!_player_too_close && player_distance < IDLE_DISTANCE)
         {
@@ -59,7 +59,7 @@ namespace fe
         {
             _player_too_close = false;
         }
-        
+
         // Only move if player is not too close
         if (!_player_too_close)
         {
@@ -81,7 +81,7 @@ namespace fe
         {
             bn::fixed_point offset = _position - player_pos;
             Position new_side;
-            
+
             // Check if companion is primarily above or below the player
             if (bn::abs(offset.y()) > bn::abs(offset.x()))
             {
@@ -103,7 +103,7 @@ namespace fe
                 // Companion is primarily to the left or right of player
                 new_side = (offset.x() > 0) ? Position::RIGHT : Position::LEFT;
             }
-            
+
             set_position_side(new_side);
         }
 
