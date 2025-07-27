@@ -28,6 +28,9 @@ namespace fe
         {
             // Other NPCs keep standard 32x32 hitbox (already set by Entity constructor)
         }
+        
+        // Apply the proper hitbox positioning
+        update_hitbox();
     }
 
     void NPC::update_hitbox()
