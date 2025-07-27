@@ -38,7 +38,7 @@ namespace fe
         {
             // Center the 40x80 MERCHANT hitbox on the NPC position
             _hitbox.set_x(_pos.x() - 20); // Center horizontally (40/2)
-            _hitbox.set_y(_pos.y() - 40); // Center vertically (80/2)
+            _hitbox.set_y(_pos.y() - 32); // Move hitbox down 8 pixels from center (was -40, now -32)
         }
         else
         {

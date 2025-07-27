@@ -194,7 +194,16 @@ namespace fe
 
     void HitboxDebug::_update_merchant_action_radius_markers(const Hitbox &hitbox, HitboxMarkers &markers)
     {
-        _update_markers_with_config(hitbox, markers, MERCHANT_ACTION_RADIUS_CONFIG);
+        // Apply compensation for hitbox movement to keep action radius markers at their original absolute position
+        // Create a temporary hitbox with compensated position for marker calculation
+        constexpr bn::fixed HITBOX_MOVEMENT_COMPENSATION = -8; // Negative to move markers up when hitbox moved down
+        Hitbox compensated_hitbox(
+            hitbox.x(), 
+            hitbox.y() + HITBOX_MOVEMENT_COMPENSATION, 
+            hitbox.width(), 
+            hitbox.height()
+        );
+        _update_markers_with_config(compensated_hitbox, markers, MERCHANT_ACTION_RADIUS_CONFIG);
     }
 
     void HitboxDebug::_update_merchant_hitbox_markers(const Hitbox &hitbox, HitboxMarkers &markers)
@@ -206,8 +215,10 @@ namespace fe
 
         // Use fixed center position based on the merchant's actual hitbox, independent of action radius
         // This ensures hitbox markers stay at their original positions regardless of action radius changes
+        // Compensate for hitbox movement: hitbox was moved down 8 pixels, so move markers up 8 pixels to maintain absolute position
+        constexpr bn::fixed HITBOX_MOVEMENT_COMPENSATION = -8; // Negative to move markers up when hitbox moved down
         bn::fixed hitbox_center_x = hitbox.x() + (hitbox.width() / 2);
-        bn::fixed hitbox_center_y = hitbox.y() + (hitbox.height() / 2);
+        bn::fixed hitbox_center_y = hitbox.y() + (hitbox.height() / 2) + HITBOX_MOVEMENT_COMPENSATION;
 
         // Create 20x20 hitbox area centered within the merchant's actual hitbox with fixed offsets
         constexpr bn::fixed HITBOX_HALF_SIZE = 10;      // Half of 20x20 hitbox area
