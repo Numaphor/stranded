@@ -185,29 +185,31 @@ namespace fe
 
         _sprite.set_horizontal_flip(direction == PlayerMovement::Direction::LEFT);
 
-        // Simplified animation data: speed, base_frame, frame_count
+        // Animation data with individual frame counts per direction
         struct AnimData
         {
             int speed;
             int up_start;
+            int up_count;
             int down_start;
+            int down_count;
             int side_start;
-            int frame_count;
+            int side_count;
         };
 
         static const AnimData animations[] = {
-            {12, 187, 0, 144, 12},  // IDLE
-            {12, 199, 109, 156, 8}, // WALKING
-            {8, 207, 117, 164, 8},  // RUNNING
-            {8, 226, 136, 172, 8},  // ROLLING
-            {8, 219, 129, 178, 7},  // SLASHING
-            {8, 219, 129, 182, 5},  // ATTACKING
-            {10, 215, 125, 178, 4}, // CHOPPING
-            {4, 13, 13, 13, 24},    // HEAL_BUFF
-            {4, 37, 37, 37, 24},    // DEFENCE_BUFF
-            {4, 61, 61, 61, 24},    // POWER_BUFF
-            {4, 85, 85, 85, 24},    // ENERGY_BUFF
-            {6, 234, 234, 234, 13}  // DEAD
+            {12, 187, 12, 0, 13, 144, 12},   // IDLE: idle_up(187-198=12), idle_down(0-12=13), lr_idle(144-155=12)
+            {12, 199, 8, 109, 8, 156, 8},    // WALKING: move_up(199-206=8), move_down(109-116=8), lr_move(156-163=8)
+            {8, 207, 8, 117, 8, 164, 8},     // RUNNING: run_up(207-214=8), run_down(117-124=8), lr_run(164-171=8)
+            {8, 226, 8, 136, 8, 172, 6},     // ROLLING: roll_up(226-233=8), roll_down(136-143=8), lr_roll(172-177=6)
+            {8, 219, 7, 129, 7, 178, 4},     // SLASHING: attack_up(219-225=7), slash_down(129-135=7), lr_slash(178-181=4)
+            {8, 219, 7, 129, 7, 182, 5},     // ATTACKING: attack_up(219-225=7), slash_down(129-135=7), lr_slash(182-186=5)
+            {10, 215, 4, 125, 4, 178, 4},    // CHOPPING: chop_up(215-218=4), chop_down(125-128=4), lr_slash(178-181=4)
+            {4, 13, 24, 13, 24, 13, 24},     // HEAL_BUFF: heal_buff(13-36=24) all directions
+            {4, 37, 24, 37, 24, 37, 24},     // DEFENCE_BUFF: defence_buff(37-60=24) all directions
+            {4, 61, 24, 61, 24, 61, 24},     // POWER_BUFF: power_buff(61-84=24) all directions
+            {4, 85, 24, 85, 24, 85, 24},     // ENERGY_BUFF: energy_buff(85-108=24) all directions
+            {6, 234, 13, 234, 13, 234, 13}   // DEAD: death(234-246=13) all directions
         };
 
         int state_idx = static_cast<int>(state);
@@ -215,10 +217,25 @@ namespace fe
             return;
 
         const auto &anim = animations[state_idx];
-        int start_frame = (direction == PlayerMovement::Direction::UP) ? anim.up_start : (direction == PlayerMovement::Direction::DOWN) ? anim.down_start
-                                                                                                                                        : anim.side_start;
+        int start_frame, frame_count;
+        
+        if (direction == PlayerMovement::Direction::UP)
+        {
+            start_frame = anim.up_start;
+            frame_count = anim.up_count;
+        }
+        else if (direction == PlayerMovement::Direction::DOWN)
+        {
+            start_frame = anim.down_start;
+            frame_count = anim.down_count;
+        }
+        else // LEFT or RIGHT
+        {
+            start_frame = anim.side_start;
+            frame_count = anim.side_count;
+        }
 
-        make_anim_range(anim.speed, start_frame, start_frame + anim.frame_count - 1);
+        make_anim_range(anim.speed, start_frame, start_frame + frame_count - 1);
 
         _last_state = state;
         _last_direction = direction;
