@@ -5,6 +5,7 @@
 #include "bn_sprite_ptr.h"
 #include "bn_vector.h"
 #include "bn_sprite_text_generator.h"
+#include "bn_string.h"
 
 #include "fe_scene.h"
 

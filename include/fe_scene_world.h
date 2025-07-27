@@ -37,7 +37,7 @@ namespace fe
         bn::vector<Enemy, 16> _enemies;
         Minimap *_minimap;
         bn::optional<bn::regular_bg_ptr> _sword_bg;
-        MerchantNPC *_merchant;    // Add MerchantNPC as a member
+        NPC *_merchant;    // Changed to base NPC pointer to allow different types
         HitboxDebug _hitbox_debug; // Hitbox visualization system
         int _current_world_id;     // Track current world
         
