@@ -13,11 +13,11 @@ namespace fe
         constexpr bn::fixed PLAYER_HITBOX_WIDTH = 16;
         constexpr bn::fixed PLAYER_HITBOX_HEIGHT = 32;
         constexpr bn::fixed MARKER_SPRITE_SIZE = 4;
-        
+
         // Hitbox centering offsets (half of dimensions)
         constexpr bn::fixed PLAYER_HALF_WIDTH = PLAYER_HITBOX_WIDTH / 2;   // 8
         constexpr bn::fixed PLAYER_HALF_HEIGHT = PLAYER_HITBOX_HEIGHT / 2; // 16
-        
+
         // Visual adjustment offsets for debug markers
         constexpr bn::fixed PLAYER_MARKER_X_OFFSET = 4;
         constexpr bn::fixed PLAYER_MARKER_Y_OFFSET = 20;

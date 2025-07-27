@@ -283,11 +283,11 @@ namespace fe
     // Player Implementation
     Player::Player(bn::sprite_ptr sprite) : Entity(sprite), _animation(sprite), _gun_active(false)
     {
-        // Set player bg_priority to 0 to match companion and enable z-order sorting
+        // Set player bg_priority to 1 to allow going behind sword backgrounds (priority 0)
         // Both player and companion need same bg_priority for z_order comparison to work
         if (auto player_sprite = get_sprite())
         {
-            player_sprite->set_bg_priority(0);
+            player_sprite->set_bg_priority(1);
         }
         set_sprite_z_order(1);
         _hitbox = Hitbox(0, 0, player_constants::HITBOX_WIDTH, player_constants::HITBOX_HEIGHT);
@@ -429,12 +429,12 @@ namespace fe
         {
             _gun_sprite = bn::sprite_items::gun.create_sprite(pos().x(), pos().y());
             _gun_sprite->set_bg_priority(get_sprite()->bg_priority());
-            
+
             // Set initial z_order based on facing direction
             PlayerMovement::Direction gun_dir = _is_strafing ? _strafing_direction : _movement.facing_direction();
             int gun_z_offset = direction_utils::get_gun_z_offset(gun_dir);
             _gun_sprite->set_z_order(get_sprite()->z_order() + gun_z_offset);
-            
+
             if (get_sprite()->camera().has_value())
             {
                 _gun_sprite->set_camera(get_sprite()->camera().value());
@@ -502,6 +502,7 @@ namespace fe
 
         // Update components
         update_sprite_position();
+        update_z_order();
         _animation.update();
         _healthbar.update();
         update_bullets();
@@ -583,7 +584,7 @@ namespace fe
 
         bn::sprite_ptr companion_sprite = bn::sprite_items::companion.create_sprite(pos());
 
-        // Set companion bg_priority to 0 to ensure it never goes behind the sword
+        // Set companion bg_priority to 0 to ensure it NEVER goes behind the sword background
         // The sword background uses priorities 0-2, so companion at priority 0
         // will always be visible (sprites cover backgrounds of same priority)
         companion_sprite.set_bg_priority(0);

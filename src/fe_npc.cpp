@@ -17,14 +17,36 @@ namespace fe
         : Entity(pos), _type(type), _camera(camera), _text_generator(text_generator)
     {
         _text_generator.set_bg_priority(0);
+
+        // Set appropriate hitbox size based on NPC type
+        if (_type == NPC_TYPE::MERCHANT)
+        {
+            // MERCHANT gets a wider and taller hitbox: increased from standard 32x32 to 40x64
+            _hitbox = Hitbox(pos.x(), pos.y(), 40, 64);
+        }
+        else
+        {
+            // Other NPCs keep standard 32x32 hitbox (already set by Entity constructor)
+        }
     }
 
     void NPC::update_hitbox()
     {
-        // Center the 32x32 NPC hitbox on the NPC position
-        // This matches the visual sprite positioning
-        _hitbox.set_x(_pos.x() - 16); // Center horizontally (32/2)
-        _hitbox.set_y(_pos.y() - 16); // Center vertically (32/2)
+        // Center the NPC hitbox on the NPC position
+        // MERCHANT gets a wider hitbox (40x32), other NPCs use standard 32x32
+        if (_type == NPC_TYPE::MERCHANT)
+        {
+            // Center the 40x64 MERCHANT hitbox on the NPC position
+            _hitbox.set_x(_pos.x() - 20); // Center horizontally (40/2)
+            _hitbox.set_y(_pos.y() - 32); // Center vertically (64/2)
+        }
+        else
+        {
+            // Center the 32x32 NPC hitbox on the NPC position
+            // This matches the visual sprite positioning
+            _hitbox.set_x(_pos.x() - 16); // Center horizontally (32/2)
+            _hitbox.set_y(_pos.y() - 16); // Center vertically (32/2)
+        }
     }
 
     void NPC::update()

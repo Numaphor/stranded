@@ -11,6 +11,15 @@
 
 namespace fe
 {
+    // Static configuration constants for different entity types
+    const HitboxDebug::MarkerOffsetConfig HitboxDebug::STANDARD_ENTITY_CONFIG(0, 0, 0, 0);
+    const HitboxDebug::MarkerOffsetConfig HitboxDebug::PLAYER_CONFIG(
+        fe::hitbox_constants::PLAYER_MARKER_X_OFFSET,
+        fe::hitbox_constants::PLAYER_MARKER_Y_OFFSET,
+        -1, -1);
+    const HitboxDebug::MarkerOffsetConfig HitboxDebug::MERCHANT_ACTION_RADIUS_CONFIG(-14, -6, -16, -8);
+    const HitboxDebug::MarkerOffsetConfig HitboxDebug::MERCHANT_HITBOX_CONFIG(-4, -16, -4, -16);
+
     HitboxDebug::HitboxDebug() : _enabled(false), _zone_bounds_cached(false), _initialized(false)
     {
     }
@@ -172,120 +181,17 @@ namespace fe
 
     void HitboxDebug::_update_markers(const Hitbox &hitbox, HitboxMarkers &markers)
     {
-        if (!_camera.has_value())
-        {
-            return;
-        }
-
-        // Calculate marker positions using helper functions
-        bn::fixed_point top_left_pos = _calculate_top_left_marker_pos(hitbox);
-        bn::fixed_point bottom_right_pos = _calculate_bottom_right_marker_pos(hitbox);
-
-        // Create or update top-left marker
-        if (!markers.top_left.has_value())
-        {
-            markers.top_left = _create_marker(top_left_pos, false);
-        }
-        else
-        {
-            markers.top_left->set_position(top_left_pos);
-            markers.top_left->set_visible(_enabled);
-        }
-
-        // Create or update bottom-right marker (rotated 180 degrees)
-        if (!markers.bottom_right.has_value())
-        {
-            markers.bottom_right = _create_marker(bottom_right_pos, true);
-        }
-        else
-        {
-            markers.bottom_right->set_position(bottom_right_pos);
-            markers.bottom_right->set_visible(_enabled);
-        }
+        _update_markers_with_config(hitbox, markers, STANDARD_ENTITY_CONFIG);
     }
 
     void HitboxDebug::_update_player_markers(const Hitbox &hitbox, HitboxMarkers &markers)
     {
-        if (!_camera.has_value())
-        {
-            return;
-        }
-
-        // Calculate marker positions for player with visual adjustments
-        bn::fixed_point top_left_pos = _calculate_top_left_marker_pos(hitbox,
-                                                                      fe::hitbox_constants::PLAYER_MARKER_X_OFFSET,
-                                                                      fe::hitbox_constants::PLAYER_MARKER_Y_OFFSET);
-        constexpr bn::fixed PLAYER_MARKER_BR_X_OFFSET = -1;
-        constexpr bn::fixed PLAYER_MARKER_BR_Y_OFFSET = -1;
-        bn::fixed_point bottom_right_pos = _calculate_bottom_right_marker_pos(hitbox, PLAYER_MARKER_BR_X_OFFSET, PLAYER_MARKER_BR_Y_OFFSET);
-
-        // Create or update top-left marker
-        if (!markers.top_left.has_value())
-        {
-            markers.top_left = _create_marker(top_left_pos, false);
-        }
-        else
-        {
-            markers.top_left->set_position(top_left_pos);
-            markers.top_left->set_visible(_enabled);
-        }
-
-        // Create or update bottom-right marker (rotated 180 degrees)
-        if (!markers.bottom_right.has_value())
-        {
-            markers.bottom_right = _create_marker(bottom_right_pos, true);
-        }
-        else
-        {
-            markers.bottom_right->set_position(bottom_right_pos);
-            markers.bottom_right->set_visible(_enabled);
-        }
+        _update_markers_with_config(hitbox, markers, PLAYER_CONFIG);
     }
 
     void HitboxDebug::_update_merchant_action_radius_markers(const Hitbox &hitbox, HitboxMarkers &markers)
     {
-        if (!_camera.has_value())
-        {
-            return;
-        }
-
-        // Calculate merchant action radius marker positions using simplified offsets
-        // Top-left marker: base position adjusted for merchant action radius visibility, moved 2 pixels up-left
-        bn::fixed top_left_x_offset = fe::hitbox_constants::PLAYER_MARKER_X_OFFSET -
-                                      fe::hitbox_constants::MERCHANT_BASE_OFFSET +
-                                      fe::hitbox_constants::MERCHANT_X_ADJUSTMENT - 2;
-        bn::fixed top_left_y_offset = fe::hitbox_constants::PLAYER_MARKER_Y_OFFSET -
-                                      fe::hitbox_constants::MERCHANT_BASE_OFFSET +
-                                      fe::hitbox_constants::MERCHANT_Y_ADJUSTMENT - 2;
-
-        bn::fixed_point top_left_pos = _calculate_top_left_marker_pos(hitbox, top_left_x_offset, top_left_y_offset);
-
-        // Bottom-right marker: standard position with merchant-specific offsets
-        bn::fixed_point bottom_right_pos = _calculate_bottom_right_marker_pos(hitbox,
-                                                                              -fe::hitbox_constants::MERCHANT_BR_X_OFFSET,
-                                                                              -fe::hitbox_constants::MERCHANT_BR_Y_OFFSET);
-
-        // Create or update top-left marker
-        if (!markers.top_left.has_value())
-        {
-            markers.top_left = _create_marker(top_left_pos, false);
-        }
-        else
-        {
-            markers.top_left->set_position(top_left_pos);
-            markers.top_left->set_visible(_enabled);
-        }
-
-        // Create or update bottom-right marker (rotated 180 degrees)
-        if (!markers.bottom_right.has_value())
-        {
-            markers.bottom_right = _create_marker(bottom_right_pos, true);
-        }
-        else
-        {
-            markers.bottom_right->set_position(bottom_right_pos);
-            markers.bottom_right->set_visible(_enabled);
-        }
+        _update_markers_with_config(hitbox, markers, MERCHANT_ACTION_RADIUS_CONFIG);
     }
 
     void HitboxDebug::_update_merchant_hitbox_markers(const Hitbox &hitbox, HitboxMarkers &markers)
@@ -295,36 +201,33 @@ namespace fe
             return;
         }
 
-        // Use the same base positioning as action radius markers but create smaller 16x16 area
-        // Calculate the action radius center point first
-        bn::fixed action_top_left_x_offset = fe::hitbox_constants::PLAYER_MARKER_X_OFFSET -
-                                             fe::hitbox_constants::MERCHANT_BASE_OFFSET +
-                                             fe::hitbox_constants::MERCHANT_X_ADJUSTMENT - 2;
-        bn::fixed action_top_left_y_offset = fe::hitbox_constants::PLAYER_MARKER_Y_OFFSET -
-                                             fe::hitbox_constants::MERCHANT_BASE_OFFSET +
-                                             fe::hitbox_constants::MERCHANT_Y_ADJUSTMENT - 2;
-
         // Get the action radius marker positions to find the center
-        bn::fixed_point action_top_left = _calculate_top_left_marker_pos(hitbox, action_top_left_x_offset, action_top_left_y_offset);
+        bn::fixed_point action_top_left = _calculate_top_left_marker_pos(hitbox,
+                                                                         MERCHANT_ACTION_RADIUS_CONFIG.top_left_x, MERCHANT_ACTION_RADIUS_CONFIG.top_left_y);
         bn::fixed_point action_bottom_right = _calculate_bottom_right_marker_pos(hitbox,
-                                                                                 -fe::hitbox_constants::MERCHANT_BR_X_OFFSET,
-                                                                                 -fe::hitbox_constants::MERCHANT_BR_Y_OFFSET);
+                                                                                 MERCHANT_ACTION_RADIUS_CONFIG.bottom_right_x, MERCHANT_ACTION_RADIUS_CONFIG.bottom_right_y);
 
         // Calculate center of action radius area
         bn::fixed action_center_x = (action_top_left.x() + action_bottom_right.x() + fe::hitbox_constants::MARKER_SPRITE_SIZE) / 2;
         bn::fixed action_center_y = (action_top_left.y() + action_bottom_right.y() + fe::hitbox_constants::MARKER_SPRITE_SIZE) / 2;
 
-        // Create 16x16 hitbox area centered within the action radius
-        bn::fixed_point hitbox_top_left_pos(action_center_x - 8, action_center_y - 8);
-        bn::fixed_point hitbox_bottom_right_pos(
-            action_center_x + 8 - fe::hitbox_constants::MARKER_SPRITE_SIZE,
-            action_center_y + 8 - fe::hitbox_constants::MARKER_SPRITE_SIZE);
+        // Create 20x20 hitbox area centered within the action radius with perfect user-determined offsets
+        constexpr bn::fixed HITBOX_HALF_SIZE = 10;      // Half of 20x20 hitbox area
+        constexpr bn::fixed HITBOX_Y_OFFSET = 16;       // Perfect upward offset (user-determined)
+        constexpr bn::fixed HITBOX_X_OFFSET = 4;        // Perfect leftward offset (user-determined)
+        constexpr bn::fixed HITBOX_VERTICAL_ADJUST = 2; // Fine-tuning for vertical centering
 
-        // Create or update hitbox top-left marker with blending effect
+        bn::fixed_point hitbox_top_left_pos(
+            action_center_x - HITBOX_HALF_SIZE - HITBOX_X_OFFSET,
+            action_center_y + HITBOX_VERTICAL_ADJUST - HITBOX_Y_OFFSET);
+        bn::fixed_point hitbox_bottom_right_pos(
+            action_center_x + HITBOX_HALF_SIZE - fe::hitbox_constants::MARKER_SPRITE_SIZE - HITBOX_X_OFFSET,
+            action_center_y - HITBOX_VERTICAL_ADJUST - fe::hitbox_constants::MARKER_SPRITE_SIZE - HITBOX_Y_OFFSET);
+
+        // Create or update hitbox markers with blending for visual distinction
         if (!markers.hitbox_top_left.has_value())
         {
             markers.hitbox_top_left = _create_marker(hitbox_top_left_pos, false);
-            // Enable blending to distinguish hitbox markers from action radius markers
             markers.hitbox_top_left->set_blending_enabled(true);
         }
         else
@@ -333,17 +236,64 @@ namespace fe
             markers.hitbox_top_left->set_visible(_enabled);
         }
 
-        // Create or update hitbox bottom-right marker (rotated 180 degrees) with blending effect
         if (!markers.hitbox_bottom_right.has_value())
         {
             markers.hitbox_bottom_right = _create_marker(hitbox_bottom_right_pos, true);
-            // Enable blending to distinguish hitbox markers from action radius markers
             markers.hitbox_bottom_right->set_blending_enabled(true);
         }
         else
         {
             markers.hitbox_bottom_right->set_position(hitbox_bottom_right_pos);
             markers.hitbox_bottom_right->set_visible(_enabled);
+        }
+    }
+
+    void HitboxDebug::_update_markers_with_config(const Hitbox &hitbox, HitboxMarkers &markers,
+                                                  const MarkerOffsetConfig &config,
+                                                  bool use_hitbox_markers,
+                                                  bool enable_blending)
+    {
+        if (!_camera.has_value())
+        {
+            return;
+        }
+
+        // Calculate marker positions using the configuration
+        bn::fixed_point top_left_pos = _calculate_top_left_marker_pos(hitbox, config.top_left_x, config.top_left_y);
+        bn::fixed_point bottom_right_pos = _calculate_bottom_right_marker_pos(hitbox, config.bottom_right_x, config.bottom_right_y);
+
+        // Determine which marker pointers to use
+        bn::optional<bn::sprite_ptr> &tl_marker = use_hitbox_markers ? markers.hitbox_top_left : markers.top_left;
+        bn::optional<bn::sprite_ptr> &br_marker = use_hitbox_markers ? markers.hitbox_bottom_right : markers.bottom_right;
+
+        // Create or update top-left marker
+        if (!tl_marker.has_value())
+        {
+            tl_marker = _create_marker(top_left_pos, false);
+            if (enable_blending)
+            {
+                tl_marker->set_blending_enabled(true);
+            }
+        }
+        else
+        {
+            tl_marker->set_position(top_left_pos);
+            tl_marker->set_visible(_enabled);
+        }
+
+        // Create or update bottom-right marker (rotated 180 degrees)
+        if (!br_marker.has_value())
+        {
+            br_marker = _create_marker(bottom_right_pos, true);
+            if (enable_blending)
+            {
+                br_marker->set_blending_enabled(true);
+            }
+        }
+        else
+        {
+            br_marker->set_position(bottom_right_pos);
+            br_marker->set_visible(_enabled);
         }
     }
 

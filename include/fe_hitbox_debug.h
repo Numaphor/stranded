@@ -81,6 +81,64 @@ namespace fe
          */
         [[nodiscard]] bool is_enabled() const { return _enabled; }
 
+        /**
+         * @brief Structure to hold marker position adjustments
+         */
+        struct MarkerAdjustment
+        {
+            bn::fixed top_left_x_change;
+            bn::fixed top_left_y_change;
+            bn::fixed bottom_right_x_change;
+            bn::fixed bottom_right_y_change;
+        };
+
+        /**
+         * @brief Calculate marker adjustments based on hitbox changes (collision-based measurement)
+         * @param hitbox_width_change Change in hitbox width (positive = wider collision area)
+         * @param hitbox_height_change Change in hitbox height (positive = taller collision area)
+         * @return MarkerAdjustment structure with calculated position changes for functional collision boundaries
+         *
+         * Note: This function uses collision-based measurement where hitbox represents the actual
+         * functional collision distance between entities, not visual sprite boundaries.
+         */
+        [[nodiscard]] static MarkerAdjustment calculate_marker_adjustment(bn::fixed hitbox_width_change, bn::fixed hitbox_height_change);
+
+        /**
+         * @brief Apply marker adjustments to existing marker positions
+         * @param top_left_x Reference to top-left marker X position
+         * @param top_left_y Reference to top-left marker Y position
+         * @param bottom_right_x Reference to bottom-right marker X position
+         * @param bottom_right_y Reference to bottom-right marker Y position
+         * @param adjustment The adjustment values to apply
+         */
+        static void apply_marker_adjustment(bn::fixed &top_left_x, bn::fixed &top_left_y,
+                                            bn::fixed &bottom_right_x, bn::fixed &bottom_right_y,
+                                            const MarkerAdjustment &adjustment);
+
+        /**
+         * @brief Centralized marker positioning configuration
+         * 
+         * This struct contains all offset values for different entity types,
+         * replacing scattered magic numbers with documented, maintainable constants.
+         */
+        struct MarkerOffsetConfig
+        {
+            bn::fixed top_left_x;
+            bn::fixed top_left_y;
+            bn::fixed bottom_right_x;
+            bn::fixed bottom_right_y;
+            
+            // Constructor for easy initialization
+            MarkerOffsetConfig(bn::fixed tl_x, bn::fixed tl_y, bn::fixed br_x, bn::fixed br_y)
+                : top_left_x(tl_x), top_left_y(tl_y), bottom_right_x(br_x), bottom_right_y(br_y) {}
+        };
+
+        // Predefined configurations for different entity types
+        static const MarkerOffsetConfig STANDARD_ENTITY_CONFIG;
+        static const MarkerOffsetConfig PLAYER_CONFIG;
+        static const MarkerOffsetConfig MERCHANT_ACTION_RADIUS_CONFIG;
+        static const MarkerOffsetConfig MERCHANT_HITBOX_CONFIG;
+
     private:
         struct HitboxMarkers
         {
@@ -146,6 +204,19 @@ namespace fe
          * @param markers The marker sprites to update
          */
         void _update_merchant_hitbox_markers(const Hitbox &hitbox, HitboxMarkers &markers);
+
+        /**
+         * @brief Unified marker update function using configuration-based positioning
+         * @param hitbox The hitbox to visualize
+         * @param markers The marker sprites to update
+         * @param config The offset configuration to use
+         * @param use_hitbox_markers If true, use hitbox_top_left/hitbox_bottom_right instead of top_left/bottom_right
+         * @param enable_blending If true, enable blending for visual distinction
+         */
+        void _update_markers_with_config(const Hitbox &hitbox, HitboxMarkers &markers, 
+                                         const MarkerOffsetConfig &config, 
+                                         bool use_hitbox_markers = false, 
+                                         bool enable_blending = false);
 
         /**
          * @brief Create a new marker sprite
