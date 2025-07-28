@@ -95,8 +95,6 @@ namespace fe
                      _sword_bg(bn::nullopt),
                      _merchant(nullptr),
                      _current_world_id(0)
-                         _merchant(nullptr),
-                     _current_world_id(0)
     {
         // Create player sprite with correct shape and size
         bn::sprite_builder builder(bn::sprite_items::hero);
@@ -105,7 +103,6 @@ namespace fe
     }
 
     fe::Scene fe::World::execute(bn::fixed_point spawn_location, int world_id)
-        fe::Scene fe::World::execute(bn::fixed_point spawn_location, int world_id)
     {
         _current_world_id = world_id;
 
