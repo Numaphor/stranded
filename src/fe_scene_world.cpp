@@ -95,6 +95,8 @@ namespace fe
                      _sword_bg(bn::nullopt),
                      _merchant(nullptr),
                      _current_world_id(0)
+                         _merchant(nullptr),
+                     _current_world_id(0)
     {
         // Create player sprite with correct shape and size
         bn::sprite_builder builder(bn::sprite_items::hero);
@@ -103,6 +105,7 @@ namespace fe
     }
 
     fe::Scene fe::World::execute(bn::fixed_point spawn_location, int world_id)
+        fe::Scene fe::World::execute(bn::fixed_point spawn_location, int world_id)
     {
         _current_world_id = world_id;
 
@@ -152,6 +155,8 @@ namespace fe
 
         // Initialize world-specific content
         _init_world_specific_content(world_id, camera, bg, text_generator);
+        // Initialize world-specific content
+        _init_world_specific_content(world_id, camera, bg, text_generator);
 
         // Initialize hitbox debug system
         _hitbox_debug.initialize(camera);
@@ -159,6 +164,14 @@ namespace fe
         while (true)
         {
             bn::core::update();
+
+            // Check for menu access - START button opens world selection menu
+            if (bn::keypad::start_pressed() && !bn::keypad::select_held())
+            {
+                // Save current state before going to menu
+                _save_current_state();
+                return fe::Scene::MENU;
+            }
 
             // Check for menu access - START button opens world selection menu
             if (bn::keypad::start_pressed() && !bn::keypad::select_held())
