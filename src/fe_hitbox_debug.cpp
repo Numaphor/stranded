@@ -17,11 +17,6 @@ namespace fe
         fe::hitbox_constants::PLAYER_MARKER_X_OFFSET,
         fe::hitbox_constants::PLAYER_MARKER_Y_OFFSET,
         -1, -1);
-    // Action radius markers: show the interaction area for the merchant (can be changed independently)
-    const HitboxDebug::MarkerOffsetConfig HitboxDebug::MERCHANT_ACTION_RADIUS_CONFIG(-14, -6, -24, -40);
-    // Hitbox markers: These are now positioned using fixed offsets in _update_merchant_hitbox_markers
-    // This config is kept for compatibility but the actual implementation uses hardcoded fixed positioning
-    const HitboxDebug::MarkerOffsetConfig HitboxDebug::MERCHANT_HITBOX_CONFIG(-4, -16, -4, -16);
 
     HitboxDebug::HitboxDebug() : _enabled(false), _zone_bounds_cached(false), _initialized(false)
     {
@@ -124,12 +119,12 @@ namespace fe
             markers = &_npc_markers.back();
         }
 
-        // Check if this is a merchant NPC and use specialized positioning
+        // Check if this is a merchant NPC - merchants now use zone-based visualization
         if (npc.type() == NPC_TYPE::MERCHANT)
         {
-            // Show both action radius and actual hitbox for merchants
-            _update_merchant_action_radius_markers(hitbox, *markers);
-            _update_merchant_hitbox_markers(hitbox, *markers);
+            // Merchants are now handled by update_merchant_zone() in the world scene
+            // This provides more accurate visualization of both interaction and collision zones
+            return;
         }
         else
         {
@@ -154,6 +149,8 @@ namespace fe
         _npc_markers.clear();
 
         _zone_markers.clear();
+        _merchant_zone_markers.clear();
+        _sword_zone_markers.clear();
 
         // Don't reset zone cache - it should persist across frames for performance
         // Zone boundaries don't change during gameplay
@@ -162,6 +159,10 @@ namespace fe
     void HitboxDebug::set_enabled(bool enabled)
     {
         _enabled = enabled;
+
+        // Clear zone bounds cache when debug state changes to force re-scanning
+        // This ensures zone tiles are properly detected when debug mode is toggled
+        _zone_bounds_cached = false;
 
         if (!enabled)
         {
@@ -179,6 +180,8 @@ namespace fe
             }
 
             _zone_markers.set_visible(false);
+            _merchant_zone_markers.set_visible(false);
+            _sword_zone_markers.set_visible(false);
         }
     }
 
@@ -190,64 +193,6 @@ namespace fe
     void HitboxDebug::_update_player_markers(const Hitbox &hitbox, HitboxMarkers &markers)
     {
         _update_markers_with_config(hitbox, markers, PLAYER_CONFIG);
-    }
-
-    void HitboxDebug::_update_merchant_action_radius_markers(const Hitbox &hitbox, HitboxMarkers &markers)
-    {
-        _update_markers_with_config(hitbox, markers, MERCHANT_ACTION_RADIUS_CONFIG);
-    }
-
-    void HitboxDebug::_update_merchant_hitbox_markers(const Hitbox &hitbox, HitboxMarkers &markers)
-    {
-        if (!_camera.has_value())
-        {
-            return;
-        }
-
-        // Use fixed center position based on the merchant's actual hitbox, independent of action radius
-        // This ensures hitbox markers stay at their original positions regardless of action radius changes
-        bn::fixed hitbox_center_x = hitbox.x() + (hitbox.width() / 2);
-        bn::fixed hitbox_center_y = hitbox.y() + (hitbox.height() / 2);
-
-        // Create 20x20 hitbox area centered within the merchant's actual hitbox with fixed offsets
-        constexpr bn::fixed HITBOX_HALF_SIZE = 10;      // Half of 20x20 hitbox area
-        constexpr bn::fixed HITBOX_X_OFFSET = 19;       // Perfect leftward offset (user-determined) - moved right 1 pixel
-        constexpr bn::fixed HITBOX_Y_OFFSET_LEFT = 11;  // Y offset for left marker (moved up 3 more pixels)
-        constexpr bn::fixed HITBOX_Y_OFFSET_RIGHT = 35; // Y offset for right marker (moved up 3 more pixels)
-        constexpr bn::fixed HITBOX_VERTICAL_ADJUST = 0; // Additional vertical adjustment if needed
-
-        // Position hitbox markers using fixed offsets from the merchant's hitbox center (independent of action radius)
-        bn::fixed_point hitbox_top_left_pos(
-            hitbox_center_x - HITBOX_HALF_SIZE - HITBOX_X_OFFSET,
-            hitbox_center_y - HITBOX_HALF_SIZE - HITBOX_Y_OFFSET_LEFT - HITBOX_VERTICAL_ADJUST);
-
-        bn::fixed_point hitbox_bottom_right_pos(
-            hitbox_center_x + HITBOX_HALF_SIZE - fe::hitbox_constants::MARKER_SPRITE_SIZE - HITBOX_X_OFFSET,
-            hitbox_center_y + HITBOX_HALF_SIZE - fe::hitbox_constants::MARKER_SPRITE_SIZE - HITBOX_Y_OFFSET_RIGHT - HITBOX_VERTICAL_ADJUST);
-
-        // Create or update hitbox top-left marker with fixed position
-        if (!markers.hitbox_top_left.has_value())
-        {
-            markers.hitbox_top_left = _create_marker(hitbox_top_left_pos, false);
-            markers.hitbox_top_left->set_blending_enabled(true);
-        }
-        else
-        {
-            markers.hitbox_top_left->set_position(hitbox_top_left_pos);
-            markers.hitbox_top_left->set_visible(_enabled);
-        }
-
-        // Create or update hitbox bottom-right marker (rotated 180 degrees) with fixed position
-        if (!markers.hitbox_bottom_right.has_value())
-        {
-            markers.hitbox_bottom_right = _create_marker(hitbox_bottom_right_pos, true);
-            markers.hitbox_bottom_right->set_blending_enabled(true);
-        }
-        else
-        {
-            markers.hitbox_bottom_right->set_position(hitbox_bottom_right_pos);
-            markers.hitbox_bottom_right->set_visible(_enabled);
-        }
     }
 
     void HitboxDebug::_update_markers_with_config(const Hitbox &hitbox, HitboxMarkers &markers,
@@ -405,9 +350,9 @@ namespace fe
         }
 
         // Use cached zone bounds for marker positions
-        // Move markers inward by 4x4 pixels for better visibility
-        bn::fixed_point top_left_pos(_zone_min_x + 4, _zone_min_y + 4);
-        bn::fixed_point bottom_right_pos(_zone_max_x - 4, _zone_max_y - 4);
+        // Position markers at the exact corners for better accuracy
+        bn::fixed_point top_left_pos(_zone_min_x + 1, _zone_min_y + 1);
+        bn::fixed_point bottom_right_pos(_zone_max_x - 1, _zone_max_y - 1);
 
         // Create or update top-left marker
         if (!_zone_markers.top_left.has_value())
@@ -430,6 +375,74 @@ namespace fe
             _zone_markers.bottom_right->set_position(bottom_right_pos);
             _zone_markers.bottom_right->set_visible(_enabled);
         }
+    }
+
+    void HitboxDebug::update_merchant_zone(const Level &level)
+    {
+        if (!_camera.has_value() || !_enabled)
+        {
+            _merchant_zone_markers.set_visible(false);
+            return;
+        }
+
+        // Get merchant zone information
+        bn::optional<bn::fixed_point> merchant_center = level.get_merchant_zone_center();
+        bool merchant_zone_enabled = level.is_merchant_zone_enabled();
+
+        if (!merchant_center.has_value() || !merchant_zone_enabled)
+        {
+            _merchant_zone_markers.set_visible(false);
+            return;
+        }
+
+        // Use the actual interaction detection dimensions: 40 pixel radius means 80x80 total area
+        // This matches what NPC::check_trigger() uses: abs(pos - player_pos) < 40
+        const bn::fixed actual_interaction_size = 80; // 40 pixel radius = 80 pixel diameter
+        const bn::fixed_point &center = merchant_center.value();
+
+        // Create a hitbox representing the actual interaction zone used by NPC::check_trigger()
+        Hitbox merchant_interaction_hitbox(
+            center.x() - actual_interaction_size / 2,
+            center.y() - actual_interaction_size / 2,
+            actual_interaction_size,
+            actual_interaction_size);
+
+        // Use the standard marker system to show the real interaction boundaries
+        _update_markers_with_config(merchant_interaction_hitbox, _merchant_zone_markers, STANDARD_ENTITY_CONFIG, false, true);
+    }
+
+    void HitboxDebug::update_sword_zone(const Level &level)
+    {
+        if (!_camera.has_value() || !_enabled)
+        {
+            _sword_zone_markers.set_visible(false);
+            return;
+        }
+
+        // Use the same hardcoded coordinates as Level::is_in_sword_zone()
+        constexpr int sword_zone_tile_left = 147;
+        constexpr int sword_zone_tile_right = 157; // exclusive upper bound
+        constexpr int sword_zone_tile_top = 162;
+        constexpr int sword_zone_tile_bottom = 166; // exclusive upper bound
+        constexpr int tile_size = 8;
+        constexpr int map_offset = 1280;
+
+        // Calculate world coordinates from tile coordinates
+        const bn::fixed zone_left = sword_zone_tile_left * tile_size - map_offset;
+        const bn::fixed zone_right = sword_zone_tile_right * tile_size - map_offset;
+        const bn::fixed zone_top = sword_zone_tile_top * tile_size - map_offset;
+        const bn::fixed zone_bottom = sword_zone_tile_bottom * tile_size - map_offset;
+
+        // Create a temporary hitbox representing the sword zone
+        // This ensures we use the same coordinate system as other working markers
+        Hitbox sword_zone_hitbox(
+            zone_left,
+            zone_top,
+            zone_right - zone_left,
+            zone_bottom - zone_top);
+
+        // Use the standard marker system to ensure consistent positioning
+        _update_markers_with_config(sword_zone_hitbox, _sword_zone_markers, STANDARD_ENTITY_CONFIG, false, true);
     }
 
     bn::fixed_point HitboxDebug::_calculate_top_left_marker_pos(const Hitbox &hitbox, bn::fixed x_offset, bn::fixed y_offset) const

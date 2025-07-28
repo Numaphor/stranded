@@ -14,7 +14,7 @@ namespace fe
 
     void PlayerCompanion::spawn(bn::fixed_point pos, bn::camera_ptr camera)
     {
-        _position = pos + bn::fixed_point(16, -16);
+        _position = pos + bn::fixed_point(8, -8);
         _target_offset = calculate_companion_offset();
         _sprite.set_camera(camera);
         update_animation();

@@ -65,6 +65,18 @@ namespace fe
         void update_zone_tiles(const class Level &level, const bn::regular_bg_ptr &bg);
 
         /**
+         * @brief Update merchant zone visualization
+         * @param level Level containing merchant zone information
+         */
+        void update_merchant_zone(const class Level &level);
+
+        /**
+         * @brief Update sword zone visualization
+         * @param level Level containing sword zone information
+         */
+        void update_sword_zone(const class Level &level);
+
+        /**
          * @brief Clear all hitbox visualizations
          */
         void clear_all();
@@ -136,8 +148,6 @@ namespace fe
         // Predefined configurations for different entity types
         static const MarkerOffsetConfig STANDARD_ENTITY_CONFIG;
         static const MarkerOffsetConfig PLAYER_CONFIG;
-        static const MarkerOffsetConfig MERCHANT_ACTION_RADIUS_CONFIG;
-        static const MarkerOffsetConfig MERCHANT_HITBOX_CONFIG;
 
     private:
         struct HitboxMarkers
@@ -192,24 +202,6 @@ namespace fe
         void _update_player_markers(const Hitbox &hitbox, HitboxMarkers &markers);
 
         /**
-         * @brief Create or update merchant action radius markers with specialized positioning
-         * @param hitbox The merchant hitbox to visualize (adjusted to show action radius)
-         * @param markers The marker sprites to update
-         */
-        void _update_merchant_action_radius_markers(const Hitbox &hitbox, HitboxMarkers &markers);
-
-        /**
-         * @brief Create or update merchant hitbox markers with specialized positioning and red tinting
-         * @param hitbox The merchant hitbox to visualize (actual collision boundaries)
-         * @param markers The marker sprites to update
-         *
-         * Note: These markers use fixed positioning that is decoupled from MERCHANT_ACTION_RADIUS_CONFIG
-         * to ensure the hitbox visualization remains at the original collision boundaries regardless
-         * of any changes to the action radius configuration.
-         */
-        void _update_merchant_hitbox_markers(const Hitbox &hitbox, HitboxMarkers &markers);
-
-        /**
          * @brief Unified marker update function using configuration-based positioning
          * @param hitbox The hitbox to visualize
          * @param markers The marker sprites to update
@@ -253,6 +245,8 @@ namespace fe
         bn::vector<HitboxMarkers, 32> _enemy_markers; // Support up to 32 enemies
         bn::vector<HitboxMarkers, 32> _npc_markers;   // Support up to 32 NPCs
         HitboxMarkers _zone_markers;                  // Single marker pair for the entire zone area
+        HitboxMarkers _merchant_zone_markers;         // Single marker pair for the merchant zone area
+        HitboxMarkers _sword_zone_markers;            // Single marker pair for the sword zone area
 
         // Zone caching to avoid expensive calculations every frame
         bool _zone_bounds_cached;

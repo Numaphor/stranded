@@ -20,6 +20,13 @@ namespace fe
         // Hardcoded sword zone area for collision (independent of visual tiles)
         bool is_in_sword_zone(const bn::fixed_point &position) const;
 
+        // Merchant zone for collision (independent of visual tiles)
+        bn::optional<bn::fixed_point> _merchant_zone_center;
+        bn::fixed _merchant_zone_width = 40;  // Match interaction radius width
+        bn::fixed _merchant_zone_height = 40; // Match interaction radius height
+        bool _merchant_zone_enabled = true;   // Allow disabling during conversations
+        bool is_in_merchant_zone(const bn::fixed_point &position) const;
+
     public:
         Level() = default; // Now this is valid since _bg_map_ptr is optional
         Level(bn::regular_bg_map_ptr bg);
@@ -32,6 +39,17 @@ namespace fe
 
         // Designate specific tiles as zone tiles
         void add_zone_tile(int tile_index);
+
+        // Merchant zone management
+        void set_merchant_zone(const bn::fixed_point &center);
+        void clear_merchant_zone();
+        void set_merchant_zone_enabled(bool enabled);
+
+        // Merchant zone debug access
+        [[nodiscard]] bn::optional<bn::fixed_point> get_merchant_zone_center() const { return _merchant_zone_center; }
+        [[nodiscard]] bool is_merchant_zone_enabled() const { return _merchant_zone_enabled; }
+        [[nodiscard]] bn::fixed get_merchant_zone_width() const { return _merchant_zone_width; }
+        [[nodiscard]] bn::fixed get_merchant_zone_height() const { return _merchant_zone_height; }
 
         // Reset level state
         void reset();
