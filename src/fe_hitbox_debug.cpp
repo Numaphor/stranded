@@ -11,12 +11,6 @@
 
 namespace fe
 {
-    // Static configuration constants for different entity types
-    const HitboxDebug::MarkerOffsetConfig HitboxDebug::STANDARD_ENTITY_CONFIG(0, 0, 0, 0);
-    const HitboxDebug::MarkerOffsetConfig HitboxDebug::PLAYER_CONFIG(
-        fe::hitbox_constants::PLAYER_MARKER_X_OFFSET,
-        fe::hitbox_constants::PLAYER_MARKER_Y_OFFSET,
-        -1, -1);
 
     HitboxDebug::HitboxDebug() : _enabled(false), _zone_bounds_cached(false), _initialized(false)
     {
