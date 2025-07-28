@@ -14,9 +14,9 @@ namespace fe
     {
         _bg_map_ptr = bg;
         _floor_tiles = {};
-        // Initialize _zone_tiles and add default zone tiles (2 and 4)
+        // Initialize _zone_tiles and add default zone tiles (4 and 4)
         _zone_tiles.clear();
-        _zone_tiles.push_back(2); // Tile index 2 is used for collision squares
+        _zone_tiles.push_back(4); // Tile index 4 is used for collision squares
         _zone_tiles.push_back(4); // Keep existing zone tile
 
         bn::span<const bn::regular_bg_map_cell> cells = bg.cells_ref().value();
@@ -48,8 +48,8 @@ namespace fe
         // Clear existing zone tiles
         _zone_tiles.clear();
 
-        // Reinitialize with default zone tiles (2 and 4)
-        _zone_tiles.push_back(2); // Tile index 2 is used for collision squares
+        // Reinitialize with default zone tiles (4 and 4)
+        _zone_tiles.push_back(4); // Tile index 4 is used for collision squares
         _zone_tiles.push_back(4); // Keep existing zone tile
 
         // Clear and repopulate floor tiles if we have a background map
@@ -169,10 +169,10 @@ namespace fe
             bn::regular_bg_map_cell cell = cells.at(cell_index);
             int tile_index = bn::regular_bg_map_cell_info(cell).tile_index();
 
-            // Only check for zone tiles other than 2 (since sword zone is handled separately)
+            // Only check for zone tiles other than 4 (since sword zone is handled separately)
             for (int zone_tile : _zone_tiles)
             {
-                if (tile_index == zone_tile && zone_tile != 2)
+                if (tile_index == zone_tile && zone_tile != 4)
                 {
                     // It's a non-sword zone tile, so we can't move here
                     return false;
