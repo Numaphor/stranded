@@ -181,12 +181,17 @@ namespace fe
 
     void HitboxDebug::_update_markers(const Hitbox &hitbox, HitboxMarkers &markers)
     {
-        _update_markers_with_config(hitbox, markers, STANDARD_ENTITY_CONFIG);
+        MarkerOffsetConfig standard_config(0, 0, 0, 0);
+        _update_markers_with_config(hitbox, markers, standard_config);
     }
 
     void HitboxDebug::_update_player_markers(const Hitbox &hitbox, HitboxMarkers &markers)
     {
-        _update_markers_with_config(hitbox, markers, PLAYER_CONFIG);
+        MarkerOffsetConfig player_config(
+            fe::hitbox_constants::PLAYER_MARKER_X_OFFSET,
+            fe::hitbox_constants::PLAYER_MARKER_Y_OFFSET,
+            -1, -1);
+        _update_markers_with_config(hitbox, markers, player_config);
     }
 
     void HitboxDebug::_update_markers_with_config(const Hitbox &hitbox, HitboxMarkers &markers,
@@ -402,7 +407,8 @@ namespace fe
             actual_interaction_size);
 
         // Use the standard marker system to show the real interaction boundaries
-        _update_markers_with_config(merchant_interaction_hitbox, _merchant_zone_markers, STANDARD_ENTITY_CONFIG, false, true);
+        MarkerOffsetConfig standard_config(0, 0, 0, 0);
+        _update_markers_with_config(merchant_interaction_hitbox, _merchant_zone_markers, standard_config, false, true);
     }
 
     void HitboxDebug::update_sword_zone(const Level &level)
@@ -436,7 +442,8 @@ namespace fe
             zone_bottom - zone_top);
 
         // Use the standard marker system to ensure consistent positioning
-        _update_markers_with_config(sword_zone_hitbox, _sword_zone_markers, STANDARD_ENTITY_CONFIG, false, true);
+        MarkerOffsetConfig standard_config(0, 0, 0, 0);
+        _update_markers_with_config(sword_zone_hitbox, _sword_zone_markers, standard_config, false, true);
     }
 
     bn::fixed_point HitboxDebug::_calculate_top_left_marker_pos(const Hitbox &hitbox, bn::fixed x_offset, bn::fixed y_offset) const
