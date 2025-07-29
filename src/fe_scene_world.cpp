@@ -440,6 +440,7 @@ namespace fe
                 _hitbox_debug.update_zone_tiles(*_level, bg);
 
                 // Merchant uses tile-based collision and visualization only (no sprite-based hitbox markers)
+                // Merchant now uses standard 32x32 hitbox like other NPCs
 
                 // Update sword zone visualization
                 _hitbox_debug.update_sword_zone(*_level);
