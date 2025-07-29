@@ -392,8 +392,8 @@ namespace fe
         const bn::fixed_point &center = merchant_center.value();
 
         // Create a hitbox representing the actual interaction zone used by NPC::check_trigger()
-        // Note: This is separate from the merchant's collision hitbox (40x80) shown by update_npc_hitbox()
-        // - Collision hitbox (40x80): where you physically collide with the merchant
+        // Note: This is separate from the merchant's standard 32x32 sprite hitbox shown by update_npc_hitbox()
+        // - Standard sprite hitbox (32x32): visual debug markers (same as other NPCs)
         // - Interaction zone (80x80): where you can trigger conversation with the merchant
         Hitbox merchant_interaction_hitbox(
             center.x() - actual_interaction_size / 2,
