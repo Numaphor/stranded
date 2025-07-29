@@ -18,35 +18,16 @@ namespace fe
     {
         _text_generator.set_bg_priority(0);
 
-        // Set appropriate hitbox size based on NPC type
-        if (_type == NPC_TYPE::MERCHANT)
-        {
-            // MERCHANT gets a wider and taller hitbox: increased from standard 32x32 to 40x80
-            _hitbox = Hitbox(pos.x(), pos.y(), 40, 80);
-        }
-        else
-        {
-            // Other NPCs keep standard 32x32 hitbox (already set by Entity constructor)
-        }
+        // All NPCs use standard 32x32 hitbox (already set by Entity constructor)
+        // Merchant collision is handled by the Level class tile-based system
     }
 
     void NPC::update_hitbox()
     {
-        // Center the NPC hitbox on the NPC position
-        // MERCHANT gets a wider hitbox (40x80), other NPCs use standard 32x32
-        if (_type == NPC_TYPE::MERCHANT)
-        {
-            // Center the 40x80 MERCHANT hitbox on the NPC position
-            _hitbox.set_x(_pos.x() - 20); // Center horizontally (40/2)
-            _hitbox.set_y(_pos.y() - 40); // Center vertically (80/2)
-        }
-        else
-        {
-            // Center the 32x32 NPC hitbox on the NPC position
-            // This matches the visual sprite positioning
-            _hitbox.set_x(_pos.x() - 16); // Center horizontally (32/2)
-            _hitbox.set_y(_pos.y() - 16); // Center vertically (32/2)
-        }
+        // Center the standard 32x32 NPC hitbox on the NPC position for all NPCs
+        // This matches the visual sprite positioning
+        _hitbox.set_x(_pos.x() - 16); // Center horizontally (32/2)
+        _hitbox.set_y(_pos.y() - 16); // Center vertically (32/2)
     }
 
     void NPC::update()
@@ -178,13 +159,13 @@ namespace fe
         return _has_spoken_once;
     }
 
-    bool NPC::check_trigger(bn::fixed_point player_pos)
+    bool NPC::is_in_interaction_zone(bn::fixed_point player_pos)
     {
         if (!_finished && !_hidden)
         {
-            if (bn::abs(pos().x() - player_pos.x()) < 40)
+            if (bn::abs(pos().x() - player_pos.x()) < 50)
             {
-                if (bn::abs(pos().y() - player_pos.y()) < 40)
+                if (bn::abs(pos().y() - player_pos.y()) < 50)
                 {
                     _is_near_player = true;
                     return true;
@@ -193,6 +174,11 @@ namespace fe
             _is_near_player = false;
         }
         return false;
+    }
+
+    bool NPC::check_trigger(bn::fixed_point player_pos)
+    {
+        return is_in_interaction_zone(player_pos);
     }
 
     void NPC::talk()

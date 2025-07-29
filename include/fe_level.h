@@ -22,10 +22,10 @@ namespace fe
 
         // Merchant zone for collision (independent of visual tiles)
         bn::optional<bn::fixed_point> _merchant_zone_center;
-        bn::fixed _merchant_zone_width = 40;  // Match interaction radius width
-        bn::fixed _merchant_zone_height = 40; // Match interaction radius height
+        bn::fixed _merchant_zone_width = 24;  // Small physical collision zone (slightly larger for visibility)
+        bn::fixed _merchant_zone_height = 24; // Small physical collision zone (slightly larger for visibility)
         bool _merchant_zone_enabled = true;   // Allow disabling during conversations
-        bool is_in_merchant_zone(const bn::fixed_point &position) const;
+        bool is_in_hitbox_zone(const bn::fixed_point &position) const;
 
     public:
         Level() = default; // Now this is valid since _bg_map_ptr is optional

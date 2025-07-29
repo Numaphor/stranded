@@ -113,19 +113,9 @@ namespace fe
             markers = &_npc_markers.back();
         }
 
-        // For merchants, show both the actual hitbox AND the interaction zone
-        if (npc.type() == NPC_TYPE::MERCHANT)
-        {
-            // Show the merchant's actual collision hitbox (40x80) using hitbox markers
-            // This is distinct from the interaction zone (80x80) shown by update_merchant_zone()
-            // Move solid right marker 64 pixels up to test positioning
-            MarkerOffsetConfig merchant_config(0, 0, 0, -64);
-            _update_markers_with_config(hitbox, *markers, merchant_config, true, false);
-        }
-        else
-        {
-            _update_markers(hitbox, *markers);
-        }
+        // For merchants, show standard hitbox markers like other NPCs
+        // The interaction zone is shown separately by update_merchant_zone()
+        _update_markers(hitbox, *markers);
     }
 
     void HitboxDebug::clear_all()

@@ -17,8 +17,8 @@ namespace fe
         // Initialize _zone_tiles and add default zone tiles
         _zone_tiles.clear();
         _zone_tiles.push_back(2); // Tile index 2 is used for sword zone
-        _zone_tiles.push_back(4); // Tile index 4 is used for merchant hitbox collision
-        _zone_tiles.push_back(6); // Tile index 6 is used for merchant interaction zone
+        _zone_tiles.push_back(3); // Tile index 3 is used for merchant hitbox collision
+        _zone_tiles.push_back(4); // Tile index 4 is used for merchant interaction zone
 
         bn::span<const bn::regular_bg_map_cell> cells = bg.cells_ref().value();
 
@@ -88,7 +88,7 @@ namespace fe
                position.y() >= zone_top && position.y() < zone_bottom;
     }
 
-    bool Level::is_in_merchant_zone(const bn::fixed_point &position) const
+    bool Level::is_in_hitbox_zone(const bn::fixed_point &position) const
     {
         // Return false if no merchant zone is set or zone is disabled (during conversations)
         if (!_merchant_zone_center.has_value() || !_merchant_zone_enabled)
@@ -180,7 +180,7 @@ namespace fe
         // Check for merchant zone collision (independent of visual tiles)
         for (const auto &point : check_points)
         {
-            if (is_in_merchant_zone(point))
+            if (is_in_hitbox_zone(point))
             {
                 return false; // Collision with merchant zone
             }
@@ -215,12 +215,12 @@ namespace fe
             bn::regular_bg_map_cell cell = cells.at(cell_index);
             int tile_index = bn::regular_bg_map_cell_info(cell).tile_index();
 
-            // Only check for zone tiles other than 4 (since sword zone is handled separately)
+            // Only check for zone tiles other than 3 and 4 (since merchant zones are handled separately by is_in_hitbox_zone)
             for (int zone_tile : _zone_tiles)
             {
-                if (tile_index == zone_tile && zone_tile != 4)
+                if (tile_index == zone_tile && zone_tile != 3 && zone_tile != 4)
                 {
-                    // It's a non-sword zone tile, so we can't move here
+                    // It's a non-merchant zone tile, so we can't move here
                     return false;
                 }
             }
