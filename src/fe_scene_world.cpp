@@ -389,12 +389,10 @@ namespace fe
                 _merchant->set_sprite_z_order(merchant_z);
 
                 // Update hitbox debug visualization for merchant
-                // Note: Skip NPC hitbox visualization for merchant since we now use zone-based collision
-                // The merchant zone visualization is handled separately below
                 if (_hitbox_debug.is_enabled())
                 {
-                    // Merchant debug visualization is now handled by update_merchant_zone()
-                    // No need to call update_npc_hitbox for merchants
+                    // Update both NPC hitbox (solid markers) AND merchant zone (semi-transparent markers)
+                    _hitbox_debug.update_npc_hitbox(*_merchant);
                 }
             }
             else

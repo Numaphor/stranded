@@ -113,12 +113,14 @@ namespace fe
             markers = &_npc_markers.back();
         }
 
-        // Check if this is a merchant NPC - merchants now use zone-based visualization
+        // For merchants, show both the actual hitbox AND the interaction zone
         if (npc.type() == NPC_TYPE::MERCHANT)
         {
-            // Merchants are now handled by update_merchant_zone() in the world scene
-            // This provides more accurate visualization of both interaction and collision zones
-            return;
+            // Show the merchant's actual collision hitbox (40x80) using hitbox markers
+            // This is distinct from the interaction zone (80x80) shown by update_merchant_zone()
+            // Move solid right marker 64 pixels up to test positioning
+            MarkerOffsetConfig merchant_config(0, 0, 0, -64);
+            _update_markers_with_config(hitbox, *markers, merchant_config, true, false);
         }
         else
         {
@@ -400,15 +402,18 @@ namespace fe
         const bn::fixed_point &center = merchant_center.value();
 
         // Create a hitbox representing the actual interaction zone used by NPC::check_trigger()
+        // Note: This is separate from the merchant's collision hitbox (40x80) shown by update_npc_hitbox()
+        // - Collision hitbox (40x80): where you physically collide with the merchant
+        // - Interaction zone (80x80): where you can trigger conversation with the merchant
         Hitbox merchant_interaction_hitbox(
             center.x() - actual_interaction_size / 2,
             center.y() - actual_interaction_size / 2,
             actual_interaction_size,
             actual_interaction_size);
 
-        // Use the standard marker system to show the real interaction boundaries
-        MarkerOffsetConfig standard_config(0, 0, 0, 0);
-        _update_markers_with_config(merchant_interaction_hitbox, _merchant_zone_markers, standard_config, false, true);
+        // Use blending to visually distinguish interaction zone from collision hitbox
+        MarkerOffsetConfig interaction_config(0, 0, 0, 0); // Reset interaction zone markers to normal position
+        _update_markers_with_config(merchant_interaction_hitbox, _merchant_zone_markers, interaction_config, false, true);
     }
 
     void HitboxDebug::update_sword_zone(const Level &level)
