@@ -52,12 +52,6 @@ namespace fe
         void update_enemy_hitbox(const Enemy &enemy);
 
         /**
-         * @brief Update hitbox visualization for an NPC
-         * @param npc NPC to visualize hitboxes for
-         */
-        void update_npc_hitbox(const NPC &npc);
-
-        /**
          * @brief Update zone tiles visualization
          * @param level Level containing zone tile information
          * @param bg Background containing the tile map

@@ -85,39 +85,6 @@ namespace fe
         _update_markers(hitbox, *markers);
     }
 
-    void HitboxDebug::update_npc_hitbox(const NPC &npc)
-    {
-        if (!_enabled || !_initialized)
-        {
-            return;
-        }
-
-        // Get the NPC's hitbox
-        Hitbox hitbox = npc.get_hitbox();
-
-        // Find an empty slot or create a new one
-        HitboxMarkers *markers = nullptr;
-        for (auto &marker_pair : _npc_markers)
-        {
-            if (!marker_pair.top_left.has_value())
-            {
-                markers = &marker_pair;
-                break;
-            }
-        }
-
-        if (!markers)
-        {
-            // Add a new marker pair if we have space
-            _npc_markers.push_back(HitboxMarkers());
-            markers = &_npc_markers.back();
-        }
-
-        // For merchants, show standard hitbox markers like other NPCs
-        // The interaction zone is shown separately by update_merchant_zone()
-        _update_markers(hitbox, *markers);
-    }
-
     void HitboxDebug::clear_all()
     {
         _player_markers.clear();
@@ -340,10 +307,20 @@ namespace fe
             _zone_bounds_cached = true;
         }
 
-        // Use cached zone bounds for marker positions
-        // Position markers at the exact corners for better accuracy
-        bn::fixed_point top_left_pos(_zone_min_x + 1, _zone_min_y + 1);
-        bn::fixed_point bottom_right_pos(_zone_max_x - 1, _zone_max_y - 1);
+        // Sprite center positioning adjustments (same logic as sword and merchant zones)
+        // Butano sprites are positioned by their center, not top-left corner
+        constexpr bn::fixed SPRITE_CENTER_OFFSET = fe::hitbox_constants::MARKER_SPRITE_SIZE / 2; // 2 pixels
+
+        // For zone tiles, we want markers positioned at the actual zone boundaries
+        // The cached bounds already represent the exact tile boundaries, so we just need sprite center adjustment
+        constexpr bn::fixed ZONE_TOP_LEFT_X_ADJUST = SPRITE_CENTER_OFFSET - 1;        // 2 (center) - 1 (inset) = 1
+        constexpr bn::fixed ZONE_TOP_LEFT_Y_ADJUST = SPRITE_CENTER_OFFSET - 1;        // 2 (center) - 1 (inset) = 1
+        constexpr bn::fixed ZONE_BOTTOM_RIGHT_X_ADJUST = -(SPRITE_CENTER_OFFSET - 1); // -(2 - 1) = -1
+        constexpr bn::fixed ZONE_BOTTOM_RIGHT_Y_ADJUST = -(SPRITE_CENTER_OFFSET - 1); // -(2 - 1) = -1
+
+        // Use cached zone bounds for marker positions with sprite center adjustments
+        bn::fixed_point top_left_pos(_zone_min_x + ZONE_TOP_LEFT_X_ADJUST, _zone_min_y + ZONE_TOP_LEFT_Y_ADJUST);
+        bn::fixed_point bottom_right_pos(_zone_max_x + ZONE_BOTTOM_RIGHT_X_ADJUST, _zone_max_y + ZONE_BOTTOM_RIGHT_Y_ADJUST);
 
         // Create or update top-left marker
         if (!_zone_markers.top_left.has_value())
@@ -380,30 +357,52 @@ namespace fe
         bn::optional<bn::fixed_point> merchant_center = level.get_merchant_zone_center();
         bool merchant_zone_enabled = level.is_merchant_zone_enabled();
 
-        if (!merchant_center.has_value() || !merchant_zone_enabled)
+        // Debug: Create a simple visual indicator when no merchant is found
+        if (!merchant_center.has_value())
         {
             _merchant_zone_markers.set_visible(false);
+            // Early return - no merchant zone center set (likely no merchant in this world)
             return;
         }
 
-        // Use the actual interaction detection dimensions: 40 pixel radius means 80x80 total area
-        // This matches what NPC::check_trigger() uses: abs(pos - player_pos) < 40
-        const bn::fixed actual_interaction_size = 80; // 40 pixel radius = 80 pixel diameter
+        if (!merchant_zone_enabled)
+        {
+            _merchant_zone_markers.set_visible(false);
+            // Early return - merchant zone disabled (likely during conversation)
+            return;
+        }
+
+        // Use the actual COLLISION zone dimensions: 24x24 pixel area
+        // This matches what Level::is_in_hitbox_zone() uses (the actual collision zone, not interaction zone)
+        const bn::fixed actual_collision_width = level.get_merchant_zone_width();   // 24 pixels
+        const bn::fixed actual_collision_height = level.get_merchant_zone_height(); // 24 pixels
         const bn::fixed_point &center = merchant_center.value();
 
-        // Create a hitbox representing the actual interaction zone used by NPC::check_trigger()
-        // Note: This is separate from the merchant's standard 32x32 sprite hitbox shown by update_npc_hitbox()
-        // - Standard sprite hitbox (32x32): visual debug markers (same as other NPCs)
-        // - Interaction zone (80x80): where you can trigger conversation with the merchant
-        Hitbox merchant_interaction_hitbox(
-            center.x() - actual_interaction_size / 2,
-            center.y() - actual_interaction_size / 2,
-            actual_interaction_size,
-            actual_interaction_size);
+        // Calculate the EXACT collision boundaries as used in Level::is_in_hitbox_zone()
+        // Collision uses: position.x() >= zone_left && position.x() < zone_right (same pattern as sword zone)
+        // This means collision area is [zone_left, zone_right-1] inclusive
+        const bn::fixed zone_left = center.x() - actual_collision_width / 2;
+        const bn::fixed zone_right = center.x() + actual_collision_width / 2;
+        const bn::fixed zone_top = center.y() - actual_collision_height / 2;
+        const bn::fixed zone_bottom = center.y() + actual_collision_height / 2;
 
-        // Use blending to visually distinguish interaction zone from collision hitbox
-        MarkerOffsetConfig interaction_config(0, 0, 0, 0); // Reset interaction zone markers to normal position
-        _update_markers_with_config(merchant_interaction_hitbox, _merchant_zone_markers, interaction_config, false, true);
+        // Adjust for exclusive upper bounds (same logic as sword zone)
+        const bn::fixed collision_left = zone_left;
+        const bn::fixed collision_right = zone_right - 1; // -1 because collision boundary is exclusive
+        const bn::fixed collision_top = zone_top;
+        const bn::fixed collision_bottom = zone_bottom - 1;                      // -1 because collision boundary is exclusive
+        const bn::fixed collision_width = collision_right - collision_left + 1;  // +1 because we want inclusive width
+        const bn::fixed collision_height = collision_bottom - collision_top + 1; // +1 because we want inclusive height
+
+        // Create a hitbox representing the actual collision zone used by Level::is_in_hitbox_zone()
+        // Note: NPCs don't have collision hitboxes - all collision is handled by Level tile-based system
+        // - Collision zone (23x23 actual collision area): where player cannot walk through the merchant (tile-based)
+        Hitbox merchant_collision_hitbox(collision_left, collision_top, collision_width, collision_height);
+
+        // Use simple, known working values for merchant zone markers
+        // Try the established pattern: small positive offsets for positioning
+        MarkerOffsetConfig collision_config(4, 4, -1, -1);
+        _update_markers_with_config(merchant_collision_hitbox, _merchant_zone_markers, collision_config, false, true);
     }
 
     void HitboxDebug::update_sword_zone(const Level &level)
@@ -414,7 +413,8 @@ namespace fe
             return;
         }
 
-        // Use the same hardcoded coordinates as Level::is_in_sword_zone()
+        // Pre-calculated sword zone constants (these never change during gameplay)
+        // Tile-based coordinates from Level::is_in_sword_zone()
         constexpr int sword_zone_tile_left = 147;
         constexpr int sword_zone_tile_right = 157; // exclusive upper bound
         constexpr int sword_zone_tile_top = 162;
@@ -422,23 +422,35 @@ namespace fe
         constexpr int tile_size = 8;
         constexpr int map_offset = 1280;
 
-        // Calculate world coordinates from tile coordinates
-        const bn::fixed zone_left = sword_zone_tile_left * tile_size - map_offset;
-        const bn::fixed zone_right = sword_zone_tile_right * tile_size - map_offset;
-        const bn::fixed zone_top = sword_zone_tile_top * tile_size - map_offset;
-        const bn::fixed zone_bottom = sword_zone_tile_bottom * tile_size - map_offset;
+        // Calculate the EXACT collision boundaries as used in Level::is_in_sword_zone()
+        // Collision uses: position.x() >= zone_left && position.x() < zone_right
+        // This means collision area is [zone_left, zone_right-1] inclusive
+        constexpr bn::fixed collision_left = sword_zone_tile_left * tile_size - map_offset;
+        constexpr bn::fixed collision_right = sword_zone_tile_right * tile_size - map_offset;
+        constexpr bn::fixed collision_top = sword_zone_tile_top * tile_size - map_offset;
+        constexpr bn::fixed collision_bottom = sword_zone_tile_bottom * tile_size - map_offset; // exclusive upper bound handled by < zone_bottom
+        constexpr bn::fixed collision_width = collision_right - collision_left;
+        constexpr bn::fixed collision_height = collision_bottom - collision_top;
 
-        // Create a temporary hitbox representing the sword zone
-        // This ensures we use the same coordinate system as other working markers
-        Hitbox sword_zone_hitbox(
-            zone_left,
-            zone_top,
-            zone_right - zone_left,
-            zone_bottom - zone_top);
+        // Sprite center positioning adjustments
+        // Butano sprites are positioned by their center, not top-left corner
+        // For 4x4 marker sprites, center is 2 pixels from top-left corner
+        constexpr bn::fixed SPRITE_CENTER_OFFSET = fe::hitbox_constants::MARKER_SPRITE_SIZE / 2; // 2 pixels
 
-        // Use the standard marker system to ensure consistent positioning
-        MarkerOffsetConfig standard_config(0, 0, 0, 0);
-        _update_markers_with_config(sword_zone_hitbox, _sword_zone_markers, standard_config, false, true);
+        // Marker positioning: account for sprite center + visual fine-tuning
+        // Original working values were +4,+4,-1,-1, now derived logically:
+        constexpr bn::fixed TOP_LEFT_X_ADJUST = SPRITE_CENTER_OFFSET + 2;        // 2 (center) + 2 (alignment) = 4
+        constexpr bn::fixed TOP_LEFT_Y_ADJUST = SPRITE_CENTER_OFFSET + 2;        // 2 (center) + 2 (alignment) = 4
+        constexpr bn::fixed BOTTOM_RIGHT_X_ADJUST = -(SPRITE_CENTER_OFFSET - 1); // -(2 - 1) = -1
+        constexpr bn::fixed BOTTOM_RIGHT_Y_ADJUST = -(SPRITE_CENTER_OFFSET - 1); // -(2 - 1) = -1
+
+        // Create hitbox representing the exact collision area
+        Hitbox sword_zone_hitbox(collision_left, collision_top, collision_width, collision_height);
+
+        // Apply marker positioning that accounts for sprite center positioning
+        MarkerOffsetConfig sword_config(TOP_LEFT_X_ADJUST, TOP_LEFT_Y_ADJUST,
+                                        BOTTOM_RIGHT_X_ADJUST, BOTTOM_RIGHT_Y_ADJUST);
+        _update_markers_with_config(sword_zone_hitbox, _sword_zone_markers, sword_config, false, true);
     }
 
     bn::fixed_point HitboxDebug::_calculate_top_left_marker_pos(const Hitbox &hitbox, bn::fixed x_offset, bn::fixed y_offset) const

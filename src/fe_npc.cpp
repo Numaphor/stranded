@@ -18,16 +18,8 @@ namespace fe
     {
         _text_generator.set_bg_priority(0);
 
-        // All NPCs use standard 32x32 hitbox (already set by Entity constructor)
-        // Merchant collision is handled by the Level class tile-based system
-    }
-
-    void NPC::update_hitbox()
-    {
-        // Center the standard 32x32 NPC hitbox on the NPC position for all NPCs
-        // This matches the visual sprite positioning
-        _hitbox.set_x(_pos.x() - 16); // Center horizontally (32/2)
-        _hitbox.set_y(_pos.y() - 16); // Center vertically (32/2)
+        // NPCs don't use hitboxes for collision - all collision and interaction are handled
+        // by the Level class tile-based system
     }
 
     void NPC::update()
@@ -161,6 +153,9 @@ namespace fe
 
     bool NPC::is_in_interaction_zone(bn::fixed_point player_pos)
     {
+        // LEGACY METHOD: This method is kept for compatibility but is no longer used for merchants
+        // Merchant interaction is now handled by Level::is_in_merchant_interaction_zone() tile-based system
+        // This method is still used by other NPC types that don't use the Level tile system
         if (!_finished && !_hidden)
         {
             if (bn::abs(pos().x() - player_pos.x()) < 50)

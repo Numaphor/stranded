@@ -72,7 +72,7 @@ namespace fe
         // Method to show/hide zone tiles for collision and debug visualization
         void set_zone_visible(bool visible)
         {
-            int tile_index = visible ? 2 : _background_tile; // Use tile 2 for zone when visible, background tile when hidden
+            int tile_index = visible ? 3 : _background_tile; // Use tile 3 for sword zone when visible (same as other hitbox zones), background tile when hidden
 
             // Use the EXACT same sword zone tile coordinates as defined in Level::is_in_sword_zone
             // This ensures perfect alignment between visual tiles and collision detection
@@ -377,9 +377,9 @@ namespace fe
                     }
                 }
 
-                // Disable merchant collision during conversations by hiding merchant sprite
+                // Disable merchant collision during conversations (but keep sprite visible)
                 bool conversation_active = _merchant->is_talking() || _player->listening();
-                _merchant->set_is_hidden(conversation_active);
+                _level->set_merchant_zone_enabled(!conversation_active); // Disable collision zone, not sprite
 
                 // Update z-ordering for player, companion, and gun
                 _player->update_z_order();
@@ -389,9 +389,9 @@ namespace fe
                 _merchant->set_sprite_z_order(merchant_z);
 
                 // Merchant uses tile-based collision system through Level class:
-                // Zone 1: Interaction trigger (100x100) - uses NPC::is_in_interaction_zone() with 50 pixel radius
+                // Zone 1: Interaction trigger (100x100) - uses Level::is_in_merchant_interaction_zone() tile-based
                 // Zone 2: Physical collision zone (24x24) - handled by Level::is_in_hitbox_zone() for tile-based collision
-                // Note: Merchant sprite uses standard 32x32 hitbox like other NPCs (no special sprite hitbox)
+                // Note: NPCs don't use sprite hitboxes - all collision/interaction handled by Level tile-based system
                 // Debug visualization: tile 4 markers (100x100 interaction), tile 3 markers (24x24 collision)
             }
             else
@@ -407,8 +407,11 @@ namespace fe
             }
 
             // Check for merchant interaction BEFORE player input
-            if (_merchant && _merchant->is_in_interaction_zone(_player->pos()))
+            if (_merchant && _level->is_in_merchant_interaction_zone(_player->pos()))
             {
+                // Update merchant's near player flag for UI display (fixes missing interaction prompt)
+                _merchant->set_near_player(true);
+
                 if (bn::keypad::a_pressed() && !merchant_was_talking && !_player->listening())
                 {
                     // Start conversation
@@ -421,10 +424,19 @@ namespace fe
                     _player->set_listening(false);
                 }
             }
-            else if (_player->listening())
+            else
             {
-                // Clear listening state if player moves away
-                _player->set_listening(false);
+                // Clear merchant's near player flag when not in interaction zone
+                if (_merchant)
+                {
+                    _merchant->set_near_player(false);
+                }
+
+                if (_player->listening())
+                {
+                    // Clear listening state if player moves away
+                    _player->set_listening(false);
+                }
             }
 
             // Now update player (which includes input handling)
@@ -439,11 +451,14 @@ namespace fe
                 // Update zone tiles visualization (now with performance optimization)
                 _hitbox_debug.update_zone_tiles(*_level, bg);
 
-                // Merchant uses tile-based collision and visualization only (no sprite-based hitbox markers)
-                // Merchant now uses standard 32x32 hitbox like other NPCs
+                // Merchant uses tile-based collision and interaction systems through Level class
+                // NPCs don't use hitboxes - all collision/interaction handled by Level tile-based system
 
                 // Update sword zone visualization
                 _hitbox_debug.update_sword_zone(*_level);
+
+                // Update merchant zone visualization
+                _hitbox_debug.update_merchant_zone(*_level);
             }
 
             // Update player position and check for collisions
