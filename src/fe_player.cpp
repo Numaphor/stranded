@@ -467,10 +467,11 @@ namespace fe
         _state.update_dialog_cooldown();
         _movement.update_action_timer();
 
-        handle_input();
-
+        // Only process input and movement when NOT listening to NPCs
         if (!_state.listening())
         {
+            handle_input();
+
             // Update physics
             bn::fixed_point new_pos = pos() + bn::fixed_point(_movement.dx(), _movement.dy());
             if (_movement.current_state() == PlayerMovement::State::ROLLING)
@@ -485,6 +486,11 @@ namespace fe
                 revert_position();
                 _movement.stop_movement();
             }
+        }
+        else
+        {
+            // While listening, ensure all movement is stopped
+            _movement.stop_movement();
         }
 
         // Handle action completion

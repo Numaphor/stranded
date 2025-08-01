@@ -379,20 +379,11 @@ namespace fe
 
                 // Disable merchant collision during conversations (but keep sprite visible)
                 bool conversation_active = _merchant->is_talking() || _player->listening();
-                _level->set_merchant_zone_enabled(!conversation_active); // Disable collision zone, not sprite
-
-                // Update z-ordering for player, companion, and gun
-                _player->update_z_order();
+                _level->set_merchant_zone_enabled(!conversation_active);
 
                 // Update merchant's z-order based on Y position
                 int merchant_z = -_merchant->pos().y().integer();
                 _merchant->set_sprite_z_order(merchant_z);
-
-                // Merchant uses tile-based collision system through Level class:
-                // Zone 1: Interaction trigger (100x100) - uses Level::is_in_merchant_interaction_zone() tile-based
-                // Zone 2: Physical collision zone (24x24) - handled by Level::is_in_hitbox_zone() for tile-based collision
-                // Note: NPCs don't use sprite hitboxes - all collision/interaction handled by Level tile-based system
-                // Debug visualization: tile 4 markers (100x100 interaction), tile 3 markers (24x24 collision)
             }
             else
             {
@@ -404,6 +395,14 @@ namespace fe
                         bg_map_ptr.reload_cells_ref();
                     }
                 }
+            }
+
+            // Handle conversation end detection BEFORE interaction zone checks
+            // This ensures conversation end is detected regardless of player position
+            if (_merchant && !_merchant->is_talking() && merchant_was_talking)
+            {
+                // Conversation just ended
+                _player->set_listening(false);
             }
 
             // Check for merchant interaction BEFORE player input
@@ -418,11 +417,6 @@ namespace fe
                     _player->set_listening(true);
                     _merchant->talk();
                 }
-                else if (!_merchant->is_talking() && merchant_was_talking)
-                {
-                    // Conversation just ended
-                    _player->set_listening(false);
-                }
             }
             else
             {
@@ -432,16 +426,19 @@ namespace fe
                     _merchant->set_near_player(false);
                 }
 
-                if (_player->listening())
-                {
-                    // Clear listening state if player moves away
-                    _player->set_listening(false);
-                }
+                // NOTE: We don't automatically end conversations if player moves away
+                // because player movement should be completely blocked during conversations.
+                // Conversations should only end through normal dialog progression (A/UP/START keys).
             }
 
             // Now update player (which includes input handling)
             _player->update();
             _player->update_gun_position(_player->facing_direction());
+
+            // Update player z-order for proper sprite layering
+            // This needs to happen every frame regardless of merchant presence
+            // The player's update_z_order() method also handles companion and gun z-orders
+            _player->update_z_order();
 
             // Update hitbox debug visualization for player
             if (_hitbox_debug.is_enabled())
