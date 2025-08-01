@@ -17,7 +17,7 @@ namespace fe
     namespace player_constants
     {
         constexpr bn::fixed ROLL_SPEED = 1.2;
-        constexpr bn::fixed HORIZONTAL_OFFSET = 13;
+        // HORIZONTAL_OFFSET removed - new 32x32 sprite tightly fits around player
         constexpr bn::fixed ATTACK_REACH = 20;
         constexpr bn::fixed HITBOX_WIDTH = 16;
         constexpr bn::fixed HITBOX_HEIGHT = 32;
@@ -467,10 +467,11 @@ namespace fe
         _state.update_dialog_cooldown();
         _movement.update_action_timer();
 
-        handle_input();
-
+        // Only process input and movement when NOT listening to NPCs
         if (!_state.listening())
         {
+            handle_input();
+
             // Update physics
             bn::fixed_point new_pos = pos() + bn::fixed_point(_movement.dx(), _movement.dy());
             if (_movement.current_state() == PlayerMovement::State::ROLLING)
@@ -485,6 +486,11 @@ namespace fe
                 revert_position();
                 _movement.stop_movement();
             }
+        }
+        else
+        {
+            // While listening, ensure all movement is stopped
+            _movement.stop_movement();
         }
 
         // Handle action completion
@@ -546,8 +552,8 @@ namespace fe
         if (auto sprite = get_sprite())
         {
             bn::fixed_point pos = Entity::pos();
-            bn::fixed x_offset = sprite->horizontal_flip() ? -player_constants::HORIZONTAL_OFFSET : player_constants::HORIZONTAL_OFFSET;
-            sprite->set_position(pos.x() + x_offset, pos.y());
+            // No offset needed since the new 32x32 sprite tightly fits around the player
+            sprite->set_position(pos.x(), pos.y());
         }
     }
 

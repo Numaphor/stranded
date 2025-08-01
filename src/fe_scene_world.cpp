@@ -47,16 +47,24 @@ namespace fe
         BN_DATA_EWRAM static bn::regular_bg_map_cell cells[cells_count];
 
         bn::regular_bg_map_item map_item;
+        int _background_tile; // Store the background tile for this world
 
-        bg_map() : map_item(cells[0], bn::size(columns, rows))
+        bg_map(int world_id = 0) : map_item(cells[0], bn::size(columns, rows))
         {
-            // Fill all squares with a default tile (index 1)
+            // Choose background tile based on world_id
+            _background_tile = 1; // Default tile
+            if (world_id == 1)    // Forest Area (second world)
+            {
+                _background_tile = 2;
+            }
+
+            // Fill all squares with the appropriate background tile
             for (int x = 0; x < columns; x++)
             {
                 for (int y = 0; y < rows; y++)
                 {
                     int cell_index = x + y * columns;
-                    cells[cell_index] = bn::regular_bg_map_cell(1); // Set a default tile index
+                    cells[cell_index] = bn::regular_bg_map_cell(_background_tile);
                 }
             }
         }
@@ -64,17 +72,177 @@ namespace fe
         // Method to show/hide zone tiles for collision and debug visualization
         void set_zone_visible(bool visible)
         {
-            int tile_index = visible ? 2 : 1; // Use tile 2 for zone when visible, tile 1 when hidden
+            int tile_index = visible ? 3 : _background_tile; // Use tile 3 for sword zone when visible (same as other hitbox zones), background tile when hidden
 
-            // Draw a 9x4 rectangle (width increased by 50% to the right) moved down-left by 64 pixels from center
-            for (int x = (columns / 2) - (6 / 2) - 10; x < (columns / 2) + (15 / 2) - 10; x++)
+            // Use the EXACT same sword zone tile coordinates as defined in Level::is_in_sword_zone
+            // This ensures perfect alignment between visual tiles and collision detection
+            constexpr int sword_zone_tile_left = 147;
+            constexpr int sword_zone_tile_right = 157; // exclusive upper bound
+            constexpr int sword_zone_tile_top = 162;
+            constexpr int sword_zone_tile_bottom = 166; // exclusive upper bound
+
+            // Set tiles for the sword zone area using the exact same coordinates as collision
+            for (int x = sword_zone_tile_left; x < sword_zone_tile_right; x++)
             {
-                for (int y = (rows / 2) - (4 / 2) + 4; y < (rows / 2) + (4 / 2) + 4; y++)
+                for (int y = sword_zone_tile_top; y < sword_zone_tile_bottom; y++)
                 {
                     int cell_index = x + y * columns;
                     cells[cell_index] = bn::regular_bg_map_cell(tile_index);
                 }
             }
+        }
+
+        // Method to show/hide merchant interaction zone tiles (100x100) for debug visualization only
+        void set_merchant_interaction_zone_visible(bool visible, const bn::fixed_point &merchant_center)
+        {
+            int tile_index = visible ? 4 : _background_tile; // Use tile 4 for interaction zone
+
+            // Use the same coordinate system as the hitbox debug system
+            constexpr int tile_size = 8;
+            const int map_offset_x = (columns * 4); // Same as hitbox debug: map_width * 4
+            const int map_offset_y = (rows * 4);    // Same as hitbox debug: map_height * 4
+
+            // Debug visualization: 100x100 pixels to match actual interaction zone
+            const bn::fixed zone_width = 100;
+            const bn::fixed zone_height = 100;
+
+            // Calculate zone boundaries in world coordinates
+            const bn::fixed zone_left = merchant_center.x() - zone_width / 2;
+            const bn::fixed zone_right = merchant_center.x() + zone_width / 2;
+            const bn::fixed zone_top = merchant_center.y() - zone_height / 2;
+            const bn::fixed zone_bottom = merchant_center.y() + zone_height / 2;
+
+            // Convert world coordinates to tile coordinates using hitbox debug formula
+            int tile_left = ((zone_left + map_offset_x) / tile_size).integer();
+            int tile_right = ((zone_right + map_offset_x) / tile_size).integer();
+            int tile_top = ((zone_top + map_offset_y) / tile_size).integer();
+            int tile_bottom = ((zone_bottom + map_offset_y) / tile_size).integer();
+
+            // Clamp to map bounds
+            tile_left = bn::max(0, tile_left);
+            tile_right = bn::min(columns - 1, tile_right);
+            tile_top = bn::max(0, tile_top);
+            tile_bottom = bn::min(rows - 1, tile_bottom);
+
+            // Update tiles in the interaction zone area
+            for (int x = tile_left; x <= tile_right; x++)
+            {
+                for (int y = tile_top; y <= tile_bottom; y++)
+                {
+                    int cell_index = x + y * columns;
+                    cells[cell_index] = bn::regular_bg_map_cell(tile_index);
+                }
+            }
+        }
+
+        // Method to show/hide merchant hitbox zone tiles (24x24) for debug visualization only
+        void set_merchant_hitbox_zone_visible(bool visible, const bn::fixed_point &merchant_center)
+        {
+            int tile_index = visible ? 3 : _background_tile; // Use tile 3 for hitbox zone
+
+            // Use the same coordinate system as the hitbox debug system
+            constexpr int tile_size = 8;
+            const int map_offset_x = (columns * 4); // Same as hitbox debug: map_width * 4
+            const int map_offset_y = (rows * 4);    // Same as hitbox debug: map_height * 4
+
+            // Debug visualization: 24x24 pixels for tile-based collision zone (shown smaller for clarity)
+            const bn::fixed zone_width = 24;
+            const bn::fixed zone_height = 24;
+
+            // Calculate zone boundaries in world coordinates
+            const bn::fixed zone_left = merchant_center.x() - zone_width / 2;
+            const bn::fixed zone_right = merchant_center.x() + zone_width / 2;
+            const bn::fixed zone_top = merchant_center.y() - zone_height / 2;
+            const bn::fixed zone_bottom = merchant_center.y() + zone_height / 2;
+
+            // Convert world coordinates to tile coordinates using hitbox debug formula
+            int tile_left = ((zone_left + map_offset_x) / tile_size).integer();
+            int tile_right = ((zone_right + map_offset_x) / tile_size).integer();
+            int tile_top = ((zone_top + map_offset_y) / tile_size).integer();
+            int tile_bottom = ((zone_bottom + map_offset_y) / tile_size).integer();
+
+            // Clamp to map bounds
+            tile_left = bn::max(0, tile_left);
+            tile_right = bn::min(columns - 1, tile_right);
+            tile_top = bn::max(0, tile_top);
+            tile_bottom = bn::min(rows - 1, tile_bottom);
+
+            // Update tiles in the hitbox zone area
+            for (int x = tile_left; x <= tile_right; x++)
+            {
+                for (int y = tile_top; y <= tile_bottom; y++)
+                {
+                    int cell_index = x + y * columns;
+                    cells[cell_index] = bn::regular_bg_map_cell(tile_index);
+                }
+            }
+        }
+
+        // Method to refresh all zone tiles based on current debug state and active zones
+        void refresh_all_zones(bool debug_enabled, bool has_merchant = false, bn::optional<bn::fixed_point> merchant_pos = bn::nullopt)
+        {
+            // First, reset all tiles to background
+            for (int x = 0; x < columns; x++)
+            {
+                for (int y = 0; y < rows; y++)
+                {
+                    int cell_index = x + y * columns;
+                    cells[cell_index] = bn::regular_bg_map_cell(_background_tile);
+                }
+            }
+
+            // Then set zones visible if debug is enabled
+            if (debug_enabled)
+            {
+                // Always show bg sword zone
+                set_zone_visible(true);
+
+                // Show merchant zones if merchant is present - draw interaction zone first (tile 4), then hitbox zone on top (tile 3)
+                if (has_merchant && merchant_pos.has_value())
+                {
+                    set_merchant_interaction_zone_visible(true, merchant_pos.value()); // Tile 4 - interaction zone (100x100) - drawn first
+                    set_merchant_hitbox_zone_visible(true, merchant_pos.value());      // Tile 3 - hitbox zone (24x24) - drawn on top
+                }
+            }
+        }
+
+        // Method to update merchant zone tiles without affecting other zones
+        bool update_merchant_zone(bool debug_enabled, bool has_merchant, bn::optional<bn::fixed_point> merchant_pos = bn::nullopt)
+        {
+            static bn::optional<bn::fixed_point> last_merchant_pos = bn::nullopt;
+            static bool last_had_merchant = false;
+            bool changes_made = false;
+
+            // If merchant status or position changed, we need to update
+            bool position_changed = (!last_merchant_pos.has_value() && merchant_pos.has_value()) ||
+                                    (last_merchant_pos.has_value() && !merchant_pos.has_value()) ||
+                                    (last_merchant_pos.has_value() && merchant_pos.has_value() &&
+                                     last_merchant_pos.value() != merchant_pos.value());
+
+            if (debug_enabled && (position_changed || last_had_merchant != has_merchant))
+            {
+                // Clear old merchant zones if there was one
+                if (last_had_merchant && last_merchant_pos.has_value())
+                {
+                    set_merchant_interaction_zone_visible(false, last_merchant_pos.value());
+                    set_merchant_hitbox_zone_visible(false, last_merchant_pos.value());
+                    changes_made = true;
+                }
+
+                // Set new merchant zones if there is one - draw interaction zone first (tile 4), then hitbox zone on top (tile 3)
+                if (has_merchant && merchant_pos.has_value())
+                {
+                    set_merchant_interaction_zone_visible(true, merchant_pos.value()); // Tile 4 - interaction zone (100x100) - drawn first
+                    set_merchant_hitbox_zone_visible(true, merchant_pos.value());      // Tile 3 - hitbox zone (24x24) - drawn on top
+                    changes_made = true;
+                }
+            }
+
+            // Update tracking variables
+            last_merchant_pos = merchant_pos;
+            last_had_merchant = has_merchant;
+
+            return changes_made;
         }
     }; // Place macro AFTER the struct definition
 
@@ -85,7 +253,8 @@ namespace fe
                      _level(nullptr),
                      _minimap(nullptr),
                      _sword_bg(bn::nullopt),
-                     _merchant(nullptr)
+                     _merchant(nullptr),
+                     _current_world_id(0)
     {
         // Create player sprite with correct shape and size
         bn::sprite_builder builder(bn::sprite_items::hero);
@@ -93,11 +262,22 @@ namespace fe
         _player = new Player(builder.release_build());
     }
 
-    fe::Scene fe::World::execute(bn::fixed_point spawn_location)
+    fe::Scene fe::World::execute(bn::fixed_point spawn_location, int world_id)
     {
+        _current_world_id = world_id;
+
+        // Load saved state if available
+        WorldStateManager &state_manager = WorldStateManager::instance();
+        if (state_manager.has_saved_state(world_id))
+        {
+            WorldState saved_state = state_manager.load_world_state(world_id);
+            spawn_location = saved_state.player_position;
+            // Could restore other state like health here
+        }
+
         bn::camera_ptr camera = bn::camera_ptr::create(0, 0);
 
-        bg_map bg_map_obj;
+        bg_map bg_map_obj(world_id);
         bn::regular_bg_tiles_ptr tiles = bn::regular_bg_tiles_items::tiles.create_tiles();
         bn::bg_palette_ptr palette = bn::bg_palette_items::palette.create_palette();
         bn::regular_bg_map_ptr bg_map_ptr = bg_map_obj.map_item.create_map(tiles, palette);
@@ -130,20 +310,29 @@ namespace fe
         // Create text generator for NPCs
         bn::sprite_text_generator text_generator(common::variable_8x8_sprite_font);
 
-        // Create merchant NPC
-        _merchant = new MerchantNPC(bn::fixed_point(100, -50), camera, text_generator);
+        // Initialize world-specific content
+        _init_world_specific_content(world_id, camera, bg, text_generator);
 
         // Initialize hitbox debug system
         _hitbox_debug.initialize(camera);
 
-        // Spawn 3 spearguard enemies
-        _enemies.push_back(Enemy(0, -100, camera, bg, ENEMY_TYPE::SPEARGUARD, 3));
-        _enemies.push_back(Enemy(50, -80, camera, bg, ENEMY_TYPE::SPEARGUARD, 3));
-        _enemies.push_back(Enemy(-50, -120, camera, bg, ENEMY_TYPE::SPEARGUARD, 3));
-
         while (true)
         {
             bn::core::update();
+
+            // Check for menu access - SELECT + A opens world selection menu
+            if (bn::keypad::select_held() && bn::keypad::a_pressed())
+            {
+                // Hide merchant sprite before going to menu to prevent duplication
+                if (_merchant)
+                {
+                    _merchant->set_is_hidden(true);
+                }
+
+                // Save current state before going to menu
+                _save_current_state();
+                return fe::Scene::MENU;
+            }
 
             // Debug input handling - Toggle hitbox visualization with START + SELECT keys
             if (bn::keypad::select_held() && bn::keypad::start_pressed())
@@ -151,8 +340,9 @@ namespace fe
                 bool new_debug_state = !_hitbox_debug.is_enabled();
                 _hitbox_debug.set_enabled(new_debug_state);
 
-                // Also toggle zone visibility for visual debugging (not collision)
-                bg_map_obj.set_zone_visible(new_debug_state);
+                // Refresh all zone visibility for visual debugging (not collision)
+                bn::optional<bn::fixed_point> merchant_pos = _merchant ? bn::optional<bn::fixed_point>(_merchant->pos()) : bn::nullopt;
+                bg_map_obj.refresh_all_zones(new_debug_state, _merchant != nullptr, merchant_pos);
 
                 // Reload the background to reflect changes
                 bg_map_ptr.reload_cells_ref();
@@ -173,44 +363,82 @@ namespace fe
                 merchant_was_talking = _merchant->is_talking();
                 _merchant->update();
 
-                // Update z-ordering for player, companion, and gun
-                _player->update_z_order();
+                // Update Level system with merchant position for tile-based collision
+                _level->set_merchant_zone(_merchant->pos());
+
+                // Update merchant zone visual tiles if debug mode is enabled
+                if (_hitbox_debug.is_enabled())
+                {
+                    // Update merchant zone tiles efficiently when merchant moves
+                    bn::optional<bn::fixed_point> merchant_pos = bn::optional<bn::fixed_point>(_merchant->pos());
+                    if (bg_map_obj.update_merchant_zone(true, true, merchant_pos))
+                    {
+                        bg_map_ptr.reload_cells_ref();
+                    }
+                }
+
+                // Disable merchant collision during conversations (but keep sprite visible)
+                bool conversation_active = _merchant->is_talking() || _player->listening();
+                _level->set_merchant_zone_enabled(!conversation_active);
 
                 // Update merchant's z-order based on Y position
                 int merchant_z = -_merchant->pos().y().integer();
                 _merchant->set_sprite_z_order(merchant_z);
-
-                // Update hitbox debug visualization for merchant
+            }
+            else
+            {
+                // Update merchant zone visual tiles if debug mode is enabled (clear them when no merchant)
                 if (_hitbox_debug.is_enabled())
                 {
-                    _hitbox_debug.update_npc_hitbox(*_merchant);
+                    if (bg_map_obj.update_merchant_zone(true, false, bn::nullopt))
+                    {
+                        bg_map_ptr.reload_cells_ref();
+                    }
                 }
             }
 
-            // Check for merchant interaction BEFORE player input
-            if (_merchant && _merchant->check_trigger(_player->pos()))
+            // Handle conversation end detection BEFORE interaction zone checks
+            // This ensures conversation end is detected regardless of player position
+            if (_merchant && !_merchant->is_talking() && merchant_was_talking)
             {
+                // Conversation just ended
+                _player->set_listening(false);
+            }
+
+            // Check for merchant interaction BEFORE player input
+            if (_merchant && _level->is_in_merchant_interaction_zone(_player->pos()))
+            {
+                // Update merchant's near player flag for UI display (fixes missing interaction prompt)
+                _merchant->set_near_player(true);
+
                 if (bn::keypad::a_pressed() && !merchant_was_talking && !_player->listening())
                 {
                     // Start conversation
                     _player->set_listening(true);
                     _merchant->talk();
                 }
-                else if (!_merchant->is_talking() && merchant_was_talking)
-                {
-                    // Conversation just ended
-                    _player->set_listening(false);
-                }
             }
-            else if (_player->listening())
+            else
             {
-                // Clear listening state if player moves away
-                _player->set_listening(false);
+                // Clear merchant's near player flag when not in interaction zone
+                if (_merchant)
+                {
+                    _merchant->set_near_player(false);
+                }
+
+                // NOTE: We don't automatically end conversations if player moves away
+                // because player movement should be completely blocked during conversations.
+                // Conversations should only end through normal dialog progression (A/UP/START keys).
             }
 
             // Now update player (which includes input handling)
             _player->update();
             _player->update_gun_position(_player->facing_direction());
+
+            // Update player z-order for proper sprite layering
+            // This needs to happen every frame regardless of merchant presence
+            // The player's update_z_order() method also handles companion and gun z-orders
+            _player->update_z_order();
 
             // Update hitbox debug visualization for player
             if (_hitbox_debug.is_enabled())
@@ -219,18 +447,26 @@ namespace fe
 
                 // Update zone tiles visualization (now with performance optimization)
                 _hitbox_debug.update_zone_tiles(*_level, bg);
+
+                // Merchant uses tile-based collision and interaction systems through Level class
+                // NPCs don't use hitboxes - all collision/interaction handled by Level tile-based system
+
+                // Update sword zone visualization
+                _hitbox_debug.update_sword_zone(*_level);
+
+                // Update merchant zone visualization
+                _hitbox_debug.update_merchant_zone(*_level);
             }
 
             // Update player position and check for collisions
             bn::fixed_point new_pos = _player->pos();
 
-            // Check collision between player and merchant using unified collision system
-            bool colliding_with_merchant = _merchant && !_merchant->is_talking() && !_player->listening() &&
-                                           fe::Collision::check_player_npc(*_player, *_merchant);
-
             // Check for zone collisions - prevent player from walking through zones
-            // If new position is invalid or colliding with merchant, revert position
-            if (!_level->is_position_valid(new_pos) || colliding_with_merchant)
+            bool position_valid = _level->is_position_valid(new_pos);
+
+            // Merchant collision is handled entirely through Level's tile-based collision system
+
+            if (!position_valid)
             {
                 _player->revert_position();
             }
@@ -426,5 +662,72 @@ namespace fe
         delete _level;
         delete _minimap;
         delete _merchant;
+    }
+
+    void World::_init_world_specific_content(int world_id, bn::camera_ptr &camera, bn::regular_bg_ptr &bg, bn::sprite_text_generator &text_generator)
+    {
+        // Clear existing enemies
+        _enemies.clear();
+
+        // Clean up existing merchant to prevent duplicates
+        if (_merchant)
+        {
+            delete _merchant;
+            _merchant = nullptr;
+        }
+
+        // Initialize different content based on world ID
+        switch (world_id)
+        {
+        case 0: // Main World
+            // Create merchant NPC
+            _merchant = new MerchantNPC(bn::fixed_point(100, -50), camera, text_generator);
+
+            // Spawn 3 spearguard enemies
+            _enemies.push_back(Enemy(0, -100, camera, bg, ENEMY_TYPE::SPEARGUARD, 3));
+            _enemies.push_back(Enemy(50, -80, camera, bg, ENEMY_TYPE::SPEARGUARD, 3));
+            _enemies.push_back(Enemy(-50, -120, camera, bg, ENEMY_TYPE::SPEARGUARD, 3));
+            break;
+
+        case 1: // Forest Area
+            // Spawn different enemy configuration
+            _enemies.push_back(Enemy(-100, -50, camera, bg, ENEMY_TYPE::SPEARGUARD, 2));
+            _enemies.push_back(Enemy(80, -100, camera, bg, ENEMY_TYPE::SPEARGUARD, 2));
+            break;
+
+        case 2: // Desert Zone
+            // Desert-specific setup
+            _merchant = new TortoiseNPC(bn::fixed_point(-80, 100), camera, text_generator);
+
+            // More challenging enemies
+            _enemies.push_back(Enemy(0, 0, camera, bg, ENEMY_TYPE::SPEARGUARD, 4));
+            _enemies.push_back(Enemy(100, 20, camera, bg, ENEMY_TYPE::SPEARGUARD, 4));
+            _enemies.push_back(Enemy(-100, 40, camera, bg, ENEMY_TYPE::SPEARGUARD, 4));
+            _enemies.push_back(Enemy(0, 80, camera, bg, ENEMY_TYPE::SPEARGUARD, 4));
+            break;
+
+        case 3: // Ocean Side
+            // Ocean-specific setup
+            _merchant = new PenguinNPC(bn::fixed_point(-60, 40), camera, text_generator);
+
+            // Fewer but stronger enemies
+            _enemies.push_back(Enemy(-80, 0, camera, bg, ENEMY_TYPE::SPEARGUARD, 5));
+            _enemies.push_back(Enemy(80, 100, camera, bg, ENEMY_TYPE::SPEARGUARD, 5));
+            break;
+
+        default: // Default to main world
+            _merchant = new MerchantNPC(bn::fixed_point(100, -50), camera, text_generator);
+            _enemies.push_back(Enemy(0, -100, camera, bg, ENEMY_TYPE::SPEARGUARD, 3));
+            break;
+        }
+    }
+
+    void World::_save_current_state()
+    {
+        if (_player)
+        {
+            WorldStateManager &state_manager = WorldStateManager::instance();
+            state_manager.save_world_state(_current_world_id, _player->pos(), _player->get_hp());
+        }
     }
 }

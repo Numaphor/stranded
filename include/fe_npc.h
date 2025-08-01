@@ -49,15 +49,16 @@ namespace fe
 
         // Override Entity methods
         void update() override;
-        void update_hitbox() override; // Override to center NPC hitbox properly
 
         // NPC-specific methods
-        bool check_trigger(bn::fixed_point player_pos);
+        bool is_in_interaction_zone(bn::fixed_point player_pos);
+        bool check_trigger(bn::fixed_point player_pos); // Legacy method that calls is_in_interaction_zone
         bool is_talking();
         void talk();
         bool finished_talking();
         void set_is_hidden(bool is_hidden);
         bool hidden();
+        void set_near_player(bool near_player) { _is_near_player = near_player; } // Method to manually set interaction state
         NPC_TYPE type() const { return _type; }
 
     private:

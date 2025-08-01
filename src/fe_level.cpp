@@ -14,10 +14,10 @@ namespace fe
     {
         _bg_map_ptr = bg;
         _floor_tiles = {};
-        // Initialize _zone_tiles and add default zone tiles (2 and 4)
+        // Initialize _zone_tiles and add default zone tiles
         _zone_tiles.clear();
-        _zone_tiles.push_back(2); // Tile index 2 is used for collision squares
-        _zone_tiles.push_back(4); // Keep existing zone tile
+        _zone_tiles.push_back(3); // Tile index 3 is used for all hitbox zones (sword zone, merchant collision)
+        _zone_tiles.push_back(4); // Tile index 4 is used for all interaction zones (merchant interaction)
 
         bn::span<const bn::regular_bg_map_cell> cells = bg.cells_ref().value();
 
@@ -48,8 +48,8 @@ namespace fe
         // Clear existing zone tiles
         _zone_tiles.clear();
 
-        // Reinitialize with default zone tiles (2 and 4)
-        _zone_tiles.push_back(2); // Tile index 2 is used for collision squares
+        // Reinitialize with default zone tiles (4 and 4)
+        _zone_tiles.push_back(4); // Tile index 4 is used for collision squares
         _zone_tiles.push_back(4); // Keep existing zone tile
 
         // Clear and repopulate floor tiles if we have a background map
@@ -85,6 +85,63 @@ namespace fe
 
         return position.x() >= zone_left && position.x() < zone_right &&
                position.y() >= zone_top && position.y() < zone_bottom;
+    }
+
+    bool Level::is_in_hitbox_zone(const bn::fixed_point &position) const
+    {
+        // Return false if no merchant zone is set or zone is disabled (during conversations)
+        if (!_merchant_zone_center.has_value() || !_merchant_zone_enabled)
+        {
+            return false;
+        }
+
+        const bn::fixed_point &center = _merchant_zone_center.value();
+
+        // Calculate zone boundaries (zone is centered on merchant position)
+        // Using same pattern as sword zone: inclusive left/top, exclusive right/bottom
+        const bn::fixed zone_left = center.x() - _merchant_zone_width / 2;
+        const bn::fixed zone_right = center.x() + _merchant_zone_width / 2;
+        const bn::fixed zone_top = center.y() - _merchant_zone_height / 2;
+        const bn::fixed zone_bottom = center.y() + _merchant_zone_height / 2;
+
+        return position.x() >= zone_left && position.x() < zone_right &&
+               position.y() >= zone_top && position.y() < zone_bottom;
+    }
+
+    bool Level::is_in_merchant_interaction_zone(const bn::fixed_point &position) const
+    {
+        // Return false if no merchant zone is set or zone is disabled (during conversations)
+        if (!_merchant_zone_center.has_value() || !_merchant_zone_enabled)
+        {
+            return false;
+        }
+
+        const bn::fixed_point &center = _merchant_zone_center.value();
+
+        // Calculate interaction zone boundaries (larger zone for conversation triggers)
+        // Using same pattern as other zones: inclusive left/top, exclusive right/bottom
+        const bn::fixed zone_left = center.x() - _merchant_interaction_zone_width / 2;
+        const bn::fixed zone_right = center.x() + _merchant_interaction_zone_width / 2;
+        const bn::fixed zone_top = center.y() - _merchant_interaction_zone_height / 2;
+        const bn::fixed zone_bottom = center.y() + _merchant_interaction_zone_height / 2;
+
+        return position.x() >= zone_left && position.x() < zone_right &&
+               position.y() >= zone_top && position.y() < zone_bottom;
+    }
+
+    void Level::set_merchant_zone(const bn::fixed_point &center)
+    {
+        _merchant_zone_center = center;
+    }
+
+    void Level::clear_merchant_zone()
+    {
+        _merchant_zone_center.reset();
+    }
+
+    void Level::set_merchant_zone_enabled(bool enabled)
+    {
+        _merchant_zone_enabled = enabled;
     }
 
     bool Level::is_position_valid(const bn::fixed_point &position) const
@@ -140,6 +197,15 @@ namespace fe
             }
         }
 
+        // Check for merchant zone collision (independent of visual tiles)
+        for (const auto &point : check_points)
+        {
+            if (is_in_hitbox_zone(point))
+            {
+                return false; // Collision with merchant zone
+            }
+        }
+
         // Then check for other tile-based collisions (if any other zone tiles exist)
         const int map_offset_x = (map_width * 4);
         const int map_offset_y = (map_height * 4);
@@ -169,12 +235,12 @@ namespace fe
             bn::regular_bg_map_cell cell = cells.at(cell_index);
             int tile_index = bn::regular_bg_map_cell_info(cell).tile_index();
 
-            // Only check for zone tiles other than 2 (since sword zone is handled separately)
+            // Only check for zone tiles other than 3 and 4 (since merchant zones are handled separately by is_in_hitbox_zone)
             for (int zone_tile : _zone_tiles)
             {
-                if (tile_index == zone_tile && zone_tile != 2)
+                if (tile_index == zone_tile && zone_tile != 3 && zone_tile != 4)
                 {
-                    // It's a non-sword zone tile, so we can't move here
+                    // It's a non-merchant zone tile, so we can't move here
                     return false;
                 }
             }
