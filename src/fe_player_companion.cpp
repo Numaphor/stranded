@@ -5,8 +5,18 @@
 namespace fe
 {
     PlayerCompanion::PlayerCompanion(bn::sprite_ptr sprite)
-        : _sprite(bn::move(sprite)), _position(0, 0), _position_side(Position::RIGHT), _is_dead(false),
-          _follow_delay(0), _player_too_close(false), _target_offset(24, 0)
+        : _sprite(bn::move(sprite)),
+          _position(0, 0),
+          _position_side(Position::RIGHT),
+          _is_dead(false),
+          _is_flying(false),
+          _player_too_close(false),
+          _follow_delay(0),
+          _target_offset(24, 0),
+          _independent_death(false),
+          _death_position(0, 0),
+          _can_be_revived(false),
+          _is_reviving(false)
     {
         // Don't set z_order here - let the dynamic z_order system handle it
         // The player's update_z_order() method will manage companion z_order based on position
@@ -14,7 +24,11 @@ namespace fe
 
     void PlayerCompanion::spawn(bn::fixed_point pos, bn::camera_ptr camera)
     {
-        _position = pos + bn::fixed_point(8, -8);
+        // Don't override position if companion died independently and is staying at death position
+        if (!_independent_death)
+        {
+            _position = pos + bn::fixed_point(8, -8);
+        }
         _target_offset = calculate_companion_offset();
         _sprite.set_camera(camera);
         update_animation();
@@ -22,20 +36,57 @@ namespace fe
 
     void PlayerCompanion::update(bn::fixed_point player_pos, bool player_is_dead)
     {
-        if (player_is_dead != _is_dead)
+        // Handle player death affecting companion
+        if (player_is_dead != _is_dead && !_independent_death && !_is_reviving)
         {
             _is_dead = player_is_dead;
             update_animation();
         }
 
-        if (!_is_dead)
+        // If companion is reviving, handle revival animation
+        if (_is_reviving)
+        {
+            // Stay at death position during revival
+            _sprite.set_position(_death_position);
+
+            // Check if revival animation is complete
+            if (_animation && _animation->done())
+            {
+                // Revival complete - companion is now alive
+                _is_reviving = false;
+                _is_dead = false;
+                _independent_death = false;
+                _position = _death_position; // Start from death position
+                update_animation();          // Switch to normal alive animation
+            }
+        }
+        // If companion died independently, it should stay dead until revived
+        else if (_independent_death)
+        {
+            // Stay at death position
+            _sprite.set_position(_death_position);
+
+            // Try to revive if player is close enough
+            if (_can_be_revived)
+            {
+                try_revive(player_pos);
+            }
+        }
+        else if (!_is_dead)
         {
             update_position(player_pos);
         }
 
-        if (_animation && !_animation->done())
+        // Update animation - for death/revival animation, only update while not done
+        if (_animation && (!_is_dead || !_animation->done() || _is_reviving))
         {
             _animation->update();
+
+            // If death animation just finished and this was an independent death, mark as revivable
+            if (_is_dead && _independent_death && _animation->done() && !_can_be_revived && !_is_reviving)
+            {
+                _can_be_revived = true;
+            }
         }
     }
 
@@ -127,7 +178,14 @@ namespace fe
 
     void PlayerCompanion::update_animation()
     {
-        if (_is_dead)
+        if (_is_reviving)
+        {
+            // Play death animation in reverse for revival
+            _animation = bn::create_sprite_animate_action_once(
+                _sprite, 8, bn::sprite_items::companion.tiles_item(),
+                21, 20, 19, 18, 17, 16, 15, 14, 13, 12);
+        }
+        else if (_is_dead)
         {
             _animation = bn::create_sprite_animate_action_once(
                 _sprite, 8, bn::sprite_items::companion.tiles_item(),
@@ -146,6 +204,11 @@ namespace fe
     {
         _is_flying = flying;
         update_animation();
+    }
+
+    void PlayerCompanion::set_camera(bn::camera_ptr camera)
+    {
+        _sprite.set_camera(camera);
     }
 
     void PlayerCompanion::set_position_side(Position side)
@@ -172,5 +235,41 @@ namespace fe
     {
         _is_dead = true;
         update_animation();
+    }
+
+    void PlayerCompanion::die_independently()
+    {
+        if (!_is_dead) // Only die if not already dead
+        {
+            _is_dead = true;
+            _independent_death = true;
+            _death_position = _position; // Remember where we died
+            _can_be_revived = false;     // Will be set to true when death animation completes
+            update_animation();
+        }
+    }
+
+    bool PlayerCompanion::try_revive(bn::fixed_point player_pos)
+    {
+        if (!_independent_death || !_can_be_revived)
+        {
+            return false;
+        }
+
+        // Calculate squared distance between player and dead companion
+        bn::fixed_point diff = player_pos - _death_position;
+        bn::fixed distance_sq = diff.x() * diff.x() + diff.y() * diff.y();
+
+        if (distance_sq <= REVIVE_DISTANCE * REVIVE_DISTANCE)
+        {
+            // Start revival animation
+            _is_reviving = true;
+            _can_be_revived = false;     // Prevent multiple revival attempts
+            _position = _death_position; // Start revival at death position
+            update_animation();          // Start reverse animation
+            return true;
+        }
+
+        return false;
     }
 }

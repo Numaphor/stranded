@@ -517,7 +517,9 @@ namespace fe
             for (int i = 0; i < _enemies.size();)
             {
                 Enemy &enemy = _enemies[i];
-                enemy.update(_player->pos(), *_level, _player->listening());
+                // Enemies should ignore player if listening to NPCs OR dead
+                bool player_should_be_ignored = _player->listening() || _player->get_hp() <= 0;
+                enemy.update(_player->pos(), *_level, player_should_be_ignored);
 
                 // Update hitbox debug visualization for this enemy
                 if (_hitbox_debug.is_enabled())
@@ -525,25 +527,51 @@ namespace fe
                     _hitbox_debug.update_enemy_hitbox(enemy);
                 }
 
-                // Check for collision with player
-                // Use extended attack hitbox for spearguards during attack
-                Hitbox collision_hitbox = enemy.is_attacking() ? enemy.get_attack_hitbox() : enemy.get_hitbox();
-                Hitbox player_hitbox = _player->get_hitbox();
-
-                if (fe::Collision::check_bb(player_hitbox, collision_hitbox))
+                // Check for collision with player (but not if player is dead or listening)
+                if (_player->get_hp() > 0 && !_player->listening())
                 {
-                    fe::Collision::log_collision("Player", "Enemy",
-                                                 _player->pos(), enemy.get_position());
+                    // Use extended attack hitbox for spearguards during attack
+                    Hitbox collision_hitbox = enemy.is_attacking() ? enemy.get_attack_hitbox() : enemy.get_hitbox();
+                    Hitbox player_hitbox = _player->get_hitbox();
 
-                    // Player takes damage when colliding with enemy
-                    _player->take_damage(1);
+                    if (fe::Collision::check_bb(player_hitbox, collision_hitbox))
+                    {
+                        fe::Collision::log_collision("Player", "Enemy",
+                                                     _player->pos(), enemy.get_position());
 
-                    // Knockback effect
-                    bn::fixed_point knockback_vector = _player->pos() - enemy.get_position();
-                    // Simple knockback in the x direction based on relative positions
-                    bn::fixed knockback_x = (knockback_vector.x() > 0) ? 10 : -10;
-                    bn::fixed_point knockback(knockback_x, 0);
-                    _player->set_position(_player->pos() + knockback);
+                        // Player takes damage when colliding with enemy
+                        _player->take_damage(1);
+
+                        // Knockback effect
+                        bn::fixed_point knockback_vector = _player->pos() - enemy.get_position();
+                        // Simple knockback in the x direction based on relative positions
+                        bn::fixed knockback_x = (knockback_vector.x() > 0) ? 10 : -10;
+                        bn::fixed_point knockback(knockback_x, 0);
+                        _player->set_position(_player->pos() + knockback);
+                    }
+                }
+
+                // Check for collision with companion (if companion exists and is alive)
+                if (_player->has_companion() && !_player->get_companion()->is_dead_independently())
+                {
+                    constexpr int COMPANION_HITBOX_SIZE = 16;
+                    constexpr int COMPANION_HITBOX_HALF_SIZE = COMPANION_HITBOX_SIZE / 2;
+
+                    PlayerCompanion *companion = _player->get_companion();
+                    Hitbox enemy_hitbox = enemy.get_hitbox();
+
+                    // Create a simple hitbox around companion position (16x16 like most sprites)
+                    bn::fixed_point companion_pos = companion->pos();
+                    Hitbox companion_hitbox(companion_pos.x() - COMPANION_HITBOX_HALF_SIZE, companion_pos.y() - COMPANION_HITBOX_HALF_SIZE, COMPANION_HITBOX_SIZE, COMPANION_HITBOX_SIZE);
+
+                    if (fe::Collision::check_bb(companion_hitbox, enemy_hitbox))
+                    {
+                        fe::Collision::log_collision("Companion", "Enemy",
+                                                     companion_pos, enemy.get_position());
+
+                        // Companion dies when hit by enemy
+                        _player->kill_companion();
+                    }
                 }
 
                 // Check for collision with player's bullets - optimized collision detection
