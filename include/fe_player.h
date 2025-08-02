@@ -267,7 +267,11 @@ namespace fe
         // Companion accessors
         [[nodiscard]] bool has_companion() const { return _companion.has_value(); }
         [[nodiscard]] PlayerCompanion *get_companion() { return _companion.has_value() ? &(*_companion) : nullptr; }
-        void kill_companion() { if (_companion.has_value()) _companion->die_independently(); }
+        void kill_companion()
+        {
+            if (_companion.has_value())
+                _companion->die_independently();
+        }
 
         [[nodiscard]] int get_hp() const { return _hp; }
         void take_damage(int damage)

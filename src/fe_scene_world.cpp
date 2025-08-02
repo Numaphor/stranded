@@ -1,7 +1,7 @@
 #include "fe_scene_world.h"
 #include "fe_collision.h"
 #include "fe_npc.h"
-#include "fe_hitbox_debug.h"
+#include "fe_hitbox.h"
 #include "bn_core.h"
 #include "bn_keypad.h"
 #include "bn_sprite_builder.h"
@@ -254,6 +254,10 @@ namespace fe
                      _minimap(nullptr),
                      _sword_bg(bn::nullopt),
                      _merchant(nullptr),
+                     _debug_enabled(false),
+                     _camera(bn::nullopt),
+                     _player_debug_hitbox(),
+                     _sword_zone_debug_hitbox(),
                      _current_world_id(0)
     {
         // Create player sprite with correct shape and size
@@ -276,6 +280,7 @@ namespace fe
         }
 
         bn::camera_ptr camera = bn::camera_ptr::create(0, 0);
+        _camera = camera; // Store camera reference for debug hitbox marker positioning
 
         bg_map bg_map_obj(world_id);
         bn::regular_bg_tiles_ptr tiles = bn::regular_bg_tiles_items::tiles.create_tiles();
@@ -286,6 +291,10 @@ namespace fe
 
         _level = new Level(bg_map_ptr);
         _player->spawn(spawn_location, camera);
+
+        // Initialize camera target position to player spawn location
+        _camera_target_pos = spawn_location;
+        camera.set_position(spawn_location.x(), spawn_location.y());
 
         // Initialize sword background with camera
         _sword_bg = bn::regular_bg_items::sword.create_bg(0, 0);
@@ -314,7 +323,7 @@ namespace fe
         _init_world_specific_content(world_id, camera, bg, text_generator);
 
         // Initialize hitbox debug system
-        _hitbox_debug.initialize(camera);
+        _debug_enabled = false;
 
         while (true)
         {
@@ -337,8 +346,8 @@ namespace fe
             // Debug input handling - Toggle hitbox visualization with START + SELECT keys
             if (bn::keypad::select_held() && bn::keypad::start_pressed())
             {
-                bool new_debug_state = !_hitbox_debug.is_enabled();
-                _hitbox_debug.set_enabled(new_debug_state);
+                bool new_debug_state = !_debug_enabled;
+                _debug_enabled = new_debug_state;
 
                 // Refresh all zone visibility for visual debugging (not collision)
                 bn::optional<bn::fixed_point> merchant_pos = _merchant ? bn::optional<bn::fixed_point>(_merchant->pos()) : bn::nullopt;
@@ -346,12 +355,6 @@ namespace fe
 
                 // Reload the background to reflect changes
                 bg_map_ptr.reload_cells_ref();
-            }
-
-            // Clear hitbox debug markers from previous frame
-            if (_hitbox_debug.is_enabled())
-            {
-                _hitbox_debug.clear_all();
             }
 
             // Handle NPC interactions BEFORE player input processing
@@ -364,10 +367,10 @@ namespace fe
                 _merchant->update();
 
                 // Update Level system with merchant position for tile-based collision
-                _level->set_merchant_zone(_merchant->pos());
+                fe::ZoneManager::set_merchant_zone_center(_merchant->pos());
 
                 // Update merchant zone visual tiles if debug mode is enabled
-                if (_hitbox_debug.is_enabled())
+                if (_debug_enabled)
                 {
                     // Update merchant zone tiles efficiently when merchant moves
                     bn::optional<bn::fixed_point> merchant_pos = bn::optional<bn::fixed_point>(_merchant->pos());
@@ -379,7 +382,7 @@ namespace fe
 
                 // Disable merchant collision during conversations (but keep sprite visible)
                 bool conversation_active = _merchant->is_talking() || _player->listening();
-                _level->set_merchant_zone_enabled(!conversation_active);
+                fe::ZoneManager::set_merchant_zone_enabled(!conversation_active);
 
                 // Update merchant's z-order based on Y position
                 int merchant_z = -_merchant->pos().y().integer();
@@ -388,7 +391,7 @@ namespace fe
             else
             {
                 // Update merchant zone visual tiles if debug mode is enabled (clear them when no merchant)
-                if (_hitbox_debug.is_enabled())
+                if (_debug_enabled)
                 {
                     if (bg_map_obj.update_merchant_zone(true, false, bn::nullopt))
                     {
@@ -406,7 +409,7 @@ namespace fe
             }
 
             // Check for merchant interaction BEFORE player input
-            if (_merchant && _level->is_in_merchant_interaction_zone(_player->pos()))
+            if (_merchant && fe::Hitbox::is_in_merchant_interaction_zone(_player->pos(), _merchant->pos()))
             {
                 // Update merchant's near player flag for UI display (fixes missing interaction prompt)
                 _merchant->set_near_player(true);
@@ -441,28 +444,85 @@ namespace fe
             _player->update_z_order();
 
             // Update hitbox debug visualization for player
-            if (_hitbox_debug.is_enabled())
+            if (_debug_enabled)
             {
-                _hitbox_debug.update_player_hitbox(*_player);
+                // Create/update player debug hitbox
+                _player_debug_hitbox = fe::Hitbox::create_player_hitbox(_player->pos());
+                _player_debug_hitbox.create_debug_markers(*_camera, true);
 
-                // Update zone tiles visualization (now with performance optimization)
-                _hitbox_debug.update_zone_tiles(*_level, bg);
+                // Create/update sword zone debug hitbox
+                _sword_zone_debug_hitbox = fe::Hitbox::create_sword_zone();
+                _sword_zone_debug_hitbox.create_debug_markers(*_camera, true);
 
-                // Merchant uses tile-based collision and interaction systems through Level class
-                // NPCs don't use hitboxes - all collision/interaction handled by Level tile-based system
+                // Create/update merchant zone debug hitboxes if merchant is present
+                if (_merchant)
+                {
+                    _merchant_collision_debug_hitbox = fe::Hitbox::create_merchant_collision_zone(_merchant->pos());
+                    _merchant_collision_debug_hitbox.create_debug_markers(*_camera, true);
 
-                // Update sword zone visualization
-                _hitbox_debug.update_sword_zone(*_level);
+                    _merchant_interaction_debug_hitbox = fe::Hitbox::create_merchant_interaction_zone(_merchant->pos());
+                    _merchant_interaction_debug_hitbox.create_debug_markers(*_camera, true);
+                }
 
-                // Update merchant zone visualization
-                _hitbox_debug.update_merchant_zone(*_level);
+                // Maintain a pool of reusable enemy debug hitboxes
+                size_t required_hitboxes = _enemies.size();
+                if (_enemy_debug_hitboxes.size() < required_hitboxes)
+                {
+                    // Add new hitboxes to the pool if needed
+                    _enemy_debug_hitboxes.resize(required_hitboxes);
+                }
+                else if (_enemy_debug_hitboxes.size() > required_hitboxes)
+                {
+                    // Clear debug markers for unused hitboxes
+                    for (size_t i = required_hitboxes; i < _enemy_debug_hitboxes.size(); ++i)
+                    {
+                        _enemy_debug_hitboxes[i].clear_debug_markers();
+                    }
+                    _enemy_debug_hitboxes.resize(required_hitboxes);
+                }
+            }
+            else
+            {
+                // Clear all debug markers when debug is disabled
+                _player_debug_hitbox.clear_debug_markers();
+                _sword_zone_debug_hitbox.clear_debug_markers();
+                for (auto &enemy_hitbox : _enemy_debug_hitboxes)
+                {
+                    enemy_hitbox.clear_debug_markers();
+                }
+                // Do not clear the vector, keep the pool for reuse
+            }
+
+            // Update debug hitbox positions if debug mode is enabled
+            if (_debug_enabled)
+            {
+                // Update player debug hitbox position efficiently
+                _player_debug_hitbox.set_position(_player->pos());
+                _player_debug_hitbox.update_debug_marker_positions();
+
+                // Update merchant debug hitbox positions efficiently if merchant exists
+                if (_merchant)
+                {
+                    _merchant_collision_debug_hitbox.set_position(_merchant->pos());
+                    _merchant_collision_debug_hitbox.update_debug_marker_positions();
+
+                    _merchant_interaction_debug_hitbox.set_position(_merchant->pos());
+                    _merchant_interaction_debug_hitbox.update_debug_marker_positions();
+                }
+
+                // Update enemy debug hitbox positions efficiently
+                for (size_t i = 0; i < _enemies.size() && i < _enemy_debug_hitboxes.size(); ++i)
+                {
+                    _enemy_debug_hitboxes[i].set_position(_enemies[i].pos());
+                    _enemy_debug_hitboxes[i].update_debug_marker_positions();
+                }
             }
 
             // Update player position and check for collisions
             bn::fixed_point new_pos = _player->pos();
 
             // Check for zone collisions - prevent player from walking through zones
-            bool position_valid = _level->is_position_valid(new_pos);
+            bool position_valid = fe::ZoneManager::is_position_valid(new_pos);
 
             // Merchant collision is handled entirely through Level's tile-based collision system
 
@@ -477,12 +537,81 @@ namespace fe
                 _minimap->update(_player->pos(), bn::fixed_point(0, 0), _enemies);
             }
 
-            // Precise camera tracking
+            // Adaptive camera system: look-ahead when moving, center when idle
             bn::fixed_point player_pos = _player->pos();
+            bn::fixed_point current_camera_pos = bn::fixed_point(camera.x(), camera.y());
 
-            // Interpolate camera position to match player
-            camera.set_x(player_pos.x());
-            camera.set_y(player_pos.y());
+            // Check if player is actively moving
+            bool player_is_moving = _player->is_moving();
+
+            if (player_is_moving)
+            {
+                // Player is moving - apply look-ahead in facing direction with deadzone
+                auto player_direction = _player->facing_direction();
+
+                // Calculate look-ahead offset based on movement direction
+                bn::fixed_point lookahead_offset(0, 0);
+                switch (player_direction)
+                {
+                case PlayerMovement::Direction::UP:
+                    lookahead_offset.set_y(-CAMERA_LOOKAHEAD_Y);
+                    break;
+                case PlayerMovement::Direction::DOWN:
+                    lookahead_offset.set_y(CAMERA_LOOKAHEAD_Y);
+                    break;
+                case PlayerMovement::Direction::LEFT:
+                    lookahead_offset.set_x(-CAMERA_LOOKAHEAD_X);
+                    break;
+                case PlayerMovement::Direction::RIGHT:
+                    lookahead_offset.set_x(CAMERA_LOOKAHEAD_X);
+                    break;
+                default:
+                    // No offset for unknown direction
+                    break;
+                }
+
+                // Calculate desired camera position (player position + look-ahead offset)
+                bn::fixed_point desired_camera_pos = player_pos + lookahead_offset;
+
+                // Calculate distance from current camera to desired position
+                bn::fixed_point camera_to_desired = desired_camera_pos - current_camera_pos;
+
+                // Check if we need to move camera (if desired position is outside deadzone)
+                bool outside_x = bn::abs(camera_to_desired.x()) > CAMERA_DEADZONE_X;
+                bool outside_y = bn::abs(camera_to_desired.y()) > CAMERA_DEADZONE_Y;
+
+                if (outside_x || outside_y)
+                {
+                    // Update target position to move toward desired position but stay within deadzone
+                    if (outside_x)
+                    {
+                        if (camera_to_desired.x() > CAMERA_DEADZONE_X)
+                            _camera_target_pos.set_x(desired_camera_pos.x() - CAMERA_DEADZONE_X);
+                        else if (camera_to_desired.x() < -CAMERA_DEADZONE_X)
+                            _camera_target_pos.set_x(desired_camera_pos.x() + CAMERA_DEADZONE_X);
+                    }
+
+                    if (outside_y)
+                    {
+                        if (camera_to_desired.y() > CAMERA_DEADZONE_Y)
+                            _camera_target_pos.set_y(desired_camera_pos.y() - CAMERA_DEADZONE_Y);
+                        else if (camera_to_desired.y() < -CAMERA_DEADZONE_Y)
+                            _camera_target_pos.set_y(desired_camera_pos.y() + CAMERA_DEADZONE_Y);
+                    }
+                }
+            }
+            else
+            {
+                // Player is idle - center camera directly on player (bypass deadzone)
+                _camera_target_pos = player_pos;
+            }
+
+            // Smoothly interpolate camera towards target position
+            bn::fixed_point camera_offset = _camera_target_pos - current_camera_pos;
+            bn::fixed_point new_camera_pos = current_camera_pos + (camera_offset * CAMERA_FOLLOW_SPEED);
+
+            camera.set_x(new_camera_pos.x());
+            camera.set_y(new_camera_pos.y());
 
             // Update sword position and priority based on player position
             if (_sword_bg)
@@ -522,9 +651,13 @@ namespace fe
                 enemy.update(_player->pos(), *_level, player_should_be_ignored);
 
                 // Update hitbox debug visualization for this enemy
-                if (_hitbox_debug.is_enabled())
+                if (_debug_enabled && i < _enemy_debug_hitboxes.size())
                 {
-                    _hitbox_debug.update_enemy_hitbox(enemy);
+                    // Create enemy hitbox with standard type
+                    _enemy_debug_hitboxes[i] = fe::Hitbox(enemy.pos().x(), enemy.pos().y(),
+                                                          enemy.get_hitbox().width(), enemy.get_hitbox().height(),
+                                                          fe::HitboxType::STANDARD);
+                    _enemy_debug_hitboxes[i].create_debug_markers(*_camera, true);
                 }
 
                 // Check for collision with player (but not if player is dead or listening)

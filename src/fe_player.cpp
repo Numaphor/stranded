@@ -206,7 +206,7 @@ namespace fe
 
         static const AnimData animations[] = {
             {12, 187, 12, 0, 13, 144, 12},  // IDLE: idle_up(187-198=12), idle_down(0-12=13), lr_idle(144-155=12)
-            {12, 199, 8, 109, 8, 156, 8},   // WALKING: move_up(199-206=8), move_down(109-116=8), lr_move(156-163=8)
+            {5, 199, 8, 109, 8, 156, 8},    // WALKING: move_up(199-206=8), move_down(109-116=8), lr_move(156-163=8) - 75ms per frame
             {8, 207, 8, 117, 8, 164, 8},    // RUNNING: run_up(207-214=8), run_down(117-124=8), lr_run(164-171=8)
             {8, 226, 8, 136, 8, 172, 6},    // ROLLING: roll_up(226-233=8), roll_down(136-143=8), lr_roll(172-177=6)
             {8, 219, 7, 129, 7, 178, 4},    // SLASHING: attack_up(219-225=7), slash_down(129-135=7), lr_slash(178-181=4)
@@ -505,7 +505,7 @@ namespace fe
             set_position(new_pos);
 
             // Check collision
-            if (fe::_level && !Collision::check_hitbox_collision_with_level(get_hitbox(), pos(), fe::directions::down, *fe::_level))
+            if (!Collision::check_hitbox_collision_with_level(get_hitbox(), pos(), fe::directions::down))
             {
                 revert_position();
                 _movement.stop_movement();

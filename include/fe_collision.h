@@ -148,11 +148,11 @@ namespace fe
         }
 
         // Shared collision validation utilities
-        [[nodiscard]] static bool validate_position_points(const bn::fixed_point points[4], const Level &level)
+        [[nodiscard]] static bool validate_position_points(const bn::fixed_point points[4])
         {
             for (int i = 0; i < 4; ++i)
             {
-                if (!level.is_position_valid(points[i]))
+                if (!fe::ZoneManager::is_position_valid(points[i]))
                 {
                     return false;
                 }
@@ -160,11 +160,11 @@ namespace fe
             return true;
         }
 
-        [[nodiscard]] static bool check_hitbox_collision_with_level(const Hitbox &hitbox, bn::fixed_point pos, fe::directions direction, const Level &level)
+        [[nodiscard]] static bool check_hitbox_collision_with_level(const Hitbox &hitbox, bn::fixed_point pos, fe::directions direction)
         {
             bn::fixed_point points[4];
             hitbox.get_collision_points(pos, direction, points);
-            return validate_position_points(points, level);
+            return validate_position_points(points);
         }
     };
 }
