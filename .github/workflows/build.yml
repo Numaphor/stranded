@@ -231,6 +231,7 @@ jobs:
 
           # Set up Wonderful Toolchain
           ENV WONDERFUL_TOOLCHAIN=/opt/wonderful
+          ENV BLOCKSDS=/opt/wonderful/thirdparty/blocksds/core
           RUN mkdir -p \$WONDERFUL_TOOLCHAIN
 
           # Copy and extract toolchain
@@ -239,11 +240,11 @@ jobs:
               && rm /tmp/wf-bootstrap-x86_64.tar.gz
 
           # Add toolchain to PATH
-          ENV PATH="\$WONDERFUL_TOOLCHAIN/bin:\$WONDERFUL_TOOLCHAIN/toolchain/gcc-arm-none-eabi/bin:\$PATH"
+          ENV PATH="\$WONDERFUL_TOOLCHAIN/bin:\$WONDERFUL_TOOLCHAIN/toolchain/gcc-arm-none-eabi/bin:\$BLOCKSDS/tools/mmutil:\$PATH"
 
           # Install GBA development tools
           RUN wf-pacman -Syu --noconfirm \\
-              && wf-pacman -S --noconfirm wf-tools target-gba
+              && wf-pacman -S --noconfirm wf-tools target-gba blocksds
 
           # Create workspace directory
           WORKDIR /workspace
