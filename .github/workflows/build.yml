@@ -162,25 +162,50 @@ jobs:
           else
             echo "Latest release tag: $LATEST_TAG"
             
-            # Check if there are any commits since the last release
-            COMMITS_SINCE=$(git rev-list $LATEST_TAG..HEAD --count)
-            echo "Commits since last release: $COMMITS_SINCE"
+            # Calculate hash of current ROM
+            CURRENT_HASH=$(sha256sum stranded.gba | cut -d' ' -f1)
+            echo "Current ROM hash: $CURRENT_HASH"
             
-            if [ "$COMMITS_SINCE" -gt 0 ]; then
-              echo "Changes detected since last release"
+            # Try to get the ROM from the previous release
+            echo "Downloading ROM from previous release..."
+            if curl -L -f -o previous_stranded.gba \
+                "https://github.com/${{ github.repository }}/releases/download/$LATEST_TAG/stranded.gba"; then
+              
+              # Calculate hash of previous ROM
+              PREVIOUS_HASH=$(sha256sum previous_stranded.gba | cut -d' ' -f1)
+              echo "Previous ROM hash: $PREVIOUS_HASH"
+              
+              # Compare hashes
+              if [ "$CURRENT_HASH" != "$PREVIOUS_HASH" ]; then
+                echo "ROM has changed since last release"
+                echo "has_changes=true" >> $GITHUB_OUTPUT
+                echo "last_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+                echo "previous_hash=$PREVIOUS_HASH" >> $GITHUB_OUTPUT
+                echo "current_hash=$CURRENT_HASH" >> $GITHUB_OUTPUT
+              else
+                echo "ROM is identical to last release"
+                echo "has_changes=false" >> $GITHUB_OUTPUT
+                echo "last_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+                echo "previous_hash=$PREVIOUS_HASH" >> $GITHUB_OUTPUT
+                echo "current_hash=$CURRENT_HASH" >> $GITHUB_OUTPUT
+              fi
+              
+              # Clean up
+              rm -f previous_stranded.gba
+            else
+              echo "Could not download previous ROM, assuming changes exist"
               echo "has_changes=true" >> $GITHUB_OUTPUT
               echo "last_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
-            else
-              echo "No changes since last release"
-              echo "has_changes=false" >> $GITHUB_OUTPUT 
-              echo "last_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+              echo "current_hash=$CURRENT_HASH" >> $GITHUB_OUTPUT
             fi
           fi
 
       - name: Skip release (no changes)
         if: steps.changes.outputs.has_changes == 'false'
         run: |
-          echo "⏭️ No changes detected since last release tag: ${{ steps.changes.outputs.last_tag }}"
+          echo "⏭️ ROM hash identical to last release: ${{ steps.changes.outputs.last_tag }}"
+          echo "Previous hash: ${{ steps.changes.outputs.previous_hash }}"
+          echo "Current hash:  ${{ steps.changes.outputs.current_hash }}"
           echo "Skipping release creation"
 
       - name: Generate release tag
@@ -205,10 +230,13 @@ jobs:
           echo "EOF" >> $GITHUB_OUTPUT
           echo "sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
           
-          # Get changes since last release
-          if [ "${{ steps.changes.outputs.last_tag }}" != "none" ]; then
-            echo "Changes since ${{ steps.changes.outputs.last_tag }}:"
-            git log ${{ steps.changes.outputs.last_tag }}..HEAD --oneline
+          # Show hash comparison info
+          if [ "${{ steps.changes.outputs.previous_hash }}" != "" ]; then
+            echo "ROM hash changed:"
+            echo "Previous: ${{ steps.changes.outputs.previous_hash }}"
+            echo "Current:  ${{ steps.changes.outputs.current_hash }}"
+          else
+            echo "Current ROM hash: ${{ steps.changes.outputs.current_hash }}"
           fi
 
       - name: Create Release
@@ -223,6 +251,7 @@ jobs:
             **Build Information:**
             - Commit: ${{ steps.commit.outputs.sha }}
             - Built: ${{ steps.tag.outputs.timestamp }}
+            - ROM Hash: `${{ steps.changes.outputs.current_hash }}`
 
             **Latest Changes:**
             ${{ steps.commit.outputs.message }}
@@ -233,7 +262,7 @@ jobs:
             3. Enjoy the adventure!
 
             ---
-            *This release was automatically generated from the main branch.*
+            *This release was automatically generated when ROM content changed.*
           files: |
             stranded.gba
           draft: false
