@@ -212,16 +212,32 @@ namespace fe
             HitboxMarkerPosition(int x, int y) : tile_x(x), tile_y(y) {}
         };
         bn::vector<HitboxMarkerPosition, 64> _current_markers; // Track current markers
+        bool _markers_need_reload = false; // Track if background needs reloading
 
         // Clear all current hitbox markers
         void clear_hitbox_markers()
         {
-            for (const auto &marker : _current_markers)
+            if (!_current_markers.empty())
             {
-                int cell_index = marker.tile_x + marker.tile_y * columns;
-                cells[cell_index] = bn::regular_bg_map_cell(_background_tile);
+                for (const auto &marker : _current_markers)
+                {
+                    int cell_index = marker.tile_x + marker.tile_y * columns;
+                    cells[cell_index] = bn::regular_bg_map_cell(_background_tile);
+                }
+                _current_markers.clear();
+                _markers_need_reload = true;
             }
-            _current_markers.clear();
+        }
+
+        // Check if background reload is needed and reset flag
+        bool should_reload_background()
+        {
+            if (_markers_need_reload)
+            {
+                _markers_need_reload = false;
+                return true;
+            }
+            return false;
         }
 
         // Set hitbox markers and track positions for efficient clearing
@@ -256,6 +272,8 @@ namespace fe
                 cells[bottom_right_index] = bn::regular_bg_map_cell(RIGHT_MARKER_TILE_INDEX);
                 _current_markers.push_back(HitboxMarkerPosition(bottom_right_tile_x, bottom_right_tile_y));
             }
+
+            _markers_need_reload = true;
         }
 
         // Method to refresh all zone tiles based on current debug state and active zones
@@ -584,8 +602,11 @@ namespace fe
                     _enemy_debug_hitboxes.resize(required_hitboxes);
                 }
 
-                // Reload the background to reflect hitbox marker changes
-                bg_map_ptr.reload_cells_ref();
+                // Reload the background only if hitbox markers have changed
+                if (bg_map_obj.should_reload_background())
+                {
+                    bg_map_ptr.reload_cells_ref();
+                }
             }
             else
             {
