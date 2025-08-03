@@ -212,19 +212,69 @@ jobs:
           # Convert repository name to lowercase for Docker registry
           REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
           
-          # Create Dockerfile for packaging
+          # Create Dockerfile for development environment
           cat > Dockerfile << EOF
-          FROM scratch
-          COPY stranded.gba /stranded.gba
-          LABEL org.opencontainers.image.title="Stranded Game ROM"
-          LABEL org.opencontainers.image.description="Game Boy Advance ROM for the Stranded adventure game"
+          FROM ubuntu:22.04
+          
+          # Install system dependencies
+          RUN apt-get update && apt-get install -y \\
+              build-essential \\
+              python3 \\
+              python-is-python3 \\
+              git \\
+              wget \\
+              tar \\
+              curl \\
+              vim \\
+              nano \\
+              && rm -rf /var/lib/apt/lists/*
+          
+          # Set up Wonderful Toolchain
+          ENV WONDERFUL_TOOLCHAIN=/opt/wonderful
+          RUN mkdir -p \$WONDERFUL_TOOLCHAIN
+          
+          # Copy and extract toolchain
+          COPY tools/wf-bootstrap-x86_64.tar.gz /tmp/
+          RUN tar xzf /tmp/wf-bootstrap-x86_64.tar.gz -C \$WONDERFUL_TOOLCHAIN --strip-components=1 \\
+              && rm /tmp/wf-bootstrap-x86_64.tar.gz
+          
+          # Add toolchain to PATH
+          ENV PATH="\$WONDERFUL_TOOLCHAIN/bin:\$WONDERFUL_TOOLCHAIN/toolchain/gcc-arm-none-eabi/bin:\$PATH"
+          
+          # Install GBA development tools
+          RUN wf-pacman -Syu --noconfirm \\
+              && wf-pacman -S --noconfirm wf-tools target-gba
+          
+          # Create workspace directory
+          WORKDIR /workspace
+          
+          # Copy entire project
+          COPY . /workspace/
+          
+          # Pre-build the ROM to verify environment
+          RUN make clean && make -j8
+          
+          # Set up development user
+          RUN useradd -m -s /bin/bash developer \\
+              && chown -R developer:developer /workspace
+          USER developer
+          
+          # Default command starts a shell in the project directory
+          CMD ["/bin/bash"]
+          
+          # Labels for the development environment
+          LABEL org.opencontainers.image.title="Stranded Game Development Environment"
+          LABEL org.opencontainers.image.description="Complete GBA development environment for the Stranded adventure game with Butano engine, Wonderful Toolchain, and all dependencies pre-installed"
           LABEL org.opencontainers.image.version="$VERSION"
           LABEL org.opencontainers.image.revision="$COMMIT_SHA"
           LABEL org.opencontainers.image.source="https://github.com/${{ github.repository }}"
           LABEL org.opencontainers.image.url="https://github.com/${{ github.repository }}"
           LABEL org.opencontainers.image.vendor="${{ github.repository_owner }}"
-          LABEL game.platform="Game Boy Advance"
-          LABEL game.emulator.recommended="mGBA"
+          LABEL dev.environment="gba-development"
+          LABEL dev.toolchain="wonderful-toolchain"
+          LABEL dev.engine="butano"
+          LABEL dev.platform="Game Boy Advance"
+          LABEL dev.language="C++"
           EOF
           
           echo "version=$VERSION" >> $GITHUB_OUTPUT
@@ -246,16 +296,19 @@ jobs:
           context: .
           push: true
           tags: |
-            ghcr.io/${{ steps.metadata.outputs.repository }}/stranded-rom:latest
-            ghcr.io/${{ steps.metadata.outputs.repository }}/stranded-rom:${{ steps.metadata.outputs.version }}
+            ghcr.io/${{ steps.metadata.outputs.repository }}/stranded-dev:latest
+            ghcr.io/${{ steps.metadata.outputs.repository }}/stranded-dev:${{ steps.metadata.outputs.version }}
           labels: |
-            org.opencontainers.image.title=Stranded Game ROM
-            org.opencontainers.image.description=Game Boy Advance ROM for the Stranded adventure game
+            org.opencontainers.image.title=Stranded Game Development Environment
+            org.opencontainers.image.description=Complete GBA development environment for the Stranded adventure game with Butano engine, Wonderful Toolchain, and all dependencies pre-installed
             org.opencontainers.image.version=${{ steps.metadata.outputs.version }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.url=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.vendor=${{ github.repository_owner }}
             org.opencontainers.image.created=${{ github.event.head_commit.timestamp }}
-            game.platform=Game Boy Advance
-            game.emulator.recommended=mGBA
+            dev.environment=gba-development
+            dev.toolchain=wonderful-toolchain
+            dev.engine=butano
+            dev.platform=Game Boy Advance
+            dev.language=C++
