@@ -134,6 +134,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    outputs:
+      has_changes: ${{ steps.changes.outputs.has_changes }}
 
     steps:
       - name: Checkout repository
@@ -147,8 +149,43 @@ jobs:
           name: stranded-rom
           path: ./
 
+      - name: Check for changes since last release
+        id: changes
+        run: |
+          # Get the latest release tag
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          
+          if [ -z "$LATEST_TAG" ]; then
+            echo "No previous releases found, creating first release"
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "last_tag=none" >> $GITHUB_OUTPUT
+          else
+            echo "Latest release tag: $LATEST_TAG"
+            
+            # Check if there are any commits since the last release
+            COMMITS_SINCE=$(git rev-list $LATEST_TAG..HEAD --count)
+            echo "Commits since last release: $COMMITS_SINCE"
+            
+            if [ "$COMMITS_SINCE" -gt 0 ]; then
+              echo "Changes detected since last release"
+              echo "has_changes=true" >> $GITHUB_OUTPUT
+              echo "last_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+            else
+              echo "No changes since last release"
+              echo "has_changes=false" >> $GITHUB_OUTPUT 
+              echo "last_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      - name: Skip release (no changes)
+        if: steps.changes.outputs.has_changes == 'false'
+        run: |
+          echo "⏭️ No changes detected since last release tag: ${{ steps.changes.outputs.last_tag }}"
+          echo "Skipping release creation"
+
       - name: Generate release tag
         id: tag
+        if: steps.changes.outputs.has_changes == 'true'
         run: |
           # Generate a timestamp-based tag
           TAG="v$(date +'%Y.%m.%d')-build.$(date +'%H%M%S')"
@@ -159,6 +196,7 @@ jobs:
 
       - name: Get commit info
         id: commit
+        if: steps.changes.outputs.has_changes == 'true'
         run: |
           COMMIT_MSG=$(git log -1 --pretty=%B)
           COMMIT_SHA=$(git rev-parse --short HEAD)
@@ -166,9 +204,16 @@ jobs:
           echo "$COMMIT_MSG" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
           echo "sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
+          
+          # Get changes since last release
+          if [ "${{ steps.changes.outputs.last_tag }}" != "none" ]; then
+            echo "Changes since ${{ steps.changes.outputs.last_tag }}:"
+            git log ${{ steps.changes.outputs.last_tag }}..HEAD --oneline
+          fi
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
+        if: steps.changes.outputs.has_changes == 'true'
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
           name: "Stranded Game Release ${{ steps.tag.outputs.tag }}"
@@ -199,10 +244,19 @@ jobs:
 
   publish-package:
     runs-on: ubuntu-latest
-    needs: build
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: [build, release]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && needs.release.outputs.has_changes == 'true'
 
     steps:
+      - name: Check if changes detected
+        run: |
+          if [ "${{ needs.release.outputs.has_changes }}" != "true" ]; then
+            echo "⏭️ No changes detected since last release, skipping package publication"
+            exit 0
+          else
+            echo "✅ Changes detected, proceeding with package publication"
+          fi
+          
       - name: Checkout repository
         uses: actions/checkout@v4
 
