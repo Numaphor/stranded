@@ -12,6 +12,7 @@
 #include "bn_bg_palette_ptr.h"
 #include "bn_regular_bg_items_sword.h"
 #include "bn_rect_window.h"
+#include "bn_window.h"
 
 #include "fe_scene.h"
 #include "fe_player.h"

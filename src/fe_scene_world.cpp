@@ -39,8 +39,8 @@ namespace fe
         static const int rows = MAP_ROWS;
         static const int cells_count = MAP_CELLS_COUNT;
 
-        // Explicitly place in EWRAM
-        BN_DATA_EWRAM static bn::regular_bg_map_cell cells[cells_count];
+        // Use regular allocation instead of EWRAM to avoid memory issues
+        static bn::regular_bg_map_cell cells[cells_count];
 
         bn::regular_bg_map_item map_item;
         int _background_tile; // Store the background tile for this world
@@ -54,7 +54,7 @@ namespace fe
                 _background_tile = 2;
             }
 
-            // Fill all squares with the appropriate background tile
+            // Initialize all cells to background tile (32x32 = 1,024 cells, minimum required by Butano)
             for (int x = 0; x < columns; x++)
             {
                 for (int y = 0; y < rows; y++)
@@ -82,94 +82,94 @@ namespace fe
             {
                 for (int y = sword_zone_tile_top; y < sword_zone_tile_bottom; y++)
                 {
-                    int cell_index = x + y * columns;
-                    cells[cell_index] = bn::regular_bg_map_cell(tile_index);
+                    // Additional bounds check to ensure we stay within map
+                    if (x >= 0 && x < columns && y >= 0 && y < rows)
+                    {
+                        int cell_index = x + y * columns;
+                        cells[cell_index] = bn::regular_bg_map_cell(tile_index);
+                    }
                 }
             }
         }
 
-        // Method to show/hide merchant interaction zone tiles (100x100) for debug visualization only
+        // Method to show/hide merchant interaction zone tiles for debug visualization only
         void set_merchant_interaction_zone_visible(bool visible, const bn::fixed_point &merchant_center)
         {
-            int tile_index = visible ? INTERACTION_ZONE_TILE_INDEX : _background_tile; // Use centralized tile index for interaction zones
+            if (!visible)
+                return; // Don't need to clear since refresh_all_zones handles clearing
 
-            // Use centralized constants for coordinate system calculations
+            // Convert world coordinates to tile coordinates
             constexpr int tile_size = TILE_SIZE;
             const int map_offset_x = MAP_OFFSET_X;
             const int map_offset_y = MAP_OFFSET_Y;
 
-            // Debug visualization: use centralized zone dimensions
-            const bn::fixed zone_width = MERCHANT_INTERACTION_ZONE_WIDTH;
-            const bn::fixed zone_height = MERCHANT_INTERACTION_ZONE_HEIGHT;
+            // Calculate the merchant's tile position
+            int merchant_tile_x = ((merchant_center.x() + map_offset_x) / tile_size).integer();
+            int merchant_tile_y = ((merchant_center.y() + map_offset_y) / tile_size).integer();
 
-            // Calculate zone boundaries in world coordinates
-            const bn::fixed zone_left = merchant_center.x() - zone_width / 2;
-            const bn::fixed zone_right = merchant_center.x() + zone_width / 2;
-            const bn::fixed zone_top = merchant_center.y() - zone_height / 2;
-            const bn::fixed zone_bottom = merchant_center.y() + zone_height / 2;
+            // Calculate interaction zone bounds in tiles (32x32 pixels = 4x4 tiles)
+            const int zone_tile_half_width = MERCHANT_INTERACTION_ZONE_WIDTH / (2 * tile_size);
+            const int zone_tile_half_height = MERCHANT_INTERACTION_ZONE_HEIGHT / (2 * tile_size);
 
-            // Convert world coordinates to tile coordinates using hitbox debug formula
-            int tile_left = ((zone_left + map_offset_x) / tile_size).integer();
-            int tile_right = ((zone_right + map_offset_x) / tile_size).integer();
-            int tile_top = ((zone_top + map_offset_y) / tile_size).integer();
-            int tile_bottom = ((zone_bottom + map_offset_y) / tile_size).integer();
+            int zone_tile_left = merchant_tile_x - zone_tile_half_width;
+            int zone_tile_right = merchant_tile_x + zone_tile_half_width;
+            int zone_tile_top = merchant_tile_y - zone_tile_half_height;
+            int zone_tile_bottom = merchant_tile_y + zone_tile_half_height;
 
-            // Clamp to map bounds
-            tile_left = bn::max(0, tile_left);
-            tile_right = bn::min(columns - 1, tile_right);
-            tile_top = bn::max(0, tile_top);
-            tile_bottom = bn::min(rows - 1, tile_bottom);
+            // Only draw tiles that are within the 32x32 map bounds
+            zone_tile_left = bn::max(0, zone_tile_left);
+            zone_tile_right = bn::min(columns, zone_tile_right);
+            zone_tile_top = bn::max(0, zone_tile_top);
+            zone_tile_bottom = bn::min(rows, zone_tile_bottom);
 
             // Update tiles in the interaction zone area
-            for (int x = tile_left; x <= tile_right; x++)
+            for (int x = zone_tile_left; x < zone_tile_right; x++)
             {
-                for (int y = tile_top; y <= tile_bottom; y++)
+                for (int y = zone_tile_top; y < zone_tile_bottom; y++)
                 {
                     int cell_index = x + y * columns;
-                    cells[cell_index] = bn::regular_bg_map_cell(tile_index);
+                    cells[cell_index] = bn::regular_bg_map_cell(INTERACTION_ZONE_TILE_INDEX);
                 }
             }
         }
 
-        // Method to show/hide merchant hitbox zone tiles (24x24) for debug visualization only
+        // Method to show/hide merchant hitbox zone tiles for debug visualization only
         void set_merchant_hitbox_zone_visible(bool visible, const bn::fixed_point &merchant_center)
         {
-            int tile_index = visible ? COLLISION_ZONE_TILE_INDEX : _background_tile; // Use centralized tile index for collision zones
+            if (!visible)
+                return; // Don't need to clear since refresh_all_zones handles clearing
 
-            // Use centralized constants for coordinate system calculations
+            // Convert world coordinates to tile coordinates
             constexpr int tile_size = TILE_SIZE;
             const int map_offset_x = MAP_OFFSET_X;
             const int map_offset_y = MAP_OFFSET_Y;
 
-            // Debug visualization: use centralized zone dimensions
-            const bn::fixed zone_width = MERCHANT_COLLISION_ZONE_WIDTH;
-            const bn::fixed zone_height = MERCHANT_COLLISION_ZONE_HEIGHT;
+            // Calculate the merchant's tile position
+            int merchant_tile_x = ((merchant_center.x() + map_offset_x) / tile_size).integer();
+            int merchant_tile_y = ((merchant_center.y() + map_offset_y) / tile_size).integer();
 
-            // Calculate zone boundaries in world coordinates
-            const bn::fixed zone_left = merchant_center.x() - zone_width / 2;
-            const bn::fixed zone_right = merchant_center.x() + zone_width / 2;
-            const bn::fixed zone_top = merchant_center.y() - zone_height / 2;
-            const bn::fixed zone_bottom = merchant_center.y() + zone_height / 2;
+            // Calculate collision zone bounds in tiles (16x16 pixels = 2x2 tiles)
+            const int zone_tile_half_width = MERCHANT_COLLISION_ZONE_WIDTH / (2 * tile_size);
+            const int zone_tile_half_height = MERCHANT_COLLISION_ZONE_HEIGHT / (2 * tile_size);
 
-            // Convert world coordinates to tile coordinates using hitbox debug formula
-            int tile_left = ((zone_left + map_offset_x) / tile_size).integer();
-            int tile_right = ((zone_right + map_offset_x) / tile_size).integer();
-            int tile_top = ((zone_top + map_offset_y) / tile_size).integer();
-            int tile_bottom = ((zone_bottom + map_offset_y) / tile_size).integer();
+            int zone_tile_left = merchant_tile_x - zone_tile_half_width;
+            int zone_tile_right = merchant_tile_x + zone_tile_half_width;
+            int zone_tile_top = merchant_tile_y - zone_tile_half_height;
+            int zone_tile_bottom = merchant_tile_y + zone_tile_half_height;
 
-            // Clamp to map bounds
-            tile_left = bn::max(0, tile_left);
-            tile_right = bn::min(columns - 1, tile_right);
-            tile_top = bn::max(0, tile_top);
-            tile_bottom = bn::min(rows - 1, tile_bottom);
+            // Only draw tiles that are within the 32x32 map bounds
+            zone_tile_left = bn::max(0, zone_tile_left);
+            zone_tile_right = bn::min(columns, zone_tile_right);
+            zone_tile_top = bn::max(0, zone_tile_top);
+            zone_tile_bottom = bn::min(rows, zone_tile_bottom);
 
-            // Update tiles in the hitbox zone area
-            for (int x = tile_left; x <= tile_right; x++)
+            // Update tiles in the collision zone area (drawn on top of interaction zone)
+            for (int x = zone_tile_left; x < zone_tile_right; x++)
             {
-                for (int y = tile_top; y <= tile_bottom; y++)
+                for (int y = zone_tile_top; y < zone_tile_bottom; y++)
                 {
                     int cell_index = x + y * columns;
-                    cells[cell_index] = bn::regular_bg_map_cell(tile_index);
+                    cells[cell_index] = bn::regular_bg_map_cell(COLLISION_ZONE_TILE_INDEX);
                 }
             }
         }
@@ -212,7 +212,7 @@ namespace fe
             HitboxMarkerPosition(int x, int y) : tile_x(x), tile_y(y) {}
         };
         bn::vector<HitboxMarkerPosition, 64> _current_markers; // Track current markers
-        bool _markers_need_reload = false; // Track if background needs reloading
+        bool _markers_need_reload = false;                     // Track if background needs reloading
 
         // Clear all current hitbox markers
         void clear_hitbox_markers()
@@ -279,7 +279,7 @@ namespace fe
         // Method to refresh all zone tiles based on current debug state and active zones
         void refresh_all_zones(bool debug_enabled, bool has_merchant = false, bn::optional<bn::fixed_point> merchant_pos = bn::nullopt)
         {
-            // First, reset all tiles to background
+            // Reset all tiles to background (32x32 = 1,024 cells, minimum required by Butano)
             for (int x = 0; x < columns; x++)
             {
                 for (int y = 0; y < rows; y++)
@@ -288,6 +288,10 @@ namespace fe
                     cells[cell_index] = bn::regular_bg_map_cell(_background_tile);
                 }
             }
+
+            // Also clear hitbox markers by resetting their vector
+            _current_markers.clear();
+            _markers_need_reload = true;
 
             // Then set zones visible if debug is enabled
             if (debug_enabled)
@@ -344,8 +348,8 @@ namespace fe
         }
     }; // Place macro AFTER the struct definition
 
-    // Initialize static cells array in EWRAM
-    BN_DATA_EWRAM bn::regular_bg_map_cell bg_map::cells[bg_map::cells_count];
+    // Initialize static cells array in regular memory
+    bn::regular_bg_map_cell bg_map::cells[bg_map::cells_count];
 
     World::World() : _player(nullptr),
                      _level(nullptr),
@@ -413,6 +417,10 @@ namespace fe
         internal_window.set_show_bg(*_sword_bg, true);
         internal_window.set_boundaries(-SWORD_HALF_WIDTH, -SWORD_HALF_HEIGHT, SWORD_HALF_WIDTH, SWORD_HALF_HEIGHT);
 
+        // Remove the debug zones background entirely - it was causing illegal instruction
+        // We'll use the original tile-based approach but with better zone positioning
+        // _debug_zones_bg = ... (removed)
+
         // Priority will be set in the update loop based on player position
 
         // Initialize minimap in top-right corner
@@ -456,11 +464,9 @@ namespace fe
                 bool new_debug_state = !_debug_enabled;
                 _debug_enabled = new_debug_state;
 
-                // Refresh all zone visibility for visual debugging (not collision)
+                // Use the original tile-based approach with the fixed merchant zone positioning
                 bn::optional<bn::fixed_point> merchant_pos = _merchant ? bn::optional<bn::fixed_point>(_merchant->pos()) : bn::nullopt;
                 bg_map_obj.refresh_all_zones(new_debug_state, _merchant != nullptr, merchant_pos);
-
-                // Reload the background to reflect changes
                 bg_map_ptr.reload_cells_ref();
             }
 
@@ -476,10 +482,9 @@ namespace fe
                 // Update Level system with merchant position for tile-based collision
                 fe::ZoneManager::set_merchant_zone_center(_merchant->pos());
 
-                // Update merchant zone visual tiles if debug mode is enabled
+                // Update debug zones background if debug mode is enabled
                 if (_debug_enabled)
                 {
-                    // Update merchant zone tiles efficiently when merchant moves
                     bn::optional<bn::fixed_point> merchant_pos = bn::optional<bn::fixed_point>(_merchant->pos());
                     if (bg_map_obj.update_merchant_zone(true, true, merchant_pos))
                     {
@@ -601,6 +606,18 @@ namespace fe
                 {
                     // No need to clear debug markers for tile-based system - tiles are reset during refresh_all_zones
                     _enemy_debug_hitboxes.resize(required_hitboxes);
+                }
+
+                // Add enemy hitbox markers - now using tile-based markers
+                for (size_t i = 0; i < _enemies.size() && i < _enemy_debug_hitboxes.size(); ++i)
+                {
+                    // Create enemy hitbox with standard type
+                    _enemy_debug_hitboxes[i] = fe::Hitbox(_enemies[i].pos().x(), _enemies[i].pos().y(),
+                                                          _enemies[i].get_hitbox().width(), _enemies[i].get_hitbox().height(),
+                                                          fe::HitboxType::STANDARD);
+                    bn::fixed_point enemy_top_left = _enemy_debug_hitboxes[i].pos();
+                    bn::fixed_point enemy_bottom_right = _enemy_debug_hitboxes[i].bottom_right();
+                    bg_map_obj.set_hitbox_markers_tracked(enemy_top_left, enemy_bottom_right);
                 }
 
                 // Reload the background only if hitbox markers have changed
@@ -761,18 +778,6 @@ namespace fe
                 // Enemies should ignore player if listening to NPCs OR dead
                 bool player_should_be_ignored = _player->listening() || _player->get_hp() <= 0;
                 enemy.update(_player->pos(), *_level, player_should_be_ignored);
-
-                // Update hitbox debug visualization for this enemy - now using tile-based markers
-                if (_debug_enabled && i < _enemy_debug_hitboxes.size())
-                {
-                    // Create enemy hitbox with standard type
-                    _enemy_debug_hitboxes[i] = fe::Hitbox(enemy.pos().x(), enemy.pos().y(),
-                                                          enemy.get_hitbox().width(), enemy.get_hitbox().height(),
-                                                          fe::HitboxType::STANDARD);
-                    bn::fixed_point enemy_top_left = _enemy_debug_hitboxes[i].pos();
-                    bn::fixed_point enemy_bottom_right = _enemy_debug_hitboxes[i].bottom_right();
-                    bg_map_obj.set_hitbox_markers_tracked(enemy_top_left, enemy_bottom_right);
-                }
 
                 // Check for collision with player (but not if player is dead or listening)
                 if (_player->get_hp() > 0 && !_player->listening())
