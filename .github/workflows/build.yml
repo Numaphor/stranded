@@ -75,16 +75,16 @@ jobs:
 
           echo "Step 2: Install wf-tools first"
           wf-pacman -Syu wf-tools --noconfirm
-          
+
           echo "Step 2b: Install wf-tools second time"
           wf-pacman -Syu wf-tools --noconfirm
 
           echo "Step 3: Check if wf-config is now available"
           ls -la "$WONDERFUL_TOOLCHAIN/bin/" | grep wf-config || echo "wf-config still not found"
-          
+
           echo "Step 4: Enable BlocksDS repository"
           wf-config repo enable blocksds
-          
+
           echo "Step 5: Update package manager after enabling repo"
           wf-pacman -Syu --noconfirm
 
@@ -247,11 +247,10 @@ jobs:
           RUN mkdir -p \$WONDERFUL_TOOLCHAIN \\
               && chown -R root:root \$WONDERFUL_TOOLCHAIN
 
-          # Download and extract Wonderful Toolchain bootstrap
-          RUN cd \$WONDERFUL_TOOLCHAIN \\
-              && wget -O bootstrap.tar.gz https://github.com/WonderfulToolchain/wonderful-packages/releases/latest/download/wonderful-bootstrap-linux-x86_64.tar.gz \\
-              && tar xzvf bootstrap.tar.gz \\
-              && rm bootstrap.tar.gz
+          # Copy and extract Wonderful Toolchain bootstrap
+          COPY tools/wf-bootstrap-x86_64.tar.gz /tmp/
+          RUN tar xzf /tmp/wf-bootstrap-x86_64.tar.gz -C \$WONDERFUL_TOOLCHAIN --strip-components=1 \\
+              && rm /tmp/wf-bootstrap-x86_64.tar.gz
 
           # Add toolchain to PATH
           ENV PATH="\$WONDERFUL_TOOLCHAIN/bin:\$WONDERFUL_TOOLCHAIN/toolchain/gcc-arm-none-eabi/bin:\$BLOCKSDS/tools/mmutil:\$PATH"
