@@ -247,8 +247,14 @@ jobs:
           ENV PATH="\$WONDERFUL_TOOLCHAIN/bin:\$WONDERFUL_TOOLCHAIN/toolchain/gcc-arm-none-eabi/bin:\$BLOCKSDS/tools/mmutil:\$PATH"
 
           # Install GBA development tools
-          RUN wf-pacman -Syu --noconfirm \\
-              && wf-pacman -S --noconfirm wf-tools target-gba blocksds
+          RUN export PATH="\$WONDERFUL_TOOLCHAIN/bin:\$PATH" \\
+              && pacman -S make --noconfirm \\
+              && wf-pacman -Syu wf-tools --noconfirm \\
+              && wf-pacman -Syu wf-tools --noconfirm \\
+              && wf-config repo enable blocksds \\
+              && wf-pacman -Syu --noconfirm \\
+              && wf-pacman -S target-gba --noconfirm \\
+              && wf-pacman -S blocksds-toolchain --noconfirm
 
           # Create workspace directory
           WORKDIR /workspace
