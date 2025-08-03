@@ -100,12 +100,11 @@ namespace fe
 
     bool Hitbox::is_in_sword_zone(const bn::fixed_point &position)
     {
-        using namespace hitbox_constants;
-
-        const bn::fixed zone_left = SWORD_ZONE_TILE_LEFT * TILE_SIZE - MAP_OFFSET;
-        const bn::fixed zone_right = SWORD_ZONE_TILE_RIGHT * TILE_SIZE - MAP_OFFSET;
-        const bn::fixed zone_top = SWORD_ZONE_TILE_TOP * TILE_SIZE - MAP_OFFSET;
-        const bn::fixed zone_bottom = SWORD_ZONE_TILE_BOTTOM * TILE_SIZE - MAP_OFFSET;
+        // Use centralized constants directly from fe namespace
+        const bn::fixed zone_left = fe::SWORD_ZONE_TILE_LEFT * fe::TILE_SIZE - fe::MAP_OFFSET;
+        const bn::fixed zone_right = fe::SWORD_ZONE_TILE_RIGHT * fe::TILE_SIZE - fe::MAP_OFFSET;
+        const bn::fixed zone_top = fe::SWORD_ZONE_TILE_TOP * fe::TILE_SIZE - fe::MAP_OFFSET;
+        const bn::fixed zone_bottom = fe::SWORD_ZONE_TILE_BOTTOM * fe::TILE_SIZE - fe::MAP_OFFSET;
 
         return position.x() >= zone_left && position.x() < zone_right &&
                position.y() >= zone_top && position.y() < zone_bottom;
@@ -135,12 +134,14 @@ namespace fe
 
     Hitbox Hitbox::create_player_hitbox(bn::fixed_point position)
     {
+        // Use hitbox constants from the nested namespace
         using namespace hitbox_constants;
         return Hitbox(position.x(), position.y(), PLAYER_HITBOX_WIDTH, PLAYER_HITBOX_HEIGHT, HitboxType::PLAYER);
     }
 
     Hitbox Hitbox::create_merchant_collision_zone(bn::fixed_point center)
     {
+        // Use hitbox constants from the nested namespace
         using namespace hitbox_constants;
         bn::fixed_point position = calculate_centered_position(center, MERCHANT_COLLISION_WIDTH, MERCHANT_COLLISION_HEIGHT);
         return Hitbox(position.x(), position.y(), MERCHANT_COLLISION_WIDTH, MERCHANT_COLLISION_HEIGHT, HitboxType::MERCHANT_COLLISION);
@@ -148,6 +149,7 @@ namespace fe
 
     Hitbox Hitbox::create_merchant_interaction_zone(bn::fixed_point center)
     {
+        // Use hitbox constants from the nested namespace
         using namespace hitbox_constants;
         bn::fixed_point position = calculate_centered_position(center, MERCHANT_INTERACTION_WIDTH, MERCHANT_INTERACTION_HEIGHT);
         return Hitbox(position.x(), position.y(), MERCHANT_INTERACTION_WIDTH, MERCHANT_INTERACTION_HEIGHT, HitboxType::MERCHANT_INTERACTION);
@@ -155,12 +157,11 @@ namespace fe
 
     Hitbox Hitbox::create_sword_zone()
     {
-        using namespace hitbox_constants;
-
-        const bn::fixed zone_left = SWORD_ZONE_TILE_LEFT * TILE_SIZE - MAP_OFFSET;
-        const bn::fixed zone_top = SWORD_ZONE_TILE_TOP * TILE_SIZE - MAP_OFFSET;
-        const bn::fixed width = (SWORD_ZONE_TILE_RIGHT - SWORD_ZONE_TILE_LEFT) * TILE_SIZE;
-        const bn::fixed height = (SWORD_ZONE_TILE_BOTTOM - SWORD_ZONE_TILE_TOP) * TILE_SIZE;
+        // Use centralized constants directly from fe namespace
+        const bn::fixed zone_left = fe::SWORD_ZONE_TILE_LEFT * fe::TILE_SIZE - fe::MAP_OFFSET;
+        const bn::fixed zone_top = fe::SWORD_ZONE_TILE_TOP * fe::TILE_SIZE - fe::MAP_OFFSET;
+        const bn::fixed width = (fe::SWORD_ZONE_TILE_RIGHT - fe::SWORD_ZONE_TILE_LEFT) * fe::TILE_SIZE;
+        const bn::fixed height = (fe::SWORD_ZONE_TILE_BOTTOM - fe::SWORD_ZONE_TILE_TOP) * fe::TILE_SIZE;
 
         return Hitbox(zone_left, zone_top, width, height, HitboxType::SWORD_ZONE);
     }
@@ -169,6 +170,7 @@ namespace fe
 
     Hitbox::MarkerOffsetConfig Hitbox::get_marker_config() const
     {
+        // Use hitbox constants from the nested namespace
         using namespace hitbox_constants;
 
         switch (_type)

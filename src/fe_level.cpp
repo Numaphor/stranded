@@ -1,4 +1,5 @@
 #include "fe_level.h"
+#include "fe_constants.h"
 
 #include "bn_regular_bg_ptr.h"
 #include "bn_regular_bg_map_ptr.h"
@@ -14,10 +15,10 @@ namespace fe
     {
         _bg_map_ptr = bg;
         _floor_tiles = {};
-        // Initialize _zone_tiles and add default zone tiles
+        // Initialize _zone_tiles and add default zone tiles using centralized constants
         _zone_tiles.clear();
-        _zone_tiles.push_back(3); // Tile index 3 is used for all hitbox zones (sword zone, merchant collision)
-        _zone_tiles.push_back(4); // Tile index 4 is used for all interaction zones (merchant interaction)
+        _zone_tiles.push_back(COLLISION_ZONE_TILE_INDEX);   // Tile index for all hitbox zones (sword zone, merchant collision)
+        _zone_tiles.push_back(INTERACTION_ZONE_TILE_INDEX); // Tile index for all interaction zones (merchant interaction)
 
         bn::span<const bn::regular_bg_map_cell> cells = bg.cells_ref().value();
 
@@ -69,19 +70,15 @@ namespace fe
 
     bool Level::is_in_sword_zone(const bn::fixed_point &position) const
     {
-        // Define sword zone tile coordinates and map offset
-        constexpr int sword_zone_tile_left = 147;
-        constexpr int sword_zone_tile_right = 157; // exclusive upper bound
-        constexpr int sword_zone_tile_top = 162;
-        constexpr int sword_zone_tile_bottom = 166; // exclusive upper bound
-        constexpr int tile_size = 8;
-        constexpr int map_offset = 1280;
+        // Use centralized constants
+        constexpr int tile_size = TILE_SIZE;
+        constexpr int map_offset = MAP_OFFSET;
 
         // Calculate world coordinates from tile coordinates
-        const bn::fixed zone_left = sword_zone_tile_left * tile_size - map_offset;
-        const bn::fixed zone_right = sword_zone_tile_right * tile_size - map_offset;
-        const bn::fixed zone_top = sword_zone_tile_top * tile_size - map_offset;
-        const bn::fixed zone_bottom = sword_zone_tile_bottom * tile_size - map_offset;
+        const bn::fixed zone_left = SWORD_ZONE_TILE_LEFT * tile_size - map_offset;
+        const bn::fixed zone_right = SWORD_ZONE_TILE_RIGHT * tile_size - map_offset;
+        const bn::fixed zone_top = SWORD_ZONE_TILE_TOP * tile_size - map_offset;
+        const bn::fixed zone_bottom = SWORD_ZONE_TILE_BOTTOM * tile_size - map_offset;
 
         return position.x() >= zone_left && position.x() < zone_right &&
                position.y() >= zone_top && position.y() < zone_bottom;

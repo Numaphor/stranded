@@ -2,6 +2,8 @@
 #include "fe_collision.h"
 #include "fe_npc.h"
 #include "fe_hitbox.h"
+#include "fe_level.h"
+#include "fe_constants.h"
 #include "bn_core.h"
 #include "bn_keypad.h"
 #include "bn_sprite_builder.h"
@@ -30,18 +32,12 @@ namespace fe
 {
     Level *_level = nullptr;
 
-    // Centralized sword dimensions
-    constexpr int SWORD_WIDTH = 256; // Adjust as needed for your sword sprite size
-    constexpr int SWORD_HEIGHT = 256;
-    constexpr int SWORD_HALF_WIDTH = SWORD_WIDTH / 2;
-    constexpr int SWORD_HALF_HEIGHT = SWORD_HEIGHT / 2;
-
     // Correct macro placement
     struct bg_map
     {
-        static const int columns = 320;
-        static const int rows = 320;
-        static const int cells_count = columns * rows;
+        static const int columns = MAP_COLUMNS;
+        static const int rows = MAP_ROWS;
+        static const int cells_count = MAP_CELLS_COUNT;
 
         // Explicitly place in EWRAM
         BN_DATA_EWRAM static bn::regular_bg_map_cell cells[cells_count];
@@ -72,16 +68,16 @@ namespace fe
         // Method to show/hide zone tiles for collision and debug visualization
         void set_zone_visible(bool visible)
         {
-            int tile_index = visible ? 3 : _background_tile; // Use tile 3 for sword zone when visible (same as other hitbox zones), background tile when hidden
+            int tile_index = visible ? COLLISION_ZONE_TILE_INDEX : _background_tile; // Use centralized tile index for collision zones
 
-            // Use the EXACT same sword zone tile coordinates as defined in Level::is_in_sword_zone
+            // Use the centralized sword zone tile coordinates
             // This ensures perfect alignment between visual tiles and collision detection
-            constexpr int sword_zone_tile_left = 147;
-            constexpr int sword_zone_tile_right = 157; // exclusive upper bound
-            constexpr int sword_zone_tile_top = 162;
-            constexpr int sword_zone_tile_bottom = 166; // exclusive upper bound
+            constexpr int sword_zone_tile_left = SWORD_ZONE_TILE_LEFT;
+            constexpr int sword_zone_tile_right = SWORD_ZONE_TILE_RIGHT; // exclusive upper bound
+            constexpr int sword_zone_tile_top = SWORD_ZONE_TILE_TOP;
+            constexpr int sword_zone_tile_bottom = SWORD_ZONE_TILE_BOTTOM; // exclusive upper bound
 
-            // Set tiles for the sword zone area using the exact same coordinates as collision
+            // Set tiles for the sword zone area using the centralized coordinates
             for (int x = sword_zone_tile_left; x < sword_zone_tile_right; x++)
             {
                 for (int y = sword_zone_tile_top; y < sword_zone_tile_bottom; y++)
@@ -95,16 +91,16 @@ namespace fe
         // Method to show/hide merchant interaction zone tiles (100x100) for debug visualization only
         void set_merchant_interaction_zone_visible(bool visible, const bn::fixed_point &merchant_center)
         {
-            int tile_index = visible ? 4 : _background_tile; // Use tile 4 for interaction zone
+            int tile_index = visible ? INTERACTION_ZONE_TILE_INDEX : _background_tile; // Use centralized tile index for interaction zones
 
-            // Use the same coordinate system as the hitbox debug system
-            constexpr int tile_size = 8;
-            const int map_offset_x = (columns * 4); // Same as hitbox debug: map_width * 4
-            const int map_offset_y = (rows * 4);    // Same as hitbox debug: map_height * 4
+            // Use centralized constants for coordinate system calculations
+            constexpr int tile_size = TILE_SIZE;
+            const int map_offset_x = MAP_OFFSET_X;
+            const int map_offset_y = MAP_OFFSET_Y;
 
-            // Debug visualization: 100x100 pixels to match actual interaction zone
-            const bn::fixed zone_width = 100;
-            const bn::fixed zone_height = 100;
+            // Debug visualization: use centralized zone dimensions
+            const bn::fixed zone_width = MERCHANT_INTERACTION_ZONE_WIDTH;
+            const bn::fixed zone_height = MERCHANT_INTERACTION_ZONE_HEIGHT;
 
             // Calculate zone boundaries in world coordinates
             const bn::fixed zone_left = merchant_center.x() - zone_width / 2;
@@ -138,16 +134,16 @@ namespace fe
         // Method to show/hide merchant hitbox zone tiles (24x24) for debug visualization only
         void set_merchant_hitbox_zone_visible(bool visible, const bn::fixed_point &merchant_center)
         {
-            int tile_index = visible ? 3 : _background_tile; // Use tile 3 for hitbox zone
+            int tile_index = visible ? COLLISION_ZONE_TILE_INDEX : _background_tile; // Use centralized tile index for collision zones
 
-            // Use the same coordinate system as the hitbox debug system
-            constexpr int tile_size = 8;
-            const int map_offset_x = (columns * 4); // Same as hitbox debug: map_width * 4
-            const int map_offset_y = (rows * 4);    // Same as hitbox debug: map_height * 4
+            // Use centralized constants for coordinate system calculations
+            constexpr int tile_size = TILE_SIZE;
+            const int map_offset_x = MAP_OFFSET_X;
+            const int map_offset_y = MAP_OFFSET_Y;
 
-            // Debug visualization: 24x24 pixels for tile-based collision zone (shown smaller for clarity)
-            const bn::fixed zone_width = 24;
-            const bn::fixed zone_height = 24;
+            // Debug visualization: use centralized zone dimensions
+            const bn::fixed zone_width = MERCHANT_COLLISION_ZONE_WIDTH;
+            const bn::fixed zone_height = MERCHANT_COLLISION_ZONE_HEIGHT;
 
             // Calculate zone boundaries in world coordinates
             const bn::fixed zone_left = merchant_center.x() - zone_width / 2;

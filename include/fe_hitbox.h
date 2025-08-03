@@ -7,30 +7,26 @@
 #include "bn_camera_ptr.h"
 #include "bn_optional.h"
 #include "bn_vector.h"
+#include "fe_constants.h"
 
 namespace fe
 {
-    // Comprehensive hitbox system constants - centralized from all scattered locations
+    // Comprehensive hitbox system constants - using centralized constants from fe_constants.h
     namespace hitbox_constants
     {
-        // Standard sprite dimensions
+        // Standard sprite dimensions (these are hitbox-specific, not in fe_constants.h)
         constexpr bn::fixed PLAYER_HITBOX_WIDTH = 8;
         constexpr bn::fixed PLAYER_HITBOX_HEIGHT = 16;
         constexpr bn::fixed MARKER_SPRITE_SIZE = 4;
 
-        // Zone dimensions (from Level class)
-        constexpr bn::fixed MERCHANT_COLLISION_WIDTH = 24;     // Small physical collision zone
-        constexpr bn::fixed MERCHANT_COLLISION_HEIGHT = 24;    // Small physical collision zone
-        constexpr bn::fixed MERCHANT_INTERACTION_WIDTH = 100;  // Large interaction trigger zone
-        constexpr bn::fixed MERCHANT_INTERACTION_HEIGHT = 100; // Large interaction trigger zone
+        // Zone dimensions (using centralized constants from fe_constants.h)
+        constexpr bn::fixed MERCHANT_COLLISION_WIDTH = MERCHANT_COLLISION_ZONE_WIDTH;
+        constexpr bn::fixed MERCHANT_COLLISION_HEIGHT = MERCHANT_COLLISION_ZONE_HEIGHT;
+        constexpr bn::fixed MERCHANT_INTERACTION_WIDTH = MERCHANT_INTERACTION_ZONE_WIDTH;
+        constexpr bn::fixed MERCHANT_INTERACTION_HEIGHT = MERCHANT_INTERACTION_ZONE_HEIGHT;
 
-        // Sword zone tile coordinates (from Level and Scene World)
-        constexpr int SWORD_ZONE_TILE_LEFT = 147;
-        constexpr int SWORD_ZONE_TILE_RIGHT = 157; // exclusive upper bound
-        constexpr int SWORD_ZONE_TILE_TOP = 162;
-        constexpr int SWORD_ZONE_TILE_BOTTOM = 166; // exclusive upper bound
-        constexpr int TILE_SIZE = 8;
-        constexpr int MAP_OFFSET = 1280;
+        // Note: Tile system constants are accessed directly from fe:: namespace
+        // (SWORD_ZONE_TILE_*, TILE_SIZE, MAP_OFFSET, etc.)
     }
 
     enum class directions
@@ -66,7 +62,7 @@ namespace fe
         friend class Collision;
 
         // === CORE HITBOX FUNCTIONALITY ===
-        void get_collision_points(bn::fixed_point pos, fe::directions direction, bn::fixed_point points[4]) const;
+        void get_collision_points(bn::fixed_point pos, directions direction, bn::fixed_point points[4]) const;
 
         // Check if this hitbox collides with another hitbox
         [[nodiscard]] bool collides_with(const Hitbox &other) const

@@ -7,6 +7,7 @@
 #include "bn_fixed_point.h"
 #include "bn_optional.h"
 #include "bn_size.h" // Add the size header
+#include "fe_constants.h"
 
 namespace fe
 {
@@ -23,15 +24,15 @@ namespace fe
         // Merchant zones (independent of visual tiles)
         bn::optional<bn::fixed_point> _merchant_zone_center;
 
-        // Physical collision zone (24x24)
-        bn::fixed _merchant_zone_width = 24;  // Small physical collision zone
-        bn::fixed _merchant_zone_height = 24; // Small physical collision zone
-        bool _merchant_zone_enabled = true;   // Allow disabling during conversations
+        // Physical collision zone (24x24) - use centralized constants
+        bn::fixed _merchant_zone_width = MERCHANT_COLLISION_ZONE_WIDTH;
+        bn::fixed _merchant_zone_height = MERCHANT_COLLISION_ZONE_HEIGHT;
+        bool _merchant_zone_enabled = true; // Allow disabling during conversations
         bool is_in_hitbox_zone(const bn::fixed_point &position) const;
 
-        // Interaction zone (100x100) - tile-based like collision zone
-        bn::fixed _merchant_interaction_zone_width = 100;  // Large interaction trigger zone
-        bn::fixed _merchant_interaction_zone_height = 100; // Large interaction trigger zone
+        // Interaction zone (100x100) - use centralized constants
+        bn::fixed _merchant_interaction_zone_width = MERCHANT_INTERACTION_ZONE_WIDTH;
+        bn::fixed _merchant_interaction_zone_height = MERCHANT_INTERACTION_ZONE_HEIGHT;
 
     public:
         Level() = default; // Now this is valid since _bg_map_ptr is optional
