@@ -80,7 +80,7 @@ jobs:
           ls -la "$WONDERFUL_TOOLCHAIN/bin/" | grep wf-config || echo "wf-config still not found"
 
           echo "Step 4: Install GBA development packages"
-          wf-pacman -S --noconfirm target-gba
+          wf-pacman -S --noconfirm target-gba blocksds
 
           echo "Step 5: Check available packages"
           wf-pacman -Sl | grep -i gba || echo "Listing all available packages"
@@ -232,12 +232,16 @@ jobs:
           # Set up Wonderful Toolchain
           ENV WONDERFUL_TOOLCHAIN=/opt/wonderful
           ENV BLOCKSDS=/opt/wonderful/thirdparty/blocksds/core
-          RUN mkdir -p \$WONDERFUL_TOOLCHAIN
 
-          # Copy and extract toolchain
-          COPY tools/wf-bootstrap-x86_64.tar.gz /tmp/
-          RUN tar xzf /tmp/wf-bootstrap-x86_64.tar.gz -C \$WONDERFUL_TOOLCHAIN --strip-components=1 \\
-              && rm /tmp/wf-bootstrap-x86_64.tar.gz
+          # Create and set permissions for /opt/wonderful directory
+          RUN mkdir -p \$WONDERFUL_TOOLCHAIN \\
+              && chown -R root:root \$WONDERFUL_TOOLCHAIN
+
+          # Download and extract Wonderful Toolchain bootstrap
+          RUN cd \$WONDERFUL_TOOLCHAIN \\
+              && wget -O bootstrap.tar.gz https://github.com/WonderfulToolchain/wonderful-packages/releases/latest/download/wonderful-bootstrap-linux-x86_64.tar.gz \\
+              && tar xzvf bootstrap.tar.gz \\
+              && rm bootstrap.tar.gz
 
           # Add toolchain to PATH
           ENV PATH="\$WONDERFUL_TOOLCHAIN/bin:\$WONDERFUL_TOOLCHAIN/toolchain/gcc-arm-none-eabi/bin:\$BLOCKSDS/tools/mmutil:\$PATH"
