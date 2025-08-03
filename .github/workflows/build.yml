@@ -251,6 +251,9 @@ jobs:
           # Copy entire project
           COPY . /workspace/
           
+          # Initialize and update git submodules (for Butano engine)
+          RUN git submodule update --init --recursive
+          
           # Pre-build the ROM to verify environment
           RUN make clean && make -j8
           
