@@ -86,6 +86,20 @@ namespace fe
                     cells[cell_index] = bn::regular_bg_map_cell(tile_index);
                 }
             }
+
+            // Add zone markers at corners if visible
+            if (visible)
+            {
+                // Add left marker at top-left corner
+                int tl_cell_index = sword_zone_tile_left + sword_zone_tile_top * columns;
+                cells[tl_cell_index] = bn::regular_bg_map_cell(LEFT_MARKER_TILE_INDEX);
+
+                // Add right marker at bottom-right corner (exclusive bounds, so subtract 1)
+                int br_x = sword_zone_tile_right - 1;
+                int br_y = sword_zone_tile_bottom - 1;
+                int br_cell_index = br_x + br_y * columns;
+                cells[br_cell_index] = bn::regular_bg_map_cell(RIGHT_MARKER_TILE_INDEX);
+            }
         }
 
         // Method to show/hide merchant interaction zone tiles (100x100) for debug visualization only
@@ -129,6 +143,18 @@ namespace fe
                     cells[cell_index] = bn::regular_bg_map_cell(tile_index);
                 }
             }
+
+            // Add zone markers at corners if visible
+            if (visible)
+            {
+                // Add left marker at top-left corner
+                int tl_cell_index = tile_left + tile_top * columns;
+                cells[tl_cell_index] = bn::regular_bg_map_cell(LEFT_MARKER_TILE_INDEX);
+
+                // Add right marker at bottom-right corner
+                int br_cell_index = tile_right + tile_bottom * columns;
+                cells[br_cell_index] = bn::regular_bg_map_cell(RIGHT_MARKER_TILE_INDEX);
+            }
         }
 
         // Method to show/hide merchant hitbox zone tiles (24x24) for debug visualization only
@@ -171,6 +197,18 @@ namespace fe
                     int cell_index = x + y * columns;
                     cells[cell_index] = bn::regular_bg_map_cell(tile_index);
                 }
+            }
+
+            // Add zone markers at corners if visible
+            if (visible)
+            {
+                // Add left marker at top-left corner
+                int tl_cell_index = tile_left + tile_top * columns;
+                cells[tl_cell_index] = bn::regular_bg_map_cell(LEFT_MARKER_TILE_INDEX);
+
+                // Add right marker at bottom-right corner
+                int br_cell_index = tile_right + tile_bottom * columns;
+                cells[br_cell_index] = bn::regular_bg_map_cell(RIGHT_MARKER_TILE_INDEX);
             }
         }
 
@@ -462,20 +500,6 @@ namespace fe
                 _player_debug_hitbox = fe::Hitbox::create_player_hitbox(_player->pos());
                 _player_debug_hitbox.create_debug_markers(*_camera, true);
 
-                // Create/update sword zone debug hitbox
-                _sword_zone_debug_hitbox = fe::Hitbox::create_sword_zone();
-                _sword_zone_debug_hitbox.create_debug_markers(*_camera, true);
-
-                // Create/update merchant zone debug hitboxes if merchant is present
-                if (_merchant)
-                {
-                    _merchant_collision_debug_hitbox = fe::Hitbox::create_merchant_collision_zone(_merchant->pos());
-                    _merchant_collision_debug_hitbox.create_debug_markers(*_camera, true);
-
-                    _merchant_interaction_debug_hitbox = fe::Hitbox::create_merchant_interaction_zone(_merchant->pos());
-                    _merchant_interaction_debug_hitbox.create_debug_markers(*_camera, true);
-                }
-
                 // Maintain a pool of reusable enemy debug hitboxes
                 size_t required_hitboxes = _enemies.size();
                 if (_enemy_debug_hitboxes.size() < required_hitboxes)
@@ -497,7 +521,6 @@ namespace fe
             {
                 // Clear all debug markers when debug is disabled
                 _player_debug_hitbox.clear_debug_markers();
-                _sword_zone_debug_hitbox.clear_debug_markers();
                 for (auto &enemy_hitbox : _enemy_debug_hitboxes)
                 {
                     enemy_hitbox.clear_debug_markers();
@@ -511,16 +534,6 @@ namespace fe
                 // Update player debug hitbox position efficiently
                 _player_debug_hitbox.set_position(_player->pos());
                 _player_debug_hitbox.update_debug_marker_positions();
-
-                // Update merchant debug hitbox positions efficiently if merchant exists
-                if (_merchant)
-                {
-                    _merchant_collision_debug_hitbox.set_position(_merchant->pos());
-                    _merchant_collision_debug_hitbox.update_debug_marker_positions();
-
-                    _merchant_interaction_debug_hitbox.set_position(_merchant->pos());
-                    _merchant_interaction_debug_hitbox.update_debug_marker_positions();
-                }
 
                 // Update enemy debug hitbox positions efficiently
                 for (size_t i = 0; i < _enemies.size() && i < _enemy_debug_hitboxes.size(); ++i)
