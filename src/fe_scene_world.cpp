@@ -174,6 +174,90 @@ namespace fe
             }
         }
 
+        // Method to show/hide hitbox markers (top-left and bottom-right tiles) for debug visualization
+        void set_hitbox_markers_visible(bool visible, const bn::fixed_point &top_left_pos, const bn::fixed_point &bottom_right_pos)
+        {
+            // Use centralized constants for coordinate system calculations
+            constexpr int tile_size = TILE_SIZE;
+            const int map_offset_x = MAP_OFFSET_X;
+            const int map_offset_y = MAP_OFFSET_Y;
+
+            // Convert world coordinates to tile coordinates
+            int top_left_tile_x = ((top_left_pos.x() + map_offset_x) / tile_size).integer();
+            int top_left_tile_y = ((top_left_pos.y() + map_offset_y) / tile_size).integer();
+            int bottom_right_tile_x = ((bottom_right_pos.x() + map_offset_x) / tile_size).integer();
+            int bottom_right_tile_y = ((bottom_right_pos.y() + map_offset_y) / tile_size).integer();
+
+            // Clamp to map bounds
+            top_left_tile_x = bn::max(0, bn::min(columns - 1, top_left_tile_x));
+            top_left_tile_y = bn::max(0, bn::min(rows - 1, top_left_tile_y));
+            bottom_right_tile_x = bn::max(0, bn::min(columns - 1, bottom_right_tile_x));
+            bottom_right_tile_y = bn::max(0, bn::min(rows - 1, bottom_right_tile_y));
+
+            // Set top-left marker
+            int top_left_index = top_left_tile_x + top_left_tile_y * columns;
+            int top_left_tile_index = visible ? LEFT_MARKER_TILE_INDEX : _background_tile;
+            cells[top_left_index] = bn::regular_bg_map_cell(top_left_tile_index);
+
+            // Set bottom-right marker
+            int bottom_right_index = bottom_right_tile_x + bottom_right_tile_y * columns;
+            int bottom_right_tile_index = visible ? RIGHT_MARKER_TILE_INDEX : _background_tile;
+            cells[bottom_right_index] = bn::regular_bg_map_cell(bottom_right_tile_index);
+        }
+
+        // Tracking for current hitbox markers to enable efficient clearing
+        struct HitboxMarkerPosition
+        {
+            int tile_x, tile_y;
+            HitboxMarkerPosition(int x, int y) : tile_x(x), tile_y(y) {}
+        };
+        bn::vector<HitboxMarkerPosition, 64> _current_markers; // Track current markers
+
+        // Clear all current hitbox markers
+        void clear_hitbox_markers()
+        {
+            for (const auto &marker : _current_markers)
+            {
+                int cell_index = marker.tile_x + marker.tile_y * columns;
+                cells[cell_index] = bn::regular_bg_map_cell(_background_tile);
+            }
+            _current_markers.clear();
+        }
+
+        // Set hitbox markers and track positions for efficient clearing
+        void set_hitbox_markers_tracked(const bn::fixed_point &top_left_pos, const bn::fixed_point &bottom_right_pos)
+        {
+            // Use centralized constants for coordinate system calculations
+            constexpr int tile_size = TILE_SIZE;
+            const int map_offset_x = MAP_OFFSET_X;
+            const int map_offset_y = MAP_OFFSET_Y;
+
+            // Convert world coordinates to tile coordinates
+            int top_left_tile_x = ((top_left_pos.x() + map_offset_x) / tile_size).integer();
+            int top_left_tile_y = ((top_left_pos.y() + map_offset_y) / tile_size).integer();
+            int bottom_right_tile_x = ((bottom_right_pos.x() + map_offset_x) / tile_size).integer();
+            int bottom_right_tile_y = ((bottom_right_pos.y() + map_offset_y) / tile_size).integer();
+
+            // Clamp to map bounds
+            top_left_tile_x = bn::max(0, bn::min(columns - 1, top_left_tile_x));
+            top_left_tile_y = bn::max(0, bn::min(rows - 1, top_left_tile_y));
+            bottom_right_tile_x = bn::max(0, bn::min(columns - 1, bottom_right_tile_x));
+            bottom_right_tile_y = bn::max(0, bn::min(rows - 1, bottom_right_tile_y));
+
+            // Set top-left marker
+            int top_left_index = top_left_tile_x + top_left_tile_y * columns;
+            cells[top_left_index] = bn::regular_bg_map_cell(LEFT_MARKER_TILE_INDEX);
+            _current_markers.push_back(HitboxMarkerPosition(top_left_tile_x, top_left_tile_y));
+
+            // Set bottom-right marker (only if different from top-left)
+            if (top_left_tile_x != bottom_right_tile_x || top_left_tile_y != bottom_right_tile_y)
+            {
+                int bottom_right_index = bottom_right_tile_x + bottom_right_tile_y * columns;
+                cells[bottom_right_index] = bn::regular_bg_map_cell(RIGHT_MARKER_TILE_INDEX);
+                _current_markers.push_back(HitboxMarkerPosition(bottom_right_tile_x, bottom_right_tile_y));
+            }
+        }
+
         // Method to refresh all zone tiles based on current debug state and active zones
         void refresh_all_zones(bool debug_enabled, bool has_merchant = false, bn::optional<bn::fixed_point> merchant_pos = bn::nullopt)
         {
@@ -458,22 +542,33 @@ namespace fe
             // Update hitbox debug visualization for player
             if (_debug_enabled)
             {
-                // Create/update player debug hitbox
+                // Clear previous hitbox markers before setting new ones
+                bg_map_obj.clear_hitbox_markers();
+
+                // Create/update player debug hitbox - now using tile-based markers
                 _player_debug_hitbox = fe::Hitbox::create_player_hitbox(_player->pos());
-                _player_debug_hitbox.create_debug_markers(*_camera, true);
+                bn::fixed_point player_top_left = _player_debug_hitbox.pos();
+                bn::fixed_point player_bottom_right = _player_debug_hitbox.bottom_right();
+                bg_map_obj.set_hitbox_markers_tracked(player_top_left, player_bottom_right);
 
-                // Create/update sword zone debug hitbox
+                // Create/update sword zone debug hitbox - now using tile-based markers
                 _sword_zone_debug_hitbox = fe::Hitbox::create_sword_zone();
-                _sword_zone_debug_hitbox.create_debug_markers(*_camera, true);
+                bn::fixed_point sword_top_left = _sword_zone_debug_hitbox.pos();
+                bn::fixed_point sword_bottom_right = _sword_zone_debug_hitbox.bottom_right();
+                bg_map_obj.set_hitbox_markers_tracked(sword_top_left, sword_bottom_right);
 
-                // Create/update merchant zone debug hitboxes if merchant is present
+                // Create/update merchant zone debug hitboxes if merchant is present - now using tile-based markers
                 if (_merchant)
                 {
                     _merchant_collision_debug_hitbox = fe::Hitbox::create_merchant_collision_zone(_merchant->pos());
-                    _merchant_collision_debug_hitbox.create_debug_markers(*_camera, true);
+                    bn::fixed_point merchant_collision_top_left = _merchant_collision_debug_hitbox.pos();
+                    bn::fixed_point merchant_collision_bottom_right = _merchant_collision_debug_hitbox.bottom_right();
+                    bg_map_obj.set_hitbox_markers_tracked(merchant_collision_top_left, merchant_collision_bottom_right);
 
                     _merchant_interaction_debug_hitbox = fe::Hitbox::create_merchant_interaction_zone(_merchant->pos());
-                    _merchant_interaction_debug_hitbox.create_debug_markers(*_camera, true);
+                    bn::fixed_point merchant_interaction_top_left = _merchant_interaction_debug_hitbox.pos();
+                    bn::fixed_point merchant_interaction_bottom_right = _merchant_interaction_debug_hitbox.bottom_right();
+                    bg_map_obj.set_hitbox_markers_tracked(merchant_interaction_top_left, merchant_interaction_bottom_right);
                 }
 
                 // Maintain a pool of reusable enemy debug hitboxes
@@ -485,42 +580,24 @@ namespace fe
                 }
                 else if (_enemy_debug_hitboxes.size() > required_hitboxes)
                 {
-                    // Clear debug markers for unused hitboxes
-                    for (size_t i = required_hitboxes; i < _enemy_debug_hitboxes.size(); ++i)
-                    {
-                        _enemy_debug_hitboxes[i].clear_debug_markers();
-                    }
+                    // No need to clear debug markers for tile-based system - tiles are reset during refresh_all_zones
                     _enemy_debug_hitboxes.resize(required_hitboxes);
                 }
+
+                // Reload the background to reflect hitbox marker changes
+                bg_map_ptr.reload_cells_ref();
             }
             else
             {
-                // Clear all debug markers when debug is disabled
-                _player_debug_hitbox.clear_debug_markers();
-                _sword_zone_debug_hitbox.clear_debug_markers();
-                for (auto &enemy_hitbox : _enemy_debug_hitboxes)
-                {
-                    enemy_hitbox.clear_debug_markers();
-                }
-                // Do not clear the vector, keep the pool for reuse
+                // Clear all debug markers when debug is disabled - this is handled by refresh_all_zones when debug is disabled
+                // refresh_all_zones resets all tiles to background, which clears hitbox markers
             }
 
             // Update debug hitbox positions if debug mode is enabled
             if (_debug_enabled)
             {
-                // Update player debug hitbox position efficiently
-                _player_debug_hitbox.set_position(_player->pos());
-                _player_debug_hitbox.update_debug_marker_positions();
-
-                // Update merchant debug hitbox positions efficiently if merchant exists
-                if (_merchant)
-                {
-                    _merchant_collision_debug_hitbox.set_position(_merchant->pos());
-                    _merchant_collision_debug_hitbox.update_debug_marker_positions();
-
-                    _merchant_interaction_debug_hitbox.set_position(_merchant->pos());
-                    _merchant_interaction_debug_hitbox.update_debug_marker_positions();
-                }
+                // For tile-based system, positions are updated on each frame in the debug visualization section above
+                // No need for separate position updates since we recalculate markers each frame
 
                 // Update enemy debug hitbox positions efficiently
                 for (size_t i = 0; i < _enemies.size() && i < _enemy_debug_hitboxes.size(); ++i)
@@ -663,14 +740,16 @@ namespace fe
                 bool player_should_be_ignored = _player->listening() || _player->get_hp() <= 0;
                 enemy.update(_player->pos(), *_level, player_should_be_ignored);
 
-                // Update hitbox debug visualization for this enemy
+                // Update hitbox debug visualization for this enemy - now using tile-based markers
                 if (_debug_enabled && i < _enemy_debug_hitboxes.size())
                 {
                     // Create enemy hitbox with standard type
                     _enemy_debug_hitboxes[i] = fe::Hitbox(enemy.pos().x(), enemy.pos().y(),
                                                           enemy.get_hitbox().width(), enemy.get_hitbox().height(),
                                                           fe::HitboxType::STANDARD);
-                    _enemy_debug_hitboxes[i].create_debug_markers(*_camera, true);
+                    bn::fixed_point enemy_top_left = _enemy_debug_hitboxes[i].pos();
+                    bn::fixed_point enemy_bottom_right = _enemy_debug_hitboxes[i].bottom_right();
+                    bg_map_obj.set_hitbox_markers_tracked(enemy_top_left, enemy_bottom_right);
                 }
 
                 // Check for collision with player (but not if player is dead or listening)
