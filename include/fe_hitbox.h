@@ -3,29 +3,34 @@
 
 #include "bn_fixed.h"
 #include "bn_fixed_point.h"
+#include "bn_sprite_ptr.h"
+#include "bn_camera_ptr.h"
+#include "bn_optional.h"
+#include "bn_vector.h"
 
 namespace fe
 {
-    // Hitbox system constants
+    // Comprehensive hitbox system constants - centralized from all scattered locations
     namespace hitbox_constants
     {
         // Standard sprite dimensions
-        constexpr bn::fixed PLAYER_HITBOX_WIDTH = 16;
-        constexpr bn::fixed PLAYER_HITBOX_HEIGHT = 32;
+        constexpr bn::fixed PLAYER_HITBOX_WIDTH = 8;
+        constexpr bn::fixed PLAYER_HITBOX_HEIGHT = 16;
         constexpr bn::fixed MARKER_SPRITE_SIZE = 4;
 
-        // Hitbox centering offsets (half of dimensions)
-        constexpr bn::fixed PLAYER_HALF_WIDTH = PLAYER_HITBOX_WIDTH / 2;   // 8
-        constexpr bn::fixed PLAYER_HALF_HEIGHT = PLAYER_HITBOX_HEIGHT / 2; // 16
+        // Zone dimensions (from Level class)
+        constexpr bn::fixed MERCHANT_COLLISION_WIDTH = 24;     // Small physical collision zone
+        constexpr bn::fixed MERCHANT_COLLISION_HEIGHT = 24;    // Small physical collision zone
+        constexpr bn::fixed MERCHANT_INTERACTION_WIDTH = 100;  // Large interaction trigger zone
+        constexpr bn::fixed MERCHANT_INTERACTION_HEIGHT = 100; // Large interaction trigger zone
 
-        // Visual adjustment offsets for debug markers
-        constexpr bn::fixed PLAYER_MARKER_X_OFFSET = 4;
-        constexpr bn::fixed PLAYER_MARKER_Y_OFFSET = 20;
-        constexpr bn::fixed MERCHANT_BASE_OFFSET = 36;
-        constexpr bn::fixed MERCHANT_X_ADJUSTMENT = 20; // 16 + 4 from original calculation
-        constexpr bn::fixed MERCHANT_Y_ADJUSTMENT = 12; // 4 + 4 + 4 from original calculation
-        constexpr bn::fixed MERCHANT_BR_X_OFFSET = 16;
-        constexpr bn::fixed MERCHANT_BR_Y_OFFSET = 8;
+        // Sword zone tile coordinates (from Level and Scene World)
+        constexpr int SWORD_ZONE_TILE_LEFT = 147;
+        constexpr int SWORD_ZONE_TILE_RIGHT = 157; // exclusive upper bound
+        constexpr int SWORD_ZONE_TILE_TOP = 162;
+        constexpr int SWORD_ZONE_TILE_BOTTOM = 166; // exclusive upper bound
+        constexpr int TILE_SIZE = 8;
+        constexpr int MAP_OFFSET = 1280;
     }
 
     enum class directions
@@ -36,19 +41,31 @@ namespace fe
         right
     };
 
-    class Collision;   // Forward declaration
-    class HitboxDebug; // Forward declaration
+    enum class HitboxType
+    {
+        STANDARD,             // Regular entity hitbox
+        PLAYER,               // Player hitbox with special marker positioning
+        MERCHANT_COLLISION,   // Merchant 24x24 collision zone
+        MERCHANT_INTERACTION, // Merchant 100x100 interaction zone
+        SWORD_ZONE,           // Sword zone (tile-based)
+        ZONE_TILES            // General zone tiles
+    };
+
+    // Forward declarations
+    class Collision;
 
     class Hitbox
     {
     public:
+        // Constructors
         Hitbox();
         Hitbox(bn::fixed x, bn::fixed y, bn::fixed width, bn::fixed height);
+        Hitbox(bn::fixed x, bn::fixed y, bn::fixed width, bn::fixed height, HitboxType type);
 
-        friend class Collision;   // Allow Collision to access private members
-        friend class HitboxDebug; // Allow HitboxDebug to access private members
+        // Friend classes for access to private members
+        friend class Collision;
 
-    public:
+        // === CORE HITBOX FUNCTIONALITY ===
         void get_collision_points(bn::fixed_point pos, fe::directions direction, bn::fixed_point points[4]) const;
 
         // Check if this hitbox collides with another hitbox
@@ -78,24 +95,139 @@ namespace fe
             return bn::fixed_point(center_point.x() - width / 2, center_point.y() - height / 2);
         }
 
-    public:
+        // === ZONE MANAGEMENT (from Level class) ===
+
+        // Check if a position is within this hitbox zone
+        [[nodiscard]] bool contains_point(const bn::fixed_point &position) const;
+
+        // Static zone collision methods
+        [[nodiscard]] static bool is_in_sword_zone(const bn::fixed_point &position);
+        [[nodiscard]] static bool is_in_merchant_collision_zone(const bn::fixed_point &position, const bn::fixed_point &merchant_center);
+        [[nodiscard]] static bool is_in_merchant_interaction_zone(const bn::fixed_point &position, const bn::fixed_point &merchant_center);
+
+        // === DEBUG VISUALIZATION ===
+
+        struct MarkerOffsetConfig
+        {
+            bn::fixed top_left_x;
+            bn::fixed top_left_y;
+            bn::fixed bottom_right_x;
+            bn::fixed bottom_right_y;
+
+            MarkerOffsetConfig(bn::fixed tl_x, bn::fixed tl_y, bn::fixed br_x, bn::fixed br_y)
+                : top_left_x(tl_x), top_left_y(tl_y), bottom_right_x(br_x), bottom_right_y(br_y) {}
+        };
+
+        struct DebugMarkers
+        {
+            bn::optional<bn::sprite_ptr> top_left;
+            bn::optional<bn::sprite_ptr> bottom_right;
+            bn::optional<bn::sprite_ptr> hitbox_top_left;     // For dual-area entities
+            bn::optional<bn::sprite_ptr> hitbox_bottom_right; // For dual-area entities
+
+            void clear()
+            {
+                top_left.reset();
+                bottom_right.reset();
+                hitbox_top_left.reset();
+                hitbox_bottom_right.reset();
+            }
+
+            void set_visible(bool visible)
+            {
+                if (top_left.has_value())
+                    top_left->set_visible(visible);
+                if (bottom_right.has_value())
+                    bottom_right->set_visible(visible);
+                if (hitbox_top_left.has_value())
+                    hitbox_top_left->set_visible(visible);
+                if (hitbox_bottom_right.has_value())
+                    hitbox_bottom_right->set_visible(visible);
+            }
+
+            void update_positions(bn::fixed_point tl_pos, bn::fixed_point br_pos,
+                                  bn::optional<bn::fixed_point> hitbox_tl_pos = bn::nullopt,
+                                  bn::optional<bn::fixed_point> hitbox_br_pos = bn::nullopt)
+            {
+                if (top_left.has_value())
+                    top_left->set_position(tl_pos);
+                if (bottom_right.has_value())
+                    bottom_right->set_position(br_pos);
+                if (hitbox_top_left.has_value() && hitbox_tl_pos.has_value())
+                    hitbox_top_left->set_position(*hitbox_tl_pos);
+                if (hitbox_bottom_right.has_value() && hitbox_br_pos.has_value())
+                    hitbox_bottom_right->set_position(*hitbox_br_pos);
+            }
+        };
+
+        // Debug visualization methods
+        void create_debug_markers(bn::camera_ptr camera, bool enabled = true);
+        void update_debug_markers(bool enabled);
+        void update_debug_marker_positions(); // Efficient position update without recreating sprites
+        void clear_debug_markers();
+        [[nodiscard]] MarkerOffsetConfig get_marker_config() const;
+
+        // Static factory methods for common hitbox types
+        [[nodiscard]] static Hitbox create_player_hitbox(bn::fixed_point position);
+        [[nodiscard]] static Hitbox create_merchant_collision_zone(bn::fixed_point center);
+        [[nodiscard]] static Hitbox create_merchant_interaction_zone(bn::fixed_point center);
+        [[nodiscard]] static Hitbox create_sword_zone();
+
+        // Getters and setters
         void set_x(bn::fixed x);
         void set_y(bn::fixed y);
+        void set_position(bn::fixed_point position);
+        void set_type(HitboxType type) { _type = type; }
+
+        [[nodiscard]] HitboxType get_type() const { return _type; }
+        [[nodiscard]] bn::fixed x() const { return _pos.x(); }
+        [[nodiscard]] bn::fixed y() const { return _pos.y(); }
+        [[nodiscard]] bn::fixed width() const { return _width; }
+        [[nodiscard]] bn::fixed height() const { return _height; }
+        [[nodiscard]] bn::fixed_point pos() const { return _pos; }
 
     private:
         bn::fixed_point _pos;
         bn::fixed _width;
         bn::fixed _height;
+        HitboxType _type = HitboxType::STANDARD;
 
-        [[nodiscard]] bn::fixed x() const;
-        [[nodiscard]] bn::fixed y() const;
-        [[nodiscard]] bn::fixed width() const;
-        [[nodiscard]] bn::fixed height() const;
-        [[nodiscard]] bn::fixed_point pos() const;
+        // Debug visualization
+        DebugMarkers _debug_markers;
+        bn::optional<bn::camera_ptr> _camera;
+        bool _debug_enabled = false;
 
+        // Private methods
         void set_width(bn::fixed width);
         void set_height(bn::fixed height);
+
+        // Debug marker calculation methods
+        [[nodiscard]] bn::fixed_point calculate_top_left_marker_pos(bn::fixed x_offset = 0, bn::fixed y_offset = 0) const;
+        [[nodiscard]] bn::fixed_point calculate_bottom_right_marker_pos(bn::fixed x_offset = 0, bn::fixed y_offset = 0) const;
+        [[nodiscard]] bn::sprite_ptr create_marker(bn::fixed_point position, bool rotated = false) const;
+        void update_markers_with_config(const MarkerOffsetConfig &config, bool use_hitbox_markers = false, bool enable_blending = false);
+    };
+
+    // === ZONE MANAGEMENT STATIC METHODS (replacing Level functionality) ===
+
+    class ZoneManager
+    {
+    public:
+        // Merchant zone management
+        static void set_merchant_zone_center(const bn::fixed_point &center);
+        static void clear_merchant_zone();
+        static void set_merchant_zone_enabled(bool enabled);
+
+        [[nodiscard]] static bn::optional<bn::fixed_point> get_merchant_zone_center();
+        [[nodiscard]] static bool is_merchant_zone_enabled();
+
+        // Zone validation
+        [[nodiscard]] static bool is_position_valid(const bn::fixed_point &position);
+
+    private:
+        static bn::optional<bn::fixed_point> _merchant_zone_center;
+        static bool _merchant_zone_enabled;
     };
 }
 
-#endif
+#endif // FE_HITBOX_H

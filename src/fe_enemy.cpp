@@ -294,7 +294,7 @@ namespace fe
                 check_direction = _dy > 0 ? fe::directions::down : fe::directions::up;
             }
 
-            if (fe::Collision::check_hitbox_collision_with_level(_hitbox, new_pos, check_direction, level))
+            if (fe::Collision::check_hitbox_collision_with_level(_hitbox, new_pos, check_direction))
             {
                 set_position(new_pos);
             }
@@ -309,7 +309,7 @@ namespace fe
                 {
                     bn::fixed_point x_pos(pos().x() + _dx, pos().y());
                     fe::directions x_dir = _dx > 0 ? fe::directions::right : fe::directions::left;
-                    can_move_x = fe::Collision::check_hitbox_collision_with_level(_hitbox, x_pos, x_dir, level);
+                    can_move_x = fe::Collision::check_hitbox_collision_with_level(_hitbox, x_pos, x_dir);
                 }
 
                 // Check Y movement only
@@ -317,7 +317,7 @@ namespace fe
                 {
                     bn::fixed_point y_pos(pos().x(), pos().y() + _dy);
                     fe::directions y_dir = _dy > 0 ? fe::directions::down : fe::directions::up;
-                    can_move_y = fe::Collision::check_hitbox_collision_with_level(_hitbox, y_pos, y_dir, level);
+                    can_move_y = fe::Collision::check_hitbox_collision_with_level(_hitbox, y_pos, y_dir);
                 }
 
                 // Apply movement on valid axes

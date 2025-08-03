@@ -90,6 +90,7 @@ namespace fe
         void set_dx(bn::fixed dx) { _dx = dx; }
         void set_dy(bn::fixed dy) { _dy = dy; }
         void set_action_timer(int timer) { _action_timer = timer; }
+        void set_state(State state) { _current_state = state; }
 
         // Update movement state based on current velocity
         void update_movement_state() { update_state(); }
@@ -127,6 +128,7 @@ namespace fe
 
         // Helper method to create animation ranges
         void make_anim_range(int speed, int start_frame, int end_frame);
+        void make_anim_range_once(int speed, int start_frame, int end_frame);
         bool should_change_animation(PlayerMovement::State state, PlayerMovement::Direction direction);
     };
 
@@ -265,25 +267,41 @@ namespace fe
         // Companion accessors
         [[nodiscard]] bool has_companion() const { return _companion.has_value(); }
         [[nodiscard]] PlayerCompanion *get_companion() { return _companion.has_value() ? &(*_companion) : nullptr; }
+        void kill_companion()
+        {
+            if (_companion.has_value())
+                _companion->die_independently();
+        }
 
         [[nodiscard]] int get_hp() const { return _hp; }
         void take_damage(int damage)
         {
-            if (!_state.invulnerable())
+            if (!_state.invulnerable() && _hp > 0)
             {
                 _hp -= damage;
                 if (_hp <= 0)
                 {
                     _hp = 0;
-                    _reset_required = true;
+                    // Start death animation instead of immediately requiring reset
+                    _movement.set_state(PlayerMovement::State::DEAD);
+                    _death_timer = DEATH_ANIMATION_DURATION;
+                    _death_sound_played = false; // Reset flag for death sound
+
+                    // Clear invulnerability during death to prevent blinking
+                    _state.set_invulnerable(false);
+                    _state.set_inv_timer(0);
+                }
+                else
+                {
+                    // Only set invulnerability if not dead
+                    _state.set_invulnerable(true);
+                    _state.set_inv_timer(60); // 1 second of invulnerability at 60 FPS
+
+                    // Visual feedback for taking damage (but not for death)
+                    set_visible(false);
                 }
                 _healthbar.set_hp(_hp);
                 _healthbar.update();
-                _state.set_invulnerable(true);
-                _state.set_inv_timer(60); // 1 second of invulnerability at 60 FPS
-
-                // Visual feedback for taking damage
-                set_visible(false);
             }
         }
 
@@ -294,6 +312,8 @@ namespace fe
         {
             _hp = 3;
             _reset_required = false;
+            _death_timer = 0;
+            _death_sound_played = false;
             _state.reset();
             _movement.reset();
             _abilities.reset();
@@ -302,8 +322,9 @@ namespace fe
             set_visible(true);
             _bullet_manager.clear_bullets();
 
-            // Reset companion if it exists
-            if (_companion.has_value())
+            // Don't auto-revive companion if it died independently
+            // It should stay dead until player comes close to revive it
+            if (_companion.has_value() && !_companion->is_dead_independently())
             {
                 _companion->set_visible(true);
             }
@@ -341,6 +362,9 @@ namespace fe
         PlayerAbilities _abilities;
         int _hp = 3;
         bool _reset_required = false;
+        int _death_timer = 0;
+        bool _death_sound_played = false;
+        static constexpr int DEATH_ANIMATION_DURATION = 90; // 1.5 seconds at 60 FPS
         fe::Healthbar _healthbar;
 
         // Gun sprite members
