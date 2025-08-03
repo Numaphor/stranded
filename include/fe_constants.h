@@ -40,6 +40,8 @@ namespace fe
     // Tile indices used for debug visualization
     constexpr int COLLISION_ZONE_TILE_INDEX = 3;   // For collision zones (red)
     constexpr int INTERACTION_ZONE_TILE_INDEX = 4; // For interaction zones (blue)
+    constexpr int LEFT_MARKER_TILE_INDEX = 5;      // For left markers (top)
+    constexpr int RIGHT_MARKER_TILE_INDEX = 6;     // For right markers (right)
 }
 
 #endif
