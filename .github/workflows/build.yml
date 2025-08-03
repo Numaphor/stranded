@@ -113,3 +113,70 @@ jobs:
           name: stranded-rom
           path: stranded.gba
           retention-days: 30
+
+  release:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download ROM Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: stranded-rom
+          path: ./
+
+      - name: Generate release tag
+        id: tag
+        run: |
+          # Generate a timestamp-based tag
+          TAG="v$(date +'%Y.%m.%d')-build.$(date +'%H%M%S')"
+          TIMESTAMP="$(date +'%Y-%m-%d %H:%M:%S UTC')"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "timestamp=$TIMESTAMP" >> $GITHUB_OUTPUT
+          echo "Release tag: $TAG"
+
+      - name: Get commit info
+        id: commit
+        run: |
+          COMMIT_MSG=$(git log -1 --pretty=%B)
+          COMMIT_SHA=$(git rev-parse --short HEAD)
+          echo "message<<EOF" >> $GITHUB_OUTPUT
+          echo "$COMMIT_MSG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          echo "sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: "Stranded Game Release ${{ steps.tag.outputs.tag }}"
+          body: |
+            🎮 **Stranded - Game Boy Advance ROM**
+
+            **Build Information:**
+            - Commit: ${{ steps.commit.outputs.sha }}
+            - Built: ${{ steps.tag.outputs.timestamp }}
+
+            **Latest Changes:**
+            ${{ steps.commit.outputs.message }}
+
+            **How to play:**
+            1. Download `stranded.gba`
+            2. Load in your favorite GBA emulator (mGBA recommended)
+            3. Enjoy the adventure!
+
+            ---
+            *This release was automatically generated from the main branch.*
+          files: |
+            stranded.gba
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
