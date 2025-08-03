@@ -257,7 +257,6 @@ jobs:
 
           # Install GBA development tools
           RUN export PATH="\$WONDERFUL_TOOLCHAIN/bin:\$PATH" \\
-              && pacman -S make --noconfirm \\
               && wf-pacman -Syu wf-tools --noconfirm \\
               && wf-pacman -Syu wf-tools --noconfirm \\
               && wf-config repo enable blocksds \\
