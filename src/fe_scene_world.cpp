@@ -254,10 +254,15 @@ namespace fe
                      _minimap(nullptr),
                      _sword_bg(bn::nullopt),
                      _merchant(nullptr),
+                     _player_status_display(nullptr),
                      _debug_enabled(false),
                      _camera(bn::nullopt),
                      _player_debug_hitbox(),
                      _sword_zone_debug_hitbox(),
+                     _merchant_collision_debug_hitbox(),
+                     _merchant_interaction_debug_hitbox(),
+                     _last_camera_direction(PlayerMovement::Direction::DOWN),
+                     _direction_change_frames(0),
                      _current_world_id(0)
     {
         // Create player sprite with correct shape and size
@@ -318,6 +323,10 @@ namespace fe
 
         // Create text generator for NPCs
         bn::sprite_text_generator text_generator(common::variable_8x8_sprite_font);
+
+        // Initialize player status display
+        _player_status_display = bn::make_unique<PlayerStatusDisplay>(text_generator);
+        _player_status_display->set_visible(true);
 
         // Initialize world-specific content
         _init_world_specific_content(world_id, camera, bg, text_generator);
@@ -438,6 +447,13 @@ namespace fe
             _player->update();
             _player->update_gun_position(_player->facing_direction());
 
+            // Update player status display
+            if (_player_status_display)
+            {
+                bool near_merchant = _merchant && _merchant->is_in_interaction_zone(_player->pos());
+                _player_status_display->update_status(*_player, near_merchant);
+            }
+
             // Update player z-order for proper sprite layering
             // This needs to happen every frame regardless of merchant presence
             // The player's update_z_order() method also handles companion and gun z-orders
@@ -552,10 +568,18 @@ namespace fe
             bool outside_deadzone_y = bn::abs(player_to_camera.y()) > CAMERA_DEADZONE_Y;
             bool outside_deadzone = outside_deadzone_x || outside_deadzone_y;
 
+            // Determine target position
             if (player_is_moving && outside_deadzone)
             {
                 // Player is moving and outside deadzone - apply look-ahead in facing direction
                 auto player_direction = _player->facing_direction();
+
+                // Check if direction changed
+                if (player_direction != _last_camera_direction)
+                {
+                    _direction_change_frames = CAMERA_DIRECTION_CHANGE_DURATION; // Start slow period
+                    _last_camera_direction = player_direction;
+                }
 
                 // Calculate look-ahead offset based on movement direction
                 bn::fixed_point lookahead_offset(0, 0);
@@ -583,14 +607,25 @@ namespace fe
             }
             else if (!player_is_moving)
             {
-                // Player is idle
-                _camera_target_pos = current_camera_pos;
+                // Player is idle - smoothly interpolate camera target towards player position
+                // This prevents snapping when stopping after look-ahead
+                _camera_target_pos = _camera_target_pos + (player_pos - _camera_target_pos) * CAMERA_FOLLOW_SPEED;
             }
             // If player is moving but inside deadzone, don't change camera target (stay put)
 
+            // Decrease direction change counter
+            if (_direction_change_frames > 0)
+            {
+                _direction_change_frames--;
+            }
+
+            // Choose interpolation speed based on whether we're in direction change period
+            bool in_direction_change = (_direction_change_frames > 0);
+            bn::fixed interpolation_speed = in_direction_change ? CAMERA_DIRECTION_CHANGE_SPEED : CAMERA_FOLLOW_SPEED;
+
             // Smoothly interpolate camera towards target position
             bn::fixed_point camera_offset = _camera_target_pos - current_camera_pos;
-            bn::fixed_point new_camera_pos = current_camera_pos + (camera_offset * CAMERA_FOLLOW_SPEED);
+            bn::fixed_point new_camera_pos = current_camera_pos + (camera_offset * interpolation_speed);
 
             camera.set_x(new_camera_pos.x());
             camera.set_y(new_camera_pos.y());
@@ -805,6 +840,7 @@ namespace fe
         delete _level;
         delete _minimap;
         delete _merchant;
+        // _player_status_display is unique_ptr - automatically cleaned up
     }
 
     void World::_init_world_specific_content(int world_id, bn::camera_ptr &camera, bn::regular_bg_ptr &bg, bn::sprite_text_generator &text_generator)
