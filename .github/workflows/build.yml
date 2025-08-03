@@ -74,18 +74,28 @@ jobs:
           wf-pacman -Syu --noconfirm
 
           echo "Step 2: Install wf-tools first"
-          wf-pacman -S --noconfirm wf-tools
+          wf-pacman -Syu wf-tools --noconfirm
+          
+          echo "Step 2b: Install wf-tools second time"
+          wf-pacman -Syu wf-tools --noconfirm
 
           echo "Step 3: Check if wf-config is now available"
           ls -la "$WONDERFUL_TOOLCHAIN/bin/" | grep wf-config || echo "wf-config still not found"
+          
+          echo "Step 4: Enable BlocksDS repository"
+          wf-config repo enable blocksds
+          
+          echo "Step 5: Update package manager after enabling repo"
+          wf-pacman -Syu --noconfirm
 
-          echo "Step 4: Install GBA development packages"
-          wf-pacman -S --noconfirm target-gba blocksds
+          echo "Step 6: Install GBA development packages"
+          wf-pacman -S target-gba --noconfirm
+          wf-pacman -S blocksds-toolchain --noconfirm
 
-          echo "Step 5: Check available packages"
+          echo "Step 7: Check available packages"
           wf-pacman -Sl | grep -i gba || echo "Listing all available packages"
 
-          echo "Step 6: Verify toolchain installation"
+          echo "Step 8: Verify toolchain installation"
           export PATH="$WONDERFUL_TOOLCHAIN/bin:$PATH"
           which arm-none-eabi-gcc || echo "GCC not found in PATH"
           ls -la "$WONDERFUL_TOOLCHAIN/toolchain/gcc-arm-none-eabi/bin/" || echo "Toolchain bin directory not found"
