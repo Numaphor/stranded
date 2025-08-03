@@ -537,16 +537,24 @@ namespace fe
                 _minimap->update(_player->pos(), bn::fixed_point(0, 0), _enemies);
             }
 
-            // Adaptive camera system: look-ahead when moving, center when idle
+            // Proper deadzone camera system
             bn::fixed_point player_pos = _player->pos();
             bn::fixed_point current_camera_pos = bn::fixed_point(camera.x(), camera.y());
 
             // Check if player is actively moving
             bool player_is_moving = _player->is_moving();
 
-            if (player_is_moving)
+            // Calculate distance from player to camera
+            bn::fixed_point player_to_camera = player_pos - current_camera_pos;
+
+            // Check if player is outside deadzone
+            bool outside_deadzone_x = bn::abs(player_to_camera.x()) > CAMERA_DEADZONE_X;
+            bool outside_deadzone_y = bn::abs(player_to_camera.y()) > CAMERA_DEADZONE_Y;
+            bool outside_deadzone = outside_deadzone_x || outside_deadzone_y;
+
+            if (player_is_moving && outside_deadzone)
             {
-                // Player is moving - apply look-ahead in facing direction with deadzone
+                // Player is moving and outside deadzone - apply look-ahead in facing direction
                 auto player_direction = _player->facing_direction();
 
                 // Calculate look-ahead offset based on movement direction
@@ -570,41 +578,15 @@ namespace fe
                     break;
                 }
 
-                // Calculate desired camera position (player position + look-ahead offset)
-                bn::fixed_point desired_camera_pos = player_pos + lookahead_offset;
-
-                // Calculate distance from current camera to desired position
-                bn::fixed_point camera_to_desired = desired_camera_pos - current_camera_pos;
-
-                // Check if we need to move camera (if desired position is outside deadzone)
-                bool outside_x = bn::abs(camera_to_desired.x()) > CAMERA_DEADZONE_X;
-                bool outside_y = bn::abs(camera_to_desired.y()) > CAMERA_DEADZONE_Y;
-
-                if (outside_x || outside_y)
-                {
-                    // Update target position to move toward desired position but stay within deadzone
-                    if (outside_x)
-                    {
-                        if (camera_to_desired.x() > CAMERA_DEADZONE_X)
-                            _camera_target_pos.set_x(desired_camera_pos.x() - CAMERA_DEADZONE_X);
-                        else if (camera_to_desired.x() < -CAMERA_DEADZONE_X)
-                            _camera_target_pos.set_x(desired_camera_pos.x() + CAMERA_DEADZONE_X);
-                    }
-
-                    if (outside_y)
-                    {
-                        if (camera_to_desired.y() > CAMERA_DEADZONE_Y)
-                            _camera_target_pos.set_y(desired_camera_pos.y() - CAMERA_DEADZONE_Y);
-                        else if (camera_to_desired.y() < -CAMERA_DEADZONE_Y)
-                            _camera_target_pos.set_y(desired_camera_pos.y() + CAMERA_DEADZONE_Y);
-                    }
-                }
+                // Set target to player position + lookahead offset
+                _camera_target_pos = player_pos + lookahead_offset;
             }
-            else
+            else if (!player_is_moving)
             {
-                // Player is idle - center camera directly on player (bypass deadzone)
-                _camera_target_pos = player_pos;
+                // Player is idle
+                _camera_target_pos = current_camera_pos;
             }
+            // If player is moving but inside deadzone, don't change camera target (stay put)
 
             // Smoothly interpolate camera towards target position
             bn::fixed_point camera_offset = _camera_target_pos - current_camera_pos;

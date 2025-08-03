@@ -50,11 +50,11 @@ namespace fe
 
         // Camera deadzone system
         bn::fixed_point _camera_target_pos;                    // Where the camera wants to be
-        static constexpr bn::fixed CAMERA_DEADZONE_X = 16;     // Horizontal deadzone radius (reduced for more responsive camera)
-        static constexpr bn::fixed CAMERA_DEADZONE_Y = 6;      // Vertical deadzone radius (further reduced for quicker vertical tracking)
-        static constexpr bn::fixed CAMERA_FOLLOW_SPEED = 0.05; // How fast camera catches up (0.05 = 5% per frame)
-        static constexpr bn::fixed CAMERA_LOOKAHEAD_X = 48;    // How far ahead to look horizontally (increased for more forward vision)
-        static constexpr bn::fixed CAMERA_LOOKAHEAD_Y = 32;    // How far ahead to look vertically (increased for more forward vision)
+        static constexpr bn::fixed CAMERA_DEADZONE_X = 24;     // Horizontal deadzone radius (increased 50% for more stable camera)
+        static constexpr bn::fixed CAMERA_DEADZONE_Y = 9;      // Vertical deadzone radius (increased 50% for more stable camera)
+        static constexpr bn::fixed CAMERA_FOLLOW_SPEED = 0.02; // How fast camera catches up (0.02 = 2% per frame - much slower and smoother)
+        static constexpr bn::fixed CAMERA_LOOKAHEAD_X = 100;   // How far ahead to look horizontally (increased for much better forward vision)
+        static constexpr bn::fixed CAMERA_LOOKAHEAD_Y = 80;    // How far ahead to look vertically (increased for much better forward vision)
 
         void _init_world_specific_content(int world_id, bn::camera_ptr &camera, bn::regular_bg_ptr &bg, bn::sprite_text_generator &text_generator);
         void _save_current_state();
