@@ -154,7 +154,7 @@ jobs:
         run: |
           # Get the latest release tag
           LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-          
+
           if [ -z "$LATEST_TAG" ]; then
             echo "No previous releases found, creating first release"
             echo "has_changes=true" >> $GITHUB_OUTPUT
@@ -229,7 +229,7 @@ jobs:
           echo "$COMMIT_MSG" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
           echo "sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
-          
+
           # Show hash comparison info
           if [ "${{ steps.changes.outputs.previous_hash }}" != "" ]; then
             echo "ROM hash changed:"
@@ -285,7 +285,7 @@ jobs:
           else
             echo "✅ Changes detected, proceeding with package publication"
           fi
-          
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
