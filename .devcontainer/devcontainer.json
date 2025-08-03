@@ -1,0 +1,9 @@
+{
+  "image": "ghcr.io/numaphor/stranded/stranded-dev:latest",
+  "workspaceFolder": "/workspace",
+  "customizations": {
+    "vscode": {
+      "extensions": ["ms-vscode.cpptools"]
+    }
+  }
+}
