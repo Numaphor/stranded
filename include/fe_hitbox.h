@@ -102,6 +102,9 @@ namespace fe
         [[nodiscard]] static bool is_in_merchant_interaction_zone(const bn::fixed_point &position, const bn::fixed_point &merchant_center);
 
         // === DEBUG VISUALIZATION ===
+        // NOTE: Hitbox debug markers now use tile-based visualization in the scene world
+        // Tiles 5 (LEFT_MARKER_TILE_INDEX) and 6 (RIGHT_MARKER_TILE_INDEX) are used
+        // The sprite-based methods below are kept for compatibility but not used by the main debug system
 
         struct MarkerOffsetConfig
         {

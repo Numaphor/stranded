@@ -558,6 +558,7 @@ namespace fe
             _player->update_z_order();
 
             // Update hitbox debug visualization for player
+            // NOTE: Hitbox markers now use tile-based visualization (tiles 5 & 6) instead of sprites
             if (_debug_enabled)
             {
                 // Clear previous hitbox markers before setting new ones
