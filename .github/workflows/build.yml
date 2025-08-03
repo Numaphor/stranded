@@ -4,6 +4,11 @@ on:
     branches: [main, "devin/**"]
   pull_request:
     branches: [main]
+
+permissions:
+  contents: write    # Required to create releases and upload assets
+  actions: read      # Required to download artifacts
+
 env:
   WONDERFUL_TOOLCHAIN: /opt/wonderful
 jobs:
