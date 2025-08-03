@@ -8,6 +8,7 @@ on:
 permissions:
   contents: write    # Required to create releases and upload assets
   actions: read      # Required to download artifacts
+  packages: write    # Required to publish packages
 
 env:
   WONDERFUL_TOOLCHAIN: /opt/wonderful
@@ -185,3 +186,72 @@ jobs:
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-package:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Download ROM Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: stranded-rom
+          path: ./
+          
+      - name: Create package metadata
+        id: metadata
+        run: |
+          # Generate version tag
+          VERSION="$(date +'%Y.%m.%d')-build.$(date +'%H%M%S')"
+          COMMIT_SHA=$(git rev-parse --short HEAD)
+          
+          # Create Dockerfile for packaging
+          cat > Dockerfile << EOF
+          FROM scratch
+          COPY stranded.gba /stranded.gba
+          LABEL org.opencontainers.image.title="Stranded Game ROM"
+          LABEL org.opencontainers.image.description="Game Boy Advance ROM for the Stranded adventure game"
+          LABEL org.opencontainers.image.version="$VERSION"
+          LABEL org.opencontainers.image.revision="$COMMIT_SHA"
+          LABEL org.opencontainers.image.source="https://github.com/${{ github.repository }}"
+          LABEL org.opencontainers.image.url="https://github.com/${{ github.repository }}"
+          LABEL org.opencontainers.image.vendor="${{ github.repository_owner }}"
+          LABEL game.platform="Game Boy Advance"
+          LABEL game.emulator.recommended="mGBA"
+          EOF
+          
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Build and push package
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}/stranded-rom:latest
+            ghcr.io/${{ github.repository }}/stranded-rom:${{ steps.metadata.outputs.version }}
+          labels: |
+            org.opencontainers.image.title=Stranded Game ROM
+            org.opencontainers.image.description=Game Boy Advance ROM for the Stranded adventure game
+            org.opencontainers.image.version=${{ steps.metadata.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.url=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.vendor=${{ github.repository_owner }}
+            org.opencontainers.image.created=${{ github.event.head_commit.timestamp }}
+            game.platform=Game Boy Advance
+            game.emulator.recommended=mGBA
