@@ -85,6 +85,10 @@ namespace fe
         bool _spotted_player = false;
         bn::optional<bn::sprite_animate_action<16>> _action; // Increased to handle dead animation (16 frames)
 
+        // Health bar
+        bn::optional<bn::sprite_ptr> _health_bar_sprite;
+        int _max_hp;
+
         // Spearguard animation states
         enum class AnimationState
         {
@@ -117,6 +121,8 @@ namespace fe
     private:
         bool _take_damage(int damage);
         void _apply_knockback(bn::fixed dx, bn::fixed dy);
+        void _update_health_bar();
+        void _update_health_bar_position();
 
     public:
         Enemy(int x, int y, bn::camera_ptr camera, bn::regular_bg_ptr map, ENEMY_TYPE type, int hp);

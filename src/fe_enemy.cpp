@@ -14,6 +14,7 @@
 #include "bn_memory.h"
 
 #include "bn_sprite_items_spearguard.h"
+#include "bn_sprite_items_bar.h"
 
 #include "fe_level.h"
 #include "fe_enemy_type.h"
@@ -128,6 +129,13 @@ namespace fe
         // This provides a clean starting state for all enemies
         bn::unique_ptr<IdleState> initial_state = bn::make_unique<IdleState>();
         _state_machine.initialize(bn::move(initial_state));
+
+        // Initialize health bar
+        _max_hp = hp;
+        _health_bar_sprite = bn::sprite_items::bar.create_sprite(pos().x(), pos().y() - 20, 0);
+        _health_bar_sprite->set_camera(_camera);
+        _health_bar_sprite->set_bg_priority(0); // Higher priority than enemy sprite
+        _update_health_bar();
     }
 
     Enemy::Enemy(Enemy &&other) noexcept
@@ -157,6 +165,8 @@ namespace fe
           _sound_timer(other._sound_timer),
           _spotted_player(other._spotted_player),
           _action(bn::move(other._action)),
+          _health_bar_sprite(bn::move(other._health_bar_sprite)),
+          _max_hp(other._max_hp),
           _current_animation(other._current_animation),
           _attack_timer(other._attack_timer),
           _original_position(other._original_position),
@@ -205,6 +215,8 @@ namespace fe
             _sound_timer = other._sound_timer;
             _spotted_player = other._spotted_player;
             _action = bn::move(other._action);
+            _health_bar_sprite = bn::move(other._health_bar_sprite);
+            _max_hp = other._max_hp;
             _current_animation = other._current_animation;
             _attack_timer = other._attack_timer;
             _original_position = other._original_position;
@@ -351,6 +363,9 @@ namespace fe
             }
         }
 
+        // Update health bar position
+        _update_health_bar_position();
+
         // Update hitbox
         update_hitbox();
     }
@@ -371,6 +386,9 @@ namespace fe
         _invulnerable = true;
         _inv_timer = 30; // Invincibility frames
         _stunned = true;
+
+        // Update health bar
+        _update_health_bar();
 
         if (_hp <= 0)
         {
@@ -534,6 +552,47 @@ namespace fe
                 // Default case to fix warning
                 break;
             }
+        }
+    }
+
+    void Enemy::_update_health_bar()
+    {
+        if (_health_bar_sprite.has_value())
+        {
+            if (_dead)
+            {
+                // Show empty health bar (frame 0) when dead
+                _health_bar_sprite->set_tiles(bn::sprite_items::bar.tiles_item().create_tiles(0));
+                _health_bar_sprite->set_visible(true);
+            }
+            else
+            {
+                // Calculate health bar frame based on current HP
+                // Frame 0 = empty (0 health), Frame 1 = full (max health)
+                // For spearguard: 3 HP max, so:
+                // 3 HP = frame 1 (full), 2 HP = frame 5, 1 HP = frame 9, 0 HP = frame 0
+                int frame;
+                if (_hp <= 0)
+                {
+                    frame = 0; // Empty
+                }
+                else
+                {
+                    // Calculate frame: each HP loss = 4 slots, so frame = 1 + (max_hp - current_hp) * 4
+                    frame = 1 + (_max_hp - _hp) * 4;
+                }
+                _health_bar_sprite->set_tiles(bn::sprite_items::bar.tiles_item().create_tiles(frame));
+                _health_bar_sprite->set_visible(true);
+            }
+        }
+    }
+
+    void Enemy::_update_health_bar_position()
+    {
+        if (_health_bar_sprite.has_value())
+        {
+            // Position health bar above the enemy
+            _health_bar_sprite->set_position(pos().x(), pos().y() - 20);
         }
     }
 }
