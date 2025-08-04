@@ -98,7 +98,7 @@ namespace fe
 
         // Static zone collision methods
         [[nodiscard]] static bool is_in_sword_zone(const bn::fixed_point &position);
-        [[nodiscard]] static bool is_in_merchant_collision_zone(const bn::fixed_point &position, const bn::fixed_point &merchant_center);
+        [[nodiscard]] static bool is_in_merchant_collision_zone(const bn::fixed_point &position);
         [[nodiscard]] static bool is_in_merchant_interaction_zone(const bn::fixed_point &position, const bn::fixed_point &merchant_center);
 
         // === DEBUG VISUALIZATION ===
@@ -165,7 +165,7 @@ namespace fe
 
         // Static factory methods for common hitbox types
         [[nodiscard]] static Hitbox create_player_hitbox(bn::fixed_point position);
-        [[nodiscard]] static Hitbox create_merchant_collision_zone(bn::fixed_point center);
+        // Merchant collision zone factory method removed - only interaction zones remain
         [[nodiscard]] static Hitbox create_merchant_interaction_zone(bn::fixed_point center);
         [[nodiscard]] static Hitbox create_sword_zone();
 

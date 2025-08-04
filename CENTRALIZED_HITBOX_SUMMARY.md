@@ -7,7 +7,7 @@ I have successfully centralized all hitbox-related functionality into a comprehe
 
 ### 1. **Constants and Coordinates** (All hardcoded values now in one place)
 - **Sword Zone**: Tile coordinates (147, 157, 162, 166) from `Level::is_in_sword_zone()`
-- **Merchant Zones**: 24x24 collision and 100x100 interaction zones from `Level` class
+- **Merchant Zones**: 100x100 interaction zone only (collision zone removed)
 - **Marker Offsets**: All positioning values (4,4,-1,-1) from `HitboxDebug`
 - **Player Offsets**: Player-specific marker positioning (4, 20)
 - **Tile System**: Tile size (8) and map offset (1280) constants
@@ -188,3 +188,25 @@ if (fe::Hitbox::is_in_merchant_interaction_zone(_player->pos(), _merchant->pos()
 ## Next Steps
 
 The centralized hitbox system is now complete and fully operational. All legacy debug code has been removed and the system is production-ready. Future enhancements can be made by extending the `Hitbox` class and `ZoneManager` as needed.
+
+## Recent Changes - Merchant Hitbox Removal
+
+**Date**: 2025-08-04  
+**Change**: Removed all merchant collision hitboxes while keeping interaction zones
+
+### What Was Removed:
+- Merchant collision zone checking in `ZoneManager::is_position_valid()`
+- Merchant collision zone checking in `fe_scene_world.cpp` main game loop
+- Merchant collision zone checking in `Level::is_position_valid()`
+- Debug visualization for merchant collision zones (`set_merchant_hitbox_zone_visible` now no-op)
+
+### What Was Kept:
+- Merchant interaction zones (100x100) for conversation triggering
+- All other zone functionality (sword zones, etc.)
+- All hitbox functionality for other entities (player, enemies)
+
+### Result:
+- Players can now walk through merchants (no collision)
+- Merchants still trigger conversations when player enters interaction zone
+- Debug visualization only shows interaction zones, not collision zones
+- All existing code remains compatible

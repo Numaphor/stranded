@@ -44,9 +44,6 @@ namespace fe
         bool _debug_enabled;                                        // Track debug state for centralized hitbox system
         bn::optional<bn::camera_ptr> _camera;                       // Camera for debug marker positioning
         fe::Hitbox _player_debug_hitbox;                            // Player debug hitbox
-        fe::Hitbox _sword_zone_debug_hitbox;                        // Sword zone debug hitbox
-        fe::Hitbox _merchant_collision_debug_hitbox;                // Merchant collision zone debug hitbox (24x24)
-        fe::Hitbox _merchant_interaction_debug_hitbox;              // Merchant interaction zone debug hitbox (100x100)
         bn::vector<fe::Hitbox, 16> _enemy_debug_hitboxes;           // Enemy debug hitboxes
         PlayerMovement::Direction _last_camera_direction;           // Track last direction for smooth direction changes
         int _direction_change_frames;                               // Counter for how many frames we've been changing direction

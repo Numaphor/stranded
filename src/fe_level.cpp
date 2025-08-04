@@ -185,23 +185,11 @@ namespace fe
             top_left, top_right, bottom_left, bottom_right,
             middle_top, quarter_top_left, quarter_top_right};
 
-        // First check for hardcoded sword zone collision (independent of visual tiles)
-        for (const auto &point : check_points)
-        {
-            if (is_in_sword_zone(point))
-            {
-                return false; // Collision with sword zone
-            }
-        }
+        // All collision barriers removed - players can move freely through sword zones
+        // Sword zone collision checking has been disabled
 
-        // Check for merchant zone collision (independent of visual tiles)
-        for (const auto &point : check_points)
-        {
-            if (is_in_hitbox_zone(point))
-            {
-                return false; // Collision with merchant zone
-            }
-        }
+        // Merchant collision zones removed - merchant zones only used for interaction now
+        // No collision checking with merchant zones
 
         // Then check for other tile-based collisions (if any other zone tiles exist)
         const int map_offset_x = (map_width * 4);

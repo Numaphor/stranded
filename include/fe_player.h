@@ -350,9 +350,6 @@ namespace fe
                    _movement.current_state() == PlayerMovement::State::ATTACKING;
         }
 
-        // Get extended attack hitbox when performing melee attacks
-        [[nodiscard]] Hitbox get_attack_hitbox() const;
-
         void update_gun_position(PlayerMovement::Direction direction);
 
     private:

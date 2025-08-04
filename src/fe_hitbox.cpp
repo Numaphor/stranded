@@ -110,14 +110,24 @@ namespace fe
                position.y() >= zone_top && position.y() < zone_bottom;
     }
 
-    bool Hitbox::is_in_merchant_collision_zone(const bn::fixed_point &position, const bn::fixed_point &merchant_center)
+    bool Hitbox::is_in_merchant_collision_zone(const bn::fixed_point &position)
     {
+        // Get merchant center from ZoneManager - return false if no merchant or disabled
+        auto merchant_center = ZoneManager::get_merchant_zone_center();
+        if (!merchant_center.has_value() || !ZoneManager::is_merchant_zone_enabled())
+        {
+            return false;
+        }
+
+        // Use same coordinate calculation pattern as sword zone
         using namespace hitbox_constants;
+        const bn::fixed zone_left = merchant_center->x() - MERCHANT_COLLISION_WIDTH / 2;
+        const bn::fixed zone_right = merchant_center->x() + MERCHANT_COLLISION_WIDTH / 2;
+        const bn::fixed zone_top = merchant_center->y() - MERCHANT_COLLISION_HEIGHT / 2;
+        const bn::fixed zone_bottom = merchant_center->y() + MERCHANT_COLLISION_HEIGHT / 2;
 
-        bn::fixed_point zone_position = calculate_centered_position(merchant_center, MERCHANT_COLLISION_WIDTH, MERCHANT_COLLISION_HEIGHT);
-
-        return position.x() >= zone_position.x() && position.x() < zone_position.x() + MERCHANT_COLLISION_WIDTH &&
-               position.y() >= zone_position.y() && position.y() < zone_position.y() + MERCHANT_COLLISION_HEIGHT;
+        return position.x() >= zone_left && position.x() < zone_right &&
+               position.y() >= zone_top && position.y() < zone_bottom;
     }
 
     bool Hitbox::is_in_merchant_interaction_zone(const bn::fixed_point &position, const bn::fixed_point &merchant_center)
@@ -136,16 +146,12 @@ namespace fe
     {
         // Use hitbox constants from the nested namespace
         using namespace hitbox_constants;
-        return Hitbox(position.x(), position.y(), PLAYER_HITBOX_WIDTH, PLAYER_HITBOX_HEIGHT, HitboxType::PLAYER);
+        // Center the hitbox on the player position (same as Player::set_position does)
+        bn::fixed_point hitbox_pos = calculate_centered_position(position, PLAYER_HITBOX_WIDTH, PLAYER_HITBOX_HEIGHT);
+        return Hitbox(hitbox_pos.x(), hitbox_pos.y(), PLAYER_HITBOX_WIDTH, PLAYER_HITBOX_HEIGHT, HitboxType::PLAYER);
     }
 
-    Hitbox Hitbox::create_merchant_collision_zone(bn::fixed_point center)
-    {
-        // Use hitbox constants from the nested namespace
-        using namespace hitbox_constants;
-        bn::fixed_point position = calculate_centered_position(center, MERCHANT_COLLISION_WIDTH, MERCHANT_COLLISION_HEIGHT);
-        return Hitbox(position.x(), position.y(), MERCHANT_COLLISION_WIDTH, MERCHANT_COLLISION_HEIGHT, HitboxType::MERCHANT_COLLISION);
-    }
+    // Merchant collision zone factory method removed - only interaction zones remain
 
     Hitbox Hitbox::create_merchant_interaction_zone(bn::fixed_point center)
     {
@@ -243,10 +249,26 @@ namespace fe
             return;
         }
 
+        // Don't create markers for zero-sized hitboxes (they're likely unused default hitboxes)
+        if (_width == 0 || _height == 0)
+        {
+            return;
+        }
+
         MarkerOffsetConfig config = get_marker_config();
 
-        // Handle dual-area entities (merchant zones with both collision and interaction areas)
-        bool use_hitbox_markers = (_type == HitboxType::MERCHANT_COLLISION || _type == HitboxType::MERCHANT_INTERACTION);
+        // All sprite hitbox markers have been disabled
+        // Only background tiles are used for zone visualization
+        bool should_show_markers = false;
+
+        if (!should_show_markers)
+        {
+            return;
+        }
+
+        // Handle merchant interaction zones (merchant collision zones have been removed)
+        // Only merchant interaction zones need special marker handling
+        bool use_hitbox_markers = (_type == HitboxType::MERCHANT_INTERACTION);
         bool enable_blending = (_type == HitboxType::MERCHANT_INTERACTION);
 
         update_markers_with_config(config, use_hitbox_markers, enable_blending);
@@ -360,15 +382,13 @@ namespace fe
             return false;
         }
 
-        // Check merchant collision zone if enabled
-        if (is_merchant_zone_enabled())
+        // Check merchant collision zone
+        if (Hitbox::is_in_merchant_collision_zone(position))
         {
-            if (Hitbox::is_in_merchant_collision_zone(position, *_merchant_zone_center))
-            {
-                return false;
-            }
+            return false;
         }
 
+        // Position is valid if it doesn't collide with any zones
         return true;
     }
 }

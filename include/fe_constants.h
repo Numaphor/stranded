@@ -28,9 +28,9 @@ namespace fe
     constexpr int SWORD_HALF_HEIGHT = SWORD_HEIGHT / 2;
 
     // ===== MERCHANT ZONE CONSTANTS =====
-    // Physical collision zone (small, for tile-based collision)
-    constexpr int MERCHANT_COLLISION_ZONE_WIDTH = 24;
-    constexpr int MERCHANT_COLLISION_ZONE_HEIGHT = 24;
+    // Physical collision zone (24x24) - UNUSED since merchant collision removed
+    constexpr int MERCHANT_COLLISION_ZONE_WIDTH = 24;  // Kept for compatibility
+    constexpr int MERCHANT_COLLISION_ZONE_HEIGHT = 24; // Kept for compatibility
 
     // Interaction zone (large, for triggering conversations)
     constexpr int MERCHANT_INTERACTION_ZONE_WIDTH = 100;

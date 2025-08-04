@@ -151,16 +151,6 @@ namespace fe
         {
             return Entity::get_hitbox();
         }
-
-        // Get extended attack hitbox for spearguards during attack
-        // This extends the hitbox by 24 pixels in the direction the spearguard is facing
-        // but only during frames 1-3 of the spear jab animation (when spear is extending/extended)
-        [[nodiscard]] Hitbox get_attack_hitbox() const;
-
-        // Check if the enemy is currently in attack state with extended reach
-        // For spearguards, this returns true during frames 1-3 of the attack animation
-        // (covering spear thrust, full extension, and start of retraction)
-        [[nodiscard]] bool is_attacking() const;
     };
 }
 

@@ -294,56 +294,9 @@ namespace fe
                 check_direction = _dy > 0 ? directions::down : directions::up;
             }
 
-            if (fe::Collision::check_hitbox_collision_with_level(_hitbox, new_pos, check_direction))
-            {
-                set_position(new_pos);
-            }
-            else
-            {
-                // Try to slide along walls by checking individual axis movement
-                bool can_move_x = true;
-                bool can_move_y = true;
-
-                // Check X movement only
-                if (_dx != 0)
-                {
-                    bn::fixed_point x_pos(pos().x() + _dx, pos().y());
-                    directions x_dir = _dx > 0 ? directions::right : directions::left;
-                    can_move_x = fe::Collision::check_hitbox_collision_with_level(_hitbox, x_pos, x_dir);
-                }
-
-                // Check Y movement only
-                if (_dy != 0)
-                {
-                    bn::fixed_point y_pos(pos().x(), pos().y() + _dy);
-                    directions y_dir = _dy > 0 ? directions::down : directions::up;
-                    can_move_y = fe::Collision::check_hitbox_collision_with_level(_hitbox, y_pos, y_dir);
-                }
-
-                // Apply movement on valid axes
-                bn::fixed_point current_pos = pos();
-                if (can_move_x)
-                {
-                    current_pos.set_x(current_pos.x() + _dx);
-                }
-                else
-                {
-                    _dx = 0;
-                    _movement.set_velocity(bn::fixed_point(_dx, _dy));
-                }
-
-                if (can_move_y)
-                {
-                    current_pos.set_y(current_pos.y() + _dy);
-                }
-                else
-                {
-                    _dy = 0;
-                    _movement.set_velocity(bn::fixed_point(_dx, _dy));
-                }
-
-                set_position(current_pos);
-            }
+            // Note: Enemy collision with zones could be handled here if needed
+            // For now, enemies use their own collision logic separate from player zones
+            set_position(new_pos);
         }
         else
         {
@@ -582,71 +535,5 @@ namespace fe
                 break;
             }
         }
-    }
-
-    Hitbox Enemy::get_attack_hitbox() const
-    {
-        // For spearguards during attack, extend the hitbox to represent the spear reach
-        if (_type == ENEMY_TYPE::SPEARGUARD && is_attacking())
-        {
-            bn::fixed_point enemy_pos = pos();
-
-            // Determine the direction the spearguard is facing
-            bool facing_left = false;
-            if (_sprite.has_value())
-            {
-                facing_left = _sprite->horizontal_flip();
-            }
-
-            // Create an extended hitbox in the direction the spearguard is facing
-            // Original hitbox is 8x8, we'll extend it by SPEAR_REACH pixels in the facing direction
-            // for a moderate spear reach that matches the visual sprite
-            constexpr bn::fixed HITBOX_WIDTH = 8;
-            constexpr bn::fixed HITBOX_HEIGHT = 8;
-
-            if (facing_left)
-            {
-                // Extend hitbox to the left
-                return Hitbox(enemy_pos.x() - (HITBOX_WIDTH / 2 + SPEAR_REACH),
-                              enemy_pos.y() - HITBOX_HEIGHT / 2,
-                              HITBOX_WIDTH + SPEAR_REACH,
-                              HITBOX_HEIGHT);
-            }
-            else
-            {
-                // Extend hitbox to the right
-                return Hitbox(enemy_pos.x() - HITBOX_WIDTH / 2,
-                              enemy_pos.y() - HITBOX_HEIGHT / 2,
-                              HITBOX_WIDTH + SPEAR_REACH,
-                              HITBOX_HEIGHT);
-            }
-        }
-
-        // For all other cases, return the normal hitbox
-        return get_hitbox();
-    }
-
-    bool Enemy::is_attacking() const
-    {
-        if (_type != ENEMY_TYPE::SPEARGUARD || _attack_timer <= 0 || _current_animation != AnimationState::ATTACK)
-        {
-            return false;
-        }
-
-        // Extend attack hitbox during most of the spear jab animation
-        // Attack animation frames: 10, 11, 12, 13, 14 (5 frames total)
-        // Animation speed: 6 frames per sprite frame
-        // Total attack duration: 60 frames
-
-        constexpr int ATTACK_FRAMES_PER_SPRITE = 6;
-        constexpr int TOTAL_ATTACK_FRAMES = 5;
-
-        // Calculate which animation frame we're currently on
-        int frames_elapsed = ATTACK_DURATION - _attack_timer;
-        int current_anim_frame = (frames_elapsed / ATTACK_FRAMES_PER_SPRITE) % TOTAL_ATTACK_FRAMES; // 5 attack frames total
-
-        // Delay damage until frames 2 and 3 (when spear is fully extending and extended)
-        // This gives a wind-up period before the spear can actually hurt the player
-        return current_anim_frame >= 3 && current_anim_frame <= 3;
     }
 }

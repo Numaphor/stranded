@@ -19,7 +19,6 @@ namespace fe
     {
         constexpr bn::fixed ROLL_SPEED = 1.2;
         // HORIZONTAL_OFFSET removed - new 32x32 sprite tightly fits around player
-        constexpr bn::fixed ATTACK_REACH = 20;
         constexpr bn::fixed HITBOX_WIDTH = 16;
         constexpr bn::fixed HITBOX_HEIGHT = 32;
 
@@ -72,30 +71,6 @@ namespace fe
             const int idx = int(dir);
             return {pos.x() + player_constants::BULLET_OFFSET_X[idx],
                     pos.y() + player_constants::BULLET_OFFSET_Y[idx]};
-        }
-
-        Hitbox get_attack_hitbox(PlayerMovement::Direction dir, bn::fixed_point pos)
-        {
-            bn::fixed_point base_pos(pos.x() - player_constants::HITBOX_WIDTH / 2,
-                                     pos.y() - player_constants::HITBOX_HEIGHT / 2);
-
-            switch (dir)
-            {
-            case PlayerMovement::Direction::UP:
-                return Hitbox(base_pos.x(), base_pos.y() - player_constants::ATTACK_REACH,
-                              player_constants::HITBOX_WIDTH, player_constants::HITBOX_HEIGHT + player_constants::ATTACK_REACH);
-            case PlayerMovement::Direction::DOWN:
-                return Hitbox(base_pos.x(), base_pos.y(),
-                              player_constants::HITBOX_WIDTH, player_constants::HITBOX_HEIGHT + player_constants::ATTACK_REACH);
-            case PlayerMovement::Direction::LEFT:
-                return Hitbox(base_pos.x() - player_constants::ATTACK_REACH, base_pos.y(),
-                              player_constants::HITBOX_WIDTH + player_constants::ATTACK_REACH, player_constants::HITBOX_HEIGHT);
-            case PlayerMovement::Direction::RIGHT:
-                return Hitbox(base_pos.x(), base_pos.y(),
-                              player_constants::HITBOX_WIDTH + player_constants::ATTACK_REACH, player_constants::HITBOX_HEIGHT);
-            default:
-                return Hitbox(base_pos.x(), base_pos.y(), player_constants::HITBOX_WIDTH, player_constants::HITBOX_HEIGHT);
-            }
         }
     }
 
@@ -504,12 +479,8 @@ namespace fe
             }
             set_position(new_pos);
 
-            // Check collision
-            if (!Collision::check_hitbox_collision_with_level(get_hitbox(), pos(), fe::directions::down))
-            {
-                revert_position();
-                _movement.stop_movement();
-            }
+            // Collision handled by main game loop for more accurate checking
+            // Movement system collision disabled to prevent double collision zones
         }
         else
         {
@@ -644,14 +615,6 @@ namespace fe
         bn::fixed_point bullet_pos = direction_utils::get_bullet_position(direction, pos());
         Direction bullet_dir = static_cast<Direction>(int(direction));
         _bullet_manager.fire_bullet(bullet_pos, bullet_dir);
-    }
-
-    Hitbox Player::get_attack_hitbox() const
-    {
-        if (!is_attacking())
-            return get_hitbox();
-
-        return direction_utils::get_attack_hitbox(_movement.facing_direction(), pos());
     }
 
     void Player::initialize_companion(bn::camera_ptr camera)
