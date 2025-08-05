@@ -310,7 +310,7 @@ namespace fe
         // Reset player state
         void reset()
         {
-            _hp = 3;
+            _hp = 2;
             _reset_required = false;
             _death_timer = 0;
             _death_sound_played = false;
@@ -357,7 +357,7 @@ namespace fe
         PlayerAnimation _animation;
         PlayerState _state;
         PlayerAbilities _abilities;
-        int _hp = 3;
+        int _hp = 2;
         bool _reset_required = false;
         int _death_timer = 0;
         bool _death_sound_played = false;

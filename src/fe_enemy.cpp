@@ -3,6 +3,8 @@
 #include "fe_enemy_state_machine.h"
 #include "bn_fixed_point.h"
 #include "bn_sprite_ptr.h"
+#include "bn_sprite_shape_size.h"
+#include "bn_sprite_items_health_enemy.h"
 #include "bn_camera_ptr.h"
 #include "bn_regular_bg_ptr.h"
 #include "bn_regular_bg_map_ptr.h"
@@ -22,6 +24,7 @@
 
 namespace fe
 {
+    constexpr int HEALTH_BAR_Z_ORDER = -1000; // Z-order for health bar sprite
     [[nodiscard]] int _get_map_cell(bn::fixed x, bn::fixed y, bn::regular_bg_ptr & /*map*/, bn::span<const bn::regular_bg_map_cell> cells)
     {
         int map_x = ((x.integer() + 384) / 8);
@@ -132,9 +135,10 @@ namespace fe
 
         // Initialize health bar
         _max_hp = hp;
-        _health_bar_sprite = bn::sprite_items::bar.create_sprite(pos().x(), pos().y() - 20, 0);
+        _health_bar_sprite = bn::sprite_items::health_enemy.create_sprite(pos().x(), pos().y() - 20, 0);
         _health_bar_sprite->set_camera(_camera);
-        _health_bar_sprite->set_bg_priority(0); // Higher priority than enemy sprite
+        _health_bar_sprite->set_bg_priority(3);
+        _health_bar_sprite->set_z_order(HEALTH_BAR_Z_ORDER);
         _update_health_bar();
     }
 
@@ -561,27 +565,32 @@ namespace fe
         {
             if (_dead)
             {
-                // Show empty health bar (frame 0) when dead
-                _health_bar_sprite->set_tiles(bn::sprite_items::bar.tiles_item().create_tiles(0));
+                // Show empty health bar (frame 3) when dead
+                _health_bar_sprite->set_tiles(bn::sprite_items::health_enemy.tiles_item().create_tiles(3));
                 _health_bar_sprite->set_visible(true);
             }
             else
             {
-                // Calculate health bar frame based on current HP
-                // Frame 0 = empty (0 health), Frame 1 = full (max health)
-                // For spearguard: 3 HP max, so:
-                // 3 HP = frame 1 (full), 2 HP = frame 5, 1 HP = frame 9, 0 HP = frame 0
+                // Calculate health bar frame for 3-slot system (frames are in reverse order)
+                // Frame 0 = full (3 slots), Frame 1 = 2 slots, Frame 2 = 1 slot, Frame 3 = empty (0 health)
                 int frame;
                 if (_hp <= 0)
                 {
-                    frame = 0; // Empty
+                    frame = 3; // Empty
+                }
+                else if (_hp >= _max_hp)
+                {
+                    frame = 0; // Full - 3 slots
                 }
                 else
                 {
-                    // Calculate frame: each HP loss = 4 slots, so frame = 1 + (max_hp - current_hp) * 4
-                    frame = 1 + (_max_hp - _hp) * 4;
+                    // Map HP to slots and invert: for 3 max HP -> 3 HP = frame 0, 2 HP = frame 1, 1 HP = frame 2
+                    int health_slots = (_hp * 3) / _max_hp;
+                    if (health_slots == 0 && _hp > 0)
+                        health_slots = 1;     // Ensure at least 1 slot if HP > 0
+                    frame = 3 - health_slots; // Invert the frame order
                 }
-                _health_bar_sprite->set_tiles(bn::sprite_items::bar.tiles_item().create_tiles(frame));
+                _health_bar_sprite->set_tiles(bn::sprite_items::health_enemy.tiles_item().create_tiles(frame));
                 _health_bar_sprite->set_visible(true);
             }
         }
@@ -592,7 +601,7 @@ namespace fe
         if (_health_bar_sprite.has_value())
         {
             // Position health bar above the enemy
-            _health_bar_sprite->set_position(pos().x(), pos().y() - 20);
+            _health_bar_sprite->set_position(pos().x() - 3, pos().y() - 12);
         }
     }
 }

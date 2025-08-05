@@ -4,6 +4,8 @@
 #include "bn_sprite_ptr.h"
 #include "bn_optional.h"
 #include "bn_sprite_animate_actions.h"
+#include "bn_regular_bg_ptr.h"
+#include "bn_regular_bg_map_ptr.h"
 
 namespace fe
 {
@@ -14,26 +16,26 @@ namespace fe
 
     class Healthbar
     {
-        private:
-            bn::sprite_ptr _sprites[5];
-            int _hp = 9;
-            bool _is_visible;
-            WEAPON_TYPE _weapon;
-            bn::sprite_ptr _weapon_sprite;
-            bool _is_glowing = false;
+    private:
+        bn::optional<bn::regular_bg_ptr> _health_bg;
+        int _hp = 2;
+        bool _is_visible = true;
+        WEAPON_TYPE _weapon;
+        bn::sprite_ptr _weapon_sprite;
+        bool _is_glowing = false;
 
-            bn::optional<bn::sprite_animate_action<10>> _action;
+        bn::optional<bn::sprite_animate_action<10>> _action;
 
-        public:
-            Healthbar();
-            
-            int hp();
-            void set_hp(int hp);
-            void set_visible(bool is_visible);
-            void activate_glow();
-            bool is_glow_active();
-            void update();
-            bool is_glow_ready();
+    public:
+        Healthbar();
+
+        int hp();
+        void set_hp(int hp);
+        void set_visible(bool is_visible);
+        void activate_glow();
+        bool is_glow_active();
+        void update();
+        bool is_glow_ready();
     };
 }
 
