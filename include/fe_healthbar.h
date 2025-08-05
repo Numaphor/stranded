@@ -22,9 +22,13 @@ namespace fe
         bool _is_visible = true;
         WEAPON_TYPE _weapon;
         bn::sprite_ptr _weapon_sprite;
+        bn::sprite_ptr _soul_sprite;
         bool _is_glowing = false;
+        bool _soul_effect_active = false;
+        int _soul_effect_timer = 0;
 
         bn::optional<bn::sprite_animate_action<10>> _action;
+        bn::optional<bn::sprite_animate_action<5>> _soul_action;
 
     public:
         Healthbar();
@@ -32,6 +36,10 @@ namespace fe
         int hp();
         void set_hp(int hp);
         void set_visible(bool is_visible);
+        void set_soul_position(int x, int y);
+        void debug_soul_center(); // Center soul sprite for debugging
+        void debug_soul_animate(); // Animate soul sprite for debugging
+        void activate_soul_animation(); // Trigger soul animation for defense buff
         void activate_glow();
         bool is_glow_active();
         void update();
