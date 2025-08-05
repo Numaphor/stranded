@@ -37,8 +37,8 @@ namespace fe
         void set_hp(int hp);
         void set_visible(bool is_visible);
         void set_soul_position(int x, int y);
-        void debug_soul_center(); // Center soul sprite for debugging
-        void debug_soul_animate(); // Animate soul sprite for debugging
+        void debug_soul_center();       // Center soul sprite for debugging
+        void debug_soul_animate();      // Animate soul sprite for debugging
         void activate_soul_animation(); // Trigger soul animation for defense buff
         void activate_glow();
         bool is_glow_active();

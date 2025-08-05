@@ -359,7 +359,7 @@ namespace fe
                 {
                     _movement.start_action(buff_state, 96);
                     _abilities.set_buff_cooldown(96);
-                    
+
                     // Trigger soul animation for defense buff
                     if (buff_state == PlayerMovement::State::DEFENCE_BUFF)
                     {

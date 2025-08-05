@@ -112,7 +112,7 @@ namespace fe
         // Start defense buff soul effect with 5-second duration
         _soul_effect_active = true;
         _soul_effect_timer = 300; // 5 seconds at 60 FPS
-        
+
         // Animate soul sprite frames 1-4 for defense buff (SELECT + DOWN)
         _soul_action = bn::create_sprite_animate_action_once(
             _soul_sprite, 8, bn::sprite_items::soul.tiles_item(), 1, 2, 3, 4);
@@ -137,7 +137,7 @@ namespace fe
         if (_soul_effect_active)
         {
             _soul_effect_timer--;
-            
+
             // Check if it's time to start fade-out (reversed animation)
             if (_soul_effect_timer <= 0)
             {
