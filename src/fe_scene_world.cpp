@@ -301,7 +301,7 @@ namespace fe
 
         // Initialize player status display
         _player_status_display = bn::make_unique<PlayerStatusDisplay>(text_generator);
-        _player_status_display->set_visible(true);
+        _player_status_display->set_visible(false);  // Only visible in debug mode
 
         // Initialize world-specific content
         _init_world_specific_content(world_id, camera, bg, text_generator);
@@ -332,6 +332,12 @@ namespace fe
             {
                 bool new_debug_state = !_debug_enabled;
                 _debug_enabled = new_debug_state;
+
+                // Update player status display visibility based on debug state
+                if (_player_status_display)
+                {
+                    _player_status_display->set_visible(new_debug_state);
+                }
 
                 // Refresh all zone visibility for visual debugging (not collision)
                 bn::optional<bn::fixed_point> merchant_pos = _merchant ? bn::optional<bn::fixed_point>(_merchant->pos()) : bn::nullopt;

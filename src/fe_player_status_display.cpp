@@ -5,7 +5,7 @@
 namespace fe
 {
     PlayerStatusDisplay::PlayerStatusDisplay(bn::sprite_text_generator &text_generator)
-        : _text_generator(text_generator)
+        : _text_generator(text_generator), _status_valid(false)
     {
         // Do not call _update_display() here; wait for first update_status call.
     }
@@ -14,9 +14,10 @@ namespace fe
     {
         PLAYER_STATUS new_status = _determine_status(player, near_merchant);
 
-        if (new_status != _current_status)
+        if (new_status != _current_status || !_status_valid)
         {
             _current_status = new_status;
+            _status_valid = true;
             _update_display();
         }
     }
@@ -24,9 +25,24 @@ namespace fe
     void PlayerStatusDisplay::set_visible(bool is_visible)
     {
         _is_visible = is_visible;
-        for (bn::sprite_ptr &sprite : _text_sprites)
+
+        // If becoming visible, ensure status is valid before updating display
+        if (is_visible)
         {
-            sprite.set_visible(is_visible);
+            if (!_status_valid)
+            {
+                _current_status = PLAYER_STATUS::IDLE;
+                _status_valid = true;
+            }
+            _update_display();
+        }
+        else
+        {
+            // If becoming invisible, hide existing sprites
+            for (bn::sprite_ptr &sprite : _text_sprites)
+            {
+                sprite.set_visible(false);
+            }
         }
     }
 
