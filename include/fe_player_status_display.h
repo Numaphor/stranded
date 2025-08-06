@@ -27,7 +27,7 @@ namespace fe
         bn::sprite_text_generator &_text_generator;
         PLAYER_STATUS _current_status = PLAYER_STATUS::IDLE;
         bool _is_visible = true;
-        bool _status_valid = false;  // Track if status has been set
+        bool _status_valid = false; // Track if status has been set
 
         static constexpr bn::fixed STATUS_X = 76; // X position for status display
         static constexpr bn::fixed STATUS_Y = 70; // Lower position

@@ -301,7 +301,7 @@ namespace fe
 
         // Initialize player status display
         _player_status_display = bn::make_unique<PlayerStatusDisplay>(text_generator);
-        _player_status_display->set_visible(false);  // Only visible in debug mode
+        _player_status_display->set_visible(false); // Only visible in debug mode
 
         // Initialize world-specific content
         _init_world_specific_content(world_id, camera, bg, text_generator);
