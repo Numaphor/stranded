@@ -6,8 +6,6 @@ namespace fe
     enum class NPC_TYPE
     {
         GOLEM,
-        PENGUIN,
-        PENGUIN2,
         TORTOISE,
         TORTOISE2,
         TABLET,

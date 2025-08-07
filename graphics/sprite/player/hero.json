@@ -1,0 +1,29 @@
+{
+    "type": "sprite",
+    "height": 32,
+    "frameTags": [
+   { "name": "idle_down", "from": 0, "to": 12 },
+   { "name": "heal_buff", "from": 13, "to": 36 },
+   { "name": "defence_buff", "from": 37, "to": 60 },
+   { "name": "power_buff", "from": 61, "to": 84 },
+   { "name": "energy_buff", "from": 85, "to": 108 },
+   { "name": "move_down", "from": 109, "to": 116 },
+   { "name": "run_down", "from": 117, "to": 124 },
+   { "name": "chop_down", "from": 125, "to": 128 },
+   { "name": "slash_down", "from": 129, "to": 135 },
+   { "name": "roll_down", "from": 136, "to": 143 },
+   { "name": "lr_idle", "from": 144, "to": 155 },
+   { "name": "lr_move", "from": 156, "to": 163 },
+   { "name": "lr_run", "from": 164, "to": 171 },
+   { "name": "lr_roll", "from": 172, "to": 177 },
+   { "name": "lr_slash", "from": 178, "to": 181 },
+   { "name": "lr_slash", "from": 182, "to": 186 },
+   { "name": "idle_up", "from": 187, "to": 198 },
+   { "name": "move_up", "from": 199, "to": 206 },
+   { "name": "run_up", "from": 207, "to": 214 },
+   { "name": "chop_up", "from": 215, "to": 218 },
+   { "name": "attack_up", "from": 219, "to": 225 },
+   { "name": "roll_up", "from": 226, "to": 233 },
+   { "name": "death", "from": 234, "to": 246 }
+  ]
+}

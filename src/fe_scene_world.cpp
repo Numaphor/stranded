@@ -20,7 +20,6 @@
 #include "bn_regular_bg_tiles_ptr.h"
 #include "bn_bg_palette_ptr.h"
 #include "bn_sprite_shape_size.h"
-#include "bn_regular_bg_items_strandedobjects.h"
 #include "fe_bg_utils.h"
 #include "bn_regular_bg_map_cell_info.h"
 #include "bn_sprite_text_generator.h"
@@ -809,15 +808,6 @@ namespace fe
             _enemies.push_back(Enemy(100, 20, camera, bg, ENEMY_TYPE::SPEARGUARD, 4));
             _enemies.push_back(Enemy(-100, 40, camera, bg, ENEMY_TYPE::SPEARGUARD, 4));
             _enemies.push_back(Enemy(0, 80, camera, bg, ENEMY_TYPE::SPEARGUARD, 4));
-            break;
-
-        case 3: // Ocean Side
-            // Ocean-specific setup
-            _merchant = new PenguinNPC(bn::fixed_point(-60, 40), camera, text_generator);
-
-            // Fewer but stronger enemies
-            _enemies.push_back(Enemy(-80, 0, camera, bg, ENEMY_TYPE::SPEARGUARD, 5));
-            _enemies.push_back(Enemy(80, 100, camera, bg, ENEMY_TYPE::SPEARGUARD, 5));
             break;
 
         default: // Default to main world

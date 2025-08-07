@@ -5,7 +5,6 @@
 #include "bn_string.h"
 #include "common_variable_8x8_sprite_font.h"
 #include "bn_bg_palettes.h"
-#include "bn_regular_bg_items_strandedobjects.h"
 
 namespace fe
 {

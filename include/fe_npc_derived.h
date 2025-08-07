@@ -4,13 +4,8 @@
 #include "fe_npc.h"
 #include "bn_sprite_items_golem_sprite.h"
 #include "bn_sprite_items_tortoise_sprite.h"
-#include "bn_sprite_items_penguin_sprite.h"
-#include "bn_sprite_items_jeremy.h"
 #include "bn_sprite_items_pot_frog.h"
-#include "bn_sprite_items_cage.h"
-#include "bn_sprite_items_fam.h"
 #include "bn_sprite_items_mutant.h"
-#include "bn_sprite_items_stone_plaque.h"
 #include "bn_sprite_items_merchant.h"
 
 namespace fe
@@ -55,34 +50,6 @@ namespace fe
 
     private:
         static bn::string_view _dialogue_lines[9];
-    };
-
-    // Penguin NPC
-    class PenguinNPC : public NPC
-    {
-    public:
-        PenguinNPC(bn::fixed_point pos, bn::camera_ptr &camera, bn::sprite_text_generator &text_generator);
-
-    protected:
-        void initialize_sprite() override;
-        void initialize_dialogue() override;
-
-    private:
-        static bn::string_view _dialogue_lines[3];
-    };
-
-    // Penguin2 NPC
-    class Penguin2NPC : public NPC
-    {
-    public:
-        Penguin2NPC(bn::fixed_point pos, bn::camera_ptr &camera, bn::sprite_text_generator &text_generator);
-
-    protected:
-        void initialize_sprite() override;
-        void initialize_dialogue() override;
-
-    private:
-        static bn::string_view _dialogue_lines[3];
     };
 
     // Tablet NPC
@@ -254,7 +221,7 @@ namespace fe
     };
 
     // Factory function to create NPCs based on type
-    NPC* create_npc(bn::fixed_point pos, bn::camera_ptr &camera, NPC_TYPE type, bn::sprite_text_generator &text_generator);
+    NPC *create_npc(bn::fixed_point pos, bn::camera_ptr &camera, NPC_TYPE type, bn::sprite_text_generator &text_generator);
 }
 
 #endif

@@ -16,7 +16,6 @@
 #include "bn_memory.h"
 
 #include "bn_sprite_items_spearguard.h"
-#include "bn_sprite_items_bar.h"
 
 #include "fe_level.h"
 #include "fe_enemy_type.h"
