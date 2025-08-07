@@ -54,10 +54,12 @@ namespace fe
         static constexpr bn::fixed CAMERA_DEADZONE_X = 16;                // Horizontal deadzone radius (reduced for more responsive camera)
         static constexpr bn::fixed CAMERA_DEADZONE_Y = 6;                 // Vertical deadzone radius (reduced for more responsive camera)
         static constexpr bn::fixed CAMERA_FOLLOW_SPEED = 0.03;            // Slightly faster follow speed (3% per frame)
-        static constexpr bn::fixed CAMERA_DIRECTION_CHANGE_SPEED = 0.015;  // Slightly faster direction changes (1.5% per frame)
-        static constexpr int CAMERA_DIRECTION_CHANGE_DURATION = 20;        // Shorter direction change duration (0.33 seconds at 60fps)
-        static constexpr bn::fixed CAMERA_LOOKAHEAD_X = 120;               // Increased horizontal lookahead for better visibility
-        static constexpr bn::fixed CAMERA_LOOKAHEAD_Y = 100;              // Increased vertical lookahead for better visibility
+        static constexpr bn::fixed CAMERA_DIRECTION_CHANGE_SPEED = 0.015; // Slightly faster direction changes (1.5% per frame)
+        static constexpr int CAMERA_DIRECTION_CHANGE_DURATION = 20;       // Shorter direction change duration (0.33 seconds at 60fps)
+        static constexpr bn::fixed CAMERA_LOOKAHEAD_X = 120;              // Increased horizontal lookahead for better visibility
+        static constexpr bn::fixed CAMERA_LOOKAHEAD_Y = 100;              // Good vertical lookahead distance
+        static constexpr bn::fixed CAMERA_CENTER_BIAS = 0.3;              // Less center bias (30%) to allow more lookahead
+        static constexpr bn::fixed CAMERA_LOOKAHEAD_SMOOTHING = 0.7;      // More lookahead effect (70%)
 
         void _init_world_specific_content(int world_id, bn::camera_ptr &camera, bn::regular_bg_ptr &bg, bn::sprite_text_generator &text_generator);
         void _save_current_state();

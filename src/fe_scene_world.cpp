@@ -553,8 +553,12 @@ namespace fe
                     break;
                 }
 
-                // Set target to player position + lookahead offset
-                _camera_target_pos = player_pos + lookahead_offset;
+                // Apply smoothing to lookahead offset to reduce aggressive movement
+                lookahead_offset = lookahead_offset * CAMERA_LOOKAHEAD_SMOOTHING;
+
+                // Calculate biased target: blend between player center and look-ahead position
+                bn::fixed_point lookahead_target = player_pos + lookahead_offset;
+                _camera_target_pos = (player_pos * CAMERA_CENTER_BIAS) + (lookahead_target * (1 - CAMERA_CENTER_BIAS));
             }
             else if (!player_is_moving)
             {

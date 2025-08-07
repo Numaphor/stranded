@@ -391,15 +391,44 @@ namespace fe
                 bn::fixed dx = _movement.dx();
                 bn::fixed dy = _movement.dy();
 
+                // Track input directions for diagonal normalization
+                bool horizontal_input = false;
+                bool vertical_input = false;
+                bn::fixed dx_delta = 0;
+                bn::fixed dy_delta = 0;
+
                 if (bn::keypad::right_held())
-                    dx = bn::clamp(dx + PlayerMovement::acc_const, -PlayerMovement::max_speed, PlayerMovement::max_speed);
+                {
+                    dx_delta = PlayerMovement::acc_const;
+                    horizontal_input = true;
+                }
                 else if (bn::keypad::left_held())
-                    dx = bn::clamp(dx - PlayerMovement::acc_const, -PlayerMovement::max_speed, PlayerMovement::max_speed);
+                {
+                    dx_delta = -PlayerMovement::acc_const;
+                    horizontal_input = true;
+                }
 
                 if (bn::keypad::up_held())
-                    dy = bn::clamp(dy - PlayerMovement::acc_const, -PlayerMovement::max_speed, PlayerMovement::max_speed);
+                {
+                    dy_delta = -PlayerMovement::acc_const;
+                    vertical_input = true;
+                }
                 else if (bn::keypad::down_held())
-                    dy = bn::clamp(dy + PlayerMovement::acc_const, -PlayerMovement::max_speed, PlayerMovement::max_speed);
+                {
+                    dy_delta = PlayerMovement::acc_const;
+                    vertical_input = true;
+                }
+
+                // Apply diagonal normalization if moving diagonally
+                if (horizontal_input && vertical_input)
+                {
+                    dx_delta *= PlayerMovement::diagonal_factor;
+                    dy_delta *= PlayerMovement::diagonal_factor;
+                }
+
+                // Apply the normalized deltas with clamping
+                dx = bn::clamp(dx + dx_delta, -PlayerMovement::max_speed, PlayerMovement::max_speed);
+                dy = bn::clamp(dy + dy_delta, -PlayerMovement::max_speed, PlayerMovement::max_speed);
 
                 _movement.set_dx(dx);
                 _movement.set_dy(dy);
@@ -407,16 +436,63 @@ namespace fe
             }
             else
             {
-                // Normal movement
+                // Normal movement with diagonal normalization
+                bn::fixed dx = _movement.dx();
+                bn::fixed dy = _movement.dy();
+
+                // Track input directions for diagonal normalization
+                bool horizontal_input = false;
+                bool vertical_input = false;
+                bn::fixed dx_delta = 0;
+                bn::fixed dy_delta = 0;
+                PlayerMovement::Direction last_direction = _movement.facing_direction();
+
                 if (bn::keypad::right_held())
-                    _movement.move_direction(PlayerMovement::Direction::RIGHT);
+                {
+                    dx_delta = PlayerMovement::acc_const;
+                    horizontal_input = true;
+                    last_direction = PlayerMovement::Direction::RIGHT;
+                }
                 else if (bn::keypad::left_held())
-                    _movement.move_direction(PlayerMovement::Direction::LEFT);
+                {
+                    dx_delta = -PlayerMovement::acc_const;
+                    horizontal_input = true;
+                    last_direction = PlayerMovement::Direction::LEFT;
+                }
 
                 if (bn::keypad::up_held())
-                    _movement.move_direction(PlayerMovement::Direction::UP);
+                {
+                    dy_delta = -PlayerMovement::acc_const;
+                    vertical_input = true;
+                    last_direction = PlayerMovement::Direction::UP;
+                }
                 else if (bn::keypad::down_held())
-                    _movement.move_direction(PlayerMovement::Direction::DOWN);
+                {
+                    dy_delta = PlayerMovement::acc_const;
+                    vertical_input = true;
+                    last_direction = PlayerMovement::Direction::DOWN;
+                }
+
+                // Apply diagonal normalization if moving diagonally
+                if (horizontal_input && vertical_input)
+                {
+                    dx_delta *= PlayerMovement::diagonal_factor;
+                    dy_delta *= PlayerMovement::diagonal_factor;
+                }
+
+                // Apply the normalized deltas with clamping
+                dx = bn::clamp(dx + dx_delta, -PlayerMovement::max_speed, PlayerMovement::max_speed);
+                dy = bn::clamp(dy + dy_delta, -PlayerMovement::max_speed, PlayerMovement::max_speed);
+
+                _movement.set_dx(dx);
+                _movement.set_dy(dy);
+
+                // Update facing direction and state
+                if (horizontal_input || vertical_input)
+                {
+                    _movement.set_facing_direction(last_direction);
+                }
+                _movement.update_movement_state();
             }
 
             if (should_run && _movement.is_moving())
