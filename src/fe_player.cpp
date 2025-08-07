@@ -17,7 +17,9 @@ namespace fe
 
     namespace player_constants
     {
-        constexpr bn::fixed ROLL_SPEED = 1.2;
+        constexpr bn::fixed ROLL_SPEED = 3.75;   // 1.5x faster (was 2.5)
+        constexpr int ROLL_DURATION = 64;        // Increased to double total distance
+        constexpr int ROLL_IFRAME_DURATION = 30; // Extended i-frames for longer roll
         // HORIZONTAL_OFFSET removed - new 32x32 sprite tightly fits around player
         constexpr bn::fixed HITBOX_WIDTH = 16;
         constexpr bn::fixed HITBOX_HEIGHT = 32;
@@ -33,18 +35,24 @@ namespace fe
     // Direction utility functions
     namespace direction_utils
     {
-        bn::fixed_point get_roll_offset(PlayerMovement::Direction dir)
+        bn::fixed_point get_roll_offset(PlayerMovement::Direction dir, int frames_remaining, int total_frames)
         {
+            // Use linear momentum decay for smoother animation sync
+            bn::fixed momentum_factor = bn::fixed(frames_remaining) / bn::fixed(total_frames);
+            // Start fast, end slower but not too dramatic
+            momentum_factor = (momentum_factor * 0.7) + 0.3; // Range from 1.0 to 0.3
+            bn::fixed current_speed = player_constants::ROLL_SPEED * momentum_factor;
+
             switch (dir)
             {
             case PlayerMovement::Direction::UP:
-                return {0, -player_constants::ROLL_SPEED};
+                return {0, -current_speed};
             case PlayerMovement::Direction::DOWN:
-                return {0, player_constants::ROLL_SPEED};
+                return {0, current_speed};
             case PlayerMovement::Direction::LEFT:
-                return {-player_constants::ROLL_SPEED, 0};
+                return {-current_speed, 0};
             case PlayerMovement::Direction::RIGHT:
-                return {player_constants::ROLL_SPEED, 0};
+                return {current_speed, 0};
             default:
                 return {0, 0};
             }
@@ -327,8 +335,15 @@ namespace fe
         {
             if (bn::keypad::b_pressed() && _abilities.rolling_available())
             {
-                _movement.start_action(PlayerMovement::State::ROLLING, 64);
-                _abilities.set_roll_cooldown(64);
+                _movement.start_action(PlayerMovement::State::ROLLING, player_constants::ROLL_DURATION);
+                _abilities.set_roll_cooldown(90); // Reasonable cooldown - 1.5 seconds
+
+                // Set invulnerability but don't start the blinking timer during roll
+                _state.set_invulnerable(true);
+                _state.set_inv_timer(0); // No blinking during roll
+
+                // Play roll sound effect
+                bn::sound_items::swipe.play();
             }
             else if (bn::keypad::a_pressed() && _state.dialog_cooldown() == 0)
             {
@@ -568,7 +583,9 @@ namespace fe
             bn::fixed_point new_pos = pos() + bn::fixed_point(_movement.dx(), _movement.dy());
             if (_movement.current_state() == PlayerMovement::State::ROLLING)
             {
-                new_pos += direction_utils::get_roll_offset(_movement.facing_direction());
+                new_pos += direction_utils::get_roll_offset(_movement.facing_direction(),
+                                                            _movement.action_timer(),
+                                                            player_constants::ROLL_DURATION);
             }
             set_position(new_pos);
 
@@ -584,6 +601,13 @@ namespace fe
         // Handle action completion
         if (was_performing_action && _movement.action_timer() <= 0)
         {
+            // End roll invulnerability when roll ends
+            if (_movement.current_state() == PlayerMovement::State::ROLLING && _state.invulnerable())
+            {
+                _state.set_invulnerable(false);
+                set_visible(true);
+            }
+
             _movement.stop_action();
             update_animation();
         }
@@ -645,14 +669,22 @@ namespace fe
         // Handle invulnerability
         if (_state.invulnerable())
         {
-            int inv_timer = _state.inv_timer() - 1;
-            _state.set_inv_timer(inv_timer);
-            set_visible((inv_timer / 5) % 2 == 0);
-
-            if (inv_timer <= 0)
+            // Don't flash during roll - rolling should be smooth
+            if (_movement.current_state() == PlayerMovement::State::ROLLING)
             {
-                _state.set_invulnerable(false);
-                set_visible(true);
+                set_visible(true); // Always visible during roll
+            }
+            else
+            {
+                int inv_timer = _state.inv_timer() - 1;
+                _state.set_inv_timer(inv_timer);
+                set_visible((inv_timer / 5) % 2 == 0);
+
+                if (inv_timer <= 0)
+                {
+                    _state.set_invulnerable(false);
+                    set_visible(true);
+                }
             }
         }
 
