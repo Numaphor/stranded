@@ -26,9 +26,14 @@ namespace fe
         bool _is_glowing = false;
         bool _soul_effect_active = false;
         int _soul_effect_timer = 0;
+        bool _soul_fade_out_active = false;
+        bool _silver_soul_active = false;
+        int _silver_soul_timer = 0;
+        int _silver_idle_timer = 0;
+        bool _silver_soul_reversing = false;
 
         bn::optional<bn::sprite_animate_action<10>> _action;
-        bn::optional<bn::sprite_animate_action<5>> _soul_action;
+        bn::optional<bn::sprite_animate_action<8>> _soul_action;
 
     public:
         Healthbar();
@@ -37,9 +42,12 @@ namespace fe
         void set_hp(int hp);
         void set_visible(bool is_visible);
         void set_soul_position(int x, int y);
-        void debug_soul_center();       // Center soul sprite for debugging
-        void debug_soul_animate();      // Animate soul sprite for debugging
-        void activate_soul_animation(); // Trigger soul animation for defense buff
+        void debug_soul_center();         // Center soul sprite for debugging
+        void debug_soul_animate();        // Animate soul sprite for debugging
+        void activate_soul_animation();   // Trigger soul animation for defense buff
+        void deactivate_soul_animation(); // Deactivate defense buff when healing
+        void activate_silver_soul();      // Trigger silver soul animation for energy buff
+        void deactivate_silver_soul();    // Return to normal soul when healing
         void activate_glow();
         bool is_glow_active();
         void update();

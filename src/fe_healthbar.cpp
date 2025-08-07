@@ -7,6 +7,8 @@
 #include "bn_regular_bg_items_health.h"
 #include "bn_sprite_items_weapon_claw.h"
 #include "bn_sprite_items_soul.h"
+#include "bn_sprite_items_soul_silver.h"
+#include "bn_sprite_items_soul_silver_idle.h"
 
 namespace fe
 {
@@ -109,14 +111,72 @@ namespace fe
 
     void Healthbar::activate_soul_animation()
     {
-        // Start defense buff soul effect with 5-second duration
+        // Start defense buff soul effect (permanent until heal, like silver soul)
         _soul_effect_active = true;
-        _soul_effect_timer = 300; // 5 seconds at 60 FPS
+        _soul_effect_timer = -1; // Set to -1 to indicate permanent state
 
         // Animate soul sprite frames 1-4 for defense buff (SELECT + DOWN)
         _soul_action = bn::create_sprite_animate_action_once(
             _soul_sprite, 8, bn::sprite_items::soul.tiles_item(), 1, 2, 3, 4);
-        BN_LOG("Soul animation triggered for defense buff - 5 second effect started");
+        BN_LOG("Soul animation triggered for defense buff - permanent until heal");
+    }
+
+    void Healthbar::activate_silver_soul()
+    {
+        // Start silver soul transformation (permanent until heal)
+        _silver_soul_active = true;
+        _silver_soul_timer = -1; // Set to -1 to indicate permanent state
+        _silver_idle_timer = 0;  // Reset idle timer
+
+        // Switch to silver soul sprite and play transformation animation with all 8 frames
+        _soul_sprite.set_item(bn::sprite_items::soul_silver);
+
+        // Create frame sequence for 8-frame transformation (0-7)
+        bn::vector<uint16_t, 8> frames;
+        for (int i = 0; i <= 7; ++i)
+        {
+            frames.push_back(i);
+        }
+
+        _soul_action = bn::sprite_animate_action<8>::once(
+            _soul_sprite, 8, bn::sprite_items::soul_silver.tiles_item(),
+            bn::span<const uint16_t>(frames.data(), frames.size()));
+        BN_LOG("Silver soul transformation triggered for energy buff - permanent until heal");
+    }
+
+    void Healthbar::deactivate_silver_soul()
+    {
+        if (_silver_soul_active)
+        {
+            // Create reverse frame sequence for 8-frame transformation (7-0)
+            bn::vector<uint16_t, 8> frames;
+            for (int i = 7; i >= 0; --i)
+            {
+                frames.push_back(i);
+            }
+
+            // Play reverse transformation animation when healing
+            _soul_action = bn::sprite_animate_action<8>::once(
+                _soul_sprite, 8, bn::sprite_items::soul_silver.tiles_item(),
+                bn::span<const uint16_t>(frames.data(), frames.size()));
+            _silver_soul_active = false;
+            _silver_soul_reversing = true; // Flag to indicate reverse animation is playing
+            _silver_idle_timer = 0;
+            BN_LOG("Silver soul deactivated - playing reverse transformation due to heal");
+        }
+    }
+
+    void Healthbar::deactivate_soul_animation()
+    {
+        if (_soul_effect_active)
+        {
+            // Start fade-out with reversed animation (frames 4-3-2-1) to return to idle
+            _soul_action = bn::create_sprite_animate_action_once(
+                _soul_sprite, 8, bn::sprite_items::soul.tiles_item(), 4, 3, 2, 1);
+            _soul_effect_active = false;
+            _soul_fade_out_active = true;
+            BN_LOG("Defence buff soul deactivated - playing fade-out animation due to heal");
+        }
     }
 
     void Healthbar::activate_glow()
@@ -133,26 +193,59 @@ namespace fe
             _action.value().update();
         }
 
-        // Handle soul effect duration and fade-out
+        // Handle defence buff soul effect - now permanent like silver soul, no timer countdown
         if (_soul_effect_active)
         {
-            _soul_effect_timer--;
+            // Defence buff stays active until heal - no timer check for deactivation
+            // Animation will complete and stay on frame 4 until manually deactivated
+        }
 
-            // Check if it's time to start fade-out (reversed animation)
-            if (_soul_effect_timer <= 0)
+        // Handle silver soul effect duration and random idle animations
+        if (_silver_soul_active)
+        {
+            _silver_idle_timer++;
+
+            // Check if transformation animation is done and we should start looping idle animations
+            if (_soul_action.has_value() && _soul_action.value().done())
             {
-                // Start fade-out with reversed animation (frames 4-3-2-1-0) to return to idle
-                _soul_action = bn::create_sprite_animate_action_once(
-                    _soul_sprite, 8, bn::sprite_items::soul.tiles_item(), 4, 3, 2, 1, 0);
-                _soul_effect_active = false;
-                BN_LOG("Soul effect fading out with reversed animation to idle frame");
+                // Play silver idle animation on loop every 120 frames (2 seconds)
+                if (_silver_idle_timer % 120 == 0)
+                {
+                    _soul_sprite.set_item(bn::sprite_items::soul_silver_idle);
+                    _soul_action = bn::create_sprite_animate_action_once(
+                        _soul_sprite, 10, bn::sprite_items::soul_silver_idle.tiles_item(), 0, 1, 2, 1, 0);
+                    BN_LOG("Playing looping silver soul idle animation");
+                }
             }
+
+            // Silver soul stays active until heal - no timer check for deactivation
         }
 
         // Update soul animation if active
         if (_soul_action.has_value() && !_soul_action.value().done())
         {
             _soul_action.value().update();
+        }
+
+        // Handle reverse transformation completion
+        if (_silver_soul_reversing && _soul_action.has_value() && _soul_action.value().done())
+        {
+            // Reverse animation completed, switch back to normal soul sprite
+            _soul_sprite.set_item(bn::sprite_items::soul);
+            _soul_sprite.set_tiles(bn::sprite_items::soul.tiles_item().create_tiles(0));
+            _soul_action.reset();
+            _silver_soul_reversing = false;
+            BN_LOG("Reverse silver soul transformation completed - switched to normal soul");
+        }
+
+        // Handle defence buff fade-out completion
+        if (_soul_fade_out_active && _soul_action.has_value() && _soul_action.value().done())
+        {
+            // Fade-out animation completed, reset soul sprite to frame 0 (idle)
+            _soul_sprite.set_tiles(bn::sprite_items::soul.tiles_item().create_tiles(0));
+            _soul_action.reset();
+            _soul_fade_out_active = false;
+            BN_LOG("Defence buff fade-out completed - soul sprite reset to idle frame 0");
         }
 
         // Position soul sprite at the optimal healthbar overlay position

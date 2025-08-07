@@ -365,6 +365,17 @@ namespace fe
                     {
                         _healthbar.activate_soul_animation();
                     }
+                    // Trigger silver soul animation for energy buff
+                    else if (buff_state == PlayerMovement::State::ENERGY_BUFF)
+                    {
+                        _healthbar.activate_silver_soul();
+                    }
+                    // Deactivate both soul effects when healing
+                    else if (buff_state == PlayerMovement::State::HEAL_BUFF)
+                    {
+                        _healthbar.deactivate_silver_soul();
+                        _healthbar.deactivate_soul_animation();
+                    }
                 }
             }
         }
