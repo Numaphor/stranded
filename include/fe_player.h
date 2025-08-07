@@ -50,6 +50,7 @@ namespace fe
         static constexpr bn::fixed friction_const = 0.65;
         static constexpr bn::fixed movement_threshold = 0.1;
         static constexpr bn::fixed max_speed = 2;
+        static constexpr bn::fixed diagonal_factor = 0.707; // 1/√2 for diagonal movement normalization
 
         PlayerMovement();
 
@@ -91,6 +92,7 @@ namespace fe
         void set_dy(bn::fixed dy) { _dy = dy; }
         void set_action_timer(int timer) { _action_timer = timer; }
         void set_state(State state) { _current_state = state; }
+        void set_facing_direction(Direction direction) { _facing_direction = direction; }
 
         // Update movement state based on current velocity
         void update_movement_state() { update_state(); }
