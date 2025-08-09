@@ -324,6 +324,10 @@ namespace fe
             set_visible(true);
             _bullet_manager.clear_bullets();
 
+            // Reset ammo to full
+            _ammo_count = MAX_AMMO;
+            _hud.set_ammo(_ammo_count);
+
             // Don't auto-revive companion if it died independently
             // It should stay dead until player comes close to revive it
             if (_companion.has_value() && !_companion->is_dead_independently())
@@ -355,6 +359,12 @@ namespace fe
         // Access to HUD for weapon management
         [[nodiscard]] fe::HUD &get_hud() { return _hud; }
 
+        // Ammo management
+        [[nodiscard]] int get_ammo() const { return _ammo_count; }
+        void add_ammo(int amount) { _ammo_count = bn::min(_ammo_count + amount, MAX_AMMO); }
+        void reload_ammo() { _ammo_count = MAX_AMMO; }
+        [[nodiscard]] bool has_ammo() const { return _ammo_count > 0; }
+
         void update_gun_position(PlayerMovement::Direction direction);
 
     private:
@@ -377,6 +387,11 @@ namespace fe
 
         // Bullet management
         BulletManager _bullet_manager;
+
+        // Ammo system
+        int _ammo_count = 10;
+        static constexpr int MAX_AMMO = 10;
+        bool _reload_on_roll_end = false;
 
         // Strafing state
         bool _is_strafing = false;

@@ -34,6 +34,10 @@ namespace fe
 
         bn::optional<bn::sprite_animate_action<8>> _soul_action;
 
+        // Ammo display - single sprite with multiple frames (0-10 ammo states)
+        bn::optional<bn::sprite_ptr> _ammo_sprite;
+        int _displayed_ammo = 10;
+
     public:
         HUD();
 
@@ -41,6 +45,10 @@ namespace fe
         void set_hp(int hp);
         void set_visible(bool is_visible);
         void set_soul_position(int x, int y);
+
+        // Ammo management
+        void set_ammo(int ammo_count);
+        void update_ammo_display();
         void debug_soul_center();         // Center soul sprite for debugging
         void debug_soul_animate();        // Animate soul sprite for debugging
         void activate_soul_animation();   // Trigger soul animation for defense buff

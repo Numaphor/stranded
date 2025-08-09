@@ -307,6 +307,7 @@ namespace fe
         set_sprite_z_order(1);
         _hitbox = Hitbox(0, 0, player_constants::HITBOX_WIDTH, player_constants::HITBOX_HEIGHT);
         _hud.set_hp(_hp);
+        _hud.set_ammo(_ammo_count); // Initialize ammo display
 
         // Don't create gun sprite initially - player starts with sword equipped
     }
@@ -314,6 +315,7 @@ namespace fe
     void Player::spawn(bn::fixed_point pos, bn::camera_ptr camera)
     {
         _hud.set_hp(_hp);
+        _hud.set_ammo(_ammo_count); // Initialize ammo display
         set_position(pos);
         set_camera(camera);
         initialize_companion(camera);
@@ -367,6 +369,9 @@ namespace fe
                 _state.set_invulnerable(true);
                 _state.set_inv_timer(0); // No blinking during roll
 
+                // Mark for reload at end of roll if gun is active
+                _reload_on_roll_end = _gun_active;
+
                 // Play roll sound effect
                 bn::sound_items::swipe.play();
             }
@@ -381,6 +386,13 @@ namespace fe
                     _movement.start_action(PlayerMovement::State::SLASHING, 25);
                     _abilities.set_slash_cooldown(60);
                 }
+            }
+            else if (bn::keypad::r_pressed() && _gun_active)
+            {
+                // Reload ammo when R is pressed and gun is active
+                reload_ammo();
+                _hud.set_ammo(_ammo_count);
+                BN_LOG("Ammo reloaded! Count: ", _ammo_count);
             }
             else if (bn::keypad::select_held() && _abilities.buff_abilities_available())
             {
@@ -608,6 +620,8 @@ namespace fe
                 _gun_active = false;
                 _gun_sprite.reset();
             }
+            // Hide ammo display when switching to sword
+            _hud.set_ammo(0); // This will hide all ammo sprites
         }
         else
         {
@@ -635,6 +649,8 @@ namespace fe
                     }
                 }
             }
+            // Show current ammo count when switching to gun
+            _hud.set_ammo(_ammo_count);
         }
     }
 
@@ -709,6 +725,14 @@ namespace fe
             {
                 _state.set_invulnerable(false);
                 set_visible(true);
+                
+                // Reload weapon at end of roll if flagged
+                if (_reload_on_roll_end)
+                {
+                    reload_ammo();
+                    _hud.set_ammo(_ammo_count);
+                    _reload_on_roll_end = false;
+                }
             }
 
             _movement.stop_action();
@@ -843,12 +867,18 @@ namespace fe
 
     void Player::fire_bullet(PlayerMovement::Direction direction)
     {
-        if (!_gun_active || !_gun_sprite.has_value())
+        if (!_gun_active || !_gun_sprite.has_value() || !has_ammo())
             return;
 
         bn::fixed_point bullet_pos = direction_utils::get_bullet_position(direction, pos());
         Direction bullet_dir = static_cast<Direction>(int(direction));
         _bullet_manager.fire_bullet(bullet_pos, bullet_dir);
+
+        // Consume ammo and update HUD
+        _ammo_count--;
+        _hud.set_ammo(_ammo_count);
+        
+        BN_LOG("Bullet fired! Ammo remaining: ", _ammo_count);
     }
 
     void Player::initialize_companion(bn::camera_ptr camera)

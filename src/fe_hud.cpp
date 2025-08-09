@@ -10,6 +10,7 @@
 #include "bn_sprite_items_icon_gun.h"
 #include "bn_sprite_items_soul_silver.h"
 #include "bn_sprite_items_soul_silver_idle.h"
+#include "bn_sprite_items_ammo.h"
 
 namespace fe
 {
@@ -18,8 +19,8 @@ namespace fe
     constexpr int MIN_Z_ORDER = -32767;        // Minimum z-order value for backgrounds/sprites
 
     HUD::HUD() : _weapon(WEAPON_TYPE::SWORD),
-                             _weapon_sprite(bn::sprite_items::icon_gun.create_sprite(100, 70, 0)),
-                             _soul_sprite(bn::sprite_items::soul.create_sprite(-200, -150, 0)) // More visible position for debugging
+                 _weapon_sprite(bn::sprite_items::icon_gun.create_sprite(100, 66, 0)),
+                 _soul_sprite(bn::sprite_items::soul.create_sprite(-200, -150, 0)) // More visible position for debugging
     {
         // Create GUI HUD with maximum priority
         _health_bg = bn::regular_bg_items::health.create_bg(-262, -215, 2);
@@ -40,12 +41,19 @@ namespace fe
         _soul_sprite.remove_camera();
         _soul_sprite.set_visible(true); // Explicitly make visible
 
+        // Initialize ammo display (single sprite with frames 0-10 for different ammo counts)
+        _ammo_sprite = bn::sprite_items::ammo.create_sprite(100, 77, 0); // Frame 0 = full ammo (inverted)
+        _ammo_sprite->set_bg_priority(0);
+        _ammo_sprite->remove_camera();
+        _ammo_sprite->set_z_order(-32000);
+        _ammo_sprite->set_visible(false); // Start hidden since we start with sword
+
         // Log dimensions and positions for debugging
         BN_LOG("HUD bg position: (-262, -215)");
         BN_LOG("Soul sprite position: (-200, -150) - DEBUG POSITION");
-        BN_LOG("Weapon sprite: HIDDEN (off-screen) - Initial weapon: SWORD");
+        BN_LOG("Weapon sprite: Gun icon at (100, 66) - moved up 4 pixels");
         BN_LOG("Soul sprite size: 16x16 pixels (from json height: 16)");
-        BN_LOG("Soul sprite z-order: -32000, bg_priority: 0");
+        BN_LOG("Ammo sprite: Single sprite at (100, 77) with 11 frames (0-10 ammo states)");
     }
 
     int HUD::hp()
@@ -74,6 +82,12 @@ namespace fe
 
         _weapon_sprite.set_visible(is_visible);
         _soul_sprite.set_visible(is_visible);
+
+        // Update ammo sprite visibility
+        if (_ammo_sprite.has_value())
+        {
+            _ammo_sprite->set_visible(is_visible && _weapon == WEAPON_TYPE::GUN && _displayed_ammo > 0);
+        }
     }
 
     void HUD::set_soul_position(int x, int y)
@@ -262,13 +276,13 @@ namespace fe
             // Update weapon sprite based on type and place in bottom right of screen
             if (_weapon == WEAPON_TYPE::GUN)
             {
-                _weapon_sprite = bn::sprite_items::icon_gun.create_sprite(100, 70, 0); // Bottom right of screen
+                _weapon_sprite = bn::sprite_items::icon_gun.create_sprite(100, 66, 0); // Bottom right of screen (moved up 4 pixels)
             }
             else if (_weapon == WEAPON_TYPE::SWORD)
             {
                 // Use a dedicated placeholder sprite for sword until real sword sprite is available
                 // Replace 'sword_placeholder' with the actual sword sprite item when ready
-                _weapon_sprite = bn::sprite_items::icon_gun.create_sprite(100, 70, 0); // Bottom right of screen
+                _weapon_sprite = bn::sprite_items::icon_gun.create_sprite(100, 66, 0); // Bottom right of screen (moved up 4 pixels)
             }
 
             // Reapply sprite settings - make weapon sprite visible in bottom right
@@ -276,6 +290,9 @@ namespace fe
             _weapon_sprite.remove_camera();
             _weapon_sprite.set_visible(true);   // Make weapon sprite visible
             _weapon_sprite.set_z_order(-32000); // High priority to ensure visibility
+
+            // Update ammo display visibility based on weapon type
+            update_ammo_display();
         }
     }
 
@@ -305,5 +322,34 @@ namespace fe
         {
             set_weapon(WEAPON_TYPE::GUN);
         }
+    }
+
+    void HUD::set_ammo(int ammo_count)
+    {
+        _displayed_ammo = bn::max(0, bn::min(ammo_count, 10));
+        update_ammo_display();
+    }
+
+    void HUD::update_ammo_display()
+    {
+        if (!_ammo_sprite) return;
+
+        // Show/hide ammo sprite based on weapon type and update frame
+        bool show_ammo = (_weapon == WEAPON_TYPE::GUN);
+        
+        if (show_ammo)
+        {
+            // Invert frame: 10 ammo shows frame 0, 0 ammo shows frame 10
+            int frame = 10 - _displayed_ammo;
+            _ammo_sprite->set_tiles(bn::sprite_items::ammo.tiles_item(), frame);
+            _ammo_sprite->set_visible(_is_visible);
+        }
+        else
+        {
+            _ammo_sprite->set_visible(false);
+        }
+        
+        BN_LOG("Ammo display updated: ", _displayed_ammo, "/10 rounds, frame: ", (10 - _displayed_ammo), ", weapon: ",
+               (_weapon == WEAPON_TYPE::GUN ? "GUN" : "SWORD"));
     }
 }
