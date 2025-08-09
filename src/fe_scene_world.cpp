@@ -644,15 +644,19 @@ namespace fe
                         fe::Collision::log_collision("Player", "Enemy",
                                                      _player->pos(), enemy.get_position());
 
-                        // Player takes damage when colliding with enemy
-                        _player->take_damage(1);
+                        // Player can roll through enemies without taking damage, but cannot walk through them
+                        if (!_player->is_state(PlayerMovement::State::ROLLING))
+                        {
+                            // Player takes damage when colliding with enemy (only when not rolling)
+                            _player->take_damage(1);
 
-                        // Knockback effect
-                        bn::fixed_point knockback_vector = _player->pos() - enemy.get_position();
-                        // Simple knockback in the x direction based on relative positions
-                        bn::fixed knockback_x = (knockback_vector.x() > 0) ? 10 : -10;
-                        bn::fixed_point knockback(knockback_x, 0);
-                        _player->set_position(_player->pos() + knockback);
+                            // Knockback effect
+                            bn::fixed_point knockback_vector = _player->pos() - enemy.get_position();
+                            // Simple knockback in the x direction based on relative positions
+                            bn::fixed knockback_x = (knockback_vector.x() > 0) ? 10 : -10;
+                            bn::fixed_point knockback(knockback_x, 0);
+                            _player->set_position(_player->pos() + knockback);
+                        }
                     }
                 }
 
