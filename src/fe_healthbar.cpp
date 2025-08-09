@@ -5,22 +5,21 @@
 #include "bn_math.h"
 
 #include "bn_regular_bg_items_health.h"
-#include "bn_sprite_items_weapon_claw.h"
 #include "bn_sprite_items_soul.h"
+#include "bn_sprite_items_gun.h"
+#include "bn_sprite_items_icon_gun.h"
 #include "bn_sprite_items_soul_silver.h"
 #include "bn_sprite_items_soul_silver_idle.h"
 
 namespace fe
 {
-    constexpr int OFFSCREEN_POSITION_X = -500;           // Off-screen X position for weapon sprite
-    constexpr int OFFSCREEN_POSITION_Y = -500;           // Off-screen Y position for weapon sprite
-    constexpr int MIN_Z_ORDER = -32767;                  // Minimum z-order value for backgrounds/sprites
-    const constexpr int weapon_x = OFFSCREEN_POSITION_X; // Move far off-screen to left
-    const constexpr int weapon_y = OFFSCREEN_POSITION_Y; // Move far off-screen to top
-    Healthbar::Healthbar() : _weapon(WEAPON_TYPE::CLAW),
-                             _weapon_sprite(bn::sprite_items::weapon_claw.create_sprite(OFFSCREEN_POSITION_X - 6, OFFSCREEN_POSITION_Y, 0)),
-                             _soul_sprite(bn::sprite_items::soul.create_sprite(-200, -150, 0)), // More visible position for debugging
-                             _action()
+    constexpr int OFFSCREEN_POSITION_X = -500; // Off-screen X position for weapon sprite
+    constexpr int OFFSCREEN_POSITION_Y = -500; // Off-screen Y position for weapon sprite
+    constexpr int MIN_Z_ORDER = -32767;        // Minimum z-order value for backgrounds/sprites
+
+    Healthbar::Healthbar() : _weapon(WEAPON_TYPE::SWORD),
+                             _weapon_sprite(bn::sprite_items::icon_gun.create_sprite(100, 70, 0)),
+                             _soul_sprite(bn::sprite_items::soul.create_sprite(-200, -150, 0)) // More visible position for debugging
     {
         // Create GUI healthbar with maximum priority
         _health_bg = bn::regular_bg_items::health.create_bg(-262, -215, 2);
@@ -32,6 +31,8 @@ namespace fe
 
         _weapon_sprite.set_bg_priority(0);
         _weapon_sprite.remove_camera();
+        _weapon_sprite.set_visible(true);   // Make weapon sprite visible
+        _weapon_sprite.set_z_order(-32000); // High priority to ensure visibility
 
         // Position soul sprite over healthbar with sprite priority
         _soul_sprite.set_bg_priority(0);
@@ -42,6 +43,7 @@ namespace fe
         // Log dimensions and positions for debugging
         BN_LOG("Healthbar bg position: (-262, -215)");
         BN_LOG("Soul sprite position: (-200, -150) - DEBUG POSITION");
+        BN_LOG("Weapon sprite: HIDDEN (off-screen) - Initial weapon: SWORD");
         BN_LOG("Soul sprite size: 16x16 pixels (from json height: 16)");
         BN_LOG("Soul sprite z-order: -32000, bg_priority: 0");
     }
@@ -179,20 +181,8 @@ namespace fe
         }
     }
 
-    void Healthbar::activate_glow()
-    {
-        _is_glowing = true;
-        _action = bn::create_sprite_animate_action_once(
-            _weapon_sprite, 15, bn::sprite_items::weapon_claw.tiles_item(), 0, 0, 8, 7, 6, 5, 4, 3, 2, 1, 0);
-    }
-
     void Healthbar::update()
     {
-        if (_action.has_value() && !_action.value().done())
-        {
-            _action.value().update();
-        }
-
         // Handle defence buff soul effect - now permanent like silver soul, no timer countdown
         if (_soul_effect_active)
         {
@@ -263,13 +253,57 @@ namespace fe
         }
     }
 
-    bool Healthbar::is_glow_ready()
+    void Healthbar::set_weapon(WEAPON_TYPE weapon)
     {
-        return _action.value().done();
+        if (_weapon != weapon)
+        {
+            _weapon = weapon;
+
+            // Update weapon sprite based on type and place in bottom right of screen
+            if (_weapon == WEAPON_TYPE::GUN)
+            {
+                _weapon_sprite = bn::sprite_items::icon_gun.create_sprite(100, 70, 0); // Bottom right of screen
+            }
+            else if (_weapon == WEAPON_TYPE::SWORD)
+            {
+                // Use a dedicated placeholder sprite for sword until real sword sprite is available
+                // Replace 'sword_placeholder' with the actual sword sprite item when ready
+                _weapon_sprite = bn::sprite_items::icon_gun.create_sprite(100, 70, 0); // Bottom right of screen
+            }
+
+            // Reapply sprite settings - make weapon sprite visible in bottom right
+            _weapon_sprite.set_bg_priority(0);
+            _weapon_sprite.remove_camera();
+            _weapon_sprite.set_visible(true);   // Make weapon sprite visible
+            _weapon_sprite.set_z_order(-32000); // High priority to ensure visibility
+        }
     }
 
-    bool Healthbar::is_glow_active()
+    void Healthbar::set_weapon_frame(int frame)
     {
-        return _is_glowing;
+        // Update the weapon sprite frame to match the player's current weapon frame
+        if (_weapon == WEAPON_TYPE::GUN)
+        {
+            _weapon_sprite.set_tiles(bn::sprite_items::icon_gun.tiles_item(), frame);
+            BN_LOG("Updated gun icon frame to: ", frame);
+        }
+        // Sword frame updates can be added here when sword sprite is available
+    }
+
+    WEAPON_TYPE Healthbar::get_weapon() const
+    {
+        return _weapon;
+    }
+
+    void Healthbar::cycle_weapon()
+    {
+        if (_weapon == WEAPON_TYPE::GUN)
+        {
+            set_weapon(WEAPON_TYPE::SWORD);
+        }
+        else
+        {
+            set_weapon(WEAPON_TYPE::GUN);
+        }
     }
 }

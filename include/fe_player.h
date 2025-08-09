@@ -352,6 +352,9 @@ namespace fe
                    _movement.current_state() == PlayerMovement::State::ATTACKING;
         }
 
+        // Access to healthbar for weapon management
+        [[nodiscard]] fe::Healthbar &get_healthbar() { return _healthbar; }
+
         void update_gun_position(PlayerMovement::Direction direction);
 
     private:
@@ -369,6 +372,8 @@ namespace fe
         // Gun sprite members
         bn::optional<bn::sprite_ptr> _gun_sprite;
         bool _gun_active = false;
+        int _gun_sprite_frame = 0;   // Track current gun sprite frame (0-5)
+        int _sword_sprite_frame = 0; // Track current sword sprite frame (for future sword variants)
 
         // Bullet management
         BulletManager _bullet_manager;
@@ -387,6 +392,9 @@ namespace fe
         void initialize_companion(bn::camera_ptr camera);
         void handle_input();
         void toggle_gun();
+        void switch_weapon();      // Switch between SWORD and GUN
+        void cycle_gun_sprite();   // Cycle gun animation sprites
+        void cycle_sword_sprite(); // Cycle sword animation sprites (placeholder)
         void update_gun_if_active();
     };
 

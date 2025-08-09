@@ -11,7 +11,8 @@ namespace fe
 {
     enum class WEAPON_TYPE
     {
-        CLAW
+        GUN,
+        SWORD
     };
 
     class Healthbar
@@ -23,7 +24,6 @@ namespace fe
         WEAPON_TYPE _weapon;
         bn::sprite_ptr _weapon_sprite;
         bn::sprite_ptr _soul_sprite;
-        bool _is_glowing = false;
         bool _soul_effect_active = false;
         int _soul_effect_timer = 0;
         bool _soul_fade_out_active = false;
@@ -32,7 +32,6 @@ namespace fe
         int _silver_idle_timer = 0;
         bool _silver_soul_reversing = false;
 
-        bn::optional<bn::sprite_animate_action<10>> _action;
         bn::optional<bn::sprite_animate_action<8>> _soul_action;
 
     public:
@@ -48,10 +47,13 @@ namespace fe
         void deactivate_soul_animation(); // Deactivate defense buff when healing
         void activate_silver_soul();      // Trigger silver soul animation for energy buff
         void deactivate_silver_soul();    // Return to normal soul when healing
-        void activate_glow();
-        bool is_glow_active();
         void update();
-        bool is_glow_ready();
+
+        // Weapon management
+        void set_weapon(WEAPON_TYPE weapon);
+        void set_weapon_frame(int frame); // Update weapon sprite frame
+        WEAPON_TYPE get_weapon() const;
+        void cycle_weapon(); // Cycle between available weapons
     };
 }
 

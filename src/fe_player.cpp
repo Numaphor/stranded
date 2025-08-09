@@ -10,6 +10,7 @@
 #include "fe_bullet_manager.h"
 #include "fe_sprite_priority.h"
 #include "bn_sound_items.h"
+#include "bn_log.h"
 
 namespace fe
 {
@@ -30,6 +31,13 @@ namespace fe
         constexpr bn::fixed BULLET_OFFSET_Y[4] = {-9, 9, -3, 1};
         constexpr bool GUN_FLIPS[4] = {false, false, true, false};
         constexpr int GUN_ANGLES[4] = {90, 270, 0, 0};
+    }
+
+    // Shared weapon state variables
+    namespace
+    {
+        static int shared_gun_frame = 0;
+        static int shared_sword_frame = 0;
     }
 
     // Direction utility functions
@@ -299,6 +307,8 @@ namespace fe
         set_sprite_z_order(1);
         _hitbox = Hitbox(0, 0, player_constants::HITBOX_WIDTH, player_constants::HITBOX_HEIGHT);
         _healthbar.set_hp(_hp);
+
+        // Don't create gun sprite initially - player starts with sword equipped
     }
 
     void Player::spawn(bn::fixed_point pos, bn::camera_ptr camera)
@@ -328,12 +338,24 @@ namespace fe
         }
 
         if (bn::keypad::l_pressed())
-            toggle_gun();
+            switch_weapon();
+
+        // Gun sprite cycling with SELECT + B (only when gun is active)
+        if (bn::keypad::select_held() && bn::keypad::b_pressed() && _gun_active)
+        {
+            cycle_gun_sprite();
+        }
+
+        // Sword sprite cycling with SELECT + B (only when sword is active and gun is not active)
+        if (bn::keypad::select_held() && bn::keypad::b_pressed() && !_gun_active && _healthbar.get_weapon() == WEAPON_TYPE::SWORD)
+        {
+            cycle_sword_sprite();
+        }
 
         // Action inputs (consolidated)
         if (!performing_action)
         {
-            if (bn::keypad::b_pressed() && _abilities.rolling_available())
+            if (bn::keypad::b_pressed() && !bn::keypad::select_held() && _abilities.rolling_available())
             {
                 _movement.start_action(PlayerMovement::State::ROLLING, player_constants::ROLL_DURATION);
                 _abilities.set_roll_cooldown(90); // Reasonable cooldown - 1.5 seconds
@@ -534,8 +556,15 @@ namespace fe
 
         if (_gun_active && !_gun_sprite.has_value())
         {
-            _gun_sprite = bn::sprite_items::gun.create_sprite(pos().x(), pos().y());
+            // Use shared gun frame
+            _gun_sprite = bn::sprite_items::gun.create_sprite(pos().x(), pos().y(), shared_gun_frame);
             _gun_sprite->set_bg_priority(get_sprite()->bg_priority());
+
+            // Update healthbar to show current gun frame
+            if (_healthbar.get_weapon() == WEAPON_TYPE::GUN)
+            {
+                _healthbar.set_weapon_frame(shared_gun_frame);
+            }
 
             // Set initial z_order based on facing direction
             PlayerMovement::Direction gun_dir = _is_strafing ? _strafing_direction : _movement.facing_direction();
@@ -563,6 +592,77 @@ namespace fe
         }
     }
 
+    void Player::switch_weapon()
+    {
+        // Switch between SWORD and GUN
+        if (_healthbar.get_weapon() == WEAPON_TYPE::GUN)
+        {
+            _healthbar.set_weapon(WEAPON_TYPE::SWORD);
+            BN_LOG("Switched to weapon: SWORD (frame: ", shared_sword_frame, ")");
+            // Turn off gun when switching to sword
+            if (_gun_active)
+            {
+                _gun_active = false;
+                _gun_sprite.reset();
+            }
+        }
+        else
+        {
+            _healthbar.set_weapon(WEAPON_TYPE::GUN);
+            _healthbar.set_weapon_frame(shared_gun_frame); // Sync healthbar icon frame
+            BN_LOG("Switched to weapon: GUN (frame: ", shared_gun_frame, ")");
+            // Turn on gun when switching to gun weapon, preserving the frame
+            if (!_gun_active)
+            {
+                _gun_active = true;
+                if (!_gun_sprite.has_value())
+                {
+                    // Use the preserved gun sprite frame
+                    _gun_sprite = bn::sprite_items::gun.create_sprite(pos().x(), pos().y(), shared_gun_frame);
+                    _gun_sprite->set_bg_priority(get_sprite()->bg_priority());
+
+                    PlayerMovement::Direction gun_dir = _is_strafing ? _strafing_direction : _movement.facing_direction();
+                    int gun_z_offset = direction_utils::get_gun_z_offset(gun_dir);
+                    _gun_sprite->set_z_order(get_sprite()->z_order() + gun_z_offset);
+
+                    if (get_sprite()->camera().has_value())
+                    {
+                        _gun_sprite->set_camera(get_sprite()->camera().value());
+                        _bullet_manager.set_camera(get_sprite()->camera().value());
+                    }
+                }
+            }
+        }
+    }
+
+    void Player::cycle_gun_sprite()
+    {
+        // Only cycle gun sprites when gun is active
+        if (_gun_active && _gun_sprite.has_value())
+        {
+            // Use shared gun frame
+            shared_gun_frame = (shared_gun_frame + 1) % 6;
+
+            // Update gun sprite to next frame
+            _gun_sprite->set_tiles(bn::sprite_items::gun.tiles_item(), shared_gun_frame);
+
+            // Update healthbar gun icon to match player's gun frame
+            _healthbar.set_weapon_frame(shared_gun_frame);
+
+            // Log for debugging
+            BN_LOG("Gun sprite frame: ", shared_gun_frame);
+        }
+    }
+
+    void Player::cycle_sword_sprite()
+    {
+        // Placeholder for sword sprite cycling
+        // Use shared sword frame
+        shared_sword_frame = (shared_sword_frame + 1) % 6; // Assume 6 sword variants like gun
+
+        // Log for debugging
+        BN_LOG("Sword sprite frame: ", shared_sword_frame);
+    }
     void Player::update()
     {
         auto old_state = _movement.current_state();
