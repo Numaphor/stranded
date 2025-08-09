@@ -1,4 +1,4 @@
-#include "fe_healthbar.h"
+#include "fe_hud.h"
 #include "bn_fixed.h"
 #include "bn_sprite_ptr.h"
 #include "bn_log.h"
@@ -17,11 +17,11 @@ namespace fe
     constexpr int OFFSCREEN_POSITION_Y = -500; // Off-screen Y position for weapon sprite
     constexpr int MIN_Z_ORDER = -32767;        // Minimum z-order value for backgrounds/sprites
 
-    Healthbar::Healthbar() : _weapon(WEAPON_TYPE::SWORD),
+    HUD::HUD() : _weapon(WEAPON_TYPE::SWORD),
                              _weapon_sprite(bn::sprite_items::icon_gun.create_sprite(100, 70, 0)),
                              _soul_sprite(bn::sprite_items::soul.create_sprite(-200, -150, 0)) // More visible position for debugging
     {
-        // Create GUI healthbar with maximum priority
+        // Create GUI HUD with maximum priority
         _health_bg = bn::regular_bg_items::health.create_bg(-262, -215, 2);
         _health_bg->set_priority(0);
         _health_bg->set_z_order(MIN_Z_ORDER);
@@ -34,26 +34,26 @@ namespace fe
         _weapon_sprite.set_visible(true);   // Make weapon sprite visible
         _weapon_sprite.set_z_order(-32000); // High priority to ensure visibility
 
-        // Position soul sprite over healthbar with sprite priority
+        // Position soul sprite over HUD with sprite priority
         _soul_sprite.set_bg_priority(0);
         _soul_sprite.set_z_order(-32000); // Maximum priority for sprite
         _soul_sprite.remove_camera();
         _soul_sprite.set_visible(true); // Explicitly make visible
 
         // Log dimensions and positions for debugging
-        BN_LOG("Healthbar bg position: (-262, -215)");
+        BN_LOG("HUD bg position: (-262, -215)");
         BN_LOG("Soul sprite position: (-200, -150) - DEBUG POSITION");
         BN_LOG("Weapon sprite: HIDDEN (off-screen) - Initial weapon: SWORD");
         BN_LOG("Soul sprite size: 16x16 pixels (from json height: 16)");
         BN_LOG("Soul sprite z-order: -32000, bg_priority: 0");
     }
 
-    int Healthbar::hp()
+    int HUD::hp()
     {
         return _hp;
     }
 
-    void Healthbar::set_hp(int hp)
+    void HUD::set_hp(int hp)
     {
         _hp = bn::max(0, bn::min(2, hp));
 
@@ -63,7 +63,7 @@ namespace fe
         }
     }
 
-    void Healthbar::set_visible(bool is_visible)
+    void HUD::set_visible(bool is_visible)
     {
         _is_visible = is_visible;
 
@@ -76,13 +76,13 @@ namespace fe
         _soul_sprite.set_visible(is_visible);
     }
 
-    void Healthbar::set_soul_position(int x, int y)
+    void HUD::set_soul_position(int x, int y)
     {
         _soul_sprite.set_position(x, y);
         BN_LOG("Soul sprite repositioned to: (", x, ", ", y, ")");
     }
 
-    void Healthbar::debug_soul_center()
+    void HUD::debug_soul_center()
     {
         _soul_sprite.set_position(0, 0); // Center of screen
         _soul_sprite.set_z_order(-2000); // Very high priority
@@ -90,7 +90,7 @@ namespace fe
         BN_LOG("Soul sprite moved to screen center (0, 0) for debugging");
     }
 
-    void Healthbar::debug_soul_animate()
+    void HUD::debug_soul_animate()
     {
         // Move soul sprite in a circle pattern to make it very visible
         static int frame_counter = 0;
@@ -111,7 +111,7 @@ namespace fe
         }
     }
 
-    void Healthbar::activate_soul_animation()
+    void HUD::activate_soul_animation()
     {
         // Start defense buff soul effect (permanent until heal, like silver soul)
         _soul_effect_active = true;
@@ -123,7 +123,7 @@ namespace fe
         BN_LOG("Soul animation triggered for defense buff - permanent until heal");
     }
 
-    void Healthbar::activate_silver_soul()
+    void HUD::activate_silver_soul()
     {
         // Start silver soul transformation (permanent until heal)
         _silver_soul_active = true;
@@ -146,7 +146,7 @@ namespace fe
         BN_LOG("Silver soul transformation triggered for energy buff - permanent until heal");
     }
 
-    void Healthbar::deactivate_silver_soul()
+    void HUD::deactivate_silver_soul()
     {
         if (_silver_soul_active)
         {
@@ -168,7 +168,7 @@ namespace fe
         }
     }
 
-    void Healthbar::deactivate_soul_animation()
+    void HUD::deactivate_soul_animation()
     {
         if (_soul_effect_active)
         {
@@ -181,7 +181,7 @@ namespace fe
         }
     }
 
-    void Healthbar::update()
+    void HUD::update()
     {
         // Handle defence buff soul effect - now permanent like silver soul, no timer countdown
         if (_soul_effect_active)
@@ -238,7 +238,7 @@ namespace fe
             BN_LOG("Defence buff fade-out completed - soul sprite reset to idle frame 0");
         }
 
-        // Position soul sprite at the optimal healthbar overlay position
+        // Position soul sprite at the optimal HUD overlay position
         // Based on user feedback: from top of circle, first position to the left
         // This corresponds to 90 degrees (π/2 radians) in the circle
         static bool soul_positioned = false;
@@ -248,12 +248,12 @@ namespace fe
             int x = (100 * bn::sin(angle)).integer() - 59;
             int y = (100 * bn::cos(angle)).integer() + 22;
             _soul_sprite.set_position(x, y);
-            BN_LOG("Soul sprite positioned at optimal healthbar location: (", x, ", ", y, ")");
+            BN_LOG("Soul sprite positioned at optimal HUD location: (", x, ", ", y, ")");
             soul_positioned = true;
         }
     }
 
-    void Healthbar::set_weapon(WEAPON_TYPE weapon)
+    void HUD::set_weapon(WEAPON_TYPE weapon)
     {
         if (_weapon != weapon)
         {
@@ -279,7 +279,7 @@ namespace fe
         }
     }
 
-    void Healthbar::set_weapon_frame(int frame)
+    void HUD::set_weapon_frame(int frame)
     {
         // Update the weapon sprite frame to match the player's current weapon frame
         if (_weapon == WEAPON_TYPE::GUN)
@@ -290,12 +290,12 @@ namespace fe
         // Sword frame updates can be added here when sword sprite is available
     }
 
-    WEAPON_TYPE Healthbar::get_weapon() const
+    WEAPON_TYPE HUD::get_weapon() const
     {
         return _weapon;
     }
 
-    void Healthbar::cycle_weapon()
+    void HUD::cycle_weapon()
     {
         if (_weapon == WEAPON_TYPE::GUN)
         {

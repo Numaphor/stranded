@@ -306,14 +306,14 @@ namespace fe
         }
         set_sprite_z_order(1);
         _hitbox = Hitbox(0, 0, player_constants::HITBOX_WIDTH, player_constants::HITBOX_HEIGHT);
-        _healthbar.set_hp(_hp);
+        _hud.set_hp(_hp);
 
         // Don't create gun sprite initially - player starts with sword equipped
     }
 
     void Player::spawn(bn::fixed_point pos, bn::camera_ptr camera)
     {
-        _healthbar.set_hp(_hp);
+        _hud.set_hp(_hp);
         set_position(pos);
         set_camera(camera);
         initialize_companion(camera);
@@ -347,7 +347,7 @@ namespace fe
         }
 
         // Sword sprite cycling with SELECT + B (only when sword is active and gun is not active)
-        if (bn::keypad::select_held() && bn::keypad::b_pressed() && !_gun_active && _healthbar.get_weapon() == WEAPON_TYPE::SWORD)
+        if (bn::keypad::select_held() && bn::keypad::b_pressed() && !_gun_active && _hud.get_weapon() == WEAPON_TYPE::SWORD)
         {
             cycle_sword_sprite();
         }
@@ -400,18 +400,18 @@ namespace fe
                     // Trigger soul animation for defense buff
                     if (buff_state == PlayerMovement::State::DEFENCE_BUFF)
                     {
-                        _healthbar.activate_soul_animation();
+                        _hud.activate_soul_animation();
                     }
                     // Trigger silver soul animation for energy buff
                     else if (buff_state == PlayerMovement::State::ENERGY_BUFF)
                     {
-                        _healthbar.activate_silver_soul();
+                        _hud.activate_silver_soul();
                     }
                     // Deactivate both soul effects when healing
                     else if (buff_state == PlayerMovement::State::HEAL_BUFF)
                     {
-                        _healthbar.deactivate_silver_soul();
-                        _healthbar.deactivate_soul_animation();
+                        _hud.deactivate_silver_soul();
+                        _hud.deactivate_soul_animation();
                     }
                 }
             }
@@ -560,10 +560,10 @@ namespace fe
             _gun_sprite = bn::sprite_items::gun.create_sprite(pos().x(), pos().y(), shared_gun_frame);
             _gun_sprite->set_bg_priority(get_sprite()->bg_priority());
 
-            // Update healthbar to show current gun frame
-            if (_healthbar.get_weapon() == WEAPON_TYPE::GUN)
+            // Update HUD to show current gun frame
+            if (_hud.get_weapon() == WEAPON_TYPE::GUN)
             {
-                _healthbar.set_weapon_frame(shared_gun_frame);
+                _hud.set_weapon_frame(shared_gun_frame);
             }
 
             // Set initial z_order based on facing direction
@@ -595,9 +595,9 @@ namespace fe
     void Player::switch_weapon()
     {
         // Switch between SWORD and GUN
-        if (_healthbar.get_weapon() == WEAPON_TYPE::GUN)
+        if (_hud.get_weapon() == WEAPON_TYPE::GUN)
         {
-            _healthbar.set_weapon(WEAPON_TYPE::SWORD);
+            _hud.set_weapon(WEAPON_TYPE::SWORD);
             BN_LOG("Switched to weapon: SWORD (frame: ", shared_sword_frame, ")");
             // Turn off gun when switching to sword
             if (_gun_active)
@@ -608,8 +608,8 @@ namespace fe
         }
         else
         {
-            _healthbar.set_weapon(WEAPON_TYPE::GUN);
-            _healthbar.set_weapon_frame(shared_gun_frame); // Sync healthbar icon frame
+            _hud.set_weapon(WEAPON_TYPE::GUN);
+            _hud.set_weapon_frame(shared_gun_frame); // Sync HUD icon frame
             BN_LOG("Switched to weapon: GUN (frame: ", shared_gun_frame, ")");
             // Turn on gun when switching to gun weapon, preserving the frame
             if (!_gun_active)
@@ -646,8 +646,8 @@ namespace fe
             // Update gun sprite to next frame
             _gun_sprite->set_tiles(bn::sprite_items::gun.tiles_item(), shared_gun_frame);
 
-            // Update healthbar gun icon to match player's gun frame
-            _healthbar.set_weapon_frame(shared_gun_frame);
+            // Update HUD gun icon to match player's gun frame
+            _hud.set_weapon_frame(shared_gun_frame);
 
             // Log for debugging
             BN_LOG("Gun sprite frame: ", shared_gun_frame);
@@ -722,7 +722,7 @@ namespace fe
         update_sprite_position();
         update_z_order();
         _animation.update();
-        _healthbar.update();
+        _hud.update();
         update_bullets();
 
         // Handle death timer
@@ -754,7 +754,7 @@ namespace fe
             set_visible(true);
 
             _animation.update();
-            _healthbar.update();
+            _hud.update();
             update_bullets();
 
             // Update companion
