@@ -520,9 +520,9 @@ namespace fe
             bool outside_deadzone = outside_deadzone_x || outside_deadzone_y;
 
             // Determine target position
-            if (player_is_moving && outside_deadzone)
+            if (player_is_moving)
             {
-                // Player is moving and outside deadzone - apply look-ahead in facing direction
+                // Player is moving - always apply look-ahead in facing direction for better responsiveness
                 auto player_direction = _player->facing_direction();
 
                 // Check if direction changed
@@ -566,7 +566,6 @@ namespace fe
                 // This prevents snapping when stopping after look-ahead
                 _camera_target_pos = _camera_target_pos + (player_pos - _camera_target_pos) * CAMERA_FOLLOW_SPEED;
             }
-            // If player is moving but inside deadzone, don't change camera target (stay put)
 
             // Decrease direction change counter
             if (_direction_change_frames > 0)
