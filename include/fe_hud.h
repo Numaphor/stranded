@@ -1,5 +1,5 @@
-#ifndef FE_HEALTHBAR_H
-#define FE_HEALTHBAR_H
+#ifndef FE_HUD_H
+#define FE_HUD_H
 
 #include "bn_sprite_ptr.h"
 #include "bn_optional.h"
@@ -15,7 +15,7 @@ namespace fe
         SWORD
     };
 
-    class Healthbar
+    class HUD
     {
     private:
         bn::optional<bn::regular_bg_ptr> _health_bg;
@@ -35,7 +35,7 @@ namespace fe
         bn::optional<bn::sprite_animate_action<8>> _soul_action;
 
     public:
-        Healthbar();
+        HUD();
 
         int hp();
         void set_hp(int hp);

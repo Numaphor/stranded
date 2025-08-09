@@ -9,7 +9,7 @@
 #include "bn_vector.h"
 
 #include "fe_hitbox.h"
-#include "fe_healthbar.h"
+#include "fe_hud.h"
 #include "fe_entity.h"
 #include "fe_bullet_manager.h"
 #include "fe_player_companion.h"
@@ -302,8 +302,8 @@ namespace fe
                     // Visual feedback for taking damage (but not for death)
                     set_visible(false);
                 }
-                _healthbar.set_hp(_hp);
-                _healthbar.update();
+                _hud.set_hp(_hp);
+                _hud.update();
             }
         }
 
@@ -319,8 +319,8 @@ namespace fe
             _state.reset();
             _movement.reset();
             _abilities.reset();
-            _healthbar.set_hp(_hp);
-            _healthbar.update();
+            _hud.set_hp(_hp);
+            _hud.update();
             set_visible(true);
             _bullet_manager.clear_bullets();
 
@@ -352,8 +352,8 @@ namespace fe
                    _movement.current_state() == PlayerMovement::State::ATTACKING;
         }
 
-        // Access to healthbar for weapon management
-        [[nodiscard]] fe::Healthbar &get_healthbar() { return _healthbar; }
+        // Access to HUD for weapon management
+        [[nodiscard]] fe::HUD &get_hud() { return _hud; }
 
         void update_gun_position(PlayerMovement::Direction direction);
 
@@ -367,7 +367,7 @@ namespace fe
         int _death_timer = 0;
         bool _death_sound_played = false;
         static constexpr int DEATH_ANIMATION_DURATION = 90; // 1.5 seconds at 60 FPS
-        fe::Healthbar _healthbar;
+        fe::HUD _hud;
 
         // Gun sprite members
         bn::optional<bn::sprite_ptr> _gun_sprite;
