@@ -327,33 +327,36 @@ namespace fe
             return;
         }
 
+        // Check if we're currently reviving companion - if so, limit input to just the revival process
+        bool reviving_companion = _companion.has_value() && _companion->is_revival_in_progress();
+
         bool performing_action = _movement.is_performing_action();
 
-        // Toggle controls
-        if (bn::keypad::r_pressed() && !performing_action)
+        // Toggle controls (disabled while reviving companion)
+        if (bn::keypad::r_pressed() && !performing_action && !reviving_companion)
         {
             _is_strafing = !_is_strafing;
             if (_is_strafing)
                 _strafing_direction = _movement.facing_direction();
         }
 
-        if (bn::keypad::l_pressed())
+        if (bn::keypad::l_pressed() && !reviving_companion)
             switch_weapon();
 
         // Gun sprite cycling with SELECT + B (only when gun is active)
-        if (bn::keypad::select_held() && bn::keypad::b_pressed() && _gun_active)
+        if (bn::keypad::select_held() && bn::keypad::b_pressed() && _gun_active && !reviving_companion)
         {
             cycle_gun_sprite();
         }
 
         // Sword sprite cycling with SELECT + B (only when sword is active and gun is not active)
-        if (bn::keypad::select_held() && bn::keypad::b_pressed() && !_gun_active && _hud.get_weapon() == WEAPON_TYPE::SWORD)
+        if (bn::keypad::select_held() && bn::keypad::b_pressed() && !_gun_active && _hud.get_weapon() == WEAPON_TYPE::SWORD && !reviving_companion)
         {
             cycle_sword_sprite();
         }
 
-        // Action inputs (consolidated)
-        if (!performing_action)
+        // Action inputs (consolidated) - disabled while reviving companion
+        if (!performing_action && !reviving_companion)
         {
             if (bn::keypad::b_pressed() && !bn::keypad::select_held() && _abilities.rolling_available())
             {
@@ -417,8 +420,8 @@ namespace fe
             }
         }
 
-        // Movement inputs (consolidated)
-        if (!performing_action)
+        // Movement inputs (consolidated) - disabled while reviving companion
+        if (!performing_action && !reviving_companion)
         {
             bool should_run = !_is_strafing && _abilities.running_available();
 
@@ -793,6 +796,12 @@ namespace fe
         {
             _companion->update(pos(), _hp <= 0);
             _companion->set_visible(_state.invulnerable() ? get_sprite()->visible() : true);
+
+            // Handle companion revival if it died independently
+            if (_companion->is_dead_independently() && _companion->can_be_revived())
+            {
+                _companion->try_revive(pos(), bn::keypad::a_pressed(), bn::keypad::a_held());
+            }
 
             // If companion died independently or is reviving, it should always be visible (even during player invulnerability)
             if (_companion->is_dead_independently() || _companion->is_reviving())

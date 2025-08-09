@@ -1,6 +1,8 @@
 #include "fe_player_companion.h"
 #include "bn_sprite_items_companion.h"
+#include "bn_sprite_items_companion_load.h"
 #include "bn_sprite_animate_actions.h"
+#include "common_variable_8x8_sprite_font.h"
 
 namespace fe
 {
@@ -16,7 +18,9 @@ namespace fe
           _independent_death(false),
           _death_position(0, 0),
           _can_be_revived(false),
-          _is_reviving(false)
+          _is_reviving(false),
+          _revival_in_progress(false),
+          _revival_timer(0)
     {
         // Don't set z_order here - let the dynamic z_order system handle it
         // The player's update_z_order() method will manage companion z_order based on position
@@ -32,6 +36,9 @@ namespace fe
         _target_offset = calculate_companion_offset();
         _sprite.set_camera(camera);
         update_animation();
+
+        // FOR TESTING: Spawn companion dead
+        die_independently();
     }
 
     void PlayerCompanion::update(bn::fixed_point player_pos, bool player_is_dead)
@@ -66,10 +73,26 @@ namespace fe
             // Stay at death position
             _sprite.set_position(_death_position);
 
-            // Try to revive if player is close enough
-            if (_can_be_revived)
+            // Show/hide revival text based on player proximity and revival state
+            if (_can_be_revived && !_revival_in_progress)
             {
-                try_revive(player_pos);
+                // Calculate distance to see if player is close enough
+                bn::fixed_point diff = player_pos - _death_position;
+                bn::fixed distance_sq = diff.x() * diff.x() + diff.y() * diff.y();
+                bool player_in_range = (distance_sq <= REVIVE_DISTANCE * REVIVE_DISTANCE);
+
+                if (player_in_range && _text_sprites.empty())
+                {
+                    show_revival_text();
+                }
+                else if (!player_in_range && !_text_sprites.empty())
+                {
+                    hide_revival_text();
+                }
+            }
+            else if (_text_sprites.size() > 0)
+            {
+                hide_revival_text();
             }
         }
         else if (!_is_dead)
@@ -245,11 +268,15 @@ namespace fe
             _independent_death = true;
             _death_position = _position; // Remember where we died
             _can_be_revived = false;     // Will be set to true when death animation completes
+
+            // Cancel any revival in progress
+            cancel_revival();
+
             update_animation();
         }
     }
 
-    bool PlayerCompanion::try_revive(bn::fixed_point player_pos)
+    bool PlayerCompanion::try_revive(bn::fixed_point player_pos, bool a_pressed, bool a_held)
     {
         if (!_independent_death || !_can_be_revived)
         {
@@ -260,16 +287,123 @@ namespace fe
         bn::fixed_point diff = player_pos - _death_position;
         bn::fixed distance_sq = diff.x() * diff.x() + diff.y() * diff.y();
 
-        if (distance_sq <= REVIVE_DISTANCE * REVIVE_DISTANCE)
+        bool player_in_range = (distance_sq <= REVIVE_DISTANCE * REVIVE_DISTANCE);
+
+        if (!player_in_range)
         {
-            // Start revival animation
-            _is_reviving = true;
-            _can_be_revived = false;     // Prevent multiple revival attempts
-            _position = _death_position; // Start revival at death position
-            update_animation();          // Start reverse animation
-            return true;
+            // Player moved away, cancel any revival in progress
+            if (_revival_in_progress)
+            {
+                cancel_revival();
+            }
+            return false;
+        }
+
+        // Player is in range
+        if (!_revival_in_progress)
+        {
+            // Start revival process when A is first pressed
+            if (a_pressed)
+            {
+                _revival_in_progress = true;
+                _revival_timer = 0;
+
+                // Create progress bar sprite above the dead companion
+                _progress_bar_sprite = bn::sprite_items::companion_load.create_sprite(
+                    _death_position.x(), _death_position.y(), 0); // Start with frame 0 (empty)
+
+                if (_sprite.camera().has_value())
+                {
+                    _progress_bar_sprite->set_camera(_sprite.camera().value());
+                }
+                _progress_bar_sprite->set_z_order(_sprite.z_order() - 1); // In front of companion
+            }
+        }
+        else
+        {
+            // Revival in progress
+            if (a_held)
+            {
+                // Continue revival
+                _revival_timer++;
+
+                // Update progress bar frame (8 frames for 300 total ticks)
+                int progress_frame = (_revival_timer * 8) / REVIVAL_DURATION;
+                if (progress_frame > 7)
+                    progress_frame = 7; // Clamp to max frame
+
+                if (_progress_bar_sprite.has_value())
+                {
+                    _progress_bar_sprite->set_tiles(bn::sprite_items::companion_load.tiles_item(), progress_frame);
+                    // Keep progress bar positioned above companion
+                    _progress_bar_sprite->set_position(_death_position.x() + 12, _death_position.y());
+                }
+
+                // Check if revival is complete
+                if (_revival_timer >= REVIVAL_DURATION)
+                {
+                    // Revival complete - start revival animation
+                    _revival_in_progress = false;
+                    _revival_timer = 0;
+                    _is_reviving = true;
+                    _can_be_revived = false;     // Prevent multiple revival attempts
+                    _position = _death_position; // Start revival at death position
+
+                    // Hide progress bar
+                    _progress_bar_sprite.reset();
+
+                    update_animation(); // Start reverse animation
+                    return true;
+                }
+            }
+            else
+            {
+                // Player released A button, cancel revival
+                cancel_revival();
+            }
         }
 
         return false;
+    }
+
+    void PlayerCompanion::cancel_revival()
+    {
+        _revival_in_progress = false;
+        _revival_timer = 0;
+
+        // Hide progress bar
+        if (_progress_bar_sprite.has_value())
+        {
+            _progress_bar_sprite.reset();
+        }
+
+        // Hide revival text
+        hide_revival_text();
+    }
+
+    void PlayerCompanion::show_revival_text()
+    {
+        if (!_text_sprites.empty())
+            return; // Already showing
+
+        bn::sprite_text_generator text_generator(common::variable_8x8_sprite_font);
+        text_generator.set_center_alignment();
+
+        // Create text sprites at position above the dead companion
+        bn::fixed_point text_pos = _death_position + bn::fixed_point(0, -20); // 20 pixels above companion
+        text_generator.set_bg_priority(0);
+        text_generator.generate(text_pos, "Press A to revive", _text_sprites);
+
+        // Set camera for text sprites
+        for (bn::sprite_ptr &text_sprite : _text_sprites)
+        {
+            text_sprite.set_camera(_sprite.camera());
+            text_sprite.set_z_order(-32767); // Ensure text is on top
+        }
+    }
+
+    void PlayerCompanion::hide_revival_text()
+    {
+        _text_sprites.clear();
     }
 }

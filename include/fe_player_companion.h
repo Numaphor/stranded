@@ -6,6 +6,8 @@
 #include "bn_fixed_point.h"
 #include "bn_optional.h"
 #include "bn_sprite_animate_actions.h"
+#include "bn_sprite_text_generator.h"
+#include "bn_vector.h"
 #include "bn_math.h"
 
 namespace fe
@@ -28,14 +30,21 @@ namespace fe
         void update_position_side(bn::fixed_point player_pos);
         void set_z_order(int z_order);
         void set_flying(bool flying);
-        void set_camera(bn::camera_ptr camera);      // Set camera without affecting position
-        void die_independently();                    // Companion dies independently of player
-        bool try_revive(bn::fixed_point player_pos); // Try to revive if player is close enough
+        void set_camera(bn::camera_ptr camera);                                   // Set camera without affecting position
+        void die_independently();                                                 // Companion dies independently of player
+        bool try_revive(bn::fixed_point player_pos, bool a_pressed, bool a_held); // Try to revive if player is close enough
+        void cancel_revival();                                                    // Cancel current revival progress
+        [[nodiscard]] bool is_revival_in_progress() const { return _revival_in_progress; }
+        [[nodiscard]] int get_revival_progress() const { return _revival_timer; }
+        [[nodiscard]] float get_revival_progress_percent() const { return float(_revival_timer) / float(REVIVAL_DURATION); }
+        void show_revival_text(); // Show "Press A to revive" text
+        void hide_revival_text(); // Hide revival text
         [[nodiscard]] Position get_position_side() const { return _position_side; }
         [[nodiscard]] bn::fixed_point pos() const { return _position; }
         [[nodiscard]] bool is_flying() const { return _is_flying; }
         [[nodiscard]] bool is_dead_independently() const { return _independent_death; }
         [[nodiscard]] bool is_reviving() const { return _is_reviving; }
+        [[nodiscard]] bool can_be_revived() const { return _can_be_revived; }
         [[nodiscard]] bn::sprite_ptr get_sprite() const { return _sprite; }
 
     private:
@@ -54,7 +63,16 @@ namespace fe
         bn::fixed_point _death_position;                 // Position where companion died
         bool _can_be_revived = false;                    // True if companion can be revived by player proximity
         bool _is_reviving = false;                       // True if companion is currently playing revival animation
-        static constexpr bn::fixed REVIVE_DISTANCE = 24; // Distance at which player can revive companion
+        bool _revival_in_progress = false;               // True if player is actively reviving companion
+        int _revival_timer = 0;                          // Timer for revival progress (0-300 for 5 seconds)
+        static constexpr bn::fixed REVIVE_DISTANCE = 32; // Distance at which player can revive companion
+        static constexpr int REVIVAL_DURATION = 300;     // 5 seconds at 60 FPS
+
+        // Revival progress bar sprite
+        bn::optional<bn::sprite_ptr> _progress_bar_sprite;
+
+        // Revival text message
+        bn::vector<bn::sprite_ptr, 16> _text_sprites;
 
         void update_animation();
         void update_position(bn::fixed_point player_pos);
