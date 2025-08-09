@@ -725,7 +725,7 @@ namespace fe
             {
                 _state.set_invulnerable(false);
                 set_visible(true);
-                
+
                 // Reload weapon at end of roll if flagged
                 if (_reload_on_roll_end)
                 {
@@ -877,7 +877,7 @@ namespace fe
         // Consume ammo and update HUD
         _ammo_count--;
         _hud.set_ammo(_ammo_count);
-        
+
         BN_LOG("Bullet fired! Ammo remaining: ", _ammo_count);
     }
 

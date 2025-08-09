@@ -332,11 +332,12 @@ namespace fe
 
     void HUD::update_ammo_display()
     {
-        if (!_ammo_sprite) return;
+        if (!_ammo_sprite)
+            return;
 
         // Show/hide ammo sprite based on weapon type and update frame
         bool show_ammo = (_weapon == WEAPON_TYPE::GUN);
-        
+
         if (show_ammo)
         {
             // Invert frame: 10 ammo shows frame 0, 0 ammo shows frame 10
@@ -348,7 +349,7 @@ namespace fe
         {
             _ammo_sprite->set_visible(false);
         }
-        
+
         BN_LOG("Ammo display updated: ", _displayed_ammo, "/10 rounds, frame: ", (10 - _displayed_ammo), ", weapon: ",
                (_weapon == WEAPON_TYPE::GUN ? "GUN" : "SWORD"));
     }
