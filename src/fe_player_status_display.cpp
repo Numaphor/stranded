@@ -1,4 +1,5 @@
 #include "fe_player_status_display.h"
+#include "fe_constants.h"
 #include "fe_player.h"
 #include "bn_string.h"
 
@@ -63,7 +64,7 @@ namespace fe
         for (bn::sprite_ptr &sprite : _text_sprites)
         {
             sprite.set_bg_priority(0);
-            sprite.set_z_order(-1000); // Very high priority
+            sprite.set_z_order(Z_ORDER_PLAYER_STATUS_HIGH_PRIORITY); // Very high priority
             sprite.remove_camera();    // Remove camera = fixed screen position
         }
     }

@@ -9,6 +9,7 @@
 #include "bn_sprite_text_generator.h"
 #include "bn_vector.h"
 #include "bn_math.h"
+#include "fe_constants.h"
 
 namespace fe
 {
@@ -65,7 +66,6 @@ namespace fe
         bool _is_reviving = false;                       // True if companion is currently playing revival animation
         bool _revival_in_progress = false;               // True if player is actively reviving companion
         int _revival_timer = 0;                          // Timer for revival progress (0-300 for 5 seconds)
-        static constexpr bn::fixed REVIVE_DISTANCE = 32; // Distance at which player can revive companion
         static constexpr int REVIVAL_DURATION = 300;     // 5 seconds at 60 FPS
 
         // Revival progress bar sprite
