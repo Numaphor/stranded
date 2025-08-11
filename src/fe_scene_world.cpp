@@ -459,7 +459,8 @@ namespace fe
             // Update player status display
             if (_player_status_display)
             {
-                bool near_merchant = _merchant && _merchant->is_in_interaction_zone(_player->pos());
+                // Align status display with the same hitbox-based interaction zone logic
+                bool near_merchant = _merchant && fe::Hitbox::is_in_merchant_interaction_zone(_player->pos(), _merchant->pos());
                 _player_status_display->update_status(*_player, near_merchant);
             }
 
