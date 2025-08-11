@@ -54,8 +54,8 @@ namespace fe
         static constexpr bn::fixed CAMERA_DEADZONE_X = 16;                // Horizontal deadzone radius (reduced for more responsive camera)
         static constexpr bn::fixed CAMERA_DEADZONE_Y = 6;                 // Vertical deadzone radius (reduced for more responsive camera)
         static constexpr bn::fixed CAMERA_FOLLOW_SPEED = 0.05;            // Faster follow speed (5% per frame) for more responsive lookahead
-        static constexpr bn::fixed CAMERA_DIRECTION_CHANGE_SPEED = 0.025; // Faster direction changes (2.5% per frame)
-        static constexpr int CAMERA_DIRECTION_CHANGE_DURATION = 15;       // Shorter direction change duration (0.25 seconds at 60fps)
+        static constexpr bn::fixed CAMERA_DIRECTION_CHANGE_SPEED = 0.012; // Slower direction changes (1.2% per frame)
+        static constexpr int CAMERA_DIRECTION_CHANGE_DURATION = 28;       // Longer direction change duration (0.47 seconds at 60fps)
         static constexpr bn::fixed CAMERA_LOOKAHEAD_X = 120;              // Increased horizontal lookahead for better visibility
         static constexpr bn::fixed CAMERA_LOOKAHEAD_Y = 100;              // Good vertical lookahead distance
         static constexpr bn::fixed CAMERA_CENTER_BIAS = 0.3;              // Less center bias (30%) to allow more lookahead
