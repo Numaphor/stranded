@@ -1,4 +1,5 @@
 #include "fe_enemy.h"
+#include "fe_constants.h"
 #include "fe_enemy_states.h"
 #include "fe_enemy_state_machine.h"
 #include "bn_fixed_point.h"
@@ -402,7 +403,7 @@ namespace fe
         if (_hp <= 0)
         {
             _dead = true;
-            _death_timer = DEATH_ANIMATION_DURATION; // Start death timer
+            _death_timer = ENEMY_DEATH_ANIMATION_DURATION; // Start death timer
         }
 
         return true;
@@ -410,10 +411,9 @@ namespace fe
 
     void Enemy::_apply_knockback(bn::fixed dx, bn::fixed dy)
     {
-        const bn::fixed KNOCKBACK_STRENGTH = 2.5;
-        _knockback_dx = dx * KNOCKBACK_STRENGTH;
-        _knockback_dy = dy * KNOCKBACK_STRENGTH;
-        _knockback_timer = KNOCKBACK_DURATION; // Use class constant
+        _knockback_dx = dx * ENEMY_KNOCKBACK_STRENGTH;
+        _knockback_dy = dy * ENEMY_KNOCKBACK_STRENGTH;
+        _knockback_timer = ENEMY_KNOCKBACK_DURATION; // Use class constant
         _stunned = true;
     }
 

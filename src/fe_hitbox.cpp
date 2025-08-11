@@ -1,4 +1,5 @@
 #include "fe_hitbox.h"
+#include "fe_constants.h"
 #include "bn_sprite_items_hitbox_marker.h"
 #include "bn_blending.h"
 
@@ -37,13 +38,12 @@ namespace fe
     void Hitbox::get_collision_points(bn::fixed_point pos, fe::directions direction, bn::fixed_point points[4]) const
     {
         // Edge offset to stay within bounds (one pixel inside the edge)
-        constexpr bn::fixed EDGE_OFFSET = 1;
 
         // Calculate edge coordinates
         bn::fixed left = pos.x();
-        bn::fixed right = pos.x() + _width - EDGE_OFFSET;
+        bn::fixed right = pos.x() + _width - HITBOX_EDGE_OFFSET;
         bn::fixed top = pos.y();
-        bn::fixed bottom = pos.y() + _height - EDGE_OFFSET;
+        bn::fixed bottom = pos.y() + _height - HITBOX_EDGE_OFFSET;
         bn::fixed middle_x = pos.x() + _width / 2;
         bn::fixed quarter_x = pos.x() + _width / 4;
         bn::fixed middle_y = pos.y() + _height / 2;
@@ -186,18 +186,16 @@ namespace fe
 
     bn::fixed_point Hitbox::calculate_top_left_marker_pos(bn::fixed x_offset, bn::fixed y_offset) const
     {
-        constexpr bn::fixed SPRITE_CENTER_OFFSET = 2; // Half of marker sprite size (4/2)
         return bn::fixed_point(
-            x() + x_offset - SPRITE_CENTER_OFFSET,
-            y() + y_offset - SPRITE_CENTER_OFFSET);
+            x() + x_offset - HITBOX_SPRITE_CENTER_OFFSET,
+            y() + y_offset - HITBOX_SPRITE_CENTER_OFFSET);
     }
 
     bn::fixed_point Hitbox::calculate_bottom_right_marker_pos(bn::fixed x_offset, bn::fixed y_offset) const
     {
-        constexpr bn::fixed SPRITE_CENTER_OFFSET = 2; // Half of marker sprite size (4/2)
         return bn::fixed_point(
-            x() + width() + x_offset - SPRITE_CENTER_OFFSET,
-            y() + height() + y_offset - SPRITE_CENTER_OFFSET);
+            x() + width() + x_offset - HITBOX_SPRITE_CENTER_OFFSET,
+            y() + height() + y_offset - HITBOX_SPRITE_CENTER_OFFSET);
     }
 
     bn::sprite_ptr Hitbox::create_marker(bn::fixed_point position, bool rotated) const

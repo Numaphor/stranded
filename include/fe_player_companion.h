@@ -9,6 +9,7 @@
 #include "bn_sprite_text_generator.h"
 #include "bn_vector.h"
 #include "bn_math.h"
+#include "fe_constants.h"
 
 namespace fe
 {
@@ -36,7 +37,7 @@ namespace fe
         void cancel_revival();                                                    // Cancel current revival progress
         [[nodiscard]] bool is_revival_in_progress() const { return _revival_in_progress; }
         [[nodiscard]] int get_revival_progress() const { return _revival_timer; }
-        [[nodiscard]] float get_revival_progress_percent() const { return float(_revival_timer) / float(REVIVAL_DURATION); }
+        [[nodiscard]] float get_revival_progress_percent() const { return float(_revival_timer) / float(COMPANION_REVIVAL_DURATION); }
         void show_revival_text(); // Show "Press A to revive" text
         void hide_revival_text(); // Hide revival text
         [[nodiscard]] Position get_position_side() const { return _position_side; }
@@ -59,14 +60,12 @@ namespace fe
         bn::fixed_point _target_offset;
 
         // Independent death system
-        bool _independent_death = false;                 // True if companion died independently (not with player)
-        bn::fixed_point _death_position;                 // Position where companion died
-        bool _can_be_revived = false;                    // True if companion can be revived by player proximity
-        bool _is_reviving = false;                       // True if companion is currently playing revival animation
-        bool _revival_in_progress = false;               // True if player is actively reviving companion
-        int _revival_timer = 0;                          // Timer for revival progress (0-300 for 5 seconds)
-        static constexpr bn::fixed REVIVE_DISTANCE = 32; // Distance at which player can revive companion
-        static constexpr int REVIVAL_DURATION = 300;     // 5 seconds at 60 FPS
+        bool _independent_death = false;   // True if companion died independently (not with player)
+        bn::fixed_point _death_position;   // Position where companion died
+        bool _can_be_revived = false;      // True if companion can be revived by player proximity
+        bool _is_reviving = false;         // True if companion is currently playing revival animation
+        bool _revival_in_progress = false; // True if player is actively reviving companion
+        int _revival_timer = 0;            // Timer for revival progress (0-300 for 5 seconds)
 
         // Revival progress bar sprite
         bn::optional<bn::sprite_ptr> _progress_bar_sprite;

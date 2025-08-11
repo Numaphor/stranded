@@ -1,4 +1,5 @@
 #include "fe_player_status_display.h"
+#include "fe_constants.h"
 #include "fe_player.h"
 #include "bn_string.h"
 
@@ -57,13 +58,13 @@ namespace fe
 
         // Use a fixed left-aligned position to avoid shifting
         _text_generator.set_left_alignment();
-        _text_generator.generate(STATUS_X, STATUS_Y, status_text, _text_sprites);
+        _text_generator.generate(PLAYER_STATUS_X, PLAYER_STATUS_Y, status_text, _text_sprites);
 
         // Set high priority and ensure sprites stay fixed on screen
         for (bn::sprite_ptr &sprite : _text_sprites)
         {
             sprite.set_bg_priority(0);
-            sprite.set_z_order(-1000); // Very high priority
+            sprite.set_z_order(Z_ORDER_PLAYER_STATUS_HIGH_PRIORITY); // Very high priority
             sprite.remove_camera();    // Remove camera = fixed screen position
         }
     }

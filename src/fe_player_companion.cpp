@@ -1,4 +1,5 @@
 #include "fe_player_companion.h"
+#include "fe_constants.h"
 #include "bn_sprite_items_companion.h"
 #include "bn_sprite_items_companion_load.h"
 #include "bn_sprite_animate_actions.h"
@@ -79,7 +80,7 @@ namespace fe
                 // Calculate distance to see if player is close enough
                 bn::fixed_point diff = player_pos - _death_position;
                 bn::fixed distance_sq = diff.x() * diff.x() + diff.y() * diff.y();
-                bool player_in_range = (distance_sq <= REVIVE_DISTANCE * REVIVE_DISTANCE);
+                bool player_in_range = (distance_sq <= COMPANION_REVIVE_DISTANCE * COMPANION_REVIVE_DISTANCE);
 
                 if (player_in_range && _text_sprites.empty())
                 {
@@ -116,8 +117,6 @@ namespace fe
     void PlayerCompanion::update_position(bn::fixed_point player_pos)
     {
         // Define proximity thresholds for idle behavior
-        constexpr bn::fixed IDLE_DISTANCE = 12;   // Stop moving when player gets this close
-        constexpr bn::fixed RESUME_DISTANCE = 20; // Resume following when player moves this far away
 
         // Calculate direct distance from companion to player
         bn::fixed_point companion_to_player = player_pos - _position;
@@ -125,11 +124,11 @@ namespace fe
                                              companion_to_player.y() * companion_to_player.y());
 
         // Update proximity state with hysteresis to prevent oscillation
-        if (!_player_too_close && player_distance < IDLE_DISTANCE)
+        if (!_player_too_close && player_distance < COMPANION_IDLE_DISTANCE)
         {
             _player_too_close = true;
         }
-        else if (_player_too_close && player_distance > RESUME_DISTANCE)
+        else if (_player_too_close && player_distance > COMPANION_RESUME_DISTANCE)
         {
             _player_too_close = false;
         }
@@ -287,7 +286,7 @@ namespace fe
         bn::fixed_point diff = player_pos - _death_position;
         bn::fixed distance_sq = diff.x() * diff.x() + diff.y() * diff.y();
 
-        bool player_in_range = (distance_sq <= REVIVE_DISTANCE * REVIVE_DISTANCE);
+        bool player_in_range = (distance_sq <= COMPANION_REVIVE_DISTANCE * COMPANION_REVIVE_DISTANCE);
 
         if (!player_in_range)
         {
@@ -328,7 +327,7 @@ namespace fe
                 _revival_timer++;
 
                 // Update progress bar frame (8 frames for 300 total ticks)
-                int progress_frame = (_revival_timer * 8) / REVIVAL_DURATION;
+                int progress_frame = (_revival_timer * 8) / COMPANION_REVIVAL_DURATION;
                 if (progress_frame > 7)
                     progress_frame = 7; // Clamp to max frame
 
@@ -340,7 +339,7 @@ namespace fe
                 }
 
                 // Check if revival is complete
-                if (_revival_timer >= REVIVAL_DURATION)
+                if (_revival_timer >= COMPANION_REVIVAL_DURATION)
                 {
                     // Revival complete - start revival animation
                     _revival_in_progress = false;

@@ -156,29 +156,25 @@ namespace fe
 
         // Define hitbox for collision - middle 32x16 pixels of 32x32 sprite
         // Starting 8 pixels from the top (since we're using middle portion)
-        const int hitbox_width = 32;
-        const int hitbox_height = 16;
-        const int vertical_offset = 8; // Offset from top of sprite to start of hitbox
 
         // Reduced width for left/right collision checks to allow getting closer
-        const int reduced_width = 16; // Reduced from 32 to allow closer approach from sides
 
         // Check multiple points around the hitbox - with reduced width for left/right
         // Top-left corner
-        bn::fixed_point top_left(position.x() - reduced_width / 2, position.y() - hitbox_height / 2 + vertical_offset);
+        bn::fixed_point top_left(position.x() - PLAYER_HITBOX_REDUCED_WIDTH / 2, position.y() - PLAYER_HITBOX_HEIGHT / 2 + PLAYER_HITBOX_VERTICAL_OFFSET);
         // Top-right corner
-        bn::fixed_point top_right(position.x() + reduced_width / 2 - 1, position.y() - hitbox_height / 2 + vertical_offset);
+        bn::fixed_point top_right(position.x() + PLAYER_HITBOX_REDUCED_WIDTH / 2 - 1, position.y() - PLAYER_HITBOX_HEIGHT / 2 + PLAYER_HITBOX_VERTICAL_OFFSET);
         // Bottom-left corner
-        bn::fixed_point bottom_left(position.x() - reduced_width / 2, position.y() + hitbox_height / 2 + vertical_offset - 1);
+        bn::fixed_point bottom_left(position.x() - PLAYER_HITBOX_REDUCED_WIDTH / 2, position.y() + PLAYER_HITBOX_HEIGHT / 2 + PLAYER_HITBOX_VERTICAL_OFFSET - 1);
         // Bottom-right corner
-        bn::fixed_point bottom_right(position.x() + reduced_width / 2 - 1, position.y() + hitbox_height / 2 + vertical_offset - 1);
+        bn::fixed_point bottom_right(position.x() + PLAYER_HITBOX_REDUCED_WIDTH / 2 - 1, position.y() + PLAYER_HITBOX_HEIGHT / 2 + PLAYER_HITBOX_VERTICAL_OFFSET - 1);
 
         // Additional check for the middle-top point to prevent walking into zones from the north
-        bn::fixed_point middle_top(position.x(), position.y() - hitbox_height / 2 + vertical_offset);
+        bn::fixed_point middle_top(position.x(), position.y() - PLAYER_HITBOX_HEIGHT / 2 + PLAYER_HITBOX_VERTICAL_OFFSET);
 
         // Additional points along the top edge for more accurate collision
-        bn::fixed_point quarter_top_left(position.x() - hitbox_width / 4, position.y() - hitbox_height / 2 + vertical_offset);
-        bn::fixed_point quarter_top_right(position.x() + hitbox_width / 4, position.y() - hitbox_height / 2 + vertical_offset);
+        bn::fixed_point quarter_top_left(position.x() - PLAYER_HITBOX_WIDTH / 4, position.y() - PLAYER_HITBOX_HEIGHT / 2 + PLAYER_HITBOX_VERTICAL_OFFSET);
+        bn::fixed_point quarter_top_right(position.x() + PLAYER_HITBOX_WIDTH / 4, position.y() - PLAYER_HITBOX_HEIGHT / 2 + PLAYER_HITBOX_VERTICAL_OFFSET);
 
         // Check each point for collision - optimized to reduce redundant calculations
         bn::fixed_point check_points[] = {

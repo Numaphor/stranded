@@ -13,6 +13,7 @@
 #include "fe_entity.h"
 #include "fe_bullet_manager.h"
 #include "fe_player_companion.h"
+#include "fe_constants.h"
 
 namespace fe
 {
@@ -286,7 +287,7 @@ namespace fe
                     _hp = 0;
                     // Start death animation instead of immediately requiring reset
                     _movement.set_state(PlayerMovement::State::DEAD);
-                    _death_timer = DEATH_ANIMATION_DURATION;
+                    _death_timer = PLAYER_DEATH_ANIMATION_DURATION;
                     _death_sound_played = false; // Reset flag for death sound
 
                     // Clear invulnerability during death to prevent blinking
@@ -381,7 +382,6 @@ namespace fe
         bool _reset_required = false;
         int _death_timer = 0;
         bool _death_sound_played = false;
-        static constexpr int DEATH_ANIMATION_DURATION = 90; // 1.5 seconds at 60 FPS
         fe::HUD _hud;
 
         // Gun sprite members

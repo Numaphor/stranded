@@ -1,4 +1,5 @@
 #include "fe_scene_menu.h"
+#include "fe_constants.h"
 #include "bn_core.h"
 #include "bn_keypad.h"
 #include "bn_sprite_text_generator.h"
@@ -23,8 +24,8 @@ namespace fe
         // Initialize available worlds
         _worlds.clear();
 
-        _worlds.push_back({0, "Main World", bn::fixed_point(50, 100), true});
-        _worlds.push_back({1, "Forest Area", bn::fixed_point(100, 50), true});
+        _worlds.push_back({0, "Main World", bn::fixed_point(MAIN_WORLD_SPAWN_X, MAIN_WORLD_SPAWN_Y), true});
+        _worlds.push_back({1, "Forest Area", bn::fixed_point(FOREST_WORLD_SPAWN_X, FOREST_WORLD_SPAWN_Y), true});
     }
 
     void Menu::_update_display()
@@ -37,15 +38,15 @@ namespace fe
         text_generator.set_bg_priority(0);
 
         // Title
-        text_generator.generate(0, -60, "WORLD SELECTION", _text_sprites);
+        text_generator.generate(0, MENU_TITLE_Y_POSITION, "WORLD SELECTION", _text_sprites);
 
         // Instructions
-        text_generator.generate(0, 100, "UP/DOWN: Select  A: Enter  B: Exit", _text_sprites);
+        text_generator.generate(0, MENU_INSTRUCTIONS_Y_POSITION, "UP/DOWN: Select  A: Enter  B: Exit", _text_sprites);
 
         // World list
         for (int i = 0; i < _worlds.size(); ++i)
         {
-            int y_pos = -20 + (i * 20);
+            int y_pos = MENU_WORLD_LIST_START_Y + (i * MENU_WORLD_LIST_SPACING);
 
             if (!_worlds[i].is_unlocked)
             {
@@ -141,7 +142,7 @@ namespace fe
     fe::Scene Menu::execute(int &selected_world_id, bn::fixed_point &spawn_location)
     {
         // Set a simple background color
-        bn::bg_palettes::set_transparent_color(bn::color(0, 0, 8));
+        bn::bg_palettes::set_transparent_color(bn::color(MENU_BG_COLOR_R, MENU_BG_COLOR_G, MENU_BG_COLOR_B));
 
         while (true)
         {
@@ -167,7 +168,7 @@ namespace fe
             {
                 // Return to default world
                 selected_world_id = 0;
-                spawn_location = bn::fixed_point(50, 100);
+                spawn_location = bn::fixed_point(MAIN_WORLD_SPAWN_X, MAIN_WORLD_SPAWN_Y);
                 return fe::Scene::WORLD;
             }
         }

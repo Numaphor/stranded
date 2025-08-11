@@ -1,4 +1,5 @@
 #include "fe_bullet_manager.h"
+#include "fe_constants.h"
 #include "fe_enemy.h"
 #include "bn_sprite_items_hero.h"
 #include "bn_log.h"
@@ -10,8 +11,8 @@ namespace fe
     {
         _sprite = bn::sprite_items::hero.create_sprite(_pos.x(), _pos.y(), 0);
         _sprite->set_camera(camera);
-        _sprite->set_z_order(-15); // Match existing bullet z-order
-        _sprite->set_scale(0.15, 0.15); // Make bullet small like in player implementation
+        _sprite->set_z_order(Z_ORDER_BULLET); // Match existing bullet z-order
+        _sprite->set_scale(BULLET_SCALE, BULLET_SCALE); // Make bullet small like in player implementation
         _sprite->set_bg_priority(0);
         
         switch (direction)
@@ -114,20 +115,18 @@ namespace fe
 
     bn::fixed_point BulletManager::calculate_bullet_velocity(Direction direction) const
     {
-        constexpr bn::fixed bullet_speed = 4;
-        
         switch (direction)
         {
             case Direction::UP:
-                return bn::fixed_point(0, -bullet_speed);
+                return bn::fixed_point(0, -BULLET_SPEED);
             case Direction::DOWN:
-                return bn::fixed_point(0, bullet_speed);
+                return bn::fixed_point(0, BULLET_SPEED);
             case Direction::LEFT:
-                return bn::fixed_point(-bullet_speed, 0);
+                return bn::fixed_point(-BULLET_SPEED, 0);
             case Direction::RIGHT:
-                return bn::fixed_point(bullet_speed, 0);
+                return bn::fixed_point(BULLET_SPEED, 0);
             default:
-                return bn::fixed_point(0, -bullet_speed); // Default to up
+                return bn::fixed_point(0, -BULLET_SPEED); // Default to up
         }
     }
 }

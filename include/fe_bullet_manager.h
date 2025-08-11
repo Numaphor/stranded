@@ -7,6 +7,7 @@
 #include "bn_optional.h"
 #include "bn_vector.h"
 #include "fe_hitbox.h"
+#include "fe_constants.h"
 
 namespace fe
 {
@@ -50,7 +51,6 @@ namespace fe
         bool _active;
         Hitbox _hitbox;
 
-        static constexpr int BULLET_LIFETIME = 60; // Bullet disappears after 1 second
         int _lifetime;
     };
 
@@ -72,7 +72,6 @@ namespace fe
     private:
         bn::vector<Bullet, 32> _bullets;               // Store active bullets, limit to 32 max
         int _shoot_cooldown = 0;                       // Cooldown between shots
-        static constexpr int SHOOT_COOLDOWN_TIME = 15; // 15 frames between shots (4 shots/second at 60 FPS)
         bn::optional<bn::camera_ptr> _camera;          // Store camera reference for bullets
 
         bn::fixed_point calculate_bullet_velocity(Direction direction) const;

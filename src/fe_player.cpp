@@ -1,4 +1,5 @@
 #include "fe_player.h"
+#include "fe_constants.h"
 #include "fe_player_companion.h"
 #include "bn_keypad.h"
 #include "bn_sprite_items_hero.h"
@@ -18,13 +19,7 @@ namespace fe
 
     namespace player_constants
     {
-        constexpr bn::fixed ROLL_SPEED = 3.75;   // 1.5x faster (was 2.5)
-        constexpr int ROLL_DURATION = 64;        // Increased to double total distance
-        constexpr int ROLL_IFRAME_DURATION = 30; // Extended i-frames for longer roll
-        // HORIZONTAL_OFFSET removed - new 32x32 sprite tightly fits around player
-        constexpr bn::fixed HITBOX_WIDTH = 16;
-        constexpr bn::fixed HITBOX_HEIGHT = 32;
-
+        // Gun positioning and configuration arrays
         constexpr bn::fixed GUN_OFFSET_X[4] = {0, 0, -8, 8};
         constexpr bn::fixed GUN_OFFSET_Y[4] = {-6, 6, 0, 0};
         constexpr bn::fixed BULLET_OFFSET_X[4] = {1, -1, -12, 11};
@@ -49,7 +44,7 @@ namespace fe
             bn::fixed momentum_factor = bn::fixed(frames_remaining) / bn::fixed(total_frames);
             // Start fast, end slower but not too dramatic
             momentum_factor = (momentum_factor * 0.7) + 0.3; // Range from 1.0 to 0.3
-            bn::fixed current_speed = player_constants::ROLL_SPEED * momentum_factor;
+            bn::fixed current_speed = PLAYER_ROLL_SPEED * momentum_factor;
 
             switch (dir)
             {
@@ -305,7 +300,7 @@ namespace fe
             player_sprite->set_bg_priority(1);
         }
         set_sprite_z_order(1);
-        _hitbox = Hitbox(0, 0, player_constants::HITBOX_WIDTH, player_constants::HITBOX_HEIGHT);
+        _hitbox = Hitbox(0, 0, PLAYER_HITBOX_WIDTH, PLAYER_HITBOX_HEIGHT);
         _hud.set_hp(_hp);
         _hud.set_ammo(_ammo_count); // Initialize ammo display
 
@@ -388,7 +383,7 @@ namespace fe
         {
             if (bn::keypad::b_pressed() && !bn::keypad::select_held() && _abilities.rolling_available())
             {
-                _movement.start_action(PlayerMovement::State::ROLLING, player_constants::ROLL_DURATION);
+                _movement.start_action(PlayerMovement::State::ROLLING, PLAYER_ROLL_DURATION);
                 _abilities.set_roll_cooldown(90); // Reasonable cooldown - 1.5 seconds
 
                 // Set invulnerability but don't start the blinking timer during roll
@@ -733,7 +728,7 @@ namespace fe
             {
                 new_pos += direction_utils::get_roll_offset(_movement.facing_direction(),
                                                             _movement.action_timer(),
-                                                            player_constants::ROLL_DURATION);
+                                                            PLAYER_ROLL_DURATION);
             }
             set_position(new_pos);
 
@@ -869,7 +864,7 @@ namespace fe
         Entity::set_position(new_pos);
 
         bn::fixed_point hitbox_pos = Hitbox::calculate_centered_position(new_pos,
-                                                                         player_constants::HITBOX_WIDTH, player_constants::HITBOX_HEIGHT);
+                                                                         PLAYER_HITBOX_WIDTH, PLAYER_HITBOX_HEIGHT);
         _hitbox.set_x(hitbox_pos.x());
         _hitbox.set_y(hitbox_pos.y());
 
