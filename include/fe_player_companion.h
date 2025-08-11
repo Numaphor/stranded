@@ -37,7 +37,7 @@ namespace fe
         void cancel_revival();                                                    // Cancel current revival progress
         [[nodiscard]] bool is_revival_in_progress() const { return _revival_in_progress; }
         [[nodiscard]] int get_revival_progress() const { return _revival_timer; }
-        [[nodiscard]] float get_revival_progress_percent() const { return float(_revival_timer) / float(REVIVAL_DURATION); }
+        [[nodiscard]] float get_revival_progress_percent() const { return float(_revival_timer) / float(COMPANION_REVIVAL_DURATION); }
         void show_revival_text(); // Show "Press A to revive" text
         void hide_revival_text(); // Hide revival text
         [[nodiscard]] Position get_position_side() const { return _position_side; }

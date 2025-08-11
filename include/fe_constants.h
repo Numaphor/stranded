@@ -49,8 +49,8 @@ namespace fe
 
     // ===== PLAYER HITBOX CONSTANTS =====
     // Player collision detection dimensions
-    constexpr int PLAYER_HITBOX_WIDTH = 32;
-    constexpr int PLAYER_HITBOX_HEIGHT = 16;
+    constexpr bn::fixed PLAYER_HITBOX_WIDTH = 32;
+    constexpr bn::fixed PLAYER_HITBOX_HEIGHT = 16;
     constexpr int PLAYER_HITBOX_VERTICAL_OFFSET = 8; // Offset from top of sprite to start of hitbox
     constexpr int PLAYER_HITBOX_REDUCED_WIDTH = 16;  // Reduced from 32 to allow closer approach from sides
 
@@ -61,8 +61,8 @@ namespace fe
 
     // ===== BULLET SYSTEM CONSTANTS =====
     constexpr bn::fixed BULLET_SPEED = 4;
-    constexpr int BULLET_LIFETIME = 60;           // Bullet disappears after 1 second (60 frames at 60 FPS)
-    constexpr int SHOOT_COOLDOWN_TIME = 15;       // 15 frames between shots (4 shots/second at 60 FPS)
+    constexpr int BULLET_LIFETIME = 60;     // Bullet disappears after 1 second (60 frames at 60 FPS)
+    constexpr int SHOOT_COOLDOWN_TIME = 15; // 15 frames between shots (4 shots/second at 60 FPS)
 
     // ===== COMPANION CONSTANTS =====
     constexpr bn::fixed COMPANION_IDLE_DISTANCE = 12;   // Stop moving when player gets this close
@@ -75,7 +75,7 @@ namespace fe
 
     // ===== MINIMAP CONSTANTS =====
     constexpr bn::fixed MINIMAP_POSITION_SCALE = bn::fixed(1) / 40; // Scaling factor for minimap movement
-    constexpr int MINIMAP_VERTICAL_OFFSET = 16; // Vertical offset for minimap positioning
+    constexpr int MINIMAP_VERTICAL_OFFSET = 16;                     // Vertical offset for minimap positioning
 
     // ===== UI CONSTANTS =====
     // Menu positioning
@@ -127,23 +127,21 @@ namespace fe
     constexpr bn::fixed CAMERA_LOOKAHEAD_SMOOTHING = 0.7;   // More lookahead effect (70%)
 
     // ===== PLAYER MOVEMENT CONSTANTS =====
-    constexpr bn::fixed PLAYER_ROLL_SPEED = 3.75; // Roll speed (1.5x faster than normal movement)
-    constexpr int PLAYER_ROLL_DURATION = 64;        // Increased to double total distance
-    constexpr int PLAYER_ROLL_IFRAME_DURATION = 30; // Extended i-frames for longer roll
-    constexpr bn::fixed PLAYER_HITBOX_WIDTH = 16;
-    constexpr bn::fixed PLAYER_HITBOX_HEIGHT = 32;
+    constexpr bn::fixed PLAYER_ROLL_SPEED = 3.75;       // Roll speed (1.5x faster than normal movement)
+    constexpr int PLAYER_ROLL_DURATION = 64;            // Increased to double total distance
+    constexpr int PLAYER_ROLL_IFRAME_DURATION = 30;     // Extended i-frames for longer roll
     constexpr int PLAYER_DEATH_ANIMATION_DURATION = 90; // 1.5 seconds at 60 FPS
 
     // ===== ENEMY CONSTANTS =====
     constexpr bn::fixed ENEMY_KNOCKBACK_STRENGTH = 2.5; // Force applied during knockback
     constexpr int ENEMY_DEATH_ANIMATION_DURATION = 150; // Frames to allow death animation to complete
-    constexpr int ENEMY_KNOCKBACK_DURATION = 10; // Frames of knockback
-    constexpr int ENEMY_ATTACK_DURATION = 60;   // Frames for attack animation
-    constexpr bn::fixed ENEMY_ATTACK_DISTANCE = 20; // Distance threshold for enemy attacks
+    constexpr int ENEMY_KNOCKBACK_DURATION = 10;        // Frames of knockback
+    constexpr int ENEMY_ATTACK_DURATION = 60;           // Frames for attack animation
+    constexpr bn::fixed ENEMY_ATTACK_DISTANCE = 20;     // Distance threshold for enemy attacks
 
     // ===== COMPANION HITBOX CONSTANTS =====
-    constexpr int COMPANION_HITBOX_SIZE = 16; // Size of companion collision hitbox
-    constexpr int COMPANION_REVIVAL_DURATION = 300; // 5 seconds at 60 FPS
+    constexpr int COMPANION_HITBOX_SIZE = 16;                    // Size of companion collision hitbox
+    constexpr int COMPANION_REVIVAL_DURATION = 300;              // 5 seconds at 60 FPS
 
     // ===== HITBOX DEBUG CONSTANTS =====
     constexpr bn::fixed HITBOX_MARKER_SPRITE_SIZE = 4;
