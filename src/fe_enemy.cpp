@@ -403,7 +403,7 @@ namespace fe
         if (_hp <= 0)
         {
             _dead = true;
-            _death_timer = DEATH_ANIMATION_DURATION; // Start death timer
+            _death_timer = ENEMY_DEATH_ANIMATION_DURATION; // Start death timer
         }
 
         return true;
@@ -413,7 +413,7 @@ namespace fe
     {
         _knockback_dx = dx * ENEMY_KNOCKBACK_STRENGTH;
         _knockback_dy = dy * ENEMY_KNOCKBACK_STRENGTH;
-        _knockback_timer = KNOCKBACK_DURATION; // Use class constant
+        _knockback_timer = ENEMY_KNOCKBACK_DURATION; // Use class constant
         _stunned = true;
     }
 

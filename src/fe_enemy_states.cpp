@@ -1,4 +1,5 @@
 #include "fe_enemy_states.h"
+#include "fe_constants.h"
 #include "fe_enemy.h"
 #include "fe_enemy_type.h"
 #include "fe_level.h"
@@ -10,8 +11,6 @@
 
 namespace fe
 {
-    constexpr bn::fixed ATTACK_DISTANCE = 20;
-
     // IdleState implementation
     void IdleState::enter(Enemy &enemy)
     {
@@ -175,7 +174,7 @@ namespace fe
             // Only attack if the horizontal distance is significant relative to vertical distance
             // and the player is within reasonable attack range horizontally
             // Also ensure we're roughly Y-aligned (vertical distance is small)
-            if (abs_dist_x <= ATTACK_DISTANCE && abs_dist_x >= abs_dist_y * 0.5 && abs_dist_y <= 16)
+            if (abs_dist_x <= ENEMY_ATTACK_DISTANCE && abs_dist_x >= abs_dist_y * 0.5 && abs_dist_y <= 16)
             {
                 // Transition to attack state
                 bn::unique_ptr<AttackState> attack_state = bn::make_unique<AttackState>();

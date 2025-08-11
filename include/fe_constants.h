@@ -132,12 +132,21 @@ namespace fe
     constexpr int PLAYER_ROLL_IFRAME_DURATION = 30; // Extended i-frames for longer roll
     constexpr bn::fixed PLAYER_HITBOX_WIDTH = 16;
     constexpr bn::fixed PLAYER_HITBOX_HEIGHT = 32;
+    constexpr int PLAYER_DEATH_ANIMATION_DURATION = 90; // 1.5 seconds at 60 FPS
 
     // ===== ENEMY CONSTANTS =====
     constexpr bn::fixed ENEMY_KNOCKBACK_STRENGTH = 2.5; // Force applied during knockback
+    constexpr int ENEMY_DEATH_ANIMATION_DURATION = 150; // Frames to allow death animation to complete
+    constexpr int ENEMY_KNOCKBACK_DURATION = 10; // Frames of knockback
+    constexpr int ENEMY_ATTACK_DURATION = 60;   // Frames for attack animation
+    constexpr bn::fixed ENEMY_ATTACK_DISTANCE = 20; // Distance threshold for enemy attacks
 
     // ===== COMPANION HITBOX CONSTANTS =====
     constexpr int COMPANION_HITBOX_SIZE = 16; // Size of companion collision hitbox
+    constexpr int COMPANION_REVIVAL_DURATION = 300; // 5 seconds at 60 FPS
+
+    // ===== HITBOX DEBUG CONSTANTS =====
+    constexpr bn::fixed HITBOX_MARKER_SPRITE_SIZE = 4;
 }
 
 #endif

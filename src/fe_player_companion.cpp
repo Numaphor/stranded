@@ -327,7 +327,7 @@ namespace fe
                 _revival_timer++;
 
                 // Update progress bar frame (8 frames for 300 total ticks)
-                int progress_frame = (_revival_timer * 8) / REVIVAL_DURATION;
+                int progress_frame = (_revival_timer * 8) / COMPANION_REVIVAL_DURATION;
                 if (progress_frame > 7)
                     progress_frame = 7; // Clamp to max frame
 
@@ -339,7 +339,7 @@ namespace fe
                 }
 
                 // Check if revival is complete
-                if (_revival_timer >= REVIVAL_DURATION)
+                if (_revival_timer >= COMPANION_REVIVAL_DURATION)
                 {
                     // Revival complete - start revival animation
                     _revival_in_progress = false;

@@ -13,6 +13,7 @@
 #include "bn_regular_bg_ptr.h"
 #include "bn_span.h"
 #include "bn_regular_bg_map_cell.h"
+#include "fe_constants.h"
 
 #include "fe_enemy_type.h"
 #include "fe_hitbox.h"
@@ -74,13 +75,11 @@ namespace fe
 
         // Death animation timer
         int _death_timer = 0;
-        static constexpr int DEATH_ANIMATION_DURATION = 150; // Frames to allow death animation to complete
 
         // Knockback state
         bn::fixed _knockback_dx = 0;
         bn::fixed _knockback_dy = 0;
         int _knockback_timer = 0;
-        static constexpr int KNOCKBACK_DURATION = 10; // Frames of knockback
         int _sound_timer = 0;
         bool _spotted_player = false;
         bn::optional<bn::sprite_animate_action<16>> _action; // Increased to handle dead animation (16 frames)
@@ -99,7 +98,6 @@ namespace fe
         };
         AnimationState _current_animation = AnimationState::IDLE;
         int _attack_timer = 0;
-        static constexpr int ATTACK_DURATION = 60;   // Frames for attack animation
         static constexpr bn::fixed SPEAR_REACH = 16; // Spear reach distance in pixels
 
         // Spearguard return-to-post behavior

@@ -17,7 +17,6 @@ namespace fe
         // Standard sprite dimensions (these are hitbox-specific, not in fe_constants.h)
         constexpr bn::fixed PLAYER_HITBOX_WIDTH = 8;
         constexpr bn::fixed PLAYER_HITBOX_HEIGHT = 16;
-        constexpr bn::fixed MARKER_SPRITE_SIZE = 4;
 
         // Zone dimensions (using centralized constants from fe_constants.h)
         // Improved merchant system with separate collision and interaction zones
