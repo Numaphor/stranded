@@ -355,7 +355,7 @@ namespace fe
                 _auto_reload_timer = AUTO_RELOAD_INTERVAL;
                 BN_LOG("Started auto-reload timer (1 second)");
             }
-            
+
             _auto_reload_timer--;
             if (_auto_reload_timer <= 0 && _ammo_count < MAX_AMMO)
             {
@@ -910,7 +910,7 @@ namespace fe
         // Consume ammo and update HUD only after successful bullet firing
         _ammo_count--;
         _hud.set_ammo(_ammo_count);
-        
+
         // Set flag for screen shake
         _bullet_just_fired = true;
 

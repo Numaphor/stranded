@@ -435,15 +435,14 @@ namespace fe
             {
                 // Player is currently firing - increase continuous fire counter
                 _continuous_fire_frames++;
-                
+
                 // Calculate progressive intensity based on how long player has been firing
                 bn::fixed intensity_multiplier = bn::min(
-                    bn::fixed(_continuous_fire_frames) / GUNFIRE_BUILDUP_FRAMES, 
-                    bn::fixed(1.0)
-                );
-                bn::fixed current_intensity = GUNFIRE_SHAKE_BASE_INTENSITY + 
-                    (GUNFIRE_SHAKE_MAX_INTENSITY - GUNFIRE_SHAKE_BASE_INTENSITY) * intensity_multiplier;
-                
+                    bn::fixed(_continuous_fire_frames) / GUNFIRE_BUILDUP_FRAMES,
+                    bn::fixed(1.0));
+                bn::fixed current_intensity = GUNFIRE_SHAKE_BASE_INTENSITY +
+                                              (GUNFIRE_SHAKE_MAX_INTENSITY - GUNFIRE_SHAKE_BASE_INTENSITY) * intensity_multiplier;
+
                 // Trigger shake if player just fired a bullet
                 if (_player->bullet_just_fired())
                 {
@@ -536,9 +535,7 @@ namespace fe
 
             // Proper deadzone camera system
             bn::fixed_point player_pos = _player->pos();
-            bn::fixed_point current_camera_pos = _camera.has_value() ? 
-                bn::fixed_point(_camera->x(), _camera->y()) : 
-                bn::fixed_point(0, 0);
+            bn::fixed_point current_camera_pos = _camera.has_value() ? bn::fixed_point(_camera->x(), _camera->y()) : bn::fixed_point(0, 0);
 
             // Check if player is actively moving
             bool player_is_moving = _player->is_moving();
@@ -625,22 +622,23 @@ namespace fe
                 // Generate random shake offset using frame counter and simple PRNG
                 static int shake_counter = 0;
                 shake_counter++;
-                
+
                 // Use simple but effective random generation
                 int rand_x = (shake_counter * 1664525 + 1013904223) & 0x7FFF;
                 int rand_y = ((shake_counter + 7) * 1664525 + 1013904223) & 0x7FFF;
-                
+
                 // Generate shake offset (-3 to +3 range for subtlety)
                 int shake_x_int = (rand_x % 7) - 3;
                 int shake_y_int = (rand_y % 7) - 3;
-                
+
                 // Apply intensity scaling (don't decay too fast)
                 bn::fixed intensity_scale = _shake_intensity;
-                if (intensity_scale < 1) intensity_scale = 1; // Minimum intensity
-                
+                if (intensity_scale < 1)
+                    intensity_scale = 1; // Minimum intensity
+
                 shake_x = bn::fixed(shake_x_int) * intensity_scale / 4; // Reduced from /2 to /4
                 shake_y = bn::fixed(shake_y_int) * intensity_scale / 4; // Reduced from /2 to /4
-                
+
                 // Decrease shake frames and intensity (slower decay)
                 _shake_frames--;
                 _shake_intensity *= 0.9; // Slower decay
@@ -917,10 +915,10 @@ namespace fe
             static int shake_seed = 1234;
             shake_seed = (shake_seed * 1664525 + 1013904223) % 32768;
             int shake_x_int = (shake_seed % 16) - 8; // Range: -8 to +7
-            
+
             shake_seed = (shake_seed * 1664525 + 1013904223) % 32768;
             int shake_y_int = (shake_seed % 16) - 8; // Range: -8 to +7
-            
+
             // Convert to fixed point and apply intensity
             bn::fixed shake_x = bn::fixed(shake_x_int) * _shake_intensity / 4;
             bn::fixed shake_y = bn::fixed(shake_y_int) * _shake_intensity / 4;

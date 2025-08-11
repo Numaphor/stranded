@@ -392,13 +392,13 @@ namespace fe
 
         // Bullet management
         BulletManager _bullet_manager;
-        bool _bullet_just_fired = false;  // Flag for screen shake detection
+        bool _bullet_just_fired = false; // Flag for screen shake detection
 
         // Ammo system
         int _ammo_count = 10;
         static constexpr int MAX_AMMO = 10;
         bool _reload_on_roll_end = false;
-        int _auto_reload_timer = 0;                    // Timer for automatic reload when holding L
+        int _auto_reload_timer = 0;                     // Timer for automatic reload when holding L
         static constexpr int AUTO_RELOAD_INTERVAL = 30; // Reload every 0.5 seconds (30 frames at 60fps)
 
         // Strafing state
