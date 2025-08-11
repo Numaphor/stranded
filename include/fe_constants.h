@@ -104,6 +104,40 @@ namespace fe
     constexpr int MENU_BG_COLOR_R = 0;
     constexpr int MENU_BG_COLOR_G = 0;
     constexpr int MENU_BG_COLOR_B = 8;
+
+    // ===== CAMERA SYSTEM CONSTANTS =====
+    constexpr bn::fixed CAMERA_DEADZONE_X = 16;                // Horizontal deadzone radius (reduced for more responsive camera)
+    constexpr bn::fixed CAMERA_DEADZONE_Y = 6;                 // Vertical deadzone radius (reduced for more responsive camera)
+    constexpr bn::fixed CAMERA_FOLLOW_SPEED = 0.05;            // Faster follow speed (5% per frame) for more responsive lookahead
+    constexpr bn::fixed CAMERA_DIRECTION_CHANGE_SPEED = 0.012; // Slower direction changes (1.2% per frame)
+    constexpr int CAMERA_DIRECTION_CHANGE_DURATION = 28;       // Longer direction change duration (0.47 seconds at 60fps)
+    constexpr bn::fixed CAMERA_LOOKAHEAD_X = 120;              // Increased horizontal lookahead for better visibility
+    constexpr bn::fixed CAMERA_LOOKAHEAD_Y = 100;              // Good vertical lookahead distance
+    constexpr bn::fixed CAMERA_CENTER_BIAS = 0.3;              // Less center bias (30%) to allow more lookahead
+
+    // ===== UI POSITIONING CONSTANTS =====
+    constexpr bn::fixed PLAYER_STATUS_X = 76; // X position for status display
+    constexpr bn::fixed PLAYER_STATUS_Y = 70; // Y position for status display
+
+    // ===== SCREEN SHAKE CONSTANTS =====
+    constexpr int GUNFIRE_SHAKE_FRAMES = 6;                 // Reduced duration (about 0.1 seconds at 60fps)
+    constexpr bn::fixed GUNFIRE_SHAKE_BASE_INTENSITY = 1.0; // Starting intensity for first shot
+    constexpr bn::fixed GUNFIRE_SHAKE_MAX_INTENSITY = 5.0;  // Maximum intensity after sustained fire
+    constexpr int GUNFIRE_BUILDUP_FRAMES = 120;             // Frames to reach max intensity (2 seconds at 60fps)
+    constexpr bn::fixed CAMERA_LOOKAHEAD_SMOOTHING = 0.7;   // More lookahead effect (70%)
+
+    // ===== PLAYER MOVEMENT CONSTANTS =====
+    constexpr bn::fixed PLAYER_ROLL_SPEED = 3.75; // Roll speed (1.5x faster than normal movement)
+    constexpr int PLAYER_ROLL_DURATION = 64;        // Increased to double total distance
+    constexpr int PLAYER_ROLL_IFRAME_DURATION = 30; // Extended i-frames for longer roll
+    constexpr bn::fixed PLAYER_HITBOX_WIDTH = 16;
+    constexpr bn::fixed PLAYER_HITBOX_HEIGHT = 32;
+
+    // ===== ENEMY CONSTANTS =====
+    constexpr bn::fixed ENEMY_KNOCKBACK_STRENGTH = 2.5; // Force applied during knockback
+
+    // ===== COMPANION HITBOX CONSTANTS =====
+    constexpr int COMPANION_HITBOX_SIZE = 16; // Size of companion collision hitbox
 }
 
 #endif

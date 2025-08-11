@@ -732,7 +732,6 @@ namespace fe
                 // Check for collision with companion (if companion exists and is alive)
                 if (_player->has_companion() && !_player->get_companion()->is_dead_independently())
                 {
-                    constexpr int COMPANION_HITBOX_SIZE = 16;
                     constexpr int COMPANION_HITBOX_HALF_SIZE = COMPANION_HITBOX_SIZE / 2;
 
                     PlayerCompanion *companion = _player->get_companion();

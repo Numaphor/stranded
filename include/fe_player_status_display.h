@@ -5,6 +5,7 @@
 #include "bn_optional.h"
 #include "bn_vector.h"
 #include "bn_sprite_text_generator.h"
+#include "fe_constants.h"
 
 namespace fe
 {
@@ -28,9 +29,6 @@ namespace fe
         PLAYER_STATUS _current_status = PLAYER_STATUS::IDLE;
         bool _is_visible = true;
         bool _status_valid = false; // Track if status has been set
-
-        static constexpr bn::fixed STATUS_X = 76; // X position for status display
-        static constexpr bn::fixed STATUS_Y = 70; // Lower position
 
     public:
         PlayerStatusDisplay(bn::sprite_text_generator &text_generator);

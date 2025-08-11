@@ -58,7 +58,7 @@ namespace fe
 
         // Use a fixed left-aligned position to avoid shifting
         _text_generator.set_left_alignment();
-        _text_generator.generate(STATUS_X, STATUS_Y, status_text, _text_sprites);
+        _text_generator.generate(PLAYER_STATUS_X, PLAYER_STATUS_Y, status_text, _text_sprites);
 
         // Set high priority and ensure sprites stay fixed on screen
         for (bn::sprite_ptr &sprite : _text_sprites)
