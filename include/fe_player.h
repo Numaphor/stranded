@@ -345,6 +345,11 @@ namespace fe
         // Returns list of active bullets for collision checking
         [[nodiscard]] const bn::vector<Bullet, 32> &bullets() const { return _bullet_manager.bullets(); }
 
+        // Check if bullet was just fired this frame (for screen shake)
+        [[nodiscard]] bool bullet_just_fired() const { return _bullet_just_fired; }
+        void clear_bullet_fired_flag() { _bullet_just_fired = false; }
+        [[nodiscard]] bool is_firing() const;
+
         // Hitbox for collision detection
         [[nodiscard]] Hitbox get_hitbox() const override { return Entity::get_hitbox(); }
 
@@ -387,11 +392,14 @@ namespace fe
 
         // Bullet management
         BulletManager _bullet_manager;
+        bool _bullet_just_fired = false;  // Flag for screen shake detection
 
         // Ammo system
         int _ammo_count = 10;
         static constexpr int MAX_AMMO = 10;
         bool _reload_on_roll_end = false;
+        int _auto_reload_timer = 0;                    // Timer for automatic reload when holding L
+        static constexpr int AUTO_RELOAD_INTERVAL = 30; // Reload every 0.5 seconds (30 frames at 60fps)
 
         // Strafing state
         bool _is_strafing = false;

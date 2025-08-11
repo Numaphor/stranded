@@ -61,8 +61,19 @@ namespace fe
         static constexpr bn::fixed CAMERA_CENTER_BIAS = 0.3;              // Less center bias (30%) to allow more lookahead
         static constexpr bn::fixed CAMERA_LOOKAHEAD_SMOOTHING = 0.7;      // More lookahead effect (70%)
 
+        // Screen shake system
+        int _shake_frames;                                               // Number of frames left to shake
+        bn::fixed _shake_intensity;                                     // Current shake intensity
+        int _continuous_fire_frames;                                    // How many frames player has been firing continuously
+        static constexpr int GUNFIRE_SHAKE_FRAMES = 6;                  // Reduced duration (about 0.1 seconds at 60fps)
+        static constexpr bn::fixed GUNFIRE_SHAKE_BASE_INTENSITY = 1.0;  // Starting intensity for first shot
+        static constexpr bn::fixed GUNFIRE_SHAKE_MAX_INTENSITY = 5.0;   // Maximum intensity after sustained fire
+        static constexpr int GUNFIRE_BUILDUP_FRAMES = 120;              // Frames to reach max intensity (2 seconds at 60fps)
+
         void _init_world_specific_content(int world_id, bn::camera_ptr &camera, bn::regular_bg_ptr &bg, bn::sprite_text_generator &text_generator);
         void _save_current_state();
+        void _update_camera_shake();                                    // Update screen shake effect
+        void trigger_screen_shake(int frames, bn::fixed intensity);     // Trigger screen shake
     };
 }
 

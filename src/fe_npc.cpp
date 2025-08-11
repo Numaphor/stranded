@@ -158,9 +158,9 @@ namespace fe
         // This method is still used by other NPC types that don't use the Level tile system
         if (!_finished && !_hidden)
         {
-            if (bn::abs(pos().x() - player_pos.x()) < 50)
+            if (bn::abs(pos().x() - player_pos.x()) < fe::MERCHANT_INTERACTION_ZONE_WIDTH)
             {
-                if (bn::abs(pos().y() - player_pos.y()) < 50)
+                if (bn::abs(pos().y() - player_pos.y()) < fe::MERCHANT_INTERACTION_ZONE_HEIGHT)
                 {
                     _is_near_player = true;
                     return true;

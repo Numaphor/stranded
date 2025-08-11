@@ -84,27 +84,6 @@ namespace fe
                position.y() >= zone_top && position.y() < zone_bottom;
     }
 
-    bool Level::is_in_hitbox_zone(const bn::fixed_point &position) const
-    {
-        // Return false if no merchant zone is set or zone is disabled (during conversations)
-        if (!_merchant_zone_center.has_value() || !_merchant_zone_enabled)
-        {
-            return false;
-        }
-
-        const bn::fixed_point &center = _merchant_zone_center.value();
-
-        // Calculate zone boundaries (zone is centered on merchant position)
-        // Using same pattern as sword zone: inclusive left/top, exclusive right/bottom
-        const bn::fixed zone_left = center.x() - _merchant_zone_width / 2;
-        const bn::fixed zone_right = center.x() + _merchant_zone_width / 2;
-        const bn::fixed zone_top = center.y() - _merchant_zone_height / 2;
-        const bn::fixed zone_bottom = center.y() + _merchant_zone_height / 2;
-
-        return position.x() >= zone_left && position.x() < zone_right &&
-               position.y() >= zone_top && position.y() < zone_bottom;
-    }
-
     bool Level::is_in_merchant_interaction_zone(const bn::fixed_point &position) const
     {
         // Return false if no merchant zone is set or zone is disabled (during conversations)
@@ -121,6 +100,27 @@ namespace fe
         const bn::fixed zone_right = center.x() + _merchant_interaction_zone_width / 2;
         const bn::fixed zone_top = center.y() - _merchant_interaction_zone_height / 2;
         const bn::fixed zone_bottom = center.y() + _merchant_interaction_zone_height / 2;
+
+        return position.x() >= zone_left && position.x() < zone_right &&
+               position.y() >= zone_top && position.y() < zone_bottom;
+    }
+
+    bool Level::is_in_merchant_collision_zone(const bn::fixed_point &position) const
+    {
+        // Return false if no merchant zone is set or zone is disabled (during conversations)
+        if (!_merchant_zone_center.has_value() || !_merchant_zone_enabled)
+        {
+            return false;
+        }
+
+        const bn::fixed_point &center = _merchant_zone_center.value();
+
+        // Calculate collision zone boundaries (smaller zone for physical blocking)
+        // Using same pattern as other zones: inclusive left/top, exclusive right/bottom
+        const bn::fixed zone_left = center.x() - _merchant_collision_zone_width / 2;
+        const bn::fixed zone_right = center.x() + _merchant_collision_zone_width / 2;
+        const bn::fixed zone_top = center.y() - _merchant_collision_zone_height / 2;
+        const bn::fixed zone_bottom = center.y() + _merchant_collision_zone_height / 2;
 
         return position.x() >= zone_left && position.x() < zone_right &&
                position.y() >= zone_top && position.y() < zone_bottom;
@@ -188,8 +188,12 @@ namespace fe
         // All collision barriers removed - players can move freely through sword zones
         // Sword zone collision checking has been disabled
 
-        // Merchant collision zones removed - merchant zones only used for interaction now
-        // No collision checking with merchant zones
+        // Improved merchant collision system - check for collision zone (separate from interaction zone)
+        // Only block if merchant zone is enabled and player is in collision zone
+        if (is_in_merchant_collision_zone(position))
+        {
+            return false; // Block movement - player collides with merchant
+        }
 
         // Then check for other tile-based collisions (if any other zone tiles exist)
         const int map_offset_x = (map_width * 4);

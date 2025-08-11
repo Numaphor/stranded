@@ -20,10 +20,11 @@ namespace fe
         constexpr bn::fixed MARKER_SPRITE_SIZE = 4;
 
         // Zone dimensions (using centralized constants from fe_constants.h)
-        constexpr bn::fixed MERCHANT_COLLISION_WIDTH = MERCHANT_COLLISION_ZONE_WIDTH;
-        constexpr bn::fixed MERCHANT_COLLISION_HEIGHT = MERCHANT_COLLISION_ZONE_HEIGHT;
-        constexpr bn::fixed MERCHANT_INTERACTION_WIDTH = MERCHANT_INTERACTION_ZONE_WIDTH;
-        constexpr bn::fixed MERCHANT_INTERACTION_HEIGHT = MERCHANT_INTERACTION_ZONE_HEIGHT;
+        // Improved merchant system with separate collision and interaction zones
+        constexpr bn::fixed MERCHANT_COLLISION_WIDTH = fe::MERCHANT_COLLISION_ZONE_WIDTH;
+        constexpr bn::fixed MERCHANT_COLLISION_HEIGHT = fe::MERCHANT_COLLISION_ZONE_HEIGHT;
+        constexpr bn::fixed MERCHANT_INTERACTION_WIDTH = fe::MERCHANT_INTERACTION_ZONE_WIDTH;
+        constexpr bn::fixed MERCHANT_INTERACTION_HEIGHT = fe::MERCHANT_INTERACTION_ZONE_HEIGHT;
 
         // Note: Tile system constants are accessed directly from fe:: namespace
         // (SWORD_ZONE_TILE_*, TILE_SIZE, MAP_OFFSET, etc.)
@@ -98,8 +99,9 @@ namespace fe
 
         // Static zone collision methods
         [[nodiscard]] static bool is_in_sword_zone(const bn::fixed_point &position);
-        [[nodiscard]] static bool is_in_merchant_collision_zone(const bn::fixed_point &position);
         [[nodiscard]] static bool is_in_merchant_interaction_zone(const bn::fixed_point &position, const bn::fixed_point &merchant_center);
+        // Improved merchant collision system - separate collision zone for physical blocking
+        [[nodiscard]] static bool is_in_merchant_collision_zone(const bn::fixed_point &position, const bn::fixed_point &merchant_center);
 
         // === DEBUG VISUALIZATION ===
 

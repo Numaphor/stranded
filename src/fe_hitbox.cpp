@@ -110,26 +110,6 @@ namespace fe
                position.y() >= zone_top && position.y() < zone_bottom;
     }
 
-    bool Hitbox::is_in_merchant_collision_zone(const bn::fixed_point &position)
-    {
-        // Get merchant center from ZoneManager - return false if no merchant or disabled
-        auto merchant_center = ZoneManager::get_merchant_zone_center();
-        if (!merchant_center.has_value() || !ZoneManager::is_merchant_zone_enabled())
-        {
-            return false;
-        }
-
-        // Use same coordinate calculation pattern as sword zone
-        using namespace hitbox_constants;
-        const bn::fixed zone_left = merchant_center->x() - MERCHANT_COLLISION_WIDTH / 2;
-        const bn::fixed zone_right = merchant_center->x() + MERCHANT_COLLISION_WIDTH / 2;
-        const bn::fixed zone_top = merchant_center->y() - MERCHANT_COLLISION_HEIGHT / 2;
-        const bn::fixed zone_bottom = merchant_center->y() + MERCHANT_COLLISION_HEIGHT / 2;
-
-        return position.x() >= zone_left && position.x() < zone_right &&
-               position.y() >= zone_top && position.y() < zone_bottom;
-    }
-
     bool Hitbox::is_in_merchant_interaction_zone(const bn::fixed_point &position, const bn::fixed_point &merchant_center)
     {
         using namespace hitbox_constants;
@@ -138,6 +118,17 @@ namespace fe
 
         return position.x() >= zone_position.x() && position.x() < zone_position.x() + MERCHANT_INTERACTION_WIDTH &&
                position.y() >= zone_position.y() && position.y() < zone_position.y() + MERCHANT_INTERACTION_HEIGHT;
+    }
+
+    bool Hitbox::is_in_merchant_collision_zone(const bn::fixed_point &position, const bn::fixed_point &merchant_center)
+    {
+        using namespace hitbox_constants;
+
+        // Use smaller collision zone for improved gameplay - players need to get closer but not too close
+        bn::fixed_point zone_position = calculate_centered_position(merchant_center, MERCHANT_COLLISION_WIDTH, MERCHANT_COLLISION_HEIGHT);
+
+        return position.x() >= zone_position.x() && position.x() < zone_position.x() + MERCHANT_COLLISION_WIDTH &&
+               position.y() >= zone_position.y() && position.y() < zone_position.y() + MERCHANT_COLLISION_HEIGHT;
     }
 
     // === FACTORY METHODS ===
@@ -382,10 +373,13 @@ namespace fe
             return false;
         }
 
-        // Check merchant collision zone
-        if (Hitbox::is_in_merchant_collision_zone(position))
+        // Check improved merchant collision zone (only if merchant zone is enabled)
+        if (is_merchant_zone_enabled() && _merchant_zone_center.has_value())
         {
-            return false;
+            if (Hitbox::is_in_merchant_collision_zone(position, _merchant_zone_center.value()))
+            {
+                return false; // Block movement - player collides with merchant
+            }
         }
 
         // Position is valid if it doesn't collide with any zones

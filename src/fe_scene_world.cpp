@@ -101,7 +101,7 @@ namespace fe
             }
         }
 
-        // Method to show/hide merchant interaction zone tiles (100x100) for debug visualization only
+        // Method to show/hide merchant interaction zone tiles (25x25) for debug visualization only
         void set_merchant_interaction_zone_visible(bool visible, const bn::fixed_point &merchant_center)
         {
             int tile_index = visible ? INTERACTION_ZONE_TILE_INDEX : _background_tile; // Use centralized tile index for interaction zones
@@ -237,7 +237,10 @@ namespace fe
                      _player_debug_hitbox(),
                      _last_camera_direction(PlayerMovement::Direction::DOWN),
                      _direction_change_frames(0),
-                     _current_world_id(0)
+                     _current_world_id(0),
+                     _shake_frames(0),
+                     _shake_intensity(0),
+                     _continuous_fire_frames(0)
     {
         // Create player sprite with correct shape and size
         bn::sprite_builder builder(bn::sprite_items::hero);
@@ -427,6 +430,33 @@ namespace fe
             _player->update();
             _player->update_gun_position(_player->facing_direction());
 
+            // Handle screen shake based on continuous firing
+            if (_player->is_firing())
+            {
+                // Player is currently firing - increase continuous fire counter
+                _continuous_fire_frames++;
+                
+                // Calculate progressive intensity based on how long player has been firing
+                bn::fixed intensity_multiplier = bn::min(
+                    bn::fixed(_continuous_fire_frames) / GUNFIRE_BUILDUP_FRAMES, 
+                    bn::fixed(1.0)
+                );
+                bn::fixed current_intensity = GUNFIRE_SHAKE_BASE_INTENSITY + 
+                    (GUNFIRE_SHAKE_MAX_INTENSITY - GUNFIRE_SHAKE_BASE_INTENSITY) * intensity_multiplier;
+                
+                // Trigger shake if player just fired a bullet
+                if (_player->bullet_just_fired())
+                {
+                    trigger_screen_shake(GUNFIRE_SHAKE_FRAMES, current_intensity);
+                    _player->clear_bullet_fired_flag();
+                }
+            }
+            else
+            {
+                // Player stopped firing - reset continuous fire counter
+                _continuous_fire_frames = 0;
+            }
+
             // Update player status display
             if (_player_status_display)
             {
@@ -506,7 +536,9 @@ namespace fe
 
             // Proper deadzone camera system
             bn::fixed_point player_pos = _player->pos();
-            bn::fixed_point current_camera_pos = bn::fixed_point(camera.x(), camera.y());
+            bn::fixed_point current_camera_pos = _camera.has_value() ? 
+                bn::fixed_point(_camera->x(), _camera->y()) : 
+                bn::fixed_point(0, 0);
 
             // Check if player is actively moving
             bool player_is_moving = _player->is_moving();
@@ -581,8 +613,48 @@ namespace fe
             bn::fixed_point camera_offset = _camera_target_pos - current_camera_pos;
             bn::fixed_point new_camera_pos = current_camera_pos + (camera_offset * interpolation_speed);
 
-            camera.set_x(new_camera_pos.x());
-            camera.set_y(new_camera_pos.y());
+            // Store the base camera position before applying shake
+            bn::fixed base_camera_x = new_camera_pos.x();
+            bn::fixed base_camera_y = new_camera_pos.y();
+
+            // Calculate shake offset
+            bn::fixed shake_x = 0;
+            bn::fixed shake_y = 0;
+            if (_shake_frames > 0)
+            {
+                // Generate random shake offset using frame counter and simple PRNG
+                static int shake_counter = 0;
+                shake_counter++;
+                
+                // Use simple but effective random generation
+                int rand_x = (shake_counter * 1664525 + 1013904223) & 0x7FFF;
+                int rand_y = ((shake_counter + 7) * 1664525 + 1013904223) & 0x7FFF;
+                
+                // Generate shake offset (-3 to +3 range for subtlety)
+                int shake_x_int = (rand_x % 7) - 3;
+                int shake_y_int = (rand_y % 7) - 3;
+                
+                // Apply intensity scaling (don't decay too fast)
+                bn::fixed intensity_scale = _shake_intensity;
+                if (intensity_scale < 1) intensity_scale = 1; // Minimum intensity
+                
+                shake_x = bn::fixed(shake_x_int) * intensity_scale / 4; // Reduced from /2 to /4
+                shake_y = bn::fixed(shake_y_int) * intensity_scale / 4; // Reduced from /2 to /4
+                
+                // Decrease shake frames and intensity (slower decay)
+                _shake_frames--;
+                _shake_intensity *= 0.9; // Slower decay
+            }
+
+            // Apply final camera position with shake
+            if (_camera.has_value())
+            {
+                _camera->set_x(base_camera_x + shake_x);
+                _camera->set_y(base_camera_y + shake_y);
+            }
+
+            // Remove old shake update call since it's now inline
+            // _update_camera_shake();
 
             // Update sword position and priority based on player position
             if (_sword_bg)
@@ -831,5 +903,38 @@ namespace fe
             WorldStateManager &state_manager = WorldStateManager::instance();
             state_manager.save_world_state(_current_world_id, _player->pos(), _player->get_hp());
         }
+    }
+
+    void World::_update_camera_shake()
+    {
+        if (_shake_frames > 0 && _camera)
+        {
+            // Decrease shake frames and intensity
+            _shake_frames--;
+            _shake_intensity *= 0.85; // Slower decay to maintain intensity longer
+
+            // Generate random shake offset using simpler method
+            static int shake_seed = 1234;
+            shake_seed = (shake_seed * 1664525 + 1013904223) % 32768;
+            int shake_x_int = (shake_seed % 16) - 8; // Range: -8 to +7
+            
+            shake_seed = (shake_seed * 1664525 + 1013904223) % 32768;
+            int shake_y_int = (shake_seed % 16) - 8; // Range: -8 to +7
+            
+            // Convert to fixed point and apply intensity
+            bn::fixed shake_x = bn::fixed(shake_x_int) * _shake_intensity / 4;
+            bn::fixed shake_y = bn::fixed(shake_y_int) * _shake_intensity / 4;
+
+            // Apply shake offset to camera
+            bn::fixed current_x = _camera->x();
+            bn::fixed current_y = _camera->y();
+            _camera->set_position(current_x + shake_x, current_y + shake_y);
+        }
+    }
+
+    void World::trigger_screen_shake(int frames, bn::fixed intensity)
+    {
+        _shake_frames = frames;
+        _shake_intensity = intensity;
     }
 }

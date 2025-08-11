@@ -342,8 +342,34 @@ namespace fe
                 _strafing_direction = _movement.facing_direction();
         }
 
-        if (bn::keypad::l_pressed() && !reviving_companion)
+        // Weapon switching moved to SELECT + L (SHIFT + L equivalent)
+        if (bn::keypad::select_held() && bn::keypad::l_pressed() && !reviving_companion)
             switch_weapon();
+
+        // Auto-reload when holding L with gun active (but not SELECT + L)
+        if (bn::keypad::l_held() && !bn::keypad::select_held() && _gun_active && !reviving_companion)
+        {
+            // Start timer if it's not already running
+            if (_auto_reload_timer == 0)
+            {
+                _auto_reload_timer = AUTO_RELOAD_INTERVAL;
+                BN_LOG("Started auto-reload timer (1 second)");
+            }
+            
+            _auto_reload_timer--;
+            if (_auto_reload_timer <= 0 && _ammo_count < MAX_AMMO)
+            {
+                _ammo_count++;
+                _hud.set_ammo(_ammo_count);
+                _auto_reload_timer = AUTO_RELOAD_INTERVAL; // Reset timer for next reload
+                BN_LOG("Auto-reloaded 1 bullet! Ammo: ", _ammo_count);
+            }
+        }
+        else
+        {
+            // Keep current timer value when not holding L (don't reset to 0)
+            // This prevents spam-clicking L to get instant bullets
+        }
 
         // Gun sprite cycling with SELECT + B (only when gun is active)
         if (bn::keypad::select_held() && bn::keypad::b_pressed() && _gun_active && !reviving_companion)
@@ -375,24 +401,27 @@ namespace fe
                 // Play roll sound effect
                 bn::sound_items::swipe.play();
             }
+            // Gun slot 0 uses autofire (A held), all other guns use single shot (A pressed)
+            else if (bn::keypad::a_held() && _state.dialog_cooldown() == 0 && _gun_active && shared_gun_frame == 0)
+            {
+                // Autofire for gun slot 0 when A is held
+                fire_bullet(_is_strafing ? _strafing_direction : _movement.facing_direction());
+            }
             else if (bn::keypad::a_pressed() && _state.dialog_cooldown() == 0)
             {
                 if (_gun_active)
                 {
-                    fire_bullet(_is_strafing ? _strafing_direction : _movement.facing_direction());
+                    // Only fire on press for guns 1-5 (single shot)
+                    if (shared_gun_frame != 0)
+                    {
+                        fire_bullet(_is_strafing ? _strafing_direction : _movement.facing_direction());
+                    }
                 }
                 else if (_abilities.slashing_available())
                 {
                     _movement.start_action(PlayerMovement::State::SLASHING, 25);
                     _abilities.set_slash_cooldown(60);
                 }
-            }
-            else if (bn::keypad::r_pressed() && _gun_active)
-            {
-                // Reload ammo when R is pressed and gun is active
-                reload_ammo();
-                _hud.set_ammo(_ammo_count);
-                BN_LOG("Ammo reloaded! Count: ", _ammo_count);
             }
             else if (bn::keypad::select_held() && _abilities.buff_abilities_available())
             {
@@ -870,13 +899,20 @@ namespace fe
         if (!_gun_active || !_gun_sprite.has_value() || !has_ammo())
             return;
 
+        // Only fire and consume ammo if the bullet manager can actually fire
+        if (!_bullet_manager.can_fire())
+            return;
+
         bn::fixed_point bullet_pos = direction_utils::get_bullet_position(direction, pos());
         Direction bullet_dir = static_cast<Direction>(int(direction));
         _bullet_manager.fire_bullet(bullet_pos, bullet_dir);
 
-        // Consume ammo and update HUD
+        // Consume ammo and update HUD only after successful bullet firing
         _ammo_count--;
         _hud.set_ammo(_ammo_count);
+        
+        // Set flag for screen shake
+        _bullet_just_fired = true;
 
         BN_LOG("Bullet fired! Ammo remaining: ", _ammo_count);
     }
@@ -962,5 +998,11 @@ namespace fe
     void Player::update_bullets()
     {
         _bullet_manager.update_bullets();
+    }
+
+    bool Player::is_firing() const
+    {
+        // Player is firing if A button is held, gun is active, and dialog cooldown is 0
+        return bn::keypad::a_held() && _gun_active && _state.dialog_cooldown() == 0;
     }
 }

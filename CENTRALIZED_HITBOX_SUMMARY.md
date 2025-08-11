@@ -7,7 +7,7 @@ I have successfully centralized all hitbox-related functionality into a comprehe
 
 ### 1. **Constants and Coordinates** (All hardcoded values now in one place)
 - **Sword Zone**: Tile coordinates (147, 157, 162, 166) from `Level::is_in_sword_zone()`
-- **Merchant Zones**: 100x100 interaction zone only (collision zone removed)
+- **Merchant Zones**: 25x25 interaction zone only (collision zone removed)
 - **Marker Offsets**: All positioning values (4,4,-1,-1) from `HitboxDebug`
 - **Player Offsets**: Player-specific marker positioning (4, 20)
 - **Tile System**: Tile size (8) and map offset (1280) constants
@@ -40,7 +40,7 @@ enum class HitboxType
     STANDARD,           // Regular entity hitbox
     PLAYER,            // Player hitbox with special marker positioning  
     MERCHANT_COLLISION, // Merchant 24x24 collision zone
-    MERCHANT_INTERACTION, // Merchant 100x100 interaction zone
+    MERCHANT_INTERACTION, // Merchant 25x25 interaction zone
     SWORD_ZONE,        // Sword zone (tile-based)
     ZONE_TILES         // General zone tiles
 };
@@ -201,7 +201,7 @@ The centralized hitbox system is now complete and fully operational. All legacy 
 - Debug visualization for merchant collision zones (`set_merchant_hitbox_zone_visible` now no-op)
 
 ### What Was Kept:
-- Merchant interaction zones (100x100) for conversation triggering
+- Merchant interaction zones (25x25) for conversation triggering
 - All other zone functionality (sword zones, etc.)
 - All hitbox functionality for other entities (player, enemies)
 
