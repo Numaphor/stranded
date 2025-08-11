@@ -33,7 +33,7 @@ namespace fe
     // ===== MERCHANT ZONE CONSTANTS =====
     // Improved merchant collision system with separate zones
     // Collision zone (small, for physical blocking) - must be smaller than interaction zone so player can get close enough to talk
-    constexpr int MERCHANT_COLLISION_ZONE_WIDTH = 40;   // 40x40 physical blocker (approx 20px radius)
+    constexpr int MERCHANT_COLLISION_ZONE_WIDTH = 40; // 40x40 physical blocker (approx 20px radius)
     constexpr int MERCHANT_COLLISION_ZONE_HEIGHT = 40;
 
     // Interaction zone (larger, for triggering conversations & UI prompt). Previously reduced to 25x25 which made it entirely
