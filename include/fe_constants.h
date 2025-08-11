@@ -140,8 +140,8 @@ namespace fe
     constexpr bn::fixed ENEMY_ATTACK_DISTANCE = 20;     // Distance threshold for enemy attacks
 
     // ===== COMPANION HITBOX CONSTANTS =====
-    constexpr int COMPANION_HITBOX_SIZE = 16;                    // Size of companion collision hitbox
-    constexpr int COMPANION_REVIVAL_DURATION = 300;              // 5 seconds at 60 FPS
+    constexpr int COMPANION_HITBOX_SIZE = 16;       // Size of companion collision hitbox
+    constexpr int COMPANION_REVIVAL_DURATION = 300; // 5 seconds at 60 FPS
 
     // ===== HITBOX DEBUG CONSTANTS =====
     constexpr bn::fixed HITBOX_MARKER_SPRITE_SIZE = 4;

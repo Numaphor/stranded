@@ -60,12 +60,12 @@ namespace fe
         bn::fixed_point _target_offset;
 
         // Independent death system
-        bool _independent_death = false;                 // True if companion died independently (not with player)
-        bn::fixed_point _death_position;                 // Position where companion died
-        bool _can_be_revived = false;                    // True if companion can be revived by player proximity
-        bool _is_reviving = false;                       // True if companion is currently playing revival animation
-        bool _revival_in_progress = false;               // True if player is actively reviving companion
-        int _revival_timer = 0;                          // Timer for revival progress (0-300 for 5 seconds)
+        bool _independent_death = false;   // True if companion died independently (not with player)
+        bn::fixed_point _death_position;   // Position where companion died
+        bool _can_be_revived = false;      // True if companion can be revived by player proximity
+        bool _is_reviving = false;         // True if companion is currently playing revival animation
+        bool _revival_in_progress = false; // True if player is actively reviving companion
+        int _revival_timer = 0;            // Timer for revival progress (0-300 for 5 seconds)
 
         // Revival progress bar sprite
         bn::optional<bn::sprite_ptr> _progress_bar_sprite;
