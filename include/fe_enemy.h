@@ -107,6 +107,9 @@ namespace fe
         bool _returning_to_post = false;
         static constexpr bn::fixed RETURN_THRESHOLD = 8; // Distance threshold to consider "at post"
 
+        // Spearguard aggro state - when shot, spearguards become aggroed and chase indefinitely
+        bool _aggroed = false;
+
         bn::fixed_point _target = bn::fixed_point(0, 0);
         bool _target_locked = false;
 

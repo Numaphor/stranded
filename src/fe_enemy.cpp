@@ -390,6 +390,12 @@ namespace fe
         _inv_timer = 30; // Invincibility frames
         _stunned = true;
 
+        // Spearguards become aggroed when shot - they will chase indefinitely
+        if (_type == ENEMY_TYPE::SPEARGUARD)
+        {
+            _aggroed = true;
+        }
+
         // Update health bar
         _update_health_bar();
 

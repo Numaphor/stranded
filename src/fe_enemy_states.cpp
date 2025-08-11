@@ -129,7 +129,19 @@ namespace fe
         bn::fixed dist_x = player_pos.x() - enemy.pos().x();
         bn::fixed dist_y = player_pos.y() - enemy.pos().y();
         bn::fixed dist_sq = dist_x * dist_x + dist_y * dist_y;
-        const bn::fixed unfollow_dist_sq = 64 * 64; // 8 tiles squared
+
+        // Different unfollow distances based on aggro state
+        bn::fixed unfollow_dist_sq;
+        if (enemy.type() == ENEMY_TYPE::SPEARGUARD && enemy._aggroed)
+        {
+            // Aggroed spearguards have much larger chase range (16 tiles instead of 8)
+            unfollow_dist_sq = 128 * 128; // 16 tiles squared
+        }
+        else
+        {
+            // Normal chase range
+            unfollow_dist_sq = 64 * 64; // 8 tiles squared
+        }
 
         // Check if player is too far away or listening to NPCs
         if (dist_sq > unfollow_dist_sq || player_listening)
@@ -293,6 +305,13 @@ namespace fe
         {
             // Snap to exact position and go idle
             enemy.set_position(enemy._original_position);
+
+            // Clear aggro state when spearguard returns to post
+            if (enemy.type() == ENEMY_TYPE::SPEARGUARD)
+            {
+                enemy._aggroed = false;
+            }
+
             bn::unique_ptr<IdleState> idle_state = bn::make_unique<IdleState>();
             enemy._state_machine.transition_to(enemy, bn::move(idle_state));
             return;
@@ -348,7 +367,16 @@ namespace fe
         // Check if stun duration is over
         if (enemy._state_machine.get_state_timer() >= _stun_duration)
         {
-            // Decide what state to return to based on player proximity
+            // Special behavior for spearguards: always chase after being stunned (shot)
+            if (enemy.type() == ENEMY_TYPE::SPEARGUARD)
+            {
+                // Spearguards always chase after being stunned, regardless of distance or listening state
+                bn::unique_ptr<ChaseState> chase_state = bn::make_unique<ChaseState>();
+                enemy._state_machine.transition_to(enemy, bn::move(chase_state));
+                return;
+            }
+
+            // For other enemy types, decide what state to return to based on player proximity
             bn::fixed dist_x = player_pos.x() - enemy.pos().x();
             bn::fixed dist_y = player_pos.y() - enemy.pos().y();
             bn::fixed dist_sq = dist_x * dist_x + dist_y * dist_y;

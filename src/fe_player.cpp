@@ -913,8 +913,6 @@ namespace fe
 
         // Set flag for screen shake
         _bullet_just_fired = true;
-
-        BN_LOG("Bullet fired! Ammo remaining: ", _ammo_count);
     }
 
     void Player::initialize_companion(bn::camera_ptr camera)
