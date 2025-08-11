@@ -14,14 +14,14 @@ Stranded is an action-packed adventure game that combines classic top-down RPG m
 
 ### 🎮 Gameplay
 - **Top-down action combat** with multiple weapon types
-- **Multiple playable characters** (Hero, Agent, Bunny, Soldier, Swordmaster)
-- **Diverse enemy types** (Bat, Slime, Mutant, Spearguard, Rat, Boss)
+- **Multiple playable characters** (Hero, Agent, Soldier, Swordmaster)
+- **Diverse enemy types** (TODO)
 - **Interactive NPCs** including merchants and story characters
 - **Companion system** for strategic gameplay
 - **World state management** with save/load functionality
 
 ### 🌍 Worlds & Exploration
-- **Multiple interconnected worlds** (Main World, Forest Area, Desert, Ocean)
+- **Multiple interconnected worlds** (TODO)
 - **Dynamic environments** with unique enemies and NPCs per world
 - **Minimap system** for navigation
 - **Zone-based interactions** and collision detection
@@ -186,13 +186,9 @@ stranded/
 - **GValiente** - Butano engine creator
 
 ### Development
-- Game design and implementation by the Stranded development team
+- Game design and implementation by Numa
 - Built for the Game Boy Advance homebrew community
 
 ## License
 
 This project is open source. Please see the LICENSE file for more details.
-
----
-
-**Note**: This is a homebrew game for Game Boy Advance. It requires appropriate development tools and emulator software for play and development.
