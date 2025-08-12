@@ -860,13 +860,13 @@ namespace fe
         bn::fixed lookahead_x = 0;
         bn::fixed lookahead_y = 0;
         
-        // Calculate lookahead based on player velocity
+        // Calculate lookahead based on player velocity (equal for all directions in top-down game)
         bn::fixed velocity_magnitude = bn::sqrt(_player_velocity.x() * _player_velocity.x() + _player_velocity.y() * _player_velocity.y());
         if (velocity_magnitude > 0)
         {
             bn::fixed velocity_factor = _clamp(velocity_magnitude / CAMERA_MAX_SPEED, 0, 1);
             lookahead_x = CAMERA_LOOKAHEAD_BASE * _sign(_player_velocity.x()) * velocity_factor;
-            lookahead_y = CAMERA_LOOKAHEAD_BASE * _sign(_player_velocity.y()) * velocity_factor * 0.5; // Reduced vertical lookahead
+            lookahead_y = CAMERA_LOOKAHEAD_BASE * _sign(_player_velocity.y()) * velocity_factor; // Equal lookahead for vertical movement
         }
 
         bn::fixed target_x = player_pos.x() + lookahead_x;
