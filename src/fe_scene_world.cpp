@@ -235,6 +235,11 @@ namespace fe
                      _debug_enabled(false),
                      _camera(bn::nullopt),
                      _player_debug_hitbox(),
+                     _camera_pos(0, 0),
+                     _camera_target_pos(0, 0),
+                     _player_velocity(0, 0),
+                     _special_camera_event_active(false),
+                     _special_event_position(0, 0),
                      _last_camera_direction(PlayerMovement::Direction::DOWN),
                      _direction_change_frames(0),
                      _current_world_id(0),
@@ -274,8 +279,11 @@ namespace fe
         _level = new Level(bg_map_ptr);
         _player->spawn(spawn_location, camera);
 
-        // Initialize camera target position to player spawn location
+        // Initialize Yoshi's Island-style camera system
+        _camera_pos = spawn_location;
         _camera_target_pos = spawn_location;
+        _player_velocity = bn::fixed_point(0, 0);
+        _special_camera_event_active = false;
         camera.set_position(spawn_location.x(), spawn_location.y());
 
         // Initialize sword background with camera
@@ -535,64 +543,8 @@ namespace fe
                 _minimap->update(_player->pos(), bn::fixed_point(0, 0), _enemies);
             }
 
-            // Proper deadzone camera system
-            bn::fixed_point player_pos = _player->pos();
-            bn::fixed_point current_camera_pos = _camera.has_value() ? bn::fixed_point(_camera->x(), _camera->y()) : bn::fixed_point(0, 0);
-
-            // Check if player is actively moving
-            bool player_is_moving = _player->is_moving();
-
-            // Calculate distance from player to camera
-            bn::fixed_point player_to_camera = player_pos - current_camera_pos;
-
-            // Check if player is outside deadzone
-            bool outside_deadzone_x = bn::abs(player_to_camera.x()) > CAMERA_DEADZONE_X;
-            bool outside_deadzone_y = bn::abs(player_to_camera.y()) > CAMERA_DEADZONE_Y;
-            bool outside_deadzone = outside_deadzone_x || outside_deadzone_y;
-
-            // Determine target position
-            if (player_is_moving)
-            {
-                // Fix camera lag: disable lookahead system and follow player directly
-                _camera_target_pos = player_pos;
-            }
-            else if (!player_is_moving)
-            {
-                // Player is idle - disable interpolation to prevent lag
-                // _camera_target_pos = _camera_target_pos + (player_pos - _camera_target_pos) * CAMERA_FOLLOW_SPEED;
-                _camera_target_pos = player_pos; // Direct positioning
-            }
-
-            // Decrease direction change counter
-            if (_direction_change_frames > 0)
-            {
-                _direction_change_frames--;
-            }
-
-            // Choose interpolation speed based on whether we're in direction change period
-            bool in_direction_change = (_direction_change_frames > 0);
-            bn::fixed interpolation_speed = in_direction_change ? CAMERA_DIRECTION_CHANGE_SPEED : CAMERA_FOLLOW_SPEED;
-
-            // Fix camera lag issue: completely disable all camera interpolation
-            bn::fixed_point new_camera_pos = _camera_target_pos;
-
-            // Store the base camera position before applying shake
-            bn::fixed base_camera_x = new_camera_pos.x();
-            bn::fixed base_camera_y = new_camera_pos.y();
-
-            // Calculate shake offset - DISABLED to remove screen shake while walking
-            bn::fixed shake_x = 0;
-            bn::fixed shake_y = 0;
-
-            // Apply final camera position with shake
-            if (_camera.has_value())
-            {
-                _camera->set_x(base_camera_x + shake_x);
-                _camera->set_y(base_camera_y + shake_y);
-            }
-
-            // Remove old shake update call since it's now inline
-            // _update_camera_shake();
+            // Update Yoshi's Island-style camera system
+            _update_camera(1.0); // dt = 1.0 for 60fps frame time
 
             // Update sword position and priority based on player position
             if (_sword_bg)
@@ -873,5 +825,114 @@ namespace fe
     {
         _shake_frames = frames;
         _shake_intensity = intensity;
+    }
+
+    // Utility functions for Yoshi's Island camera system
+    bn::fixed World::_clamp(bn::fixed value, bn::fixed min_val, bn::fixed max_val)
+    {
+        if (value < min_val) return min_val;
+        if (value > max_val) return max_val;
+        return value;
+    }
+
+    bn::fixed World::_sign(bn::fixed value)
+    {
+        if (value > 0) return 1;
+        if (value < 0) return -1;
+        return 0;
+    }
+
+    bn::fixed World::_lerp(bn::fixed a, bn::fixed b, bn::fixed t)
+    {
+        return a + (b - a) * t;
+    }
+
+    void World::_update_camera(bn::fixed dt)
+    {
+        if (!_camera.has_value() || !_player) return;
+
+        bn::fixed_point player_pos = _player->pos();
+        
+        // Update player velocity for lookahead calculation
+        _player_velocity = bn::fixed_point(_player->dx(), _player->dy());
+
+        // 1) Compute the camera target based on player + lookahead
+        bn::fixed lookahead_x = 0;
+        bn::fixed lookahead_y = 0;
+        
+        // Calculate lookahead based on player velocity
+        bn::fixed velocity_magnitude = bn::sqrt(_player_velocity.x() * _player_velocity.x() + _player_velocity.y() * _player_velocity.y());
+        if (velocity_magnitude > 0)
+        {
+            bn::fixed velocity_factor = _clamp(velocity_magnitude / CAMERA_MAX_SPEED, 0, 1);
+            lookahead_x = CAMERA_LOOKAHEAD_BASE * _sign(_player_velocity.x()) * velocity_factor;
+            lookahead_y = CAMERA_LOOKAHEAD_BASE * _sign(_player_velocity.y()) * velocity_factor * 0.5; // Reduced vertical lookahead
+        }
+
+        bn::fixed target_x = player_pos.x() + lookahead_x;
+        bn::fixed target_y = player_pos.y() + CAMERA_VERTICAL_OFFSET + lookahead_y;
+
+        // 2) Deadzone test (separate for X and Y)
+        bn::fixed desired_x = _camera_pos.x();
+        bn::fixed desired_y = _camera_pos.y();
+
+        if (target_x < _camera_pos.x() - CAMERA_DEADZONE_X / 2)
+        {
+            desired_x = target_x + CAMERA_DEADZONE_X / 2;
+        }
+        else if (target_x > _camera_pos.x() + CAMERA_DEADZONE_X / 2)
+        {
+            desired_x = target_x - CAMERA_DEADZONE_X / 2;
+        }
+
+        if (target_y < _camera_pos.y() - CAMERA_DEADZONE_Y / 2)
+        {
+            desired_y = target_y + CAMERA_DEADZONE_Y / 2;
+        }
+        else if (target_y > _camera_pos.y() + CAMERA_DEADZONE_Y / 2)
+        {
+            desired_y = target_y - CAMERA_DEADZONE_Y / 2;
+        }
+
+        // 3) Smoothing: move camera toward desired position
+        bn::fixed smooth_x = _clamp(CAMERA_SMOOTH_FACTOR_X * dt, 0, 1);
+        bn::fixed smooth_y = _clamp(CAMERA_SMOOTH_FACTOR_Y * dt, 0, 1);
+        
+        _camera_pos.set_x(_camera_pos.x() + (desired_x - _camera_pos.x()) * smooth_x);
+        _camera_pos.set_y(_camera_pos.y() + (desired_y - _camera_pos.y()) * smooth_y);
+
+        // 4) Special overrides for instant camera movements
+        if (_special_camera_event_active)
+        {
+            _camera_pos.set_x(_lerp(_camera_pos.x(), _special_event_position.x(), CAMERA_SPECIAL_LERP));
+            _camera_pos.set_y(_lerp(_camera_pos.y(), _special_event_position.y(), CAMERA_SPECIAL_LERP));
+        }
+
+        // 5) Clamp to level bounds (simplified - could be enhanced with actual level bounds)
+        // For now, we'll skip this as we don't have easy access to level bounds here
+        
+        // Apply final camera position
+        _camera->set_position(_camera_pos.x(), _camera_pos.y());
+    }
+
+    void World::trigger_special_camera_event(bn::fixed_point target_pos)
+    {
+        _special_camera_event_active = true;
+        _special_event_position = target_pos;
+        
+        // If the target is very far, do an instant snap
+        bn::fixed distance = bn::sqrt(
+            (_camera_pos.x() - target_pos.x()) * (_camera_pos.x() - target_pos.x()) +
+            (_camera_pos.y() - target_pos.y()) * (_camera_pos.y() - target_pos.y())
+        );
+        
+        if (distance > CAMERA_INSTANT_SNAP_THRESHOLD)
+        {
+            _camera_pos = target_pos;
+            if (_camera.has_value())
+            {
+                _camera->set_position(target_pos.x(), target_pos.y());
+            }
+        }
     }
 }

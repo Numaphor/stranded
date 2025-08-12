@@ -108,14 +108,23 @@ namespace fe
     constexpr int MENU_BG_COLOR_B = 8;
 
     // ===== CAMERA SYSTEM CONSTANTS =====
-    constexpr bn::fixed CAMERA_DEADZONE_X = 16;                // Horizontal deadzone radius (reduced for more responsive camera)
-    constexpr bn::fixed CAMERA_DEADZONE_Y = 6;                 // Vertical deadzone radius (reduced for more responsive camera)
-    constexpr bn::fixed CAMERA_FOLLOW_SPEED = 0.05;            // Faster follow speed (5% per frame) for more responsive lookahead
-    constexpr bn::fixed CAMERA_DIRECTION_CHANGE_SPEED = 0.012; // Slower direction changes (1.2% per frame)
-    constexpr int CAMERA_DIRECTION_CHANGE_DURATION = 28;       // Longer direction change duration (0.47 seconds at 60fps)
-    constexpr bn::fixed CAMERA_LOOKAHEAD_X = 120;              // Increased horizontal lookahead for better visibility
-    constexpr bn::fixed CAMERA_LOOKAHEAD_Y = 100;              // Good vertical lookahead distance
-    constexpr bn::fixed CAMERA_CENTER_BIAS = 0.3;              // Less center bias (30%) to allow more lookahead
+    // Yoshi's Island-style camera system
+    // Deadzone dimensions (follow window)
+    constexpr bn::fixed CAMERA_DEADZONE_X = 32;                // Horizontal deadzone half-width
+    constexpr bn::fixed CAMERA_DEADZONE_Y = 16;                // Vertical deadzone half-height
+    
+    // Lookahead parameters
+    constexpr bn::fixed CAMERA_LOOKAHEAD_BASE = 64;            // Base lookahead distance
+    constexpr bn::fixed CAMERA_MAX_SPEED = 2.5;                // Max player speed for lookahead calculation
+    constexpr bn::fixed CAMERA_VERTICAL_OFFSET = 8;            // Vertical offset bias (positive = player lower in frame)
+    
+    // Smoothing factors
+    constexpr bn::fixed CAMERA_SMOOTH_FACTOR_X = 0.08;         // Horizontal smoothing (8% per frame = ~0.13s to 90%)
+    constexpr bn::fixed CAMERA_SMOOTH_FACTOR_Y = 0.06;         // Vertical smoothing (6% per frame = ~0.17s to 90%)
+    
+    // Special event camera overrides
+    constexpr bn::fixed CAMERA_SPECIAL_LERP = 0.15;            // Fast lerp for special events
+    constexpr bn::fixed CAMERA_INSTANT_SNAP_THRESHOLD = 128;   // Distance threshold for instant camera snaps
 
     // ===== UI POSITIONING CONSTANTS =====
     constexpr bn::fixed PLAYER_STATUS_X = 76; // X position for status display
@@ -126,7 +135,6 @@ namespace fe
     constexpr bn::fixed GUNFIRE_SHAKE_BASE_INTENSITY = 1.0; // Starting intensity for first shot
     constexpr bn::fixed GUNFIRE_SHAKE_MAX_INTENSITY = 5.0;  // Maximum intensity after sustained fire
     constexpr int GUNFIRE_BUILDUP_FRAMES = 120;             // Frames to reach max intensity (2 seconds at 60fps)
-    constexpr bn::fixed CAMERA_LOOKAHEAD_SMOOTHING = 0.7;   // More lookahead effect (70%)
 
     // ===== PLAYER MOVEMENT CONSTANTS =====
     constexpr bn::fixed PLAYER_ROLL_SPEED = 3.75;       // Roll speed (1.5x faster than normal movement)

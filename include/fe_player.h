@@ -282,6 +282,8 @@ namespace fe
         [[nodiscard]] bool is_moving() const { return _movement.is_moving(); }
         [[nodiscard]] bool is_state(PlayerMovement::State state) const { return _movement.is_state(state); }
         [[nodiscard]] PlayerMovement::Direction facing_direction() const { return _movement.facing_direction(); }
+        [[nodiscard]] bn::fixed dx() const { return _movement.dx(); }
+        [[nodiscard]] bn::fixed dy() const { return _movement.dy(); }
         [[nodiscard]] bool listening() const { return _state.listening(); }
         void set_listening(bool listening) { _state.set_listening(listening); }
 

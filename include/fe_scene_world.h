@@ -46,12 +46,21 @@ namespace fe
         bn::optional<bn::camera_ptr> _camera;                       // Camera for debug marker positioning
         fe::Hitbox _player_debug_hitbox;                            // Player debug hitbox
         bn::vector<fe::Hitbox, 16> _enemy_debug_hitboxes;           // Enemy debug hitboxes
+        
+        // Yoshi's Island-style camera system
+        bn::fixed_point _camera_pos;                               // Current camera position
+        bn::fixed_point _camera_target_pos;                        // Target position for camera movement
+        bn::fixed_point _player_velocity;                          // Player velocity for lookahead calculation
+        bool _special_camera_event_active;                         // Flag for special camera events
+        bn::fixed_point _special_event_position;                   // Target position for special events
+        
+        // Legacy camera variables (to be removed)
         PlayerMovement::Direction _last_camera_direction;           // Track last direction for smooth direction changes
         int _direction_change_frames;                               // Counter for how many frames we've been changing direction
         int _current_world_id;                                      // Track current world
 
-        // Camera deadzone system
-        bn::fixed_point _camera_target_pos;                               // Where the camera wants to be
+        // Camera deadzone system (legacy - now part of Yoshi's Island system)
+        // bn::fixed_point _camera_target_pos;                               // Where the camera wants to be
 
         // Screen shake system
         int _shake_frames;                                             // Number of frames left to shake
@@ -61,7 +70,12 @@ namespace fe
         void _init_world_specific_content(int world_id, bn::camera_ptr &camera, bn::regular_bg_ptr &bg, bn::sprite_text_generator &text_generator);
         void _save_current_state();
         void _update_camera_shake();                                // Update screen shake effect
+        void _update_camera(bn::fixed dt);                          // Update Yoshi's Island-style camera
+        bn::fixed _clamp(bn::fixed value, bn::fixed min_val, bn::fixed max_val); // Utility clamp function
+        bn::fixed _sign(bn::fixed value);                           // Utility sign function
+        bn::fixed _lerp(bn::fixed a, bn::fixed b, bn::fixed t);     // Utility lerp function
         void trigger_screen_shake(int frames, bn::fixed intensity); // Trigger screen shake
+        void trigger_special_camera_event(bn::fixed_point target_pos); // Trigger special camera movement
     };
 }
 
