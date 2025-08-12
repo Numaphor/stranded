@@ -39,8 +39,8 @@ namespace fe
     // Interaction zone (larger, for triggering conversations & UI prompt). Previously reduced to 25x25 which made it entirely
     // enclosed by (and unreachable due to) the collision zone, preventing interaction. Restored to 100x100 so player can trigger
     // dialogue while still outside the collision blocker.
-    constexpr int MERCHANT_INTERACTION_ZONE_WIDTH = 100;
-    constexpr int MERCHANT_INTERACTION_ZONE_HEIGHT = 100;
+    constexpr int MERCHANT_INTERACTION_ZONE_WIDTH = 50;
+    constexpr int MERCHANT_INTERACTION_ZONE_HEIGHT = 50;
 
     // ===== DEBUG VISUALIZATION CONSTANTS =====
     // Tile indices used for debug visualization
