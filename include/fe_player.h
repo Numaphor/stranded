@@ -290,6 +290,7 @@ namespace fe
                     _movement.set_state(PlayerMovement::State::DEAD);
                     _death_timer = PLAYER_DEATH_ANIMATION_DURATION;
                     _death_sound_played = false; // Reset flag for death sound
+                    _spawn_death_vfx = true;
 
                     // Clear invulnerability during death to prevent blinking
                     _state.set_invulnerable(false);
@@ -306,6 +307,9 @@ namespace fe
 
                     // Player hit SFX
                     bn::sound_items::mutant_hit.play();
+
+                    // Trigger hit VFX
+                    _spawn_hit_vfx = true;
                 }
                 _hud.set_hp(_hp);
                 _hud.update();
@@ -321,6 +325,16 @@ namespace fe
             _reset_required = false;
             _death_timer = 0;
             _death_sound_played = false;
+            _death_vfx_spawned = false;
+            _spawn_hit_vfx = false;
+            _spawn_death_vfx = false;
+            _muzzle_flash_sprite.reset();
+            _slash_vfx_sprite.reset();
+            _roll_vfx_sprite.reset();
+            _hit_vfx_sprite.reset();
+            _death_vfx_sprite.reset();
+            _muzzle_timer = _slash_vfx_timer = _roll_vfx_timer = _hit_vfx_timer = _death_vfx_timer = 0;
+            _death_vfx_frame = 0;
             _state.reset();
             _movement.reset();
             _abilities.reset();
@@ -405,10 +419,32 @@ namespace fe
         int _auto_reload_timer = 0;                     // Timer for automatic reload when holding L
         static constexpr int AUTO_RELOAD_INTERVAL = 30; // Reload every 0.5 seconds (30 frames at 60fps)
 
-    // Footstep SFX control
-    int _footstep_timer = 0;                        // Counts down between footstep sounds
-    static constexpr int FOOTSTEP_INTERVAL_WALK = 20; // Frames between steps when walking
-    static constexpr int FOOTSTEP_INTERVAL_RUN = 12;  // Frames between steps when running
+        // Footstep SFX control
+        int _footstep_timer = 0;                          // Counts down between footstep sounds
+        static constexpr int FOOTSTEP_INTERVAL_WALK = 20; // Frames between steps when walking
+        static constexpr int FOOTSTEP_INTERVAL_RUN = 12;  // Frames between steps when running
+
+        // VFX state
+        bn::optional<bn::sprite_ptr> _muzzle_flash_sprite; // Brief flash at gun barrel
+        int _muzzle_timer = 0;
+
+        bn::optional<bn::sprite_ptr> _slash_vfx_sprite; // Brief slash flash in front
+        int _slash_vfx_timer = 0;
+
+        bn::optional<bn::sprite_ptr> _roll_vfx_sprite; // Aura while rolling
+        int _roll_vfx_timer = 0;
+
+        bn::optional<bn::sprite_ptr> _hit_vfx_sprite; // Flash on damage
+        int _hit_vfx_timer = 0;
+
+        bn::optional<bn::sprite_ptr> _death_vfx_sprite; // Explosion on death
+        int _death_vfx_timer = 0;                       // Drive simple frame stepping or TTL
+        bool _death_vfx_spawned = false;                // Ensure spawn once per death
+        int _death_vfx_frame = 0;                       // Current explosion frame
+
+        // Event flags from gameplay to trigger VFX safely outside header code
+        bool _spawn_hit_vfx = false;
+        bool _spawn_death_vfx = false;
 
         // Strafing state
         bool _is_strafing = false;
@@ -428,6 +464,14 @@ namespace fe
         void cycle_gun_sprite();   // Cycle gun animation sprites
         void cycle_sword_sprite(); // Cycle sword animation sprites (placeholder)
         void update_gun_if_active();
+
+        // VFX helpers
+        void _spawn_muzzle_flash(bn::fixed_point at, PlayerMovement::Direction dir);
+        void _spawn_slash_vfx(PlayerMovement::Direction dir);
+        void _spawn_roll_vfx();
+        void _spawn_hit_vfx_now();
+        void _spawn_death_vfx_now();
+        void _update_vfx();
     };
 
     // ... other members ...

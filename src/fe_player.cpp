@@ -11,6 +11,10 @@
 #include "fe_bullet_manager.h"
 #include "fe_sprite_priority.h"
 #include "bn_sound_items.h"
+#include "bn_sprite_items_hero_vfx.h"
+#include "bn_sprite_items_explosion.h"
+#include "bn_sprite_items_glow.h"
+#include "bn_sprite_items_spin_glow.h"
 #include "bn_log.h"
 
 namespace fe
@@ -346,7 +350,7 @@ namespace fe
         }
 
         // Auto-reload when holding L with gun active (but not SELECT + L)
-    if (bn::keypad::l_held() && !bn::keypad::select_held() && _gun_active && !reviving_companion)
+        if (bn::keypad::l_held() && !bn::keypad::select_held() && _gun_active && !reviving_companion)
         {
             // Start timer if it's not already running
             if (_auto_reload_timer == 0)
@@ -401,6 +405,9 @@ namespace fe
 
                 // Play roll sound effect
                 bn::sound_items::swipe.play();
+
+                // Roll VFX
+                _spawn_roll_vfx();
             }
             // Gun slot 0 uses autofire (A held), all other guns use single shot (A pressed)
             else if (bn::keypad::a_held() && _state.dialog_cooldown() == 0 && _gun_active && shared_gun_frame == 0)
@@ -424,6 +431,9 @@ namespace fe
                     _abilities.set_slash_cooldown(60);
                     // Sword slash SFX
                     bn::sound_items::swipe.play();
+
+                    // Slash VFX
+                    _spawn_slash_vfx(_is_strafing ? _strafing_direction : _movement.facing_direction());
                 }
             }
             else if (bn::keypad::select_held() && _abilities.buff_abilities_available())
@@ -595,7 +605,7 @@ namespace fe
             }
         }
 
-    update_gun_if_active();
+        update_gun_if_active();
         _movement.apply_friction();
     }
 
@@ -786,6 +796,9 @@ namespace fe
         _hud.update();
         update_bullets();
 
+        // Update transient VFX
+        _update_vfx();
+
         // Footstep SFX while moving
         if (_movement.current_state() == PlayerMovement::State::WALKING ||
             _movement.current_state() == PlayerMovement::State::RUNNING)
@@ -813,6 +826,13 @@ namespace fe
                 _death_sound_played = true;
             }
 
+            // Spawn death VFX once
+            if (!_death_vfx_spawned)
+            {
+                _spawn_death_vfx_now();
+                _death_vfx_spawned = true;
+            }
+
             _death_timer--;
             if (_death_timer <= 0)
             {
@@ -834,6 +854,7 @@ namespace fe
             _animation.update();
             _hud.update();
             update_bullets();
+            _update_vfx();
 
             // Update companion
             if (_companion.has_value())
@@ -927,12 +948,14 @@ namespace fe
 
         bn::fixed_point bullet_pos = direction_utils::get_bullet_position(direction, pos());
         Direction bullet_dir = static_cast<Direction>(int(direction));
-    _bullet_manager.fire_bullet(bullet_pos, bullet_dir);
-    // Gunshot SFX (placeholder)
-    bn::sound_items::tablet.play();
+        _bullet_manager.fire_bullet(bullet_pos, bullet_dir);
+        // Gunshot SFX (placeholder)
+        bn::sound_items::tablet.play();
+        // Muzzle flash VFX
+        _spawn_muzzle_flash(bullet_pos, direction);
 
         // Consume ammo and update HUD only after successful bullet firing
-    _ammo_count--;
+        _ammo_count--;
         _hud.set_ammo(_ammo_count);
 
         // Set flag for screen shake
@@ -1026,5 +1049,175 @@ namespace fe
     {
         // Player is firing if A button is held, gun is active, and dialog cooldown is 0
         return bn::keypad::a_held() && _gun_active && _state.dialog_cooldown() == 0;
+    }
+
+    // ===== VFX helpers =====
+    void Player::_spawn_muzzle_flash(bn::fixed_point at, PlayerMovement::Direction dir)
+    {
+        // Use small glow as muzzle flash, rotate/flip along direction
+        _muzzle_flash_sprite = bn::sprite_items::glow.create_sprite(at);
+        _muzzle_flash_sprite->set_bg_priority(get_sprite()->bg_priority());
+        _muzzle_flash_sprite->set_z_order(get_sprite()->z_order() - 1); // in front of player
+        if (get_sprite()->camera().has_value())
+            _muzzle_flash_sprite->set_camera(get_sprite()->camera().value());
+
+        // Directional tweak: offset a bit further in facing dir
+        bn::fixed_point offset{0, 0};
+        switch (dir)
+        {
+        case PlayerMovement::Direction::UP:
+            offset = {0, -2};
+            break;
+        case PlayerMovement::Direction::DOWN:
+            offset = {0, 2};
+            break;
+        case PlayerMovement::Direction::LEFT:
+            offset = {-2, 0};
+            break;
+        case PlayerMovement::Direction::RIGHT:
+            offset = {2, 0};
+            break;
+        }
+        _muzzle_flash_sprite->set_position(at.x() + offset.x(), at.y() + offset.y());
+        _muzzle_timer = 6; // ~0.1s
+    }
+
+    void Player::_spawn_slash_vfx(PlayerMovement::Direction dir)
+    {
+        // Use hero_vfx sheet; assume frame 0..3 reserved for slash burst
+        _slash_vfx_sprite = bn::sprite_items::hero_vfx.create_sprite(pos());
+        _slash_vfx_sprite->set_bg_priority(get_sprite()->bg_priority());
+        _slash_vfx_sprite->set_z_order(get_sprite()->z_order() - 1);
+        if (get_sprite()->camera().has_value())
+            _slash_vfx_sprite->set_camera(get_sprite()->camera().value());
+
+        // Place slightly in front based on direction
+        bn::fixed_point p = pos();
+        switch (dir)
+        {
+        case PlayerMovement::Direction::UP:
+            p += bn::fixed_point(0, -10);
+            break;
+        case PlayerMovement::Direction::DOWN:
+            p += bn::fixed_point(0, 10);
+            break;
+        case PlayerMovement::Direction::LEFT:
+            p += bn::fixed_point(-10, 0);
+            break;
+        case PlayerMovement::Direction::RIGHT:
+            p += bn::fixed_point(10, 0);
+            break;
+        }
+        _slash_vfx_sprite->set_position(p);
+        // Choose a small range in the big atlas: use tiles index 0 for now
+        _slash_vfx_sprite->set_tiles(bn::sprite_items::hero_vfx.tiles_item(), 0);
+        _slash_vfx_timer = 10;
+    }
+
+    void Player::_spawn_roll_vfx()
+    {
+        // Use spin_glow looping briefly around player
+        _roll_vfx_sprite = bn::sprite_items::spin_glow.create_sprite(pos());
+        _roll_vfx_sprite->set_bg_priority(get_sprite()->bg_priority());
+        _roll_vfx_sprite->set_z_order(get_sprite()->z_order() + 1); // slightly behind
+        if (get_sprite()->camera().has_value())
+            _roll_vfx_sprite->set_camera(get_sprite()->camera().value());
+        _roll_vfx_timer = PLAYER_ROLL_DURATION; // lasts for roll duration
+    }
+
+    void Player::_spawn_hit_vfx_now()
+    {
+        // Quick glow at player position
+        _hit_vfx_sprite = bn::sprite_items::glow.create_sprite(pos());
+        _hit_vfx_sprite->set_bg_priority(get_sprite()->bg_priority());
+        _hit_vfx_sprite->set_z_order(get_sprite()->z_order() - 1);
+        if (get_sprite()->camera().has_value())
+            _hit_vfx_sprite->set_camera(get_sprite()->camera().value());
+        _hit_vfx_timer = 8;
+    }
+
+    void Player::_spawn_death_vfx_now()
+    {
+        // Explosion at player position
+        _death_vfx_sprite = bn::sprite_items::explosion.create_sprite(pos());
+        _death_vfx_sprite->set_bg_priority(get_sprite()->bg_priority());
+        _death_vfx_sprite->set_z_order(get_sprite()->z_order() - 2);
+        if (get_sprite()->camera().has_value())
+            _death_vfx_sprite->set_camera(get_sprite()->camera().value());
+        _death_vfx_timer = 20; // total frames (we'll step tiles)
+        _death_vfx_frame = 0;
+        _death_vfx_sprite->set_tiles(bn::sprite_items::explosion.tiles_item(), _death_vfx_frame);
+    }
+
+    void Player::_update_vfx()
+    {
+        // Deferred triggers
+        if (_spawn_hit_vfx)
+        {
+            _spawn_hit_vfx_now();
+            _spawn_hit_vfx = false;
+        }
+        if (_spawn_death_vfx)
+        {
+            _spawn_death_vfx_now();
+            _spawn_death_vfx = false;
+            _death_vfx_spawned = true;
+        }
+
+        // Keep VFX following player or target
+        if (_roll_vfx_sprite)
+        {
+            _roll_vfx_sprite->set_position(pos());
+            if (--_roll_vfx_timer <= 0 || _movement.current_state() != PlayerMovement::State::ROLLING)
+            {
+                _roll_vfx_sprite.reset();
+                _roll_vfx_timer = 0;
+            }
+        }
+
+        if (_muzzle_flash_sprite)
+        {
+            if (--_muzzle_timer <= 0)
+            {
+                _muzzle_flash_sprite.reset();
+                _muzzle_timer = 0;
+            }
+        }
+
+        if (_slash_vfx_sprite)
+        {
+            if (--_slash_vfx_timer <= 0)
+            {
+                _slash_vfx_sprite.reset();
+                _slash_vfx_timer = 0;
+            }
+        }
+
+        if (_hit_vfx_sprite)
+        {
+            if (--_hit_vfx_timer <= 0)
+            {
+                _hit_vfx_sprite.reset();
+                _hit_vfx_timer = 0;
+            }
+        }
+
+        if (_death_vfx_sprite)
+        {
+            // Simple tile stepping if multiple frames exist
+            if (_death_vfx_timer % 3 == 0)
+            {
+                // explosion has 10 frames; step up to 9 then hold
+                _death_vfx_frame = bn::min(_death_vfx_frame + 1, 9);
+                _death_vfx_sprite->set_tiles(bn::sprite_items::explosion.tiles_item(), _death_vfx_frame);
+            }
+
+            if (--_death_vfx_timer <= 0)
+            {
+                _death_vfx_sprite.reset();
+                _death_vfx_timer = 0;
+                _death_vfx_frame = 0;
+            }
+        }
     }
 }
