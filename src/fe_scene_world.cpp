@@ -283,14 +283,20 @@ namespace fe
         _sword_bg->set_visible(true);
         _sword_bg->set_camera(camera); // Make it follow the camera
 
-        // Get the outside window and set it to hide the sword background by default
-        bn::window outside_window = bn::window::outside();
-        outside_window.set_show_bg(*_sword_bg, false);
+    // Get the outside window and set it to hide the sword background by default
+    bn::window outside_window = bn::window::outside();
+    // Show sprites and the regular world BG everywhere by default
+    outside_window.set_show_sprites(true);
+    outside_window.set_show_bg(bg, true);
+    // Hide the sword background outside of the inner window
+    outside_window.set_show_bg(*_sword_bg, false);
 
-        // Create a small window to show only the sword
-        bn::rect_window internal_window = bn::rect_window::internal();
-        internal_window.set_show_bg(*_sword_bg, true);
-        internal_window.set_boundaries(-SWORD_HALF_WIDTH, -SWORD_HALF_HEIGHT, SWORD_HALF_WIDTH, SWORD_HALF_HEIGHT);
+    // Create a small window to show only the sword (and keep sprites visible)
+    bn::rect_window internal_window = bn::rect_window::internal();
+    internal_window.set_show_sprites(true);
+    internal_window.set_show_bg(bg, true);   // keep regular BG visible inside the window
+    internal_window.set_show_bg(*_sword_bg, true);
+    internal_window.set_boundaries(-SWORD_HALF_WIDTH, -SWORD_HALF_HEIGHT, SWORD_HALF_WIDTH, SWORD_HALF_HEIGHT);
 
         // Priority will be set in the update loop based on player position
 

@@ -339,10 +339,14 @@ namespace fe
 
         // Weapon switching moved to SELECT + L (SHIFT + L equivalent)
         if (bn::keypad::select_held() && bn::keypad::l_pressed() && !reviving_companion)
+        {
             switch_weapon();
+            // Soft cue for switching weapon
+            bn::sound_items::hum.play();
+        }
 
         // Auto-reload when holding L with gun active (but not SELECT + L)
-        if (bn::keypad::l_held() && !bn::keypad::select_held() && _gun_active && !reviving_companion)
+    if (bn::keypad::l_held() && !bn::keypad::select_held() && _gun_active && !reviving_companion)
         {
             // Start timer if it's not already running
             if (_auto_reload_timer == 0)
@@ -358,6 +362,8 @@ namespace fe
                 _hud.set_ammo(_ammo_count);
                 _auto_reload_timer = AUTO_RELOAD_INTERVAL; // Reset timer for next reload
                 BN_LOG("Auto-reloaded 1 bullet! Ammo: ", _ammo_count);
+                // Subtle reload tick
+                bn::sound_items::tablet.play();
             }
         }
         else
@@ -416,6 +422,8 @@ namespace fe
                 {
                     _movement.start_action(PlayerMovement::State::SLASHING, 25);
                     _abilities.set_slash_cooldown(60);
+                    // Sword slash SFX
+                    bn::sound_items::swipe.play();
                 }
             }
             else if (bn::keypad::select_held() && _abilities.buff_abilities_available())
@@ -435,6 +443,8 @@ namespace fe
                 {
                     _movement.start_action(buff_state, 96);
                     _abilities.set_buff_cooldown(96);
+                    // Buff activation cue
+                    bn::sound_items::hum.play();
 
                     // Trigger soul animation for defense buff
                     if (buff_state == PlayerMovement::State::DEFENCE_BUFF)
@@ -585,7 +595,7 @@ namespace fe
             }
         }
 
-        update_gun_if_active();
+    update_gun_if_active();
         _movement.apply_friction();
     }
 
@@ -776,6 +786,23 @@ namespace fe
         _hud.update();
         update_bullets();
 
+        // Footstep SFX while moving
+        if (_movement.current_state() == PlayerMovement::State::WALKING ||
+            _movement.current_state() == PlayerMovement::State::RUNNING)
+        {
+            if (_footstep_timer <= 0)
+            {
+                bn::sound_items::steps.play();
+                _footstep_timer = (_movement.current_state() == PlayerMovement::State::RUNNING)
+                                      ? FOOTSTEP_INTERVAL_RUN
+                                      : FOOTSTEP_INTERVAL_WALK;
+            }
+        }
+        if (_footstep_timer > 0)
+        {
+            _footstep_timer--;
+        }
+
         // Handle death timer
         if (_hp <= 0 && _death_timer > 0)
         {
@@ -900,10 +927,12 @@ namespace fe
 
         bn::fixed_point bullet_pos = direction_utils::get_bullet_position(direction, pos());
         Direction bullet_dir = static_cast<Direction>(int(direction));
-        _bullet_manager.fire_bullet(bullet_pos, bullet_dir);
+    _bullet_manager.fire_bullet(bullet_pos, bullet_dir);
+    // Gunshot SFX (placeholder)
+    bn::sound_items::tablet.play();
 
         // Consume ammo and update HUD only after successful bullet firing
-        _ammo_count--;
+    _ammo_count--;
         _hud.set_ammo(_ammo_count);
 
         // Set flag for screen shake

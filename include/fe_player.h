@@ -14,6 +14,7 @@
 #include "fe_bullet_manager.h"
 #include "fe_player_companion.h"
 #include "fe_constants.h"
+#include "bn_sound_items.h"
 
 namespace fe
 {
@@ -302,6 +303,9 @@ namespace fe
 
                     // Visual feedback for taking damage (but not for death)
                     set_visible(false);
+
+                    // Player hit SFX
+                    bn::sound_items::mutant_hit.play();
                 }
                 _hud.set_hp(_hp);
                 _hud.update();
@@ -400,6 +404,11 @@ namespace fe
         bool _reload_on_roll_end = false;
         int _auto_reload_timer = 0;                     // Timer for automatic reload when holding L
         static constexpr int AUTO_RELOAD_INTERVAL = 30; // Reload every 0.5 seconds (30 frames at 60fps)
+
+    // Footstep SFX control
+    int _footstep_timer = 0;                        // Counts down between footstep sounds
+    static constexpr int FOOTSTEP_INTERVAL_WALK = 20; // Frames between steps when walking
+    static constexpr int FOOTSTEP_INTERVAL_RUN = 12;  // Frames between steps when running
 
         // Strafing state
         bool _is_strafing = false;
