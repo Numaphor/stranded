@@ -110,21 +110,21 @@ namespace fe
     // ===== CAMERA SYSTEM CONSTANTS =====
     // Yoshi's Island-style camera system
     // Deadzone dimensions (follow window)
-    constexpr bn::fixed CAMERA_DEADZONE_X = 32;                // Horizontal deadzone half-width
-    constexpr bn::fixed CAMERA_DEADZONE_Y = 16;                // Vertical deadzone half-height
+    constexpr bn::fixed CAMERA_DEADZONE_X = 24;                // Horizontal deadzone half-width
+    constexpr bn::fixed CAMERA_DEADZONE_Y = 12;                // Vertical deadzone half-height
     
     // Lookahead parameters
-    constexpr bn::fixed CAMERA_LOOKAHEAD_BASE = 64;            // Base lookahead distance
-    constexpr bn::fixed CAMERA_MAX_SPEED = 2.5;                // Max player speed for lookahead calculation
-    constexpr bn::fixed CAMERA_VERTICAL_OFFSET = 8;            // Vertical offset bias (positive = player lower in frame)
+    constexpr bn::fixed CAMERA_LOOKAHEAD_BASE = 48;            // Base lookahead distance
+    constexpr bn::fixed CAMERA_MAX_SPEED = 2.0;                // Max player speed for lookahead calculation
+    constexpr bn::fixed CAMERA_VERTICAL_OFFSET = 4;            // Vertical offset bias (positive = player lower in frame)
     
-    // Smoothing factors
-    constexpr bn::fixed CAMERA_SMOOTH_FACTOR_X = 0.08;         // Horizontal smoothing (8% per frame = ~0.13s to 90%)
-    constexpr bn::fixed CAMERA_SMOOTH_FACTOR_Y = 0.06;         // Vertical smoothing (6% per frame = ~0.17s to 90%)
+    // Smoothing factors (higher = more responsive)
+    constexpr bn::fixed CAMERA_SMOOTH_FACTOR_X = 0.12;         // Horizontal smoothing (12% per frame = ~0.08s to 90%)
+    constexpr bn::fixed CAMERA_SMOOTH_FACTOR_Y = 0.10;         // Vertical smoothing (10% per frame = ~0.10s to 90%)
     
     // Special event camera overrides
-    constexpr bn::fixed CAMERA_SPECIAL_LERP = 0.15;            // Fast lerp for special events
-    constexpr bn::fixed CAMERA_INSTANT_SNAP_THRESHOLD = 128;   // Distance threshold for instant camera snaps
+    constexpr bn::fixed CAMERA_SPECIAL_LERP = 0.20;            // Fast lerp for special events
+    constexpr bn::fixed CAMERA_INSTANT_SNAP_THRESHOLD = 100;   // Distance threshold for instant camera snaps
 
     // ===== UI POSITIONING CONSTANTS =====
     constexpr bn::fixed PLAYER_STATUS_X = 76; // X position for status display

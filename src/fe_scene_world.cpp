@@ -904,12 +904,35 @@ namespace fe
         // 4) Special overrides for instant camera movements
         if (_special_camera_event_active)
         {
+            bn::fixed old_x = _camera_pos.x();
+            bn::fixed old_y = _camera_pos.y();
+            
             _camera_pos.set_x(_lerp(_camera_pos.x(), _special_event_position.x(), CAMERA_SPECIAL_LERP));
             _camera_pos.set_y(_lerp(_camera_pos.y(), _special_event_position.y(), CAMERA_SPECIAL_LERP));
+            
+            // Disable special event when we're close enough to the target
+            bn::fixed distance_remaining = bn::sqrt(
+                (_camera_pos.x() - _special_event_position.x()) * (_camera_pos.x() - _special_event_position.x()) +
+                (_camera_pos.y() - _special_event_position.y()) * (_camera_pos.y() - _special_event_position.y())
+            );
+            
+            if (distance_remaining < 4) // Close enough to target
+            {
+                _special_camera_event_active = false;
+            }
         }
 
-        // 5) Clamp to level bounds (simplified - could be enhanced with actual level bounds)
-        // For now, we'll skip this as we don't have easy access to level bounds here
+        // 5) Clamp to level bounds
+        if (_level)
+        {
+            bn::fixed level_width = _level->get_level_width();
+            bn::fixed level_height = _level->get_level_height();
+            bn::fixed half_view_w = 120; // Half of GBA screen width (240/2)
+            bn::fixed half_view_h = 80;  // Half of GBA screen height (160/2)
+            
+            _camera_pos.set_x(_clamp(_camera_pos.x(), half_view_w, level_width - half_view_w));
+            _camera_pos.set_y(_clamp(_camera_pos.y(), half_view_h, level_height - half_view_h));
+        }
         
         // Apply final camera position
         _camera->set_position(_camera_pos.x(), _camera_pos.y());
@@ -934,5 +957,10 @@ namespace fe
                 _camera->set_position(target_pos.x(), target_pos.y());
             }
         }
+    }
+
+    void World::disable_special_camera_event()
+    {
+        _special_camera_event_active = false;
     }
 }

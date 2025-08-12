@@ -68,6 +68,10 @@ namespace fe
 
         // Reset level state
         void reset();
+        
+        // Get level bounds for camera clamping
+        [[nodiscard]] bn::fixed get_level_width() const;
+        [[nodiscard]] bn::fixed get_level_height() const;
     };
 }
 

@@ -234,4 +234,20 @@ namespace fe
         // Position is valid if we made it this far
         return true;
     }
+
+    bn::fixed Level::get_level_width() const
+    {
+        if (!_bg_map_ptr.has_value())
+            return MAP_COLUMNS * TILE_SIZE;
+        
+        return bn::fixed(_bg_map_ptr.value().dimensions().width() * TILE_SIZE);
+    }
+
+    bn::fixed Level::get_level_height() const
+    {
+        if (!_bg_map_ptr.has_value())
+            return MAP_ROWS * TILE_SIZE;
+        
+        return bn::fixed(_bg_map_ptr.value().dimensions().height() * TILE_SIZE);
+    }
 }

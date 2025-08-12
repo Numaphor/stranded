@@ -76,6 +76,7 @@ namespace fe
         bn::fixed _lerp(bn::fixed a, bn::fixed b, bn::fixed t);     // Utility lerp function
         void trigger_screen_shake(int frames, bn::fixed intensity); // Trigger screen shake
         void trigger_special_camera_event(bn::fixed_point target_pos); // Trigger special camera movement
+        void disable_special_camera_event(); // Disable special camera movement
     };
 }
 
