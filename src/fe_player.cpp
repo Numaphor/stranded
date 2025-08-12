@@ -3,9 +3,12 @@
 #include "fe_player_companion.h"
 #include "bn_keypad.h"
 #include "bn_sprite_items_hero.h"
+#include "bn_sprite_items_hero_vfx.h"
 #include "bn_sprite_items_gun.h"
 #include "bn_sprite_items_companion.h"
 #include "bn_sprite_animate_actions.h"
+#include "bn_sprite_builder.h"
+#include "bn_vector.h"
 #include "fe_level.h"
 #include "fe_collision.h"
 #include "fe_bullet_manager.h"
@@ -290,6 +293,192 @@ namespace fe
         }
     }
 
+    // PlayerVFX Implementation (Overlay system that mirrors PlayerAnimation)
+    PlayerVFX::PlayerVFX() : _last_vfx_state(PlayerMovement::State::IDLE), _last_vfx_direction(PlayerMovement::Direction::DOWN)
+    {
+    }
+
+    void PlayerVFX::initialize(bn::camera_ptr camera)
+    {
+        _camera = camera;
+    }
+
+    void PlayerVFX::update(bn::fixed_point player_pos, PlayerMovement::State state, PlayerMovement::Direction direction)
+    {
+        if (should_show_vfx(state))
+        {
+            if (!_vfx_sprite.has_value())
+            {
+                // Create VFX sprite when needed
+                bn::sprite_builder builder(bn::sprite_items::hero_vfx);
+                builder.set_position(player_pos);
+                builder.set_z_order(-100); // High priority for VFX overlay
+                if (_camera.has_value())
+                {
+                    builder.set_camera(*_camera);
+                }
+                _vfx_sprite = builder.build();
+            }
+
+            apply_vfx_state(state, direction);
+            if (_vfx_sprite.has_value())
+            {
+                _vfx_sprite->set_position(player_pos);
+            }
+        }
+        else
+        {
+            hide_vfx();
+        }
+
+        // Update VFX animation
+        if (_vfx_animation.has_value() && !_vfx_animation->done())
+        {
+            _vfx_animation->update();
+        }
+    }
+
+    void PlayerVFX::apply_vfx_state(PlayerMovement::State state, PlayerMovement::Direction direction)
+    {
+        if (!should_change_vfx(state, direction))
+            return;
+
+        if (!_vfx_sprite.has_value())
+            return;
+
+        _vfx_sprite->set_horizontal_flip(direction == PlayerMovement::Direction::LEFT);
+
+        // VFX animation data that exactly mirrors PlayerAnimation frames
+        struct VFXAnimData
+        {
+            int speed;
+            int up_start;
+            int up_count;
+            int down_start;
+            int down_count;
+            int side_start;
+            int side_count;
+        };
+
+        // VFX frames that correspond 1:1 with player animation frames
+        static const VFXAnimData vfx_animations[] = {
+            {12, 187, 12, 0, 13, 144, 12},  // IDLE: idle_up(187-198=12), idle_down(0-12=13), lr_idle(144-155=12)
+            {5, 199, 8, 109, 8, 156, 8},    // WALKING: move_up(199-206=8), move_down(109-116=8), lr_move(156-163=8)
+            {8, 207, 8, 117, 8, 164, 8},    // RUNNING: run_up(207-214=8), run_down(117-124=8), lr_run(164-171=8)
+            {8, 226, 8, 136, 8, 172, 6},    // ROLLING: roll_up(226-233=8), roll_down(136-143=8), lr_roll(172-177=6)
+            {8, 219, 7, 129, 7, 178, 4},    // SLASHING: attack_up(219-225=7), slash_down(129-135=7), lr_slash(178-181=4)
+            {8, 219, 7, 129, 7, 182, 5},    // ATTACKING: attack_up(219-225=7), slash_down(129-135=7), lr_slash(182-186=5)
+            {10, 215, 4, 125, 4, 178, 4},   // CHOPPING: chop_up(215-218=4), chop_down(125-128=4), lr_slash(178-181=4)
+            {4, 13, 24, 13, 24, 13, 24},    // HEAL_BUFF: heal_buff(13-36=24) all directions
+            {4, 37, 24, 37, 24, 37, 24},    // DEFENCE_BUFF: defence_buff(37-60=24) all directions
+            {4, 61, 24, 61, 24, 61, 24},    // POWER_BUFF: power_buff(61-84=24) all directions
+            {4, 85, 24, 85, 24, 85, 24},    // ENERGY_BUFF: energy_buff(85-108=24) all directions
+            {6, 0, 13, 0, 13, 0, 13},       // HIT: use idle_down frames temporarily (0-12=13) all directions
+            {15, 234, 13, 234, 13, 234, 13} // DEAD: death(234-246=13) all directions
+        };
+
+        int state_idx = static_cast<int>(state);
+        constexpr int NUM_VFX_STATES = sizeof(vfx_animations) / sizeof(vfx_animations[0]);
+        if (state_idx >= NUM_VFX_STATES)
+            return;
+
+        const auto &vfx_anim = vfx_animations[state_idx];
+        int start_frame, frame_count;
+
+        if (direction == PlayerMovement::Direction::UP)
+        {
+            start_frame = vfx_anim.up_start;
+            frame_count = vfx_anim.up_count;
+        }
+        else if (direction == PlayerMovement::Direction::DOWN)
+        {
+            start_frame = vfx_anim.down_start;
+            frame_count = vfx_anim.down_count;
+        }
+        else // LEFT or RIGHT
+        {
+            start_frame = vfx_anim.side_start;
+            frame_count = vfx_anim.side_count;
+        }
+
+        // Use non-looping animation for death state, looping for all others
+        if (state == PlayerMovement::State::DEAD)
+        {
+            make_vfx_anim_range_once(vfx_anim.speed, start_frame, start_frame + frame_count - 1);
+        }
+        else
+        {
+            make_vfx_anim_range(vfx_anim.speed, start_frame, start_frame + frame_count - 1);
+        }
+
+        _last_vfx_state = state;
+        _last_vfx_direction = direction;
+    }
+
+    bool PlayerVFX::should_change_vfx(PlayerMovement::State state, PlayerMovement::Direction direction)
+    {
+        if (!_vfx_animation.has_value())
+            return true;
+
+        bool flip_changed = _vfx_sprite.has_value() &&
+                            _vfx_sprite->horizontal_flip() != (direction == PlayerMovement::Direction::LEFT);
+        bool state_changed = (_last_vfx_state != state);
+        bool direction_changed = (_last_vfx_direction != direction);
+
+        return flip_changed || state_changed || direction_changed;
+    }
+
+    void PlayerVFX::make_vfx_anim_range(int speed, int start_frame, int end_frame)
+    {
+        bn::vector<uint16_t, 32> frames;
+        for (int i = start_frame; i <= end_frame; ++i)
+        {
+            frames.push_back(i);
+        }
+
+        _vfx_animation = bn::sprite_animate_action<32>::forever(
+            *_vfx_sprite, speed, bn::sprite_items::hero_vfx.tiles_item(),
+            bn::span<const uint16_t>(frames.data(), frames.size()));
+    }
+
+    void PlayerVFX::make_vfx_anim_range_once(int speed, int start_frame, int end_frame)
+    {
+        bn::vector<uint16_t, 32> frames;
+        for (int i = start_frame; i <= end_frame; ++i)
+        {
+            frames.push_back(i);
+        }
+
+        _vfx_animation = bn::sprite_animate_action<32>::once(
+            *_vfx_sprite, speed, bn::sprite_items::hero_vfx.tiles_item(),
+            bn::span<const uint16_t>(frames.data(), frames.size()));
+    }
+
+    void PlayerVFX::hide_vfx()
+    {
+        _vfx_sprite.reset();
+        _vfx_animation.reset();
+    }
+
+    bool PlayerVFX::should_show_vfx(PlayerMovement::State state) const
+    {
+        // Show VFX for action states and buff states
+        switch (state)
+        {
+        case PlayerMovement::State::SLASHING:
+        case PlayerMovement::State::ATTACKING:
+        case PlayerMovement::State::CHOPPING:
+        case PlayerMovement::State::HEAL_BUFF:
+        case PlayerMovement::State::DEFENCE_BUFF:
+        case PlayerMovement::State::POWER_BUFF:
+        case PlayerMovement::State::ENERGY_BUFF:
+        case PlayerMovement::State::DEAD:
+            return true;
+        default:
+            return false;
+        }
+    }
+
     // Player Implementation
     Player::Player(bn::sprite_ptr sprite) : Entity(sprite), _animation(sprite), _gun_active(false)
     {
@@ -314,6 +503,9 @@ namespace fe
         set_position(pos);
         set_camera(camera);
         initialize_companion(camera);
+
+        // Initialize VFX system
+        _vfx.initialize(camera);
         update_animation();
     }
 
@@ -457,6 +649,8 @@ namespace fe
         }
 
         // Movement inputs (consolidated) - disabled while reviving companion
+        // Track if there was any directional input this frame to decide friction application
+        bool any_movement_input = false;
         if (!performing_action && !reviving_companion)
         {
             bool should_run = !_is_strafing && _abilities.running_available();
@@ -503,12 +697,18 @@ namespace fe
                 }
 
                 // Apply the normalized deltas with clamping
-                dx = bn::clamp(dx + dx_delta, -PlayerMovement::max_speed, PlayerMovement::max_speed);
-                dy = bn::clamp(dy + dy_delta, -PlayerMovement::max_speed, PlayerMovement::max_speed);
+                // Use reduced per-axis limits when moving diagonally to keep total speed constant
+                bn::fixed comp_limit = (horizontal_input && vertical_input)
+                                           ? PlayerMovement::max_speed * PlayerMovement::diagonal_factor
+                                           : PlayerMovement::max_speed;
+                dx = bn::clamp(dx + dx_delta, -comp_limit, comp_limit);
+                dy = bn::clamp(dy + dy_delta, -comp_limit, comp_limit);
 
                 _movement.set_dx(dx);
                 _movement.set_dy(dy);
                 _movement.update_movement_state();
+
+                any_movement_input = horizontal_input || vertical_input;
             }
             else
             {
@@ -557,8 +757,12 @@ namespace fe
                 }
 
                 // Apply the normalized deltas with clamping
-                dx = bn::clamp(dx + dx_delta, -PlayerMovement::max_speed, PlayerMovement::max_speed);
-                dy = bn::clamp(dy + dy_delta, -PlayerMovement::max_speed, PlayerMovement::max_speed);
+                // Use reduced per-axis limits when moving diagonally to keep total speed constant
+                bn::fixed comp_limit = (horizontal_input && vertical_input)
+                                           ? PlayerMovement::max_speed * PlayerMovement::diagonal_factor
+                                           : PlayerMovement::max_speed;
+                dx = bn::clamp(dx + dx_delta, -comp_limit, comp_limit);
+                dy = bn::clamp(dy + dy_delta, -comp_limit, comp_limit);
 
                 _movement.set_dx(dx);
                 _movement.set_dy(dy);
@@ -569,6 +773,8 @@ namespace fe
                     _movement.set_facing_direction(last_direction);
                 }
                 _movement.update_movement_state();
+
+                any_movement_input = horizontal_input || vertical_input;
             }
 
             if (should_run && _movement.is_moving())
@@ -586,7 +792,11 @@ namespace fe
         }
 
         update_gun_if_active();
-        _movement.apply_friction();
+        // Apply friction only when no movement input is pressed to avoid jitter while walking
+        if (!any_movement_input)
+        {
+            _movement.apply_friction();
+        }
     }
 
     void Player::toggle_gun()
@@ -776,6 +986,9 @@ namespace fe
         _hud.update();
         update_bullets();
 
+        // Update VFX
+        _vfx.update(pos(), _movement.current_state(), _movement.facing_direction());
+
         // Handle death timer
         if (_hp <= 0 && _death_timer > 0)
         {
@@ -876,7 +1089,7 @@ namespace fe
         if (auto sprite = get_sprite())
         {
             bn::fixed_point pos = Entity::pos();
-            // No offset needed since the new 32x32 sprite tightly fits around the player
+            // Temporarily disable rounding to test if it's causing camera lag
             sprite->set_position(pos.x(), pos.y());
         }
     }
