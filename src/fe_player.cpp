@@ -657,83 +657,61 @@ namespace fe
 
             if (_is_strafing)
             {
-                // Strafe movement
-                bn::fixed dx = _movement.dx();
-                bn::fixed dy = _movement.dy();
-
-                // Track input directions for diagonal normalization
+                // Strafe movement - reset deltas each frame
+                bn::fixed dx = 0;
+                bn::fixed dy = 0;
+                bool any_input = false;
                 bool horizontal_input = false;
                 bool vertical_input = false;
-                bn::fixed dx_delta = 0;
-                bn::fixed dy_delta = 0;
 
+                // Check horizontal input
                 if (bn::keypad::right_held())
                 {
-                    dx_delta = PlayerMovement::acc_const;
+                    dx = PlayerMovement::max_speed;
                     horizontal_input = true;
+                    any_input = true;
                 }
                 else if (bn::keypad::left_held())
                 {
-                    dx_delta = -PlayerMovement::acc_const;
+                    dx = -PlayerMovement::max_speed;
                     horizontal_input = true;
+                    any_input = true;
                 }
 
+                // Check vertical input
                 if (bn::keypad::up_held())
                 {
-                    dy_delta = -PlayerMovement::acc_const;
+                    dy = -PlayerMovement::max_speed;
                     vertical_input = true;
+                    any_input = true;
                 }
                 else if (bn::keypad::down_held())
                 {
-                    dy_delta = PlayerMovement::acc_const;
+                    dy = PlayerMovement::max_speed;
                     vertical_input = true;
+                    any_input = true;
                 }
 
-                // Apply diagonal normalization if moving diagonally
+                // Apply diagonal movement normalization
                 if (horizontal_input && vertical_input)
                 {
-                    dx_delta *= PlayerMovement::diagonal_factor;
-                    dy_delta *= PlayerMovement::diagonal_factor;
+                    dx *= PlayerMovement::diagonal_factor;
+                    dy *= PlayerMovement::diagonal_factor;
                 }
 
-                // Apply the normalized deltas with clamping
-                // Use reduced per-axis limits when moving diagonally to keep total speed constant
-                bn::fixed comp_limit = (horizontal_input && vertical_input)
-                                           ? PlayerMovement::max_speed * PlayerMovement::diagonal_factor
-                                           : PlayerMovement::max_speed;
-                dx = bn::clamp(dx + dx_delta, -comp_limit, comp_limit);
-                dy = bn::clamp(dy + dy_delta, -comp_limit, comp_limit);
-
-                _movement.set_dx(dx);
-                _movement.set_dy(dy);
-                _movement.update_movement_state();
-
-                any_movement_input = horizontal_input || vertical_input;
-            }
-            else
-            {
-                // Normal movement with diagonal normalization
-                bn::fixed dx = _movement.dx();
-                bn::fixed dy = _movement.dy();
-
-                // Track input directions for diagonal normalization
-                bool horizontal_input = false;
-                bool vertical_input = false;
-                bn::fixed dx_delta = 0;
-                bn::fixed dy_delta = 0;
-                PlayerMovement::Direction last_direction = _movement.facing_direction();
-
-                if (bn::keypad::right_held())
+                // Only update movement if we have input
+                if (any_input)
                 {
-                    dx_delta = PlayerMovement::acc_const;
-                    horizontal_input = true;
-                    last_direction = PlayerMovement::Direction::RIGHT;
+                    _movement.set_dx(dx);
+                    _movement.set_dy(dy);
+                    any_movement_input = true;
                 }
-                else if (bn::keypad::left_held())
+                else
                 {
-                    dx_delta = -PlayerMovement::acc_const;
-                    horizontal_input = true;
-                    last_direction = PlayerMovement::Direction::LEFT;
+                    // No input - stop movement immediately
+                    _movement.set_dx(0);
+                    _movement.set_dy(0);
+                    any_movement_input = false;
                 }
 
                 if (bn::keypad::up_held())
@@ -751,29 +729,6 @@ namespace fe
 
                 // Apply diagonal normalization if moving diagonally
                 if (horizontal_input && vertical_input)
-                {
-                    dx_delta *= PlayerMovement::diagonal_factor;
-                    dy_delta *= PlayerMovement::diagonal_factor;
-                }
-
-                // Apply the normalized deltas with clamping
-                // Use reduced per-axis limits when moving diagonally to keep total speed constant
-                bn::fixed comp_limit = (horizontal_input && vertical_input)
-                                           ? PlayerMovement::max_speed * PlayerMovement::diagonal_factor
-                                           : PlayerMovement::max_speed;
-                dx = bn::clamp(dx + dx_delta, -comp_limit, comp_limit);
-                dy = bn::clamp(dy + dy_delta, -comp_limit, comp_limit);
-
-                _movement.set_dx(dx);
-                _movement.set_dy(dy);
-
-                // Update facing direction and state
-                if (horizontal_input || vertical_input)
-                {
-                    _movement.set_facing_direction(last_direction);
-                }
-                _movement.update_movement_state();
-
                 any_movement_input = horizontal_input || vertical_input;
             }
 

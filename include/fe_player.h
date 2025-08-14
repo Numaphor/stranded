@@ -47,11 +47,11 @@ namespace fe
         };
 
         // Movement constants
-        // Tuned to be ~10x slower than previous values while maintaining similar responsiveness
-        static constexpr bn::fixed acc_const = 0.035;         // was 0.35
-        static constexpr bn::fixed friction_const = 0.65;     // unchanged; only applied when no input
-        static constexpr bn::fixed movement_threshold = 0.02; // was 0.1
-        static constexpr bn::fixed max_speed = 0.2;           // was 2
+        // Normal responsiveness values
+        static constexpr bn::fixed acc_const = 0.35;          // acceleration per frame
+        static constexpr bn::fixed friction_const = 0.65;     // only applied when no input
+        static constexpr bn::fixed movement_threshold = 0.1;  // minimal velocity considered moving
+        static constexpr bn::fixed max_speed = 1;             // max velocity per axis (halved)
         static constexpr bn::fixed diagonal_factor = 0.707;   // 1/√2 for diagonal movement normalization
 
         PlayerMovement();

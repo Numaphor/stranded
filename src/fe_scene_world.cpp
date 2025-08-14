@@ -246,6 +246,8 @@ namespace fe
         bn::sprite_builder builder(bn::sprite_items::hero);
         builder.set_bg_priority(1);
         _player = new Player(builder.release_build());
+        // Initialize camera lookahead state
+        _lookahead_current = bn::fixed_point(0, 0);
     }
 
     fe::Scene fe::World::execute(bn::fixed_point spawn_location, int world_id)
@@ -277,6 +279,8 @@ namespace fe
         // Initialize camera target position to player spawn location
         _camera_target_pos = spawn_location;
         camera.set_position(spawn_location.x(), spawn_location.y());
+        // Reset lookahead on world start
+        _lookahead_current = bn::fixed_point(0, 0);
 
         // Initialize sword background with camera
         _sword_bg = bn::regular_bg_items::sword.create_bg(0, 0);
@@ -535,12 +539,20 @@ namespace fe
                 _minimap->update(_player->pos(), bn::fixed_point(0, 0), _enemies);
             }
 
-            // Proper deadzone camera system
+            // Proper deadzone camera system with smooth interpolation and lookahead
             bn::fixed_point player_pos = _player->pos();
             bn::fixed_point current_camera_pos = _camera.has_value() ? bn::fixed_point(_camera->x(), _camera->y()) : bn::fixed_point(0, 0);
 
             // Check if player is actively moving
             bool player_is_moving = _player->is_moving();
+
+            // Detect direction changes for temporary slower interpolation
+            PlayerMovement::Direction current_dir = _player->facing_direction();
+            if (player_is_moving && current_dir != _last_camera_direction)
+            {
+                _last_camera_direction = current_dir;
+                _direction_change_frames = CAMERA_DIRECTION_CHANGE_DURATION;
+            }
 
             // Calculate distance from player to camera
             bn::fixed_point player_to_camera = player_pos - current_camera_pos;
@@ -549,19 +561,50 @@ namespace fe
             bool outside_deadzone_x = bn::abs(player_to_camera.x()) > CAMERA_DEADZONE_X;
             bool outside_deadzone_y = bn::abs(player_to_camera.y()) > CAMERA_DEADZONE_Y;
             bool outside_deadzone = outside_deadzone_x || outside_deadzone_y;
+            (void) outside_deadzone; // computed for clarity/debug; behavior uses boundary clamping below
 
-            // Determine target position
+            // Smooth lookahead calculation towards the player's facing direction
+            bn::fixed_point target_lookahead(0, 0);
             if (player_is_moving)
             {
-                // Fix camera lag: disable lookahead system and follow player directly
-                _camera_target_pos = player_pos;
+                switch (current_dir)
+                {
+                case PlayerMovement::Direction::LEFT:
+                    target_lookahead = bn::fixed_point(-CAMERA_LOOKAHEAD_X, 0);
+                    break;
+                case PlayerMovement::Direction::RIGHT:
+                    target_lookahead = bn::fixed_point(CAMERA_LOOKAHEAD_X, 0);
+                    break;
+                case PlayerMovement::Direction::UP:
+                    target_lookahead = bn::fixed_point(0, -CAMERA_LOOKAHEAD_Y);
+                    break;
+                case PlayerMovement::Direction::DOWN:
+                default:
+                    target_lookahead = bn::fixed_point(0, CAMERA_LOOKAHEAD_Y);
+                    break;
+                }
             }
-            else if (!player_is_moving)
+            // Exponential smoothing of lookahead
+            _lookahead_current = _lookahead_current + (target_lookahead - _lookahead_current) * CAMERA_LOOKAHEAD_SMOOTHING;
+
+            // Apply center bias to reduce full lookahead usage
+            const bn::fixed lookahead_factor = bn::fixed(1) - CAMERA_CENTER_BIAS; // e.g., 0.7 when bias is 0.3
+            bn::fixed_point desired_focus = player_pos + bn::fixed_point(_lookahead_current.x() * lookahead_factor,
+                                                                          _lookahead_current.y() * lookahead_factor);
+
+            // Compute the target camera position based on deadzone boundaries
+            bn::fixed_point desired_offset = desired_focus - current_camera_pos;
+            bn::fixed target_x = current_camera_pos.x();
+            bn::fixed target_y = current_camera_pos.y();
+            if (bn::abs(desired_offset.x()) > CAMERA_DEADZONE_X)
             {
-                // Player is idle - disable interpolation to prevent lag
-                // _camera_target_pos = _camera_target_pos + (player_pos - _camera_target_pos) * CAMERA_FOLLOW_SPEED;
-                _camera_target_pos = player_pos; // Direct positioning
+                target_x = desired_focus.x() - (desired_offset.x() > 0 ? CAMERA_DEADZONE_X : -CAMERA_DEADZONE_X);
             }
+            if (bn::abs(desired_offset.y()) > CAMERA_DEADZONE_Y)
+            {
+                target_y = desired_focus.y() - (desired_offset.y() > 0 ? CAMERA_DEADZONE_Y : -CAMERA_DEADZONE_Y);
+            }
+            bn::fixed_point target_pos(target_x, target_y);
 
             // Decrease direction change counter
             if (_direction_change_frames > 0)
@@ -573,7 +616,8 @@ namespace fe
             bool in_direction_change = (_direction_change_frames > 0);
             bn::fixed interpolation_speed = in_direction_change ? CAMERA_DIRECTION_CHANGE_SPEED : CAMERA_FOLLOW_SPEED;
 
-            // Fix camera lag issue: completely disable all camera interpolation
+            // Interpolate camera target position smoothly towards target
+            _camera_target_pos = _camera_target_pos + (target_pos - _camera_target_pos) * interpolation_speed;
             bn::fixed_point new_camera_pos = _camera_target_pos;
 
             // Store the base camera position before applying shake
