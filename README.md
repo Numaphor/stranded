@@ -1,3 +1,6 @@
+### ON HOLD DUE TOO NO FREE TIME RN. WILL CONTINUE LATER THIS YEAR :) (game doesnt even have 1% of the content i want, so look forward to lots of improvements later)
+
+
 # Stranded
 
 A top-down sci-fi RPG shooter built with the **Butano** engine for Game Boy Advance.
