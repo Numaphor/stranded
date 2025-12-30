@@ -133,6 +133,10 @@ namespace fe
     constexpr int PLAYER_ROLL_DURATION = 64;            // Increased to double total distance
     constexpr int PLAYER_ROLL_IFRAME_DURATION = 30;     // Extended i-frames for longer roll
     constexpr int PLAYER_DEATH_ANIMATION_DURATION = 90; // 1.5 seconds at 60 FPS
+    constexpr int PLAYER_CHOP_DURATION = 40;            // Duration of chop attack
+    constexpr int PLAYER_SLASH_DURATION = 40;           // Duration of slash attack
+    constexpr int PLAYER_ATTACK_DURATION = 40;          // Duration of basic attack
+    constexpr int PLAYER_BUFF_DURATION = 120;           // Duration of buff abilities
 
     // ===== ENEMY CONSTANTS =====
     constexpr bn::fixed ENEMY_KNOCKBACK_STRENGTH = 2.5; // Force applied during knockback

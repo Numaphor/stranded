@@ -148,30 +148,12 @@ namespace fe
         [[nodiscard]] bool invulnerable() const { return _invulnerable; }
         void set_invulnerable(bool invulnerable) { _invulnerable = invulnerable; }
         [[nodiscard]] bool listening() const { return _listening; }
-        void set_listening(bool listening)
-        {
-            if (_listening && !listening)
-            {
-                // Dialog just ended, set cooldown
-                _dialog_cooldown = 10; // 10 frame cooldown
-            }
-            _listening = listening;
-        }
+        void set_listening(bool listening);
         [[nodiscard]] int inv_timer() const { return _inv_timer; }
         void set_inv_timer(int inv_timer) { _inv_timer = inv_timer; }
         [[nodiscard]] int dialog_cooldown() const { return _dialog_cooldown; }
-        void update_dialog_cooldown()
-        {
-            if (_dialog_cooldown > 0)
-                _dialog_cooldown--;
-        }
-        void reset()
-        {
-            _invulnerable = false;
-            _listening = false;
-            _inv_timer = 0;
-            _dialog_cooldown = 0;
-        }
+        void update_dialog_cooldown();
+        void reset();
     };
 
     // PlayerAbilities class (moved from fe_player_abilities.h)
@@ -215,30 +197,8 @@ namespace fe
         void set_buff_cooldown(int cooldown) { _buff_cooldown = cooldown; }
 
         // Update cooldowns
-        void update_cooldowns()
-        {
-            if (_roll_cooldown > 0)
-                _roll_cooldown--;
-            if (_chop_cooldown > 0)
-                _chop_cooldown--;
-            if (_slash_cooldown > 0)
-                _slash_cooldown--;
-            if (_buff_cooldown > 0)
-                _buff_cooldown--;
-        }
-
-        void reset()
-        {
-            _running_available = true;
-            _rolling_available = true;
-            _chopping_available = true;
-            _slashing_available = true;
-            _buff_abilities_available = true;
-            _roll_cooldown = 0;
-            _chop_cooldown = 0;
-            _slash_cooldown = 0;
-            _buff_cooldown = 0;
-        }
+        void update_cooldowns();
+        void reset();
     };
 
     // Forward declaration of Enemy class
@@ -277,71 +237,15 @@ namespace fe
         }
 
         [[nodiscard]] int get_hp() const { return _hp; }
-        void take_damage(int damage)
-        {
-            if (!_state.invulnerable() && _hp > 0)
-            {
-                _hp -= damage;
-                if (_hp <= 0)
-                {
-                    _hp = 0;
-                    // Start death animation instead of immediately requiring reset
-                    _movement.set_state(PlayerMovement::State::DEAD);
-                    _death_timer = PLAYER_DEATH_ANIMATION_DURATION;
-                    _death_sound_played = false; // Reset flag for death sound
-
-                    // Clear invulnerability during death to prevent blinking
-                    _state.set_invulnerable(false);
-                    _state.set_inv_timer(0);
-                }
-                else
-                {
-                    // Only set invulnerability if not dead
-                    _state.set_invulnerable(true);
-                    _state.set_inv_timer(60); // 1 second of invulnerability at 60 FPS
-
-                    // Visual feedback for taking damage (but not for death)
-                    set_visible(false);
-                }
-                _hud.set_hp(_hp);
-                _hud.update();
-            }
-        }
+        void take_damage(int damage);
 
         [[nodiscard]] bool is_reset_required() const { return _reset_required; }
 
         // Reset player state
-        void reset()
-        {
-            _hp = 2;
-            _reset_required = false;
-            _death_timer = 0;
-            _death_sound_played = false;
-            _state.reset();
-            _movement.reset();
-            _abilities.reset();
-            _hud.set_hp(_hp);
-            _hud.update();
-            set_visible(true);
-            _bullet_manager.clear_bullets();
-
-            // Reset ammo to full
-            _ammo_count = MAX_AMMO;
-            _hud.set_ammo(_ammo_count);
-
-            // Don't auto-revive companion if it died independently
-            // It should stay dead until player comes close to revive it
-            if (_companion.has_value() && !_companion->is_dead_independently())
-            {
-                _companion->set_visible(true);
-            }
-        }
+        void reset();
 
         // Reset player movement state (position remains unchanged)
-        void reset_movement()
-        {
-            _movement.reset();
-        }
+        void reset_movement();
 
         // Returns list of active bullets for collision checking
         [[nodiscard]] const bn::vector<Bullet, 32> &bullets() const { return _bullet_manager.bullets(); }
@@ -355,21 +259,16 @@ namespace fe
         [[nodiscard]] Hitbox get_hitbox() const override { return Entity::get_hitbox(); }
 
         // Check if player is currently performing a melee attack
-        [[nodiscard]] bool is_attacking() const
-        {
-            return _movement.current_state() == PlayerMovement::State::CHOPPING ||
-                   _movement.current_state() == PlayerMovement::State::SLASHING ||
-                   _movement.current_state() == PlayerMovement::State::ATTACKING;
-        }
+        [[nodiscard]] bool is_attacking() const;
 
         // Access to HUD for weapon management
         [[nodiscard]] fe::HUD &get_hud() { return _hud; }
 
         // Ammo management
         [[nodiscard]] int get_ammo() const { return _ammo_count; }
-        void add_ammo(int amount) { _ammo_count = bn::min(_ammo_count + amount, MAX_AMMO); }
-        void reload_ammo() { _ammo_count = MAX_AMMO; }
-        [[nodiscard]] bool has_ammo() const { return _ammo_count > 0; }
+        void add_ammo(int amount);
+        void reload_ammo();
+        [[nodiscard]] bool has_ammo() const;
 
         void update_gun_position(PlayerMovement::Direction direction);
 
