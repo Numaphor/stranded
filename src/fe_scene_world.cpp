@@ -231,9 +231,7 @@ namespace fe
                      _sword_bg(bn::nullopt),
                      _merchant(nullptr),
                      _player_status_display(nullptr),
-                     _debug_enabled(false),
                      _camera(bn::nullopt),
-                     _player_debug_hitbox(),
                      _last_camera_direction(PlayerMovement::Direction::DOWN),
                      _direction_change_frames(0),
                      _current_world_id(0),
@@ -311,9 +309,6 @@ namespace fe
         // Initialize world-specific content
         _init_world_specific_content(world_id, camera, bg, text_generator);
 
-        // Initialize hitbox debug system
-        _debug_enabled = false;
-
         while (true)
         {
             bn::core::update();
@@ -330,26 +325,6 @@ namespace fe
                 // Save current state before going to menu
                 _save_current_state();
                 return fe::Scene::MENU;
-            }
-
-            // Debug input handling - Toggle hitbox visualization with START + SELECT keys
-            if (bn::keypad::select_held() && bn::keypad::start_pressed())
-            {
-                bool new_debug_state = !_debug_enabled;
-                _debug_enabled = new_debug_state;
-
-                // Update player status display visibility based on debug state
-                if (_player_status_display)
-                {
-                    _player_status_display->set_visible(new_debug_state);
-                }
-
-                // Refresh all zone visibility for visual debugging (not collision)
-                bn::optional<bn::fixed_point> merchant_pos = _merchant ? bn::optional<bn::fixed_point>(_merchant->pos()) : bn::nullopt;
-                if (bg_map_obj.manage_zones(new_debug_state, _merchant != nullptr, merchant_pos, true))
-                {
-                    bg_map_ptr.reload_cells_ref();
-                }
             }
 
             // Handle NPC interactions BEFORE player input processing
@@ -472,56 +447,6 @@ namespace fe
             // This needs to happen every frame regardless of merchant presence
             // The player's update_z_order() method also handles companion and gun z-orders
             _player->update_z_order();
-
-            // Update hitbox debug visualization for player
-            if (_debug_enabled)
-            {
-                // Create/update player debug hitbox
-                _player_debug_hitbox = fe::Hitbox::create_player_hitbox(_player->pos());
-                _player_debug_hitbox.create_debug_markers(*_camera, true);
-
-                // Maintain a pool of reusable enemy debug hitboxes
-                int required_hitboxes = static_cast<int>(_enemies.size());
-                if (_enemy_debug_hitboxes.size() < required_hitboxes)
-                {
-                    // Add new hitboxes to the pool if needed
-                    _enemy_debug_hitboxes.resize(required_hitboxes);
-                }
-                else if (_enemy_debug_hitboxes.size() > required_hitboxes)
-                {
-                    // Clear debug markers for unused hitboxes
-                    for (int i = required_hitboxes; i < _enemy_debug_hitboxes.size(); ++i)
-                    {
-                        _enemy_debug_hitboxes[i].clear_debug_markers();
-                    }
-                    _enemy_debug_hitboxes.resize(required_hitboxes);
-                }
-            }
-            else
-            {
-                // Clear all debug markers when debug is disabled
-                _player_debug_hitbox.clear_debug_markers();
-                for (auto &enemy_hitbox : _enemy_debug_hitboxes)
-                {
-                    enemy_hitbox.clear_debug_markers();
-                }
-                // Do not clear the vector, keep the pool for reuse
-            }
-
-            // Update debug hitbox positions if debug mode is enabled
-            if (_debug_enabled)
-            {
-                // Update player debug hitbox marker positions efficiently
-                // Note: Player debug hitbox marker positions are updated here each frame
-                _player_debug_hitbox.update_debug_marker_positions();
-
-                // Update enemy debug hitbox positions efficiently
-                for (int i = 0; i < _enemies.size() && i < _enemy_debug_hitboxes.size(); ++i)
-                {
-                    _enemy_debug_hitboxes[i].set_position(_enemies[i].pos());
-                    _enemy_debug_hitboxes[i].update_debug_marker_positions();
-                }
-            }
 
             // Update player position and check for collisions
             bn::fixed_point new_pos = _player->pos();
@@ -673,16 +598,6 @@ namespace fe
                 // Enemies should ignore player if listening to NPCs OR dead
                 bool player_should_be_ignored = _player->listening() || _player->get_hp() <= 0;
                 enemy.update(_player->pos(), *_level, player_should_be_ignored);
-
-                // Update hitbox debug visualization for this enemy
-                if (_debug_enabled && i < _enemy_debug_hitboxes.size())
-                {
-                    // Create enemy hitbox with standard type
-                    _enemy_debug_hitboxes[i] = fe::Hitbox(enemy.pos().x(), enemy.pos().y(),
-                                                          enemy.get_hitbox().width(), enemy.get_hitbox().height(),
-                                                          fe::HitboxType::STANDARD);
-                    _enemy_debug_hitboxes[i].create_debug_markers(*_camera, true);
-                }
 
                 // Check for collision with player (but not if player is dead or listening)
                 if (_player->get_hp() > 0 && !_player->listening())

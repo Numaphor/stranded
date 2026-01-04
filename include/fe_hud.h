@@ -49,8 +49,6 @@ namespace fe
         // Ammo management
         void set_ammo(int ammo_count);
         void update_ammo_display();
-        void debug_soul_center();         // Center soul sprite for debugging
-        void debug_soul_animate();        // Animate soul sprite for debugging
         void activate_soul_animation();   // Trigger soul animation for defense buff
         void deactivate_soul_animation(); // Deactivate defense buff when healing
         void activate_silver_soul();      // Trigger silver soul animation for energy buff

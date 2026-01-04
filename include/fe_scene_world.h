@@ -42,10 +42,7 @@ namespace fe
         bn::optional<bn::regular_bg_ptr> _sword_bg;
         NPC *_merchant;                                             // Changed to base NPC pointer to allow different types
         bn::unique_ptr<PlayerStatusDisplay> _player_status_display; // Player status display
-        bool _debug_enabled;                                        // Track debug state for centralized hitbox system
-        bn::optional<bn::camera_ptr> _camera;                       // Camera for debug marker positioning
-        fe::Hitbox _player_debug_hitbox;                            // Player debug hitbox
-        bn::vector<fe::Hitbox, 16> _enemy_debug_hitboxes;           // Enemy debug hitboxes
+        bn::optional<bn::camera_ptr> _camera;                       // Camera for positioning
         PlayerMovement::Direction _last_camera_direction;           // Track last direction for smooth direction changes
         int _direction_change_frames;                               // Counter for how many frames we've been changing direction
         int _current_world_id;                                      // Track current world

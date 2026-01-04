@@ -96,35 +96,6 @@ namespace fe
         BN_LOG("Soul sprite repositioned to: (", x, ", ", y, ")");
     }
 
-    void HUD::debug_soul_center()
-    {
-        _soul_sprite.set_position(0, 0); // Center of screen
-        _soul_sprite.set_z_order(-2000); // Very high priority
-        _soul_sprite.set_visible(true);
-        BN_LOG("Soul sprite moved to screen center (0, 0) for debugging");
-    }
-
-    void HUD::debug_soul_animate()
-    {
-        // Move soul sprite in a circle pattern to make it very visible
-        static int frame_counter = 0;
-        frame_counter++;
-
-        // Use simple sin/cos calculation with Butano fixed point
-        bn::fixed angle = frame_counter * 0.1;
-        int x = (100 * bn::sin(angle)).integer();
-        int y = (100 * bn::cos(angle)).integer() + 8; // Move circle down by 8 pixels
-
-        _soul_sprite.set_position(x, y);
-        _soul_sprite.set_z_order(-32000);
-        _soul_sprite.set_visible(true);
-
-        if (frame_counter % 60 == 0)
-        {
-            BN_LOG("Soul sprite animating at: (", x, ", ", y, ")");
-        }
-    }
-
     void HUD::activate_soul_animation()
     {
         // Start defense buff soul effect (permanent until heal, like silver soul)
