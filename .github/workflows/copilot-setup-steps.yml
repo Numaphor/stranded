@@ -41,10 +41,9 @@ jobs:
       - name: Download and install Wonderful toolchain bootstrap
         run: |
           cd /opt/wonderful/
-          # Download the latest bootstrap from GitHub to avoid firewall blocks
-          wget -O bootstrap.tar.gz https://github.com/WonderfulToolchain/wonderful-packages/releases/latest/download/wonderful-bootstrap-linux-x86_64.tar.gz
-          tar xzvf bootstrap.tar.gz
-          rm bootstrap.tar.gz
+          wget https://wonderful.asie.pl/bootstrap/wf-bootstrap-x86_64.tar.gz
+          tar xzvf wf-bootstrap-x86_64.tar.gz
+          rm wf-bootstrap-x86_64.tar.gz
 
       - name: Setup Wonderful toolchain environment
         run: |
