@@ -299,7 +299,7 @@ namespace fe
         // Priority will be set in the update loop based on player position
 
         // Initialize minimap in top-right corner
-        _minimap = new Minimap(bn::fixed_point(100, -80), bg_map_ptr, camera);
+        _minimap = new Minimap(bn::fixed_point(100, -80));
         _player->set_camera(camera);
 
         // Create text generator for NPCs
@@ -796,7 +796,7 @@ namespace fe
 
                 // Reset minimap
                 delete _minimap;
-                _minimap = new Minimap(bn::fixed_point(100, -80), bg_map_ptr, camera);
+                _minimap = new Minimap(bn::fixed_point(100, -80));
 
                 // Reset player position
                 _player->spawn(spawn_location, camera);

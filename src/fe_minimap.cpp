@@ -7,16 +7,13 @@
 
 namespace fe
 {
-    Minimap::Minimap(bn::fixed_point pos, bn::regular_bg_map_ptr map, bn::camera_ptr &camera) : _player_dot(bn::sprite_items::minimap_player.create_sprite(pos.x(), pos.y() + MINIMAP_VERTICAL_OFFSET)), // Use player sprite
-                                                                                                _position(bn::fixed_point(pos.x(), pos.y() + MINIMAP_VERTICAL_OFFSET))                                   // Update position to be 16 pixels lower
+    Minimap::Minimap(bn::fixed_point pos) : _player_dot(bn::sprite_items::minimap_player.create_sprite(pos.x(), pos.y() + MINIMAP_VERTICAL_OFFSET)), // Use player sprite
+                                             _position(bn::fixed_point(pos.x(), pos.y() + MINIMAP_VERTICAL_OFFSET))                                   // Update position to be 16 pixels lower
     {
         // Configure player dot
         _player_dot.set_bg_priority(0);
         _player_dot.set_z_order(Z_ORDER_MINIMAP_PLAYER);
         _player_dot.set_visible(true);
-
-        (void)map;    // Mark as unused
-        (void)camera; // Mark as unused
     }
 
     void Minimap::update(bn::fixed_point player_pos, bn::fixed_point map_center, const bn::vector<Enemy, 16> &enemies)
