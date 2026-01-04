@@ -32,8 +32,6 @@ namespace fe
 
     constexpr int COLLISION_ZONE_TILE_INDEX = 3;
     constexpr int INTERACTION_ZONE_TILE_INDEX = 4;
-    constexpr int LEFT_MARKER_TILE_INDEX = 5;
-    constexpr int RIGHT_MARKER_TILE_INDEX = 6;
 
     constexpr bn::fixed PLAYER_HITBOX_WIDTH = 32;
     constexpr bn::fixed PLAYER_HITBOX_HEIGHT = 16;

@@ -39,7 +39,6 @@ namespace fe
         Level(bn::regular_bg_map_ptr bg);
 
         [[nodiscard]] bn::vector<int, 32> floor_tiles();
-        [[nodiscard]] const bn::vector<int, 8> &zone_tiles() const { return _zone_tiles; }
 
         // Check if a position is valid (not colliding with zones or other obstacles)
         [[nodiscard]] bool is_position_valid(const bn::fixed_point &position) const;

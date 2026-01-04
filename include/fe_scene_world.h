@@ -16,7 +16,6 @@
 
 #include "fe_scene.h"
 #include "fe_player.h"
-#include "fe_player_status_display.h"
 #include "fe_enemy.h"
 #include "fe_level.h"
 #include "fe_minimap.h"
@@ -41,7 +40,6 @@ namespace fe
         Minimap *_minimap;
         bn::optional<bn::regular_bg_ptr> _sword_bg;
         NPC *_merchant;                                             // Changed to base NPC pointer to allow different types
-        bn::unique_ptr<PlayerStatusDisplay> _player_status_display; // Player status display
         bn::optional<bn::camera_ptr> _camera;                       // Camera for positioning
         PlayerMovement::Direction _last_camera_direction;           // Track last direction for smooth direction changes
         int _direction_change_frames;                               // Counter for how many frames we've been changing direction

@@ -144,10 +144,6 @@ namespace fe
         // Create text generator for NPCs
         bn::sprite_text_generator text_generator(common::variable_8x8_sprite_font);
 
-        // Initialize player status display
-        _player_status_display = bn::make_unique<PlayerStatusDisplay>(text_generator);
-        _player_status_display->set_visible(false); // Only visible in debug mode
-
         // Initialize world-specific content
         _init_world_specific_content(world_id, camera, bg, text_generator);
 
@@ -253,14 +249,6 @@ namespace fe
             {
                 // Player stopped firing - reset continuous fire counter
                 _continuous_fire_frames = 0;
-            }
-
-            // Update player status display
-            if (_player_status_display)
-            {
-                // Align status display with the same hitbox-based interaction zone logic
-                bool near_merchant = _merchant && fe::Hitbox::is_in_merchant_interaction_zone(_player->pos(), _merchant->pos());
-                _player_status_display->update_status(*_player, near_merchant);
             }
 
             // Update player z-order for proper sprite layering
