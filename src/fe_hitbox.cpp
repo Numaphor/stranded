@@ -1,7 +1,5 @@
 #include "fe_hitbox.h"
 #include "fe_constants.h"
-#include "bn_sprite_items_hitbox_marker.h"
-#include "bn_blending.h"
 
 namespace fe
 {
@@ -135,18 +133,13 @@ namespace fe
 
     Hitbox Hitbox::create_player_hitbox(bn::fixed_point position)
     {
-        // Use hitbox constants from the nested namespace
         using namespace hitbox_constants;
-        // Center the hitbox on the player position (same as Player::set_position does)
         bn::fixed_point hitbox_pos = calculate_centered_position(position, PLAYER_HITBOX_WIDTH, PLAYER_HITBOX_HEIGHT);
         return Hitbox(hitbox_pos.x(), hitbox_pos.y(), PLAYER_HITBOX_WIDTH, PLAYER_HITBOX_HEIGHT, HitboxType::PLAYER);
     }
 
-    // Merchant collision zone factory method removed - only interaction zones remain
-
     Hitbox Hitbox::create_merchant_interaction_zone(bn::fixed_point center)
     {
-        // Use hitbox constants from the nested namespace
         using namespace hitbox_constants;
         bn::fixed_point position = calculate_centered_position(center, MERCHANT_INTERACTION_WIDTH, MERCHANT_INTERACTION_HEIGHT);
         return Hitbox(position.x(), position.y(), MERCHANT_INTERACTION_WIDTH, MERCHANT_INTERACTION_HEIGHT, HitboxType::MERCHANT_INTERACTION);
@@ -154,180 +147,11 @@ namespace fe
 
     Hitbox Hitbox::create_sword_zone()
     {
-        // Use centralized constants directly from fe namespace
         const bn::fixed zone_left = fe::SWORD_ZONE_TILE_LEFT * fe::TILE_SIZE - fe::MAP_OFFSET;
         const bn::fixed zone_top = fe::SWORD_ZONE_TILE_TOP * fe::TILE_SIZE - fe::MAP_OFFSET;
         const bn::fixed width = (fe::SWORD_ZONE_TILE_RIGHT - fe::SWORD_ZONE_TILE_LEFT) * fe::TILE_SIZE;
         const bn::fixed height = (fe::SWORD_ZONE_TILE_BOTTOM - fe::SWORD_ZONE_TILE_TOP) * fe::TILE_SIZE;
-
         return Hitbox(zone_left, zone_top, width, height, HitboxType::SWORD_ZONE);
-    }
-
-    // === DEBUG VISUALIZATION ===
-
-    Hitbox::MarkerOffsetConfig Hitbox::get_marker_config() const
-    {
-        // Use hitbox constants from the nested namespace
-        using namespace hitbox_constants;
-
-        switch (_type)
-        {
-        case HitboxType::PLAYER:
-        case HitboxType::MERCHANT_COLLISION:
-        case HitboxType::MERCHANT_INTERACTION:
-        case HitboxType::SWORD_ZONE:
-        case HitboxType::ZONE_TILES:
-            return MarkerOffsetConfig(0, 0, 0, 0); // Zone-specific adjustments
-        case HitboxType::STANDARD:
-        default:
-            return MarkerOffsetConfig(0, 0, 0, 0); // Standard adjustments
-        }
-    }
-
-    bn::fixed_point Hitbox::calculate_top_left_marker_pos(bn::fixed x_offset, bn::fixed y_offset) const
-    {
-        return bn::fixed_point(
-            x() + x_offset - HITBOX_SPRITE_CENTER_OFFSET,
-            y() + y_offset - HITBOX_SPRITE_CENTER_OFFSET);
-    }
-
-    bn::fixed_point Hitbox::calculate_bottom_right_marker_pos(bn::fixed x_offset, bn::fixed y_offset) const
-    {
-        return bn::fixed_point(
-            x() + width() + x_offset - HITBOX_SPRITE_CENTER_OFFSET,
-            y() + height() + y_offset - HITBOX_SPRITE_CENTER_OFFSET);
-    }
-
-    bn::sprite_ptr Hitbox::create_marker(bn::fixed_point position, bool rotated) const
-    {
-        bn::sprite_ptr marker = bn::sprite_items::hitbox_marker.create_sprite(position);
-
-        if (_camera.has_value())
-        {
-            marker.set_camera(*_camera);
-        }
-
-        marker.set_z_order(-32767); // Highest priority
-
-        if (rotated)
-        {
-            marker.set_rotation_angle(180);
-        }
-
-        return marker;
-    }
-
-    void Hitbox::create_debug_markers(bn::camera_ptr camera, bool enabled)
-    {
-        _camera = camera;
-        _debug_enabled = enabled;
-
-        if (enabled)
-        {
-            update_debug_markers(true);
-        }
-    }
-
-    void Hitbox::update_debug_markers(bool enabled)
-    {
-        _debug_enabled = enabled;
-
-        if (!enabled)
-        {
-            clear_debug_markers();
-            return;
-        }
-
-        // Don't create markers for zero-sized hitboxes (they're likely unused default hitboxes)
-        if (_width == 0 || _height == 0)
-        {
-            return;
-        }
-
-        MarkerOffsetConfig config = get_marker_config();
-
-        // All sprite hitbox markers have been disabled
-        // Only background tiles are used for zone visualization
-        bool should_show_markers = false;
-
-        if (!should_show_markers)
-        {
-            return;
-        }
-
-        // Handle merchant interaction zones (merchant collision zones have been removed)
-        // Only merchant interaction zones need special marker handling
-        bool use_hitbox_markers = (_type == HitboxType::MERCHANT_INTERACTION);
-        bool enable_blending = (_type == HitboxType::MERCHANT_INTERACTION);
-
-        update_markers_with_config(config, use_hitbox_markers, enable_blending);
-    }
-
-    void Hitbox::update_debug_marker_positions()
-    {
-        if (!_debug_enabled || !_debug_markers.top_left.has_value())
-        {
-            return; // No markers to update
-        }
-
-        MarkerOffsetConfig config = get_marker_config();
-
-        // Calculate main zone marker positions
-        bn::fixed_point tl_pos = calculate_top_left_marker_pos(config.top_left_x, config.top_left_y);
-        bn::fixed_point br_pos = calculate_bottom_right_marker_pos(config.bottom_right_x, config.bottom_right_y);
-
-        // Calculate hitbox marker positions if they exist
-        bn::optional<bn::fixed_point> hitbox_tl_pos;
-        bn::optional<bn::fixed_point> hitbox_br_pos;
-
-        if (_debug_markers.hitbox_top_left.has_value())
-        {
-            hitbox_tl_pos = calculate_top_left_marker_pos(0, 0);
-            hitbox_br_pos = calculate_bottom_right_marker_pos(0, 0);
-        }
-
-        // Update positions efficiently without recreating sprites
-        _debug_markers.update_positions(tl_pos, br_pos, hitbox_tl_pos, hitbox_br_pos);
-    }
-
-    void Hitbox::update_markers_with_config(const MarkerOffsetConfig &config, bool use_hitbox_markers, bool enable_blending)
-    {
-        // Clear existing markers
-        _debug_markers.clear();
-
-        // Create main zone markers
-        bn::fixed_point tl_pos = calculate_top_left_marker_pos(config.top_left_x, config.top_left_y);
-        bn::fixed_point br_pos = calculate_bottom_right_marker_pos(config.bottom_right_x, config.bottom_right_y);
-
-        _debug_markers.top_left = create_marker(tl_pos, false);
-        _debug_markers.bottom_right = create_marker(br_pos, true);
-
-        // For merchant zones, add hitbox markers if needed
-        if (use_hitbox_markers)
-        {
-            // Use different offsets for hitbox markers
-            bn::fixed_point hitbox_tl_pos = calculate_top_left_marker_pos(0, 0);
-            bn::fixed_point hitbox_br_pos = calculate_bottom_right_marker_pos(0, 0);
-
-            _debug_markers.hitbox_top_left = create_marker(hitbox_tl_pos, false);
-            _debug_markers.hitbox_bottom_right = create_marker(hitbox_br_pos, true);
-        }
-
-        // Apply blending for interaction zones
-        if (enable_blending)
-        {
-            if (_debug_markers.top_left.has_value())
-                _debug_markers.top_left->set_blending_enabled(true);
-            if (_debug_markers.bottom_right.has_value())
-                _debug_markers.bottom_right->set_blending_enabled(true);
-        }
-
-        _debug_markers.set_visible(_debug_enabled);
-    }
-
-    void Hitbox::clear_debug_markers()
-    {
-        _debug_markers.clear();
     }
 
     // === ZONE MANAGER IMPLEMENTATION ===

@@ -3,10 +3,7 @@
 
 #include "bn_fixed.h"
 #include "bn_fixed_point.h"
-#include "bn_sprite_ptr.h"
-#include "bn_camera_ptr.h"
 #include "bn_optional.h"
-#include "bn_vector.h"
 #include "fe_constants.h"
 
 namespace fe
@@ -99,67 +96,7 @@ namespace fe
         // Improved merchant collision system - separate collision zone for physical blocking
         [[nodiscard]] static bool is_in_merchant_collision_zone(const bn::fixed_point &position, const bn::fixed_point &merchant_center);
 
-        // === DEBUG VISUALIZATION ===
 
-        struct MarkerOffsetConfig
-        {
-            bn::fixed top_left_x;
-            bn::fixed top_left_y;
-            bn::fixed bottom_right_x;
-            bn::fixed bottom_right_y;
-
-            MarkerOffsetConfig(bn::fixed tl_x, bn::fixed tl_y, bn::fixed br_x, bn::fixed br_y)
-                : top_left_x(tl_x), top_left_y(tl_y), bottom_right_x(br_x), bottom_right_y(br_y) {}
-        };
-
-        struct DebugMarkers
-        {
-            bn::optional<bn::sprite_ptr> top_left;
-            bn::optional<bn::sprite_ptr> bottom_right;
-            bn::optional<bn::sprite_ptr> hitbox_top_left;     // For dual-area entities
-            bn::optional<bn::sprite_ptr> hitbox_bottom_right; // For dual-area entities
-
-            void clear()
-            {
-                top_left.reset();
-                bottom_right.reset();
-                hitbox_top_left.reset();
-                hitbox_bottom_right.reset();
-            }
-
-            void set_visible(bool visible)
-            {
-                if (top_left.has_value())
-                    top_left->set_visible(visible);
-                if (bottom_right.has_value())
-                    bottom_right->set_visible(visible);
-                if (hitbox_top_left.has_value())
-                    hitbox_top_left->set_visible(visible);
-                if (hitbox_bottom_right.has_value())
-                    hitbox_bottom_right->set_visible(visible);
-            }
-
-            void update_positions(bn::fixed_point tl_pos, bn::fixed_point br_pos,
-                                  bn::optional<bn::fixed_point> hitbox_tl_pos = bn::nullopt,
-                                  bn::optional<bn::fixed_point> hitbox_br_pos = bn::nullopt)
-            {
-                if (top_left.has_value())
-                    top_left->set_position(tl_pos);
-                if (bottom_right.has_value())
-                    bottom_right->set_position(br_pos);
-                if (hitbox_top_left.has_value() && hitbox_tl_pos.has_value())
-                    hitbox_top_left->set_position(*hitbox_tl_pos);
-                if (hitbox_bottom_right.has_value() && hitbox_br_pos.has_value())
-                    hitbox_bottom_right->set_position(*hitbox_br_pos);
-            }
-        };
-
-        // Debug visualization methods
-        void create_debug_markers(bn::camera_ptr camera, bool enabled = true);
-        void update_debug_markers(bool enabled);
-        void update_debug_marker_positions(); // Efficient position update without recreating sprites
-        void clear_debug_markers();
-        [[nodiscard]] MarkerOffsetConfig get_marker_config() const;
 
         // Static factory methods for common hitbox types
         [[nodiscard]] static Hitbox create_player_hitbox(bn::fixed_point position);
@@ -186,20 +123,9 @@ namespace fe
         bn::fixed _height;
         HitboxType _type = HitboxType::STANDARD;
 
-        // Debug visualization
-        DebugMarkers _debug_markers;
-        bn::optional<bn::camera_ptr> _camera;
-        bool _debug_enabled = false;
-
         // Private methods
         void set_width(bn::fixed width);
         void set_height(bn::fixed height);
-
-        // Debug marker calculation methods
-        [[nodiscard]] bn::fixed_point calculate_top_left_marker_pos(bn::fixed x_offset = 0, bn::fixed y_offset = 0) const;
-        [[nodiscard]] bn::fixed_point calculate_bottom_right_marker_pos(bn::fixed x_offset = 0, bn::fixed y_offset = 0) const;
-        [[nodiscard]] bn::sprite_ptr create_marker(bn::fixed_point position, bool rotated = false) const;
-        void update_markers_with_config(const MarkerOffsetConfig &config, bool use_hitbox_markers = false, bool enable_blending = false);
     };
 
     // === ZONE MANAGEMENT STATIC METHODS (replacing Level functionality) ===
