@@ -36,7 +36,7 @@ namespace fe
         
         int get_gun_z_offset(Direction dir);
         
-        // Gun setup function - uses PlayerMovement::Direction to match Player class usage
+        // Gun setup function - uses global Direction enum
         void setup_gun(bn::sprite_ptr &gun_sprite, Direction dir, bn::fixed_point pos);
     }
 }
