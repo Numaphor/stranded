@@ -246,6 +246,8 @@ namespace fe
         bn::sprite_builder builder(bn::sprite_items::hero);
         builder.set_bg_priority(1);
         _player = new Player(builder.release_build());
+        // Initialize camera lookahead state
+        _lookahead_current = bn::fixed_point(0, 0);
     }
 
     fe::Scene fe::World::execute(bn::fixed_point spawn_location, int world_id)
@@ -277,6 +279,8 @@ namespace fe
         // Initialize camera target position to player spawn location
         _camera_target_pos = spawn_location;
         camera.set_position(spawn_location.x(), spawn_location.y());
+        // Reset lookahead on world start
+        _lookahead_current = bn::fixed_point(0, 0);
 
         // Initialize sword background with camera
         _sword_bg = bn::regular_bg_items::sword.create_bg(0, 0);
@@ -430,7 +434,8 @@ namespace fe
             _player->update();
             _player->update_gun_position(_player->facing_direction());
 
-            // Handle screen shake based on continuous firing
+            // Handle screen shake based on continuous firing - DISABLED
+            // Screen shake has been completely disabled
             if (_player->is_firing())
             {
                 // Player is currently firing - increase continuous fire counter
@@ -443,10 +448,10 @@ namespace fe
                 bn::fixed current_intensity = GUNFIRE_SHAKE_BASE_INTENSITY +
                                               (GUNFIRE_SHAKE_MAX_INTENSITY - GUNFIRE_SHAKE_BASE_INTENSITY) * intensity_multiplier;
 
-                // Trigger shake if player just fired a bullet
+                // Trigger shake if player just fired a bullet - DISABLED
                 if (_player->bullet_just_fired())
                 {
-                    trigger_screen_shake(GUNFIRE_SHAKE_FRAMES, current_intensity);
+                    // trigger_screen_shake(GUNFIRE_SHAKE_FRAMES, current_intensity); // DISABLED
                     _player->clear_bullet_fired_flag();
                 }
             }
@@ -534,12 +539,20 @@ namespace fe
                 _minimap->update(_player->pos(), bn::fixed_point(0, 0), _enemies);
             }
 
-            // Proper deadzone camera system
+            // Proper deadzone camera system with smooth interpolation and lookahead
             bn::fixed_point player_pos = _player->pos();
             bn::fixed_point current_camera_pos = _camera.has_value() ? bn::fixed_point(_camera->x(), _camera->y()) : bn::fixed_point(0, 0);
 
             // Check if player is actively moving
             bool player_is_moving = _player->is_moving();
+
+            // Detect direction changes for temporary slower interpolation
+            PlayerMovement::Direction current_dir = _player->facing_direction();
+            if (player_is_moving && current_dir != _last_camera_direction)
+            {
+                _last_camera_direction = current_dir;
+                _direction_change_frames = CAMERA_DIRECTION_CHANGE_DURATION;
+            }
 
             // Calculate distance from player to camera
             bn::fixed_point player_to_camera = player_pos - current_camera_pos;
@@ -548,54 +561,50 @@ namespace fe
             bool outside_deadzone_x = bn::abs(player_to_camera.x()) > CAMERA_DEADZONE_X;
             bool outside_deadzone_y = bn::abs(player_to_camera.y()) > CAMERA_DEADZONE_Y;
             bool outside_deadzone = outside_deadzone_x || outside_deadzone_y;
+            (void) outside_deadzone; // computed for clarity/debug; behavior uses boundary clamping below
 
-            // Determine target position
+            // Smooth lookahead calculation towards the player's facing direction
+            bn::fixed_point target_lookahead(0, 0);
             if (player_is_moving)
             {
-                // Player is moving - always apply look-ahead in facing direction for better responsiveness
-                auto player_direction = _player->facing_direction();
-
-                // Check if direction changed
-                if (player_direction != _last_camera_direction)
+                switch (current_dir)
                 {
-                    _direction_change_frames = CAMERA_DIRECTION_CHANGE_DURATION; // Start slow period
-                    _last_camera_direction = player_direction;
-                }
-
-                // Calculate look-ahead offset based on movement direction
-                bn::fixed_point lookahead_offset(0, 0);
-                switch (player_direction)
-                {
-                case PlayerMovement::Direction::UP:
-                    lookahead_offset.set_y(-CAMERA_LOOKAHEAD_Y);
-                    break;
-                case PlayerMovement::Direction::DOWN:
-                    lookahead_offset.set_y(CAMERA_LOOKAHEAD_Y);
-                    break;
                 case PlayerMovement::Direction::LEFT:
-                    lookahead_offset.set_x(-CAMERA_LOOKAHEAD_X);
+                    target_lookahead = bn::fixed_point(-CAMERA_LOOKAHEAD_X, 0);
                     break;
                 case PlayerMovement::Direction::RIGHT:
-                    lookahead_offset.set_x(CAMERA_LOOKAHEAD_X);
+                    target_lookahead = bn::fixed_point(CAMERA_LOOKAHEAD_X, 0);
                     break;
+                case PlayerMovement::Direction::UP:
+                    target_lookahead = bn::fixed_point(0, -CAMERA_LOOKAHEAD_Y);
+                    break;
+                case PlayerMovement::Direction::DOWN:
                 default:
-                    // No offset for unknown direction
+                    target_lookahead = bn::fixed_point(0, CAMERA_LOOKAHEAD_Y);
                     break;
                 }
-
-                // Apply smoothing to lookahead offset to reduce aggressive movement
-                lookahead_offset = lookahead_offset * CAMERA_LOOKAHEAD_SMOOTHING;
-
-                // Calculate biased target: blend between player center and look-ahead position
-                bn::fixed_point lookahead_target = player_pos + lookahead_offset;
-                _camera_target_pos = (player_pos * CAMERA_CENTER_BIAS) + (lookahead_target * (1 - CAMERA_CENTER_BIAS));
             }
-            else if (!player_is_moving)
+            // Exponential smoothing of lookahead
+            _lookahead_current = _lookahead_current + (target_lookahead - _lookahead_current) * CAMERA_LOOKAHEAD_SMOOTHING;
+
+            // Apply center bias to reduce full lookahead usage
+            const bn::fixed lookahead_factor = bn::fixed(1) - CAMERA_CENTER_BIAS; // e.g., 0.7 when bias is 0.3
+            bn::fixed_point desired_focus = player_pos + bn::fixed_point(_lookahead_current.x() * lookahead_factor,
+                                                                          _lookahead_current.y() * lookahead_factor);
+
+            // Compute the target camera position based on deadzone boundaries
+            bn::fixed_point desired_offset = desired_focus - current_camera_pos;
+            bn::fixed target_x = current_camera_pos.x();
+            bn::fixed target_y = current_camera_pos.y();
+            if (bn::abs(desired_offset.x()) > CAMERA_DEADZONE_X)
             {
-                // Player is idle - smoothly interpolate camera target towards player position
-                // This prevents snapping when stopping after look-ahead
-                _camera_target_pos = _camera_target_pos + (player_pos - _camera_target_pos) * CAMERA_FOLLOW_SPEED;
+                target_x = desired_focus.x() - (desired_offset.x() > 0 ? CAMERA_DEADZONE_X : -CAMERA_DEADZONE_X);
             }
+            if (bn::abs(desired_offset.y()) > CAMERA_DEADZONE_Y)
+            {
+                target_y = desired_focus.y() - (desired_offset.y() > 0 ? CAMERA_DEADZONE_Y : -CAMERA_DEADZONE_Y);
+            }
+            bn::fixed_point target_pos(target_x, target_y);
 
             // Decrease direction change counter
             if (_direction_change_frames > 0)
@@ -607,43 +616,17 @@ namespace fe
             bool in_direction_change = (_direction_change_frames > 0);
             bn::fixed interpolation_speed = in_direction_change ? CAMERA_DIRECTION_CHANGE_SPEED : CAMERA_FOLLOW_SPEED;
 
-            // Smoothly interpolate camera towards target position
-            bn::fixed_point camera_offset = _camera_target_pos - current_camera_pos;
-            bn::fixed_point new_camera_pos = current_camera_pos + (camera_offset * interpolation_speed);
+            // Interpolate camera target position smoothly towards target
+            _camera_target_pos = _camera_target_pos + (target_pos - _camera_target_pos) * interpolation_speed;
+            bn::fixed_point new_camera_pos = _camera_target_pos;
 
             // Store the base camera position before applying shake
             bn::fixed base_camera_x = new_camera_pos.x();
             bn::fixed base_camera_y = new_camera_pos.y();
 
-            // Calculate shake offset
+            // Calculate shake offset - DISABLED to remove screen shake while walking
             bn::fixed shake_x = 0;
             bn::fixed shake_y = 0;
-            if (_shake_frames > 0)
-            {
-                // Generate random shake offset using frame counter and simple PRNG
-                static int shake_counter = 0;
-                shake_counter++;
-
-                // Use simple but effective random generation
-                int rand_x = (shake_counter * 1664525 + 1013904223) & 0x7FFF;
-                int rand_y = ((shake_counter + 7) * 1664525 + 1013904223) & 0x7FFF;
-
-                // Generate shake offset (-3 to +3 range for subtlety)
-                int shake_x_int = (rand_x % 7) - 3;
-                int shake_y_int = (rand_y % 7) - 3;
-
-                // Apply intensity scaling (don't decay too fast)
-                bn::fixed intensity_scale = _shake_intensity;
-                if (intensity_scale < 1)
-                    intensity_scale = 1; // Minimum intensity
-
-                shake_x = bn::fixed(shake_x_int) * intensity_scale / 4; // Reduced from /2 to /4
-                shake_y = bn::fixed(shake_y_int) * intensity_scale / 4; // Reduced from /2 to /4
-
-                // Decrease shake frames and intensity (slower decay)
-                _shake_frames--;
-                _shake_intensity *= 0.9; // Slower decay
-            }
 
             // Apply final camera position with shake
             if (_camera.has_value())

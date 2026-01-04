@@ -52,6 +52,7 @@ namespace fe
 
         // Camera deadzone system
         bn::fixed_point _camera_target_pos;                               // Where the camera wants to be
+        bn::fixed_point _lookahead_current;                                // Smoothed lookahead vector
 
         // Screen shake system
         int _shake_frames;                                             // Number of frames left to shake

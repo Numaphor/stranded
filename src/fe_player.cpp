@@ -1,6 +1,5 @@
 #include "fe_player.h"
 #include "fe_constants.h"
-#include "fe_direction_utils.h"
 #include "fe_player_companion.h"
 #include "bn_keypad.h"
 #include "bn_sprite_items_hero.h"
@@ -15,6 +14,13 @@
 namespace fe
 {
     extern Level *_level;
+
+    // Direction utility functions
+    namespace direction_utils
+    {
+        bn::fixed_point get_roll_offset(PlayerMovement::Direction dir, int frames_remaining, int total_frames);
+        int get_gun_z_offset(PlayerMovement::Direction dir);
+    }
 
     // Player Implementation
     Player::Player(bn::sprite_ptr sprite) : Entity(sprite), _animation(sprite), _gun_active(false)
@@ -40,6 +46,7 @@ namespace fe
         set_position(pos);
         set_camera(camera);
         initialize_companion(camera);
+        _vfx.initialize(camera);
         update_animation();
     }
 
@@ -63,9 +70,9 @@ namespace fe
             bn::fixed_point new_pos = pos() + bn::fixed_point(_movement.dx(), _movement.dy());
             if (_movement.current_state() == PlayerMovement::State::ROLLING)
             {
-                new_pos += fe::direction_utils::get_roll_offset(static_cast<Direction>(_movement.facing_direction()),
-                                                                _movement.action_timer(),
-                                                                PLAYER_ROLL_DURATION);
+                new_pos += direction_utils::get_roll_offset(_movement.facing_direction(),
+                                                            _movement.action_timer(),
+                                                            PLAYER_ROLL_DURATION);
             }
             set_position(new_pos);
 
@@ -160,6 +167,9 @@ namespace fe
             }
         }
 
+        // Update VFX
+        _vfx.update(pos(), _movement.current_state(), _movement.facing_direction());
+
         // Update z-order for depth sorting
         update_z_order();
     }
@@ -207,7 +217,7 @@ namespace fe
         if (_gun_sprite.has_value())
         {
             PlayerMovement::Direction gun_dir = _is_strafing ? _strafing_direction : _movement.facing_direction();
-            int gun_z_offset = fe::direction_utils::get_gun_z_offset(static_cast<Direction>(gun_dir));
+            int gun_z_offset = direction_utils::get_gun_z_offset(gun_dir);
             _gun_sprite->set_z_order(z_order + gun_z_offset);
         }
 
@@ -321,5 +331,50 @@ namespace fe
         return _movement.current_state() == PlayerMovement::State::CHOPPING ||
                _movement.current_state() == PlayerMovement::State::SLASHING ||
                _movement.current_state() == PlayerMovement::State::ATTACKING;
+    }
+
+    // Direction utility function implementations
+    namespace direction_utils
+    {
+        bn::fixed_point get_roll_offset(PlayerMovement::Direction dir, int frames_remaining, int total_frames)
+        {
+            // Use linear momentum decay for smoother animation sync
+            bn::fixed momentum_factor = bn::fixed(frames_remaining) / bn::fixed(total_frames);
+            // Start fast, end slower but not too dramatic
+            momentum_factor = (momentum_factor * 0.7) + 0.3; // Range from 1.0 to 0.3
+            bn::fixed current_speed = PLAYER_ROLL_SPEED * momentum_factor;
+
+            switch (dir)
+            {
+            case PlayerMovement::Direction::UP:
+                return bn::fixed_point(0, -current_speed);
+            case PlayerMovement::Direction::DOWN:
+                return bn::fixed_point(0, current_speed);
+            case PlayerMovement::Direction::LEFT:
+                return bn::fixed_point(-current_speed, 0);
+            case PlayerMovement::Direction::RIGHT:
+                return bn::fixed_point(current_speed, 0);
+            default:
+                return bn::fixed_point(0, 0);
+            }
+        }
+
+        int get_gun_z_offset(PlayerMovement::Direction dir)
+        {
+            // Z-order offsets for gun sprite relative to player
+            // UP: -5 (in front), DOWN: 5 (behind), LEFT: 0, RIGHT: 0
+            switch (dir)
+            {
+            case PlayerMovement::Direction::UP:
+                return -5;
+            case PlayerMovement::Direction::DOWN:
+                return 5;
+            case PlayerMovement::Direction::LEFT:
+            case PlayerMovement::Direction::RIGHT:
+                return 0;
+            default:
+                return 0;
+            }
+        }
     }
 }

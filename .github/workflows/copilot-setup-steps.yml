@@ -1,0 +1,71 @@
+name: "Copilot Setup Steps"
+
+# Automatically run the setup steps when they are changed to allow for easy validation, and
+# allow manual testing through the repository's "Actions" tab
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+  pull_request:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
+
+jobs:
+  # The job MUST be called `copilot-setup-steps` or it will not be picked up by Copilot.
+  copilot-setup-steps:
+    runs-on: ubuntu-latest
+
+    # Set the permissions to the lowest permissions possible needed for your steps.
+    # Copilot will be given its own token for its operations.
+    permissions:
+      # If you want to clone the repository as part of your setup steps, for example to install dependencies, you'll need the `contents: read` permission. If you don't clone the repository in your setup steps, Copilot will do this for you automatically after the steps complete.
+      contents: read
+
+    # You can define any steps you want, and they will run before the agent starts.
+    # If you do not check out your code, Copilot will do this for you.
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y make wget tar
+
+      - name: Create Wonderful toolchain directory
+        run: |
+          sudo mkdir -p /opt/wonderful
+          sudo chown -R $USER /opt/wonderful
+
+      - name: Download and install Wonderful toolchain bootstrap
+        run: |
+          cd /opt/wonderful/
+          # Download the latest bootstrap from GitHub to avoid firewall blocks
+          wget -O bootstrap.tar.gz https://github.com/WonderfulToolchain/wonderful-packages/releases/latest/download/wonderful-bootstrap-linux-x86_64.tar.gz
+          tar xzvf bootstrap.tar.gz
+          rm bootstrap.tar.gz
+
+      - name: Setup Wonderful toolchain environment
+        run: |
+          echo "/opt/wonderful/bin" >> $GITHUB_PATH
+          echo "WONDERFUL_TOOLCHAIN=/opt/wonderful" >> $GITHUB_ENV
+          export PATH=/opt/wonderful/bin:$PATH
+          export WONDERFUL_TOOLCHAIN=/opt/wonderful
+
+      - name: Update Wonderful package manager and install GBA toolchain
+        run: |
+          export PATH=/opt/wonderful/bin:$PATH
+          export WONDERFUL_TOOLCHAIN=/opt/wonderful
+          
+          # Update package manager (this may access wonderful.asie.pl but before firewall)
+          wf-pacman -Syu --noconfirm
+          
+          # Install only what we need for GBA development (no BlocksDS)
+          wf-pacman -S --noconfirm wf-tools
+          wf-pacman -S --noconfirm target-gba
+          
+          # Verify installation
+          echo "Verifying GBA toolchain installation..."
+          ls -la /opt/wonderful/toolchain/gcc-arm-none-eabi/bin/ || echo "GBA toolchain not found"
+          which arm-none-eabi-gcc || echo "arm-none-eabi-gcc not in PATH"

@@ -47,11 +47,12 @@ namespace fe
         };
 
         // Movement constants
-        static constexpr bn::fixed acc_const = 0.35;
-        static constexpr bn::fixed friction_const = 0.65;
-        static constexpr bn::fixed movement_threshold = 0.1;
-        static constexpr bn::fixed max_speed = 2;
-        static constexpr bn::fixed diagonal_factor = 0.707; // 1/√2 for diagonal movement normalization
+        // Normal responsiveness values
+        static constexpr bn::fixed acc_const = 0.35;          // acceleration per frame
+        static constexpr bn::fixed friction_const = 0.65;     // only applied when no input
+        static constexpr bn::fixed movement_threshold = 0.1;  // minimal velocity considered moving
+        static constexpr bn::fixed max_speed = 1;             // max velocity per axis (halved)
+        static constexpr bn::fixed diagonal_factor = 0.707;   // 1/√2 for diagonal movement normalization
 
         PlayerMovement();
 
@@ -133,6 +134,30 @@ namespace fe
         void make_anim_range(int speed, int start_frame, int end_frame);
         void make_anim_range_once(int speed, int start_frame, int end_frame);
         bool should_change_animation(PlayerMovement::State state, PlayerMovement::Direction direction);
+    };
+
+    // PlayerVFX class for visual effects overlay
+    class PlayerVFX
+    {
+    public:
+        explicit PlayerVFX();
+
+        void initialize(bn::camera_ptr camera);
+        void update(bn::fixed_point player_pos, PlayerMovement::State state, PlayerMovement::Direction direction);
+        void apply_vfx_state(PlayerMovement::State state, PlayerMovement::Direction direction);
+        void hide_vfx();
+
+    private:
+        bn::optional<bn::sprite_ptr> _vfx_sprite;
+        bn::optional<bn::sprite_animate_action<32>> _vfx_animation;
+        PlayerMovement::State _last_vfx_state;
+        PlayerMovement::Direction _last_vfx_direction;
+        bn::optional<bn::camera_ptr> _camera;
+
+        bool should_show_vfx(PlayerMovement::State state) const;
+        bool should_change_vfx(PlayerMovement::State state, PlayerMovement::Direction direction) const;
+        void make_vfx_anim_range(int speed, int start_frame, int end_frame);
+        void make_vfx_anim_range_once(int speed, int start_frame, int end_frame);
     };
 
     // PlayerState class (moved from fe_player_state.h)
@@ -275,6 +300,7 @@ namespace fe
     private:
         PlayerMovement _movement;
         PlayerAnimation _animation;
+        PlayerVFX _vfx;
         PlayerState _state;
         PlayerAbilities _abilities;
         int _hp = 2;
