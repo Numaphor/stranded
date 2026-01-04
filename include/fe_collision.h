@@ -50,81 +50,6 @@ namespace fe
                    boxA.y() + boxA.height() / 2 > y - h / 2;
         }
 
-        // Generic entity collision detection using Entity base class
-        [[nodiscard]] static bool check_entity_collision(const Entity &entityA, const Entity &entityB)
-        {
-            // Get the hitboxes for both entities
-            Hitbox hitboxA = entityA.get_hitbox();
-            Hitbox hitboxB = entityB.get_hitbox();
-
-            // Get the positions
-            bn::fixed_point posA = entityA.pos();
-            bn::fixed_point posB = entityB.pos();
-
-            // Calculate the half sizes for each hitbox
-            bn::fixed halfWA = hitboxA.width() / 2;
-            bn::fixed halfHA = hitboxA.height() / 2;
-            bn::fixed halfWB = hitboxB.width() / 2;
-            bn::fixed halfHB = hitboxB.height() / 2;
-
-            // Check for overlap on both axes
-            bool xOverlap = bn::abs(posA.x() - posB.x()) < (halfWA + halfWB);
-            bool yOverlap = bn::abs(posA.y() - posB.y()) < (halfHA + halfHB);
-
-            return xOverlap && yOverlap;
-        }
-
-        // Backward compatibility wrapper: Player-Enemy collision
-        [[nodiscard]] static bool check_player_enemy(const Player &player, const Enemy &enemy)
-        {
-            // Get the hitboxes for both player and enemy
-            Hitbox playerHitbox = player.get_hitbox();
-            Hitbox enemyHitbox = enemy.get_hitbox();
-
-            // Get the positions
-            bn::fixed playerX = player.pos().x();
-            bn::fixed playerY = player.pos().y();
-            bn::fixed_point enemyPos = enemy.get_position();
-
-            // Calculate the half sizes for each hitbox
-            bn::fixed playerHalfW = playerHitbox.width() / 2;
-            bn::fixed playerHalfH = playerHitbox.height() / 2;
-            bn::fixed enemyHalfW = enemyHitbox.width() / 2;
-            bn::fixed enemyHalfH = enemyHitbox.height() / 2;
-
-            // Check for overlap on both axes
-            bool xOverlap = bn::abs(playerX - enemyPos.x()) < (playerHalfW + enemyHalfW);
-            bool yOverlap = bn::abs(playerY - enemyPos.y()) < (playerHalfH + enemyHalfH);
-
-            return xOverlap && yOverlap;
-        }
-
-        // Backward compatibility wrapper: Player-NPC collision with custom sizing
-        [[nodiscard]] static bool check_player_npc(const Player &player, const NPC &npc)
-        {
-            // Get player position and size - match the world scene hitbox sizes
-            bn::fixed_point player_pos = player.pos();
-            constexpr bn::fixed player_half_width = 16; // Half of 32 to match world scene
-            constexpr bn::fixed player_half_height = 4; // Half of 32 to match world scene
-
-            // Get NPC position and size - reduced by 50% width, 75% height
-            bn::fixed_point npc_pos = npc.pos();
-            constexpr bn::fixed npc_half_width = 4;  // Half of 8 (50% of original 16)
-            constexpr bn::fixed npc_half_height = 4; // Half of 8 (25% of original 32)
-
-            // Check for overlap on both axes
-            bool xOverlap = bn::abs(player_pos.x() - npc_pos.x()) < (player_half_width + npc_half_width);
-            bool yOverlap = bn::abs(player_pos.y() - npc_pos.y()) < (player_half_height + npc_half_height);
-
-            return xOverlap && yOverlap;
-        }
-
-        // Generic hitbox collision check
-        [[nodiscard]] static bool check_hitbox_collision(const Hitbox &hitbox1, const Hitbox &hitbox2)
-        {
-            return hitbox1.collides_with(hitbox2);
-        }
-
         // Logging collision details
         static void log_collision(const char *entityA, const char *entityB,
                                   bn::fixed_point posA, bn::fixed_point posB)
@@ -144,26 +69,6 @@ namespace fe
             collision_log.append(bn::to_string<20>(posB.y()));
             collision_log.append(")");
             bn::log(collision_log);
-        }
-
-        // Shared collision validation utilities
-        [[nodiscard]] static bool validate_position_points(const bn::fixed_point points[4])
-        {
-            for (int i = 0; i < 4; ++i)
-            {
-                if (!fe::ZoneManager::is_position_valid(points[i]))
-                {
-                    return false;
-                }
-            }
-            return true;
-        }
-
-        [[nodiscard]] static bool check_hitbox_collision_with_level(const Hitbox &hitbox, bn::fixed_point pos, fe::directions direction)
-        {
-            bn::fixed_point points[4];
-            hitbox.get_collision_points(pos, direction, points);
-            return validate_position_points(points);
         }
     };
 }

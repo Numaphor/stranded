@@ -5,13 +5,8 @@ namespace fe
 {
     enum class Scene
     {
-        TITLE,
         MENU,
-        WORLD,
-        WORLD_START,
-        WORLD_RETURN,
-        GAME_OVER,
-        WIN
+        WORLD
     };
 }
 
