@@ -20,7 +20,6 @@
 #include "bn_regular_bg_tiles_ptr.h"
 #include "bn_bg_palette_ptr.h"
 #include "bn_sprite_shape_size.h"
-#include "fe_bg_utils.h"
 #include "bn_regular_bg_map_cell_info.h"
 #include "bn_sprite_text_generator.h"
 #include "common_variable_8x8_sprite_font.h"
