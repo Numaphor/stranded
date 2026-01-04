@@ -50,7 +50,6 @@ namespace fe
             if (_auto_reload_timer == 0)
             {
                 _auto_reload_timer = AUTO_RELOAD_INTERVAL;
-                BN_LOG("Started auto-reload timer (1 second)");
             }
 
             _auto_reload_timer--;
@@ -59,7 +58,6 @@ namespace fe
                 _ammo_count++;
                 _hud.set_ammo(_ammo_count);
                 _auto_reload_timer = AUTO_RELOAD_INTERVAL; // Reset timer for next reload
-                BN_LOG("Auto-reloaded 1 bullet! Ammo: ", _ammo_count);
             }
         }
         else
@@ -339,7 +337,6 @@ namespace fe
         if (_hud.get_weapon() == WEAPON_TYPE::GUN)
         {
             _hud.set_weapon(WEAPON_TYPE::SWORD);
-            BN_LOG("Switched to weapon: SWORD (frame: ", shared_sword_frame, ")");
             // Turn off gun when switching to sword
             if (_gun_active)
             {
@@ -353,7 +350,6 @@ namespace fe
         {
             _hud.set_weapon(WEAPON_TYPE::GUN);
             _hud.set_weapon_frame(shared_gun_frame); // Sync HUD icon frame
-            BN_LOG("Switched to weapon: GUN (frame: ", shared_gun_frame, ")");
             // Turn on gun when switching to gun weapon, preserving the frame
             if (!_gun_active)
             {
@@ -395,7 +391,6 @@ namespace fe
             _hud.set_weapon_frame(shared_gun_frame);
 
             // Log for debugging
-            BN_LOG("Gun sprite frame: ", shared_gun_frame);
         }
     }
 
@@ -406,6 +401,5 @@ namespace fe
         shared_sword_frame = (shared_sword_frame + 1) % 6; // Assume 6 sword variants like gun
 
         // Log for debugging
-        BN_LOG("Sword sprite frame: ", shared_sword_frame);
     }
 }

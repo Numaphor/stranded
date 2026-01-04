@@ -146,7 +146,6 @@ namespace fe
         bool is_hit(Hitbox attack);
         bool is_vulnerable();
         void set_visible(bool visibility);
-        void teleport();
         bool damage_from_left(int damage);
         bool damage_from_right(int damage);
         bool spotted_player();

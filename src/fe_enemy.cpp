@@ -455,11 +455,6 @@ namespace fe
         }
     }
 
-    void Enemy::teleport()
-    {
-        // TODO: Implement teleport
-    }
-
     bool Enemy::spotted_player()
     {
         return _spotted_player;
