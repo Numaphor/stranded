@@ -10,7 +10,6 @@
 #include "bn_affine_bg_ptr.h"
 #include "bn_affine_bg_map_cell.h"
 
-#include "fe_extras.h"
 #include "fe_hitbox.h"
 #include "fe_level.h"
 #include "fe_entity.h"
