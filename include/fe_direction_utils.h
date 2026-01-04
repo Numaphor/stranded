@@ -7,18 +7,13 @@
 
 namespace fe
 {
-    // Forward declaration
-    class PlayerMovement;
-
     namespace player_constants
     {
-        // Gun positioning and configuration arrays
         constexpr bn::fixed GUN_OFFSET_X[4] = {0, 0, -8, 8};
         constexpr bn::fixed GUN_OFFSET_Y[4] = {-6, 6, 0, 0};
         constexpr bool GUN_FLIPS[4] = {false, false, true, false};
         constexpr int GUN_ANGLES[4] = {90, 270, 0, 0};
         
-        // Bullet positioning arrays
         constexpr bn::fixed BULLET_OFFSET_X[4] = {1, -1, -12, 11};
         constexpr bn::fixed BULLET_OFFSET_Y[4] = {-9, 9, -3, 1};
     }
@@ -35,8 +30,6 @@ namespace fe
         }
         
         int get_gun_z_offset(Direction dir);
-        
-        // Gun setup function - uses global Direction enum
         void setup_gun(bn::sprite_ptr &gun_sprite, Direction dir, bn::fixed_point pos);
     }
 }
