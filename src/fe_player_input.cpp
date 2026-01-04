@@ -11,31 +11,11 @@ namespace fe
 {
     extern Level *_level;
 
-    namespace player_constants
-    {
-        // Gun positioning and configuration arrays
-        constexpr bn::fixed GUN_OFFSET_X[4] = {0, 0, -8, 8};
-        constexpr bn::fixed GUN_OFFSET_Y[4] = {-6, 6, 0, 0};
-        constexpr bool GUN_FLIPS[4] = {false, false, true, false};
-        constexpr int GUN_ANGLES[4] = {90, 270, 0, 0};
-    }
-
     // Shared weapon state variables
     namespace
     {
         static int shared_gun_frame = 0;
         static int shared_sword_frame = 0;
-    }
-
-    // Direction utility function implementations
-    namespace direction_utils
-    {
-        bn::fixed_point get_gun_position(PlayerMovement::Direction dir, bn::fixed_point pos)
-        {
-            const int idx = int(dir);
-            return {pos.x() + player_constants::GUN_OFFSET_X[idx],
-                    pos.y() + player_constants::GUN_OFFSET_Y[idx]};
-        }
     }
 
     // Player input methods
@@ -136,7 +116,7 @@ namespace fe
                 }
                 else if (_abilities.slashing_available())
                 {
-                    _movement.start_action(PlayerMovement::State::SLASHING, 25);
+                    _movement.start_action(PlayerMovement::State::SLASHING, PLAYER_SLASH_DURATION);
                     _abilities.set_slash_cooldown(60);
                 }
             }
@@ -155,8 +135,8 @@ namespace fe
 
                 if (buff_state != PlayerMovement::State::IDLE)
                 {
-                    _movement.start_action(buff_state, 96);
-                    _abilities.set_buff_cooldown(96);
+                    _movement.start_action(buff_state, PLAYER_BUFF_DURATION);
+                    _abilities.set_buff_cooldown(PLAYER_BUFF_DURATION);
 
                     // Trigger soul animation for defense buff
                     if (buff_state == PlayerMovement::State::DEFENCE_BUFF)

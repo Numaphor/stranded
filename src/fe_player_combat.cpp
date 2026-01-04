@@ -6,20 +6,10 @@
 
 namespace fe
 {
-    // Player constants namespace
-    namespace player_constants
-    {
-        // Gun positioning and configuration arrays
-        constexpr bn::fixed GUN_OFFSET_X[4] = {0, 0, -8, 8};
-        constexpr bn::fixed GUN_OFFSET_Y[4] = {-6, 6, 0, 0};
-        constexpr bool GUN_FLIPS[4] = {false, false, true, false};
-        constexpr int GUN_ANGLES[4] = {90, 270, 0, 0};
-    }
-
-    // Gun setup function
+    // Gun setup function implementation
     namespace direction_utils
     {
-        void setup_gun(bn::sprite_ptr &gun_sprite, PlayerMovement::Direction dir, bn::fixed_point pos)
+        void setup_gun(bn::sprite_ptr &gun_sprite, Direction dir, bn::fixed_point pos)
         {
             const int idx = int(dir);
             gun_sprite.set_horizontal_flip(player_constants::GUN_FLIPS[idx]);
@@ -36,7 +26,8 @@ namespace fe
         if (!_gun_sprite)
             return;
 
-        direction_utils::setup_gun(*_gun_sprite, direction, pos());
+        Direction dir = static_cast<Direction>(int(direction));
+        direction_utils::setup_gun(*_gun_sprite, dir, pos());
     }
 
     void Player::fire_bullet(PlayerMovement::Direction direction)
