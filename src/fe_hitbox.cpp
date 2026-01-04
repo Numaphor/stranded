@@ -3,8 +3,6 @@
 
 namespace fe
 {
-    // === CONSTRUCTORS ===
-
     Hitbox::Hitbox() : _pos(0, 0), _width(0), _height(0) {}
 
     Hitbox::Hitbox(bn::fixed x, bn::fixed y, bn::fixed width, bn::fixed height) : _pos(x, y), _width(width), _height(height)
@@ -15,8 +13,6 @@ namespace fe
         : _pos(x, y), _width(width), _height(height), _type(type)
     {
     }
-
-    // === SETTERS AND BASIC OPERATIONS ===
 
     void Hitbox::set_x(bn::fixed x)
     {
@@ -35,9 +31,6 @@ namespace fe
 
     void Hitbox::get_collision_points(bn::fixed_point pos, fe::directions direction, bn::fixed_point points[4]) const
     {
-        // Edge offset to stay within bounds (one pixel inside the edge)
-
-        // Calculate edge coordinates
         bn::fixed left = pos.x();
         bn::fixed right = pos.x() + _width - HITBOX_EDGE_OFFSET;
         bn::fixed top = pos.y();
@@ -47,48 +40,40 @@ namespace fe
         bn::fixed middle_y = pos.y() + _height / 2;
         bn::fixed quarter_y = pos.y() + _height / 4;
 
-        // Calculate points based on direction to check appropriate edges
         switch (direction)
         {
         case fe::directions::up:
-            // Check top edge and corners when moving up
-            points[0] = bn::fixed_point(left, top);      // Top-left
-            points[1] = bn::fixed_point(right, top);     // Top-right
-            points[2] = bn::fixed_point(middle_x, top);  // Top-middle
-            points[3] = bn::fixed_point(quarter_x, top); // Top-quarter
+            points[0] = bn::fixed_point(left, top);
+            points[1] = bn::fixed_point(right, top);
+            points[2] = bn::fixed_point(middle_x, top);
+            points[3] = bn::fixed_point(quarter_x, top);
             break;
         case fe::directions::down:
-            // Check bottom edge and corners when moving down
-            points[0] = bn::fixed_point(left, bottom);      // Bottom-left
-            points[1] = bn::fixed_point(right, bottom);     // Bottom-right
-            points[2] = bn::fixed_point(middle_x, bottom);  // Bottom-middle
-            points[3] = bn::fixed_point(quarter_x, bottom); // Bottom-quarter
+            points[0] = bn::fixed_point(left, bottom);
+            points[1] = bn::fixed_point(right, bottom);
+            points[2] = bn::fixed_point(middle_x, bottom);
+            points[3] = bn::fixed_point(quarter_x, bottom);
             break;
         case fe::directions::left:
-            // Check left edge and corners when moving left
-            points[0] = bn::fixed_point(left, top);       // Top-left
-            points[1] = bn::fixed_point(left, bottom);    // Bottom-left
-            points[2] = bn::fixed_point(left, middle_y);  // Middle-left
-            points[3] = bn::fixed_point(left, quarter_y); // Quarter-left
+            points[0] = bn::fixed_point(left, top);
+            points[1] = bn::fixed_point(left, bottom);
+            points[2] = bn::fixed_point(left, middle_y);
+            points[3] = bn::fixed_point(left, quarter_y);
             break;
         case fe::directions::right:
-            // Check right edge and corners when moving right
-            points[0] = bn::fixed_point(right, top);       // Top-right
-            points[1] = bn::fixed_point(right, bottom);    // Bottom-right
-            points[2] = bn::fixed_point(right, middle_y);  // Middle-right
-            points[3] = bn::fixed_point(right, quarter_y); // Quarter-right
+            points[0] = bn::fixed_point(right, top);
+            points[1] = bn::fixed_point(right, bottom);
+            points[2] = bn::fixed_point(right, middle_y);
+            points[3] = bn::fixed_point(right, quarter_y);
             break;
         default:
-            // Default to all four corners
-            points[0] = bn::fixed_point(left, top);     // Top-left
-            points[1] = bn::fixed_point(right, top);    // Top-right
-            points[2] = bn::fixed_point(left, bottom);  // Bottom-left
-            points[3] = bn::fixed_point(right, bottom); // Bottom-right
+            points[0] = bn::fixed_point(left, top);
+            points[1] = bn::fixed_point(right, top);
+            points[2] = bn::fixed_point(left, bottom);
+            points[3] = bn::fixed_point(right, bottom);
             break;
         }
     }
-
-    // === ZONE MANAGEMENT (from Level class) ===
 
     bool Hitbox::contains_point(const bn::fixed_point &position) const
     {
@@ -98,7 +83,6 @@ namespace fe
 
     bool Hitbox::is_in_sword_zone(const bn::fixed_point &position)
     {
-        // Use centralized constants directly from fe namespace
         const bn::fixed zone_left = fe::SWORD_ZONE_TILE_LEFT * fe::TILE_SIZE - fe::MAP_OFFSET;
         const bn::fixed zone_right = fe::SWORD_ZONE_TILE_RIGHT * fe::TILE_SIZE - fe::MAP_OFFSET;
         const bn::fixed zone_top = fe::SWORD_ZONE_TILE_TOP * fe::TILE_SIZE - fe::MAP_OFFSET;
@@ -111,9 +95,7 @@ namespace fe
     bool Hitbox::is_in_merchant_interaction_zone(const bn::fixed_point &position, const bn::fixed_point &merchant_center)
     {
         using namespace hitbox_constants;
-
         bn::fixed_point zone_position = calculate_centered_position(merchant_center, MERCHANT_INTERACTION_WIDTH, MERCHANT_INTERACTION_HEIGHT);
-
         return position.x() >= zone_position.x() && position.x() < zone_position.x() + MERCHANT_INTERACTION_WIDTH &&
                position.y() >= zone_position.y() && position.y() < zone_position.y() + MERCHANT_INTERACTION_HEIGHT;
     }
@@ -121,15 +103,10 @@ namespace fe
     bool Hitbox::is_in_merchant_collision_zone(const bn::fixed_point &position, const bn::fixed_point &merchant_center)
     {
         using namespace hitbox_constants;
-
-        // Use smaller collision zone for improved gameplay - players need to get closer but not too close
         bn::fixed_point zone_position = calculate_centered_position(merchant_center, MERCHANT_COLLISION_WIDTH, MERCHANT_COLLISION_HEIGHT);
-
         return position.x() >= zone_position.x() && position.x() < zone_position.x() + MERCHANT_COLLISION_WIDTH &&
                position.y() >= zone_position.y() && position.y() < zone_position.y() + MERCHANT_COLLISION_HEIGHT;
     }
-
-    // === FACTORY METHODS ===
 
     Hitbox Hitbox::create_player_hitbox(bn::fixed_point position)
     {
@@ -154,9 +131,6 @@ namespace fe
         return Hitbox(zone_left, zone_top, width, height, HitboxType::SWORD_ZONE);
     }
 
-    // === ZONE MANAGER IMPLEMENTATION ===
-
-    // ZoneManager static member initialization for merchant zone tracking
     bn::optional<bn::fixed_point> ZoneManager::_merchant_zone_center;
     bool ZoneManager::_merchant_zone_enabled = false;
 
@@ -189,22 +163,15 @@ namespace fe
 
     bool ZoneManager::is_position_valid(const bn::fixed_point &position)
     {
-        // Check sword zone collision
         if (Hitbox::is_in_sword_zone(position))
-        {
             return false;
-        }
 
-        // Check improved merchant collision zone (only if merchant zone is enabled)
         if (is_merchant_zone_enabled() && _merchant_zone_center.has_value())
         {
             if (Hitbox::is_in_merchant_collision_zone(position, _merchant_zone_center.value()))
-            {
-                return false; // Block movement - player collides with merchant
-            }
+                return false;
         }
 
-        // Position is valid if it doesn't collide with any zones
         return true;
     }
 }
