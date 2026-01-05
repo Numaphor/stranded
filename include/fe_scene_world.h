@@ -25,6 +25,9 @@
 
 namespace fe
 {
+    // Forward declaration for future feature
+    class PlayerStatusDisplay;
+
     class World
     {
     public:
@@ -40,6 +43,7 @@ namespace fe
         Minimap *_minimap;
         bn::optional<bn::regular_bg_ptr> _sword_bg;
         NPC *_merchant;                                             // Changed to base NPC pointer to allow different types
+        PlayerStatusDisplay *_player_status_display;                // Future: Player status display (will be converted to unique_ptr)
         bn::optional<bn::camera_ptr> _camera;                       // Camera for positioning
         PlayerMovement::Direction _last_camera_direction;           // Track last direction for smooth direction changes
         int _direction_change_frames;                               // Counter for how many frames we've been changing direction
