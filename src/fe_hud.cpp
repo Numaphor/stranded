@@ -303,7 +303,5 @@ namespace fe
         {
             _ammo_sprite->set_visible(false);
         }
-
-               (_weapon == WEAPON_TYPE::GUN ? "GUN" : "SWORD"));
     }
 }

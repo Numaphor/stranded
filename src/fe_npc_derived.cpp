@@ -46,11 +46,7 @@ namespace fe
 
     void TortoiseNPC::initialize_dialogue()
     {
-        _dialogue.clear();
-        for (const auto &line : _dialogue_lines)
-        {
-            _dialogue.push_back(line);
-        }
+        _lines = bn::span(_dialogue_lines);
     }
 
     MerchantNPC::MerchantNPC(bn::fixed_point pos, bn::camera_ptr &camera, bn::sprite_text_generator &text_generator)
@@ -75,10 +71,6 @@ namespace fe
 
     void MerchantNPC::initialize_dialogue()
     {
-        _dialogue.clear();
-        for (const auto &line : _dialogue_lines)
-        {
-            _dialogue.push_back(line);
-        }
+        _lines = bn::span(_dialogue_lines);
     }
 }
