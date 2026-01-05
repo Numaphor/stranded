@@ -1,0 +1,419 @@
+name: Build GBA ROM
+on:
+  push:
+    branches: [main, "devin/**"]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write # Required to create releases and upload assets
+  actions: read # Required to download artifacts
+  packages: write # Required to publish packages
+
+env:
+  WONDERFUL_TOOLCHAIN: /opt/wonderful
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential python3 python-is-python3
+      - name: Cache Wonderful Toolchain
+        id: cache-toolchain
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.WONDERFUL_TOOLCHAIN }}
+          key: ${{ runner.os }}-wonderful-toolchain-v1
+          restore-keys: |
+            ${{ runner.os }}-wonderful-toolchain-
+
+      - name: Install Wonderful Toolchain
+        if: steps.cache-toolchain.outputs.cache-hit != 'true'
+        run: |
+          sudo mkdir -p $WONDERFUL_TOOLCHAIN
+          sudo chown -R $USER $WONDERFUL_TOOLCHAIN
+          tar xzf $GITHUB_WORKSPACE/tools/wf-bootstrap-x86_64.tar.gz \
+            -C $WONDERFUL_TOOLCHAIN --strip-components=1
+
+      - name: Set up Environment and Debug
+        run: |
+          echo "$WONDERFUL_TOOLCHAIN/bin" >> $GITHUB_PATH
+          echo "WONDERFUL_TOOLCHAIN=$WONDERFUL_TOOLCHAIN" >> $GITHUB_ENV
+
+          # Debug: Check if toolchain was installed
+          echo "Checking Wonderful Toolchain installation..."
+          ls -la $WONDERFUL_TOOLCHAIN/ || echo "Toolchain directory not found"
+          ls -la $WONDERFUL_TOOLCHAIN/bin/ || echo "Toolchain bin directory not found"
+
+          # Check if wf-config exists and is executable
+          if [ -f "$WONDERFUL_TOOLCHAIN/bin/wf-config" ]; then
+            echo "wf-config found at $WONDERFUL_TOOLCHAIN/bin/wf-config"
+            ls -la "$WONDERFUL_TOOLCHAIN/bin/wf-config"
+          else
+            echo "wf-config not found in $WONDERFUL_TOOLCHAIN/bin/"
+          fi
+
+      - name: Install GBA Build Dependencies
+        run: |
+          export PATH="$WONDERFUL_TOOLCHAIN/bin:$PATH"
+          export WONDERFUL_TOOLCHAIN="$WONDERFUL_TOOLCHAIN"
+
+          echo "Current PATH: $PATH"
+          echo "Available wf tools:"
+          ls -la "$WONDERFUL_TOOLCHAIN/bin/"
+
+          # Follow official Wonderful Toolchain setup sequence
+          echo "Step 1: Synchronize and update toolchain package manager"
+          wf-pacman -Syu --noconfirm
+
+          echo "Step 2: Install wf-tools first"
+          wf-pacman -Syu wf-tools --noconfirm
+
+          echo "Step 2b: Install wf-tools second time"
+          wf-pacman -Syu wf-tools --noconfirm
+
+          echo "Step 3: Check if wf-config is now available"
+          ls -la "$WONDERFUL_TOOLCHAIN/bin/" | grep wf-config || echo "wf-config still not found"
+
+          echo "Step 4: Enable BlocksDS repository"
+          wf-config repo enable blocksds
+
+          echo "Step 5: Update package manager after enabling repo"
+          wf-pacman -Syu --noconfirm
+
+          echo "Step 6: Install GBA development packages"
+          wf-pacman -S target-gba --noconfirm
+          wf-pacman -S blocksds-toolchain --noconfirm
+
+          echo "Step 7: Check available packages"
+          wf-pacman -Sl | grep -i gba || echo "Listing all available packages"
+
+          echo "Step 8: Verify toolchain installation"
+          export PATH="$WONDERFUL_TOOLCHAIN/bin:$PATH"
+          which arm-none-eabi-gcc || echo "GCC not found in PATH"
+          ls -la "$WONDERFUL_TOOLCHAIN/toolchain/gcc-arm-none-eabi/bin/" || echo "Toolchain bin directory not found"
+
+      - name: Clean and Build ROM
+        run: |
+          export WONDERFUL_TOOLCHAIN=/opt/wonderful
+          export PATH="$WONDERFUL_TOOLCHAIN/bin:$WONDERFUL_TOOLCHAIN/toolchain/gcc-arm-none-eabi/bin:$PATH"
+
+          echo "Verifying build environment..."
+          which arm-none-eabi-gcc || echo "arm-none-eabi-gcc not found"
+
+          echo "Starting build..."
+          make clean
+          make -j$(nproc)
+
+      - name: Verify ROM
+        run: |
+          if [[ -f "stranded.gba" ]]; then
+            echo "✅ ROM build successful: stranded.gba created"
+            ls -la stranded.gba
+          else
+            echo "❌ ROM build failed: stranded.gba not found"
+            exit 1
+          fi
+
+      - name: Upload ROM Artifact
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: stranded-rom
+          path: stranded.gba
+          retention-days: 30
+
+  release:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    outputs:
+      has_changes: ${{ steps.changes.outputs.has_changes }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download ROM Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: stranded-rom
+          path: ./
+
+      - name: Check for changes since last release
+        id: changes
+        run: |
+          # Get the latest release tag
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+
+          if [ -z "$LATEST_TAG" ]; then
+            echo "No previous releases found, creating first release"
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "last_tag=none" >> $GITHUB_OUTPUT
+          else
+            echo "Latest release tag: $LATEST_TAG"
+            
+            # Calculate hash of current ROM
+            CURRENT_HASH=$(sha256sum stranded.gba | cut -d' ' -f1)
+            echo "Current ROM hash: $CURRENT_HASH"
+            
+            # Try to get the ROM from the previous release
+            echo "Downloading ROM from previous release..."
+            if curl -L -f -o previous_stranded.gba \
+                "https://github.com/${{ github.repository }}/releases/download/$LATEST_TAG/stranded.gba"; then
+              
+              # Calculate hash of previous ROM
+              PREVIOUS_HASH=$(sha256sum previous_stranded.gba | cut -d' ' -f1)
+              echo "Previous ROM hash: $PREVIOUS_HASH"
+              
+              # Compare hashes
+              if [ "$CURRENT_HASH" != "$PREVIOUS_HASH" ]; then
+                echo "ROM has changed since last release"
+                echo "has_changes=true" >> $GITHUB_OUTPUT
+                echo "last_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+                echo "previous_hash=$PREVIOUS_HASH" >> $GITHUB_OUTPUT
+                echo "current_hash=$CURRENT_HASH" >> $GITHUB_OUTPUT
+              else
+                echo "ROM is identical to last release"
+                echo "has_changes=false" >> $GITHUB_OUTPUT
+                echo "last_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+                echo "previous_hash=$PREVIOUS_HASH" >> $GITHUB_OUTPUT
+                echo "current_hash=$CURRENT_HASH" >> $GITHUB_OUTPUT
+              fi
+              
+              # Clean up
+              rm -f previous_stranded.gba
+            else
+              echo "Could not download previous ROM, assuming changes exist"
+              echo "has_changes=true" >> $GITHUB_OUTPUT
+              echo "last_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+              echo "current_hash=$CURRENT_HASH" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      - name: Skip release (no changes)
+        if: steps.changes.outputs.has_changes == 'false'
+        run: |
+          echo "⏭️ ROM hash identical to last release: ${{ steps.changes.outputs.last_tag }}"
+          echo "Previous hash: ${{ steps.changes.outputs.previous_hash }}"
+          echo "Current hash:  ${{ steps.changes.outputs.current_hash }}"
+          echo "Skipping release creation"
+
+      - name: Generate release tag
+        id: tag
+        if: steps.changes.outputs.has_changes == 'true'
+        run: |
+          # Generate a timestamp-based tag
+          TAG="v$(date +'%Y.%m.%d')-build.$(date +'%H%M%S')"
+          TIMESTAMP="$(date +'%Y-%m-%d %H:%M:%S UTC')"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "timestamp=$TIMESTAMP" >> $GITHUB_OUTPUT
+          echo "Release tag: $TAG"
+
+      - name: Get commit info
+        id: commit
+        if: steps.changes.outputs.has_changes == 'true'
+        run: |
+          COMMIT_MSG=$(git log -1 --pretty=%B)
+          COMMIT_SHA=$(git rev-parse --short HEAD)
+          echo "message<<EOF" >> $GITHUB_OUTPUT
+          echo "$COMMIT_MSG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          echo "sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
+
+          # Show hash comparison info
+          if [ "${{ steps.changes.outputs.previous_hash }}" != "" ]; then
+            echo "ROM hash changed:"
+            echo "Previous: ${{ steps.changes.outputs.previous_hash }}"
+            echo "Current:  ${{ steps.changes.outputs.current_hash }}"
+          else
+            echo "Current ROM hash: ${{ steps.changes.outputs.current_hash }}"
+          fi
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        if: steps.changes.outputs.has_changes == 'true'
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: "Stranded Game Release ${{ steps.tag.outputs.tag }}"
+          body: |
+            🎮 **Stranded - Game Boy Advance ROM**
+
+            **Build Information:**
+            - Commit: ${{ steps.commit.outputs.sha }}
+            - Built: ${{ steps.tag.outputs.timestamp }}
+            - ROM Hash: `${{ steps.changes.outputs.current_hash }}`
+
+            **Latest Changes:**
+            ${{ steps.commit.outputs.message }}
+
+            **How to play:**
+            1. Download `stranded.gba`
+            2. Load in your favorite GBA emulator (mGBA recommended)
+            3. Enjoy the adventure!
+
+            ---
+            *This release was automatically generated when ROM content changed.*
+          files: |
+            stranded.gba
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-package:
+    runs-on: ubuntu-latest
+    needs: [build, release]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && needs.release.outputs.has_changes == 'true'
+
+    steps:
+      - name: Check if changes detected
+        run: |
+          if [ "${{ needs.release.outputs.has_changes }}" != "true" ]; then
+            echo "⏭️ No changes detected since last release, skipping package publication"
+            exit 0
+          else
+            echo "✅ Changes detected, proceeding with package publication"
+          fi
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download ROM Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: stranded-rom
+          path: ./
+
+      - name: Create package metadata
+        id: metadata
+        run: |
+          # Generate version tag
+          VERSION="$(date +'%Y.%m.%d')-build.$(date +'%H%M%S')"
+          COMMIT_SHA=$(git rev-parse --short HEAD)
+
+          # Convert repository name to lowercase for Docker registry
+          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+
+          # Create Dockerfile for development environment
+          cat > Dockerfile << EOF
+          FROM ubuntu:22.04
+
+          # Install system dependencies
+          RUN apt-get update && apt-get install -y \\
+              build-essential \\
+              python3 \\
+              python-is-python3 \\
+              git \\
+              wget \\
+              tar \\
+              curl \\
+              vim \\
+              nano \\
+              && rm -rf /var/lib/apt/lists/*
+
+          # Set up Wonderful Toolchain
+          ENV WONDERFUL_TOOLCHAIN=/opt/wonderful
+          ENV BLOCKSDS=/opt/wonderful/thirdparty/blocksds/core
+
+          # Create and set permissions for /opt/wonderful directory
+          RUN mkdir -p \$WONDERFUL_TOOLCHAIN \\
+              && chown -R root:root \$WONDERFUL_TOOLCHAIN
+
+          # Copy and extract Wonderful Toolchain bootstrap
+          COPY tools/wf-bootstrap-x86_64.tar.gz /tmp/
+          RUN tar xzf /tmp/wf-bootstrap-x86_64.tar.gz -C \$WONDERFUL_TOOLCHAIN --strip-components=1 \\
+              && rm /tmp/wf-bootstrap-x86_64.tar.gz
+
+          # Add toolchain to PATH
+          ENV PATH="\$WONDERFUL_TOOLCHAIN/bin:\$WONDERFUL_TOOLCHAIN/toolchain/gcc-arm-none-eabi/bin:\$BLOCKSDS/tools/mmutil:\$PATH"
+
+          # Install GBA development tools
+          RUN export PATH="\$WONDERFUL_TOOLCHAIN/bin:\$PATH" \\
+              && wf-pacman -Syu wf-tools --noconfirm \\
+              && wf-pacman -Syu wf-tools --noconfirm \\
+              && wf-config repo enable blocksds \\
+              && wf-pacman -Syu --noconfirm \\
+              && wf-pacman -S target-gba --noconfirm \\
+              && wf-pacman -S blocksds-toolchain --noconfirm
+
+          # Create workspace directory
+          WORKDIR /workspace
+
+          # Copy entire project
+          COPY . /workspace/
+
+          # Initialize and update git submodules (for Butano engine)
+          RUN git submodule update --init --recursive
+
+          # Pre-build the ROM to verify environment
+          RUN make clean && make -j8
+
+          # Set up development user
+          RUN useradd -m -s /bin/bash developer \\
+              && chown -R developer:developer /workspace
+          USER developer
+
+          # Default command starts a shell in the project directory
+          CMD ["/bin/bash"]
+
+          # Labels for the development environment
+          LABEL org.opencontainers.image.title="Stranded Game Development Environment"
+          LABEL org.opencontainers.image.description="Complete GBA development environment for the Stranded adventure game with Butano engine, Wonderful Toolchain, and all dependencies pre-installed"
+          LABEL org.opencontainers.image.version="$VERSION"
+          LABEL org.opencontainers.image.revision="$COMMIT_SHA"
+          LABEL org.opencontainers.image.source="https://github.com/${{ github.repository }}"
+          LABEL org.opencontainers.image.url="https://github.com/${{ github.repository }}"
+          LABEL org.opencontainers.image.vendor="${{ github.repository_owner }}"
+          LABEL dev.environment="gba-development"
+          LABEL dev.toolchain="wonderful-toolchain"
+          LABEL dev.engine="butano"
+          LABEL dev.platform="Game Boy Advance"
+          LABEL dev.language="C++"
+          EOF
+
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "repository=$REPO_LOWER" >> $GITHUB_OUTPUT
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push package
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ steps.metadata.outputs.repository }}/stranded-dev:latest
+            ghcr.io/${{ steps.metadata.outputs.repository }}/stranded-dev:${{ steps.metadata.outputs.version }}
+          labels: |
+            org.opencontainers.image.title=Stranded Game Development Environment
+            org.opencontainers.image.description=Complete GBA development environment for the Stranded adventure game with Butano engine, Wonderful Toolchain, and all dependencies pre-installed
+            org.opencontainers.image.version=${{ steps.metadata.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.url=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.vendor=${{ github.repository_owner }}
+            org.opencontainers.image.created=${{ github.event.head_commit.timestamp }}
+            dev.environment=gba-development
+            dev.toolchain=wonderful-toolchain
+            dev.engine=butano
+            dev.platform=Game Boy Advance
+            dev.language=C++
