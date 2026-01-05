@@ -115,6 +115,9 @@ namespace fe
         // Update animation frame
         _animation.update();
 
+        // Update HUD (for soul animations)
+        _hud.update();
+
         // Update bullets
         update_bullets();
 
@@ -271,6 +274,9 @@ namespace fe
 
                 // Visual feedback for taking damage (but not for death)
                 set_visible(false);
+
+                // Play reverse soul animation when taking damage
+                _hud.play_soul_damage_animation();
             }
             _hud.set_hp(_hp);
             _hud.update();

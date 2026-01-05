@@ -32,7 +32,7 @@ namespace fe
         int _silver_idle_timer = 0;
         bool _silver_soul_reversing = false;
 
-        bn::optional<bn::sprite_animate_action<8>> _soul_action;
+        bn::optional<bn::sprite_animate_action<10>> _soul_action;
 
         // Ammo display - single sprite with multiple frames (0-10 ammo states)
         bn::optional<bn::sprite_ptr> _ammo_sprite;
@@ -51,6 +51,7 @@ namespace fe
         void update_ammo_display();
         void activate_soul_animation();   // Trigger soul animation for defense buff
         void deactivate_soul_animation(); // Deactivate defense buff when healing
+        void play_soul_damage_animation(); // Play reverse soul animation when taking damage
         void activate_silver_soul();      // Trigger silver soul animation for energy buff
         void deactivate_silver_soul();    // Return to normal soul when healing
         void update();

@@ -41,6 +41,10 @@ namespace fe
         _soul_sprite.remove_camera();
         _soul_sprite.set_visible(true); // Explicitly make visible
 
+        // Play initial soul animation (intro/spawn animation) - frame 13 -> 4
+        _soul_action = bn::create_sprite_animate_action_once(
+            _soul_sprite, 8, bn::sprite_items::soul.tiles_item(), 13, 12, 11, 10, 9, 8, 7, 6, 5, 4);
+
         // Initialize ammo display (single sprite with frames 0-10 for different ammo counts)
         _ammo_sprite = bn::sprite_items::ammo.create_sprite(100, 77, 0); // Frame 0 = full ammo (inverted)
         _ammo_sprite->set_bg_priority(0);
@@ -94,9 +98,16 @@ namespace fe
         _soul_effect_active = true;
         _soul_effect_timer = -1; // Set to -1 to indicate permanent state
 
-        // Animate soul sprite frames 1-4 for defense buff (SELECT + DOWN)
+        // Animate soul sprite frames 1-4 for defense buff (SELECT + DOWN) - padded to 10 frames
         _soul_action = bn::create_sprite_animate_action_once(
-            _soul_sprite, 8, bn::sprite_items::soul.tiles_item(), 1, 2, 3, 4);
+            _soul_sprite, 8, bn::sprite_items::soul.tiles_item(), 1, 2, 3, 4, 4, 4, 4, 4, 4, 4);
+    }
+
+    void HUD::play_soul_damage_animation()
+    {
+        // Play reverse soul animation when taking damage (4→3→2→1→0)
+        _soul_action = bn::create_sprite_animate_action_once(
+            _soul_sprite, 8, bn::sprite_items::soul.tiles_item(), 4, 3, 2, 1, 0, 0, 0, 0, 0, 0);
     }
 
     void HUD::activate_silver_soul()
@@ -109,14 +120,16 @@ namespace fe
         // Switch to silver soul sprite and play transformation animation with all 8 frames
         _soul_sprite.set_item(bn::sprite_items::soul_silver);
 
-        // Create frame sequence for 8-frame transformation (0-7)
-        bn::vector<uint16_t, 8> frames;
+        // Create frame sequence for 10-frame transformation (0-7 + padding)
+        bn::vector<uint16_t, 10> frames;
         for (int i = 0; i <= 7; ++i)
         {
             frames.push_back(i);
         }
+        frames.push_back(7);
+        frames.push_back(7);
 
-        _soul_action = bn::sprite_animate_action<8>::once(
+        _soul_action = bn::sprite_animate_action<10>::once(
             _soul_sprite, 8, bn::sprite_items::soul_silver.tiles_item(),
             bn::span<const uint16_t>(frames.data(), frames.size()));
     }
@@ -125,15 +138,17 @@ namespace fe
     {
         if (_silver_soul_active)
         {
-            // Create reverse frame sequence for 8-frame transformation (7-0)
-            bn::vector<uint16_t, 8> frames;
+            // Create reverse frame sequence for 10-frame transformation (7-0 + padding)
+            bn::vector<uint16_t, 10> frames;
             for (int i = 7; i >= 0; --i)
             {
                 frames.push_back(i);
             }
+            frames.push_back(0);
+            frames.push_back(0);
 
             // Play reverse transformation animation when healing
-            _soul_action = bn::sprite_animate_action<8>::once(
+            _soul_action = bn::sprite_animate_action<10>::once(
                 _soul_sprite, 8, bn::sprite_items::soul_silver.tiles_item(),
                 bn::span<const uint16_t>(frames.data(), frames.size()));
             _silver_soul_active = false;
@@ -146,9 +161,9 @@ namespace fe
     {
         if (_soul_effect_active)
         {
-            // Start fade-out with reversed animation (frames 4-3-2-1) to return to idle
+            // Start fade-out with reversed animation (frames 4-3-2-1) to return to idle - padded to 10 frames
             _soul_action = bn::create_sprite_animate_action_once(
-                _soul_sprite, 8, bn::sprite_items::soul.tiles_item(), 4, 3, 2, 1);
+                _soul_sprite, 8, bn::sprite_items::soul.tiles_item(), 4, 3, 2, 1, 0, 0, 0, 0, 0, 0);
             _soul_effect_active = false;
             _soul_fade_out_active = true;
         }
@@ -176,7 +191,7 @@ namespace fe
                 {
                     _soul_sprite.set_item(bn::sprite_items::soul_silver_idle);
                     _soul_action = bn::create_sprite_animate_action_once(
-                        _soul_sprite, 10, bn::sprite_items::soul_silver_idle.tiles_item(), 0, 1, 2, 1, 0);
+                        _soul_sprite, 10, bn::sprite_items::soul_silver_idle.tiles_item(), 0, 1, 2, 1, 0, 0, 0, 0, 0, 0);
                 }
             }
 
