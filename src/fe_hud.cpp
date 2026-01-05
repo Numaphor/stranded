@@ -47,13 +47,6 @@ namespace fe
         _ammo_sprite->remove_camera();
         _ammo_sprite->set_z_order(-32000);
         _ammo_sprite->set_visible(false); // Start hidden since we start with sword
-
-        // Log dimensions and positions for debugging
-        BN_LOG("HUD bg position: (-262, -215)");
-        BN_LOG("Soul sprite position: (-200, -150) - DEBUG POSITION");
-        BN_LOG("Weapon sprite: Gun icon at (100, 66) - moved up 4 pixels");
-        BN_LOG("Soul sprite size: 16x16 pixels (from json height: 16)");
-        BN_LOG("Ammo sprite: Single sprite at (100, 77) with 11 frames (0-10 ammo states)");
     }
 
     int HUD::hp()
@@ -93,36 +86,6 @@ namespace fe
     void HUD::set_soul_position(int x, int y)
     {
         _soul_sprite.set_position(x, y);
-        BN_LOG("Soul sprite repositioned to: (", x, ", ", y, ")");
-    }
-
-    void HUD::debug_soul_center()
-    {
-        _soul_sprite.set_position(0, 0); // Center of screen
-        _soul_sprite.set_z_order(-2000); // Very high priority
-        _soul_sprite.set_visible(true);
-        BN_LOG("Soul sprite moved to screen center (0, 0) for debugging");
-    }
-
-    void HUD::debug_soul_animate()
-    {
-        // Move soul sprite in a circle pattern to make it very visible
-        static int frame_counter = 0;
-        frame_counter++;
-
-        // Use simple sin/cos calculation with Butano fixed point
-        bn::fixed angle = frame_counter * 0.1;
-        int x = (100 * bn::sin(angle)).integer();
-        int y = (100 * bn::cos(angle)).integer() + 8; // Move circle down by 8 pixels
-
-        _soul_sprite.set_position(x, y);
-        _soul_sprite.set_z_order(-32000);
-        _soul_sprite.set_visible(true);
-
-        if (frame_counter % 60 == 0)
-        {
-            BN_LOG("Soul sprite animating at: (", x, ", ", y, ")");
-        }
     }
 
     void HUD::activate_soul_animation()
@@ -134,7 +97,6 @@ namespace fe
         // Animate soul sprite frames 1-4 for defense buff (SELECT + DOWN)
         _soul_action = bn::create_sprite_animate_action_once(
             _soul_sprite, 8, bn::sprite_items::soul.tiles_item(), 1, 2, 3, 4);
-        BN_LOG("Soul animation triggered for defense buff - permanent until heal");
     }
 
     void HUD::activate_silver_soul()
@@ -157,7 +119,6 @@ namespace fe
         _soul_action = bn::sprite_animate_action<8>::once(
             _soul_sprite, 8, bn::sprite_items::soul_silver.tiles_item(),
             bn::span<const uint16_t>(frames.data(), frames.size()));
-        BN_LOG("Silver soul transformation triggered for energy buff - permanent until heal");
     }
 
     void HUD::deactivate_silver_soul()
@@ -178,7 +139,6 @@ namespace fe
             _silver_soul_active = false;
             _silver_soul_reversing = true; // Flag to indicate reverse animation is playing
             _silver_idle_timer = 0;
-            BN_LOG("Silver soul deactivated - playing reverse transformation due to heal");
         }
     }
 
@@ -191,7 +151,6 @@ namespace fe
                 _soul_sprite, 8, bn::sprite_items::soul.tiles_item(), 4, 3, 2, 1);
             _soul_effect_active = false;
             _soul_fade_out_active = true;
-            BN_LOG("Defence buff soul deactivated - playing fade-out animation due to heal");
         }
     }
 
@@ -218,7 +177,6 @@ namespace fe
                     _soul_sprite.set_item(bn::sprite_items::soul_silver_idle);
                     _soul_action = bn::create_sprite_animate_action_once(
                         _soul_sprite, 10, bn::sprite_items::soul_silver_idle.tiles_item(), 0, 1, 2, 1, 0);
-                    BN_LOG("Playing looping silver soul idle animation");
                 }
             }
 
@@ -239,7 +197,6 @@ namespace fe
             _soul_sprite.set_tiles(bn::sprite_items::soul.tiles_item().create_tiles(0));
             _soul_action.reset();
             _silver_soul_reversing = false;
-            BN_LOG("Reverse silver soul transformation completed - switched to normal soul");
         }
 
         // Handle defence buff fade-out completion
@@ -249,7 +206,6 @@ namespace fe
             _soul_sprite.set_tiles(bn::sprite_items::soul.tiles_item().create_tiles(0));
             _soul_action.reset();
             _soul_fade_out_active = false;
-            BN_LOG("Defence buff fade-out completed - soul sprite reset to idle frame 0");
         }
 
         // Position soul sprite at the optimal HUD overlay position
@@ -262,7 +218,6 @@ namespace fe
             int x = (100 * bn::sin(angle)).integer() - 59;
             int y = (100 * bn::cos(angle)).integer() + 22;
             _soul_sprite.set_position(x, y);
-            BN_LOG("Soul sprite positioned at optimal HUD location: (", x, ", ", y, ")");
             soul_positioned = true;
         }
     }
@@ -302,7 +257,6 @@ namespace fe
         if (_weapon == WEAPON_TYPE::GUN)
         {
             _weapon_sprite.set_tiles(bn::sprite_items::icon_gun.tiles_item(), frame);
-            BN_LOG("Updated gun icon frame to: ", frame);
         }
         // Sword frame updates can be added here when sword sprite is available
     }
@@ -349,8 +303,5 @@ namespace fe
         {
             _ammo_sprite->set_visible(false);
         }
-
-        BN_LOG("Ammo display updated: ", _displayed_ammo, "/10 rounds, frame: ", (10 - _displayed_ammo), ", weapon: ",
-               (_weapon == WEAPON_TYPE::GUN ? "GUN" : "SWORD"));
     }
 }

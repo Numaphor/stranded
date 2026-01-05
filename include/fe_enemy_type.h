@@ -5,14 +5,9 @@ namespace fe
 {
     enum class ENEMY_TYPE
     {
-        BAT,
+        SPEARGUARD,
         SLIME,
-        SLIMEO,
-        WALL,
-        BOSS,
-        RAT,
-        MUTANT,
-        SPEARGUARD
+        MUTANT
     };
 }
 
