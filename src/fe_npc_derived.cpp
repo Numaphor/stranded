@@ -1,5 +1,6 @@
 #include "fe_npc_derived.h"
 #include "bn_sprite_animate_actions.h"
+#include "bn_sprite_builder.h"
 
 namespace fe
 {
