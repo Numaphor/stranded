@@ -1,12 +1,11 @@
 #include "fe_hud.h"
+#include "fe_constants.h"
 #include "bn_fixed.h"
 #include "bn_sprite_ptr.h"
-#include "bn_log.h"
 #include "bn_math.h"
 
 #include "bn_regular_bg_items_health.h"
 #include "bn_sprite_items_soul.h"
-#include "bn_sprite_items_gun.h"
 #include "bn_sprite_items_icon_gun.h"
 #include "bn_sprite_items_soul_silver.h"
 #include "bn_sprite_items_soul_silver_idle.h"
@@ -14,53 +13,63 @@
 
 namespace fe
 {
-    constexpr int OFFSCREEN_POSITION_X = -500; // Off-screen X position for weapon sprite
-    constexpr int OFFSCREEN_POSITION_Y = -500; // Off-screen Y position for weapon sprite
-    constexpr int MIN_Z_ORDER = -32767;        // Minimum z-order value for backgrounds/sprites
-
-    HUD::HUD() : _weapon(WEAPON_TYPE::SWORD),
-                 _weapon_sprite(bn::sprite_items::icon_gun.create_sprite(100, 66, 0)),
-                 _soul_sprite(bn::sprite_items::soul.create_sprite(-200, -150, 0)) // More visible position for debugging
+    HUD::HUD()
+        : _hp(HUD_MAX_HP)
+        , _is_visible(true)
+        , _weapon(WEAPON_TYPE::SWORD)
+        , _weapon_sprite(bn::sprite_items::icon_gun.create_sprite(HUD_WEAPON_ICON_X, HUD_WEAPON_ICON_Y, 0))
+        , _soul_sprite(bn::sprite_items::soul.create_sprite(HUD_SOUL_INITIAL_X, HUD_SOUL_INITIAL_Y, 0))
+        , _soul_positioned(false)
+        , _defense_buff_active(false)
+        , _defense_buff_fading(false)
+        , _silver_soul_active(false)
+        , _silver_soul_reversing(false)
+        , _silver_idle_timer(0)
+        , _displayed_ammo(HUD_MAX_AMMO)
     {
-        // Create GUI HUD with maximum priority
-        _health_bg = bn::regular_bg_items::health.create_bg(-262, -215, 2);
-        _health_bg->set_priority(0);
-        _health_bg->set_z_order(MIN_Z_ORDER);
+        // Initialize health background
+        _health_bg = bn::regular_bg_items::health.create_bg(
+            HUD_HEALTH_BG_X, HUD_HEALTH_BG_Y, HUD_HEALTH_BG_MAP_INDEX);
+        _health_bg->set_priority(HUD_BG_PRIORITY);
+        _health_bg->set_z_order(HUD_BG_Z_ORDER);
         _health_bg->put_above();
         _health_bg->remove_camera();
         _health_bg->set_visible(true);
 
-        _weapon_sprite.set_bg_priority(0);
-        _weapon_sprite.remove_camera();
-        _weapon_sprite.set_visible(true);   // Make weapon sprite visible
-        _weapon_sprite.set_z_order(-32000); // High priority to ensure visibility
+        // Configure HUD sprites (weapon, soul, ammo)
+        _configure_hud_sprite(_weapon_sprite);
+        _configure_hud_sprite(_soul_sprite);
 
-        // Position soul sprite over HUD with sprite priority
-        _soul_sprite.set_bg_priority(0);
-        _soul_sprite.set_z_order(-32000); // Maximum priority for sprite
-        _soul_sprite.remove_camera();
-        _soul_sprite.set_visible(true); // Explicitly make visible
-
-        // Play initial soul animation (intro/spawn animation) - frame 13 -> 4
+        // Play initial soul animation (intro/spawn animation - frame 13 to 4)
         _soul_action = bn::create_sprite_animate_action_once(
-            _soul_sprite, 8, bn::sprite_items::soul.tiles_item(), 13, 12, 11, 10, 9, 8, 7, 6, 5, 4);
+            _soul_sprite, HUD_SOUL_ANIM_SPEED,
+            bn::sprite_items::soul.tiles_item(),
+            13, 12, 11, 10, 9, 8, 7, 6, 5, 4);
 
-        // Initialize ammo display (single sprite with frames 0-10 for different ammo counts)
-        _ammo_sprite = bn::sprite_items::ammo.create_sprite(100, 77, 0); // Frame 0 = full ammo (inverted)
-        _ammo_sprite->set_bg_priority(0);
+        // Initialize ammo display (hidden by default since we start with sword)
+        _ammo_sprite = bn::sprite_items::ammo.create_sprite(HUD_AMMO_X, HUD_AMMO_Y, 0);
+        _ammo_sprite->set_bg_priority(HUD_BG_PRIORITY);
         _ammo_sprite->remove_camera();
-        _ammo_sprite->set_z_order(-32000);
-        _ammo_sprite->set_visible(false); // Start hidden since we start with sword
+        _ammo_sprite->set_z_order(HUD_SPRITE_Z_ORDER);
+        _ammo_sprite->set_visible(false);
     }
 
-    int HUD::hp()
+    void HUD::_configure_hud_sprite(bn::sprite_ptr& sprite)
+    {
+        sprite.set_bg_priority(HUD_BG_PRIORITY);
+        sprite.remove_camera();
+        sprite.set_visible(true);
+        sprite.set_z_order(HUD_SPRITE_Z_ORDER);
+    }
+
+    int HUD::hp() const
     {
         return _hp;
     }
 
     void HUD::set_hp(int hp)
     {
-        _hp = bn::max(0, bn::min(2, hp));
+        _hp = bn::max(0, bn::min(HUD_MAX_HP, hp));
 
         if (_health_bg.has_value())
         {
@@ -80,47 +89,42 @@ namespace fe
         _weapon_sprite.set_visible(is_visible);
         _soul_sprite.set_visible(is_visible);
 
-        // Update ammo sprite visibility
         if (_ammo_sprite.has_value())
         {
-            _ammo_sprite->set_visible(is_visible && _weapon == WEAPON_TYPE::GUN && _displayed_ammo > 0);
+            bool show_ammo = is_visible && _weapon == WEAPON_TYPE::GUN && _displayed_ammo > 0;
+            _ammo_sprite->set_visible(show_ammo);
         }
-    }
-
-    void HUD::set_soul_position(int x, int y)
-    {
-        _soul_sprite.set_position(x, y);
     }
 
     void HUD::activate_soul_animation()
     {
-        // Start defense buff soul effect (permanent until heal, like silver soul)
-        _soul_effect_active = true;
-        _soul_effect_timer = -1; // Set to -1 to indicate permanent state
+        _defense_buff_active = true;
 
-        // Animate soul sprite frames 1-4 for defense buff (SELECT + DOWN) - padded to 10 frames
+        // Animate soul sprite frames 1-4 for defense buff
         _soul_action = bn::create_sprite_animate_action_once(
-            _soul_sprite, 8, bn::sprite_items::soul.tiles_item(), 1, 2, 3, 4, 4, 4, 4, 4, 4, 4);
+            _soul_sprite, HUD_SOUL_ANIM_SPEED,
+            bn::sprite_items::soul.tiles_item(),
+            1, 2, 3, 4, 4, 4, 4, 4, 4, 4);
     }
 
     void HUD::play_soul_damage_animation()
     {
         // Play reverse soul animation when taking damage (4→3→2→1→0)
         _soul_action = bn::create_sprite_animate_action_once(
-            _soul_sprite, 8, bn::sprite_items::soul.tiles_item(), 4, 3, 2, 1, 0, 0, 0, 0, 0, 0);
+            _soul_sprite, HUD_SOUL_ANIM_SPEED,
+            bn::sprite_items::soul.tiles_item(),
+            4, 3, 2, 1, 0, 0, 0, 0, 0, 0);
     }
 
     void HUD::activate_silver_soul()
     {
-        // Start silver soul transformation (permanent until heal)
         _silver_soul_active = true;
-        _silver_soul_timer = -1; // Set to -1 to indicate permanent state
-        _silver_idle_timer = 0;  // Reset idle timer
+        _silver_idle_timer = 0;
 
-        // Switch to silver soul sprite and play transformation animation with all 8 frames
+        // Switch to silver soul sprite and play transformation animation
         _soul_sprite.set_item(bn::sprite_items::soul_silver);
 
-        // Create frame sequence for 10-frame transformation (0-7 + padding)
+        // Create frame sequence for transformation (0-7 with padding)
         bn::vector<uint16_t, 10> frames;
         for (int i = 0; i <= 7; ++i)
         {
@@ -130,75 +134,94 @@ namespace fe
         frames.push_back(7);
 
         _soul_action = bn::sprite_animate_action<10>::once(
-            _soul_sprite, 8, bn::sprite_items::soul_silver.tiles_item(),
+            _soul_sprite, HUD_SOUL_ANIM_SPEED,
+            bn::sprite_items::soul_silver.tiles_item(),
             bn::span<const uint16_t>(frames.data(), frames.size()));
     }
 
     void HUD::deactivate_silver_soul()
     {
-        if (_silver_soul_active)
+        if (!_silver_soul_active)
         {
-            // Create reverse frame sequence for 10-frame transformation (7-0 + padding)
-            bn::vector<uint16_t, 10> frames;
-            for (int i = 7; i >= 0; --i)
-            {
-                frames.push_back(i);
-            }
-            frames.push_back(0);
-            frames.push_back(0);
-
-            // Play reverse transformation animation when healing
-            _soul_action = bn::sprite_animate_action<10>::once(
-                _soul_sprite, 8, bn::sprite_items::soul_silver.tiles_item(),
-                bn::span<const uint16_t>(frames.data(), frames.size()));
-            _silver_soul_active = false;
-            _silver_soul_reversing = true; // Flag to indicate reverse animation is playing
-            _silver_idle_timer = 0;
+            return;
         }
+
+        // Create reverse frame sequence for transformation (7-0 with padding)
+        bn::vector<uint16_t, 10> frames;
+        for (int i = 7; i >= 0; --i)
+        {
+            frames.push_back(i);
+        }
+        frames.push_back(0);
+        frames.push_back(0);
+
+        _soul_action = bn::sprite_animate_action<10>::once(
+            _soul_sprite, HUD_SOUL_ANIM_SPEED,
+            bn::sprite_items::soul_silver.tiles_item(),
+            bn::span<const uint16_t>(frames.data(), frames.size()));
+
+        _silver_soul_active = false;
+        _silver_soul_reversing = true;
+        _silver_idle_timer = 0;
     }
 
     void HUD::deactivate_soul_animation()
     {
-        if (_soul_effect_active)
+        if (!_defense_buff_active)
         {
-            // Start fade-out with reversed animation (frames 4-3-2-1) to return to idle - padded to 10 frames
-            _soul_action = bn::create_sprite_animate_action_once(
-                _soul_sprite, 8, bn::sprite_items::soul.tiles_item(), 4, 3, 2, 1, 0, 0, 0, 0, 0, 0);
-            _soul_effect_active = false;
-            _soul_fade_out_active = true;
+            return;
         }
+
+        // Play reversed animation (frames 4-3-2-1-0) to return to idle
+        _soul_action = bn::create_sprite_animate_action_once(
+            _soul_sprite, HUD_SOUL_ANIM_SPEED,
+            bn::sprite_items::soul.tiles_item(),
+            4, 3, 2, 1, 0, 0, 0, 0, 0, 0);
+
+        _defense_buff_active = false;
+        _defense_buff_fading = true;
     }
 
     void HUD::update()
     {
-        // Handle defence buff soul effect - now permanent like silver soul, no timer countdown
-        if (_soul_effect_active)
+        _update_soul_position();
+        _update_soul_animations();
+    }
+
+    void HUD::_update_soul_position()
+    {
+        if (_soul_positioned)
         {
-            // Defence buff stays active until heal - no timer check for deactivation
-            // Animation will complete and stay on frame 4 until manually deactivated
+            return;
         }
 
-        // Handle silver soul effect duration and random idle animations
+        _soul_sprite.set_position(HUD_SOUL_FINAL_X, HUD_SOUL_FINAL_Y);
+        _soul_positioned = true;
+    }
+
+    void HUD::_update_soul_animations()
+    {
+        // Handle silver soul idle animations
         if (_silver_soul_active)
         {
             _silver_idle_timer++;
 
-            // Check if transformation animation is done and we should start looping idle animations
+            // Check if transformation animation is done
             if (_soul_action.has_value() && _soul_action.value().done())
             {
-                // Play silver idle animation on loop every 120 frames (2 seconds)
-                if (_silver_idle_timer % 120 == 0)
+                // Play silver idle animation every HUD_SOUL_IDLE_INTERVAL frames
+                if (_silver_idle_timer % HUD_SOUL_IDLE_INTERVAL == 0)
                 {
                     _soul_sprite.set_item(bn::sprite_items::soul_silver_idle);
                     _soul_action = bn::create_sprite_animate_action_once(
-                        _soul_sprite, 10, bn::sprite_items::soul_silver_idle.tiles_item(), 0, 1, 2, 1, 0, 0, 0, 0, 0, 0);
+                        _soul_sprite, HUD_SOUL_IDLE_ANIM_SPEED,
+                        bn::sprite_items::soul_silver_idle.tiles_item(),
+                        0, 1, 2, 1, 0, 0, 0, 0, 0, 0);
                 }
             }
-
-            // Silver soul stays active until heal - no timer check for deactivation
         }
 
-        // Update soul animation if active
+        // Update active soul animation
         if (_soul_action.has_value() && !_soul_action.value().done())
         {
             _soul_action.value().update();
@@ -207,73 +230,43 @@ namespace fe
         // Handle reverse transformation completion
         if (_silver_soul_reversing && _soul_action.has_value() && _soul_action.value().done())
         {
-            // Reverse animation completed, switch back to normal soul sprite
             _soul_sprite.set_item(bn::sprite_items::soul);
             _soul_sprite.set_tiles(bn::sprite_items::soul.tiles_item().create_tiles(0));
             _soul_action.reset();
             _silver_soul_reversing = false;
         }
 
-        // Handle defence buff fade-out completion
-        if (_soul_fade_out_active && _soul_action.has_value() && _soul_action.value().done())
+        // Handle defense buff fade-out completion
+        if (_defense_buff_fading && _soul_action.has_value() && _soul_action.value().done())
         {
-            // Fade-out animation completed, reset soul sprite to frame 0 (idle)
             _soul_sprite.set_tiles(bn::sprite_items::soul.tiles_item().create_tiles(0));
             _soul_action.reset();
-            _soul_fade_out_active = false;
-        }
-
-        // Position soul sprite at the optimal HUD overlay position
-        // Based on user feedback: from top of circle, first position to the left
-        // This corresponds to 90 degrees (π/2 radians) in the circle
-        static bool soul_positioned = false;
-        if (!soul_positioned)
-        {
-            bn::fixed angle = 1.57;
-            int x = (100 * bn::sin(angle)).integer() - 59;
-            int y = (100 * bn::cos(angle)).integer() + 22;
-            _soul_sprite.set_position(x, y);
-            soul_positioned = true;
+            _defense_buff_fading = false;
         }
     }
 
     void HUD::set_weapon(WEAPON_TYPE weapon)
     {
-        if (_weapon != weapon)
+        if (_weapon == weapon)
         {
-            _weapon = weapon;
-
-            // Update weapon sprite based on type and place in bottom right of screen
-            if (_weapon == WEAPON_TYPE::GUN)
-            {
-                _weapon_sprite = bn::sprite_items::icon_gun.create_sprite(100, 66, 0); // Bottom right of screen (moved up 4 pixels)
-            }
-            else if (_weapon == WEAPON_TYPE::SWORD)
-            {
-                // Use a dedicated placeholder sprite for sword until real sword sprite is available
-                // Replace 'sword_placeholder' with the actual sword sprite item when ready
-                _weapon_sprite = bn::sprite_items::icon_gun.create_sprite(100, 66, 0); // Bottom right of screen (moved up 4 pixels)
-            }
-
-            // Reapply sprite settings - make weapon sprite visible in bottom right
-            _weapon_sprite.set_bg_priority(0);
-            _weapon_sprite.remove_camera();
-            _weapon_sprite.set_visible(true);   // Make weapon sprite visible
-            _weapon_sprite.set_z_order(-32000); // High priority to ensure visibility
-
-            // Update ammo display visibility based on weapon type
-            update_ammo_display();
+            return;
         }
+
+        _weapon = weapon;
+
+        // Recreate weapon sprite (both types use icon_gun for now)
+        _weapon_sprite = bn::sprite_items::icon_gun.create_sprite(HUD_WEAPON_ICON_X, HUD_WEAPON_ICON_Y, 0);
+        _configure_hud_sprite(_weapon_sprite);
+
+        _update_ammo_display();
     }
 
     void HUD::set_weapon_frame(int frame)
     {
-        // Update the weapon sprite frame to match the player's current weapon frame
         if (_weapon == WEAPON_TYPE::GUN)
         {
             _weapon_sprite.set_tiles(bn::sprite_items::icon_gun.tiles_item(), frame);
         }
-        // Sword frame updates can be added here when sword sprite is available
     }
 
     WEAPON_TYPE HUD::get_weapon() const
@@ -295,22 +288,23 @@ namespace fe
 
     void HUD::set_ammo(int ammo_count)
     {
-        _displayed_ammo = bn::max(0, bn::min(ammo_count, 10));
-        update_ammo_display();
+        _displayed_ammo = bn::max(0, bn::min(ammo_count, HUD_MAX_AMMO));
+        _update_ammo_display();
     }
 
-    void HUD::update_ammo_display()
+    void HUD::_update_ammo_display()
     {
-        if (!_ammo_sprite)
+        if (!_ammo_sprite.has_value())
+        {
             return;
+        }
 
-        // Show/hide ammo sprite based on weapon type and update frame
         bool show_ammo = (_weapon == WEAPON_TYPE::GUN);
 
         if (show_ammo)
         {
             // Invert frame: 10 ammo shows frame 0, 0 ammo shows frame 10
-            int frame = 10 - _displayed_ammo;
+            int frame = HUD_MAX_AMMO - _displayed_ammo;
             _ammo_sprite->set_tiles(bn::sprite_items::ammo.tiles_item(), frame);
             _ammo_sprite->set_visible(_is_visible);
         }

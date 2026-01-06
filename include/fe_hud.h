@@ -9,58 +9,90 @@
 
 namespace fe
 {
+    /**
+     * @brief Weapon types available to the player
+     */
     enum class WEAPON_TYPE
     {
         GUN,
         SWORD
     };
 
+    /**
+     * @brief Heads-Up Display manager for the game
+     * 
+     * Manages the on-screen HUD elements including:
+     * - Health display (background-based with multiple map states)
+     * - Soul indicator (animated sprite showing buff states)
+     * - Weapon icon (current equipped weapon)
+     * - Ammo counter (displayed when gun is equipped)
+     * 
+     * All HUD elements are positioned in screen-space (not affected by camera)
+     */
     class HUD
     {
-    private:
-        bn::optional<bn::regular_bg_ptr> _health_bg;
-        int _hp = 2;
-        bool _is_visible = true;
-        WEAPON_TYPE _weapon;
-        bn::sprite_ptr _weapon_sprite;
-        bn::sprite_ptr _soul_sprite;
-        bool _soul_effect_active = false;
-        int _soul_effect_timer = 0;
-        bool _soul_fade_out_active = false;
-        bool _silver_soul_active = false;
-        int _silver_soul_timer = 0;
-        int _silver_idle_timer = 0;
-        bool _silver_soul_reversing = false;
-
-        bn::optional<bn::sprite_animate_action<10>> _soul_action;
-
-        // Ammo display - single sprite with multiple frames (0-10 ammo states)
-        bn::optional<bn::sprite_ptr> _ammo_sprite;
-        int _displayed_ammo = 10;
-
     public:
         HUD();
 
-        int hp();
+        // Health management
+        [[nodiscard]] int hp() const;
         void set_hp(int hp);
-        void set_visible(bool is_visible);
-        void set_soul_position(int x, int y);
 
-        // Ammo management
-        void set_ammo(int ammo_count);
-        void update_ammo_display();
-        void activate_soul_animation();   // Trigger soul animation for defense buff
-        void deactivate_soul_animation(); // Deactivate defense buff when healing
-        void play_soul_damage_animation(); // Play reverse soul animation when taking damage
-        void activate_silver_soul();      // Trigger silver soul animation for energy buff
-        void deactivate_silver_soul();    // Return to normal soul when healing
+        // Visibility control
+        void set_visible(bool is_visible);
+
+        // Soul animation (buff indicators)
+        void activate_soul_animation();     // Defense buff visual
+        void deactivate_soul_animation();   // Return to idle state
+        void play_soul_damage_animation();  // Visual feedback when taking damage
+        void activate_silver_soul();        // Energy buff visual
+        void deactivate_silver_soul();      // Return from energy buff
+
+        // Main update loop
         void update();
 
         // Weapon management
         void set_weapon(WEAPON_TYPE weapon);
-        void set_weapon_frame(int frame); // Update weapon sprite frame
-        WEAPON_TYPE get_weapon() const;
-        void cycle_weapon(); // Cycle between available weapons
+        void set_weapon_frame(int frame);
+        [[nodiscard]] WEAPON_TYPE get_weapon() const;
+        void cycle_weapon();
+
+        // Ammo management
+        void set_ammo(int ammo_count);
+
+    private:
+        // Health display
+        bn::optional<bn::regular_bg_ptr> _health_bg;
+        int _hp;
+
+        // Global visibility state
+        bool _is_visible;
+
+        // Weapon display
+        WEAPON_TYPE _weapon;
+        bn::sprite_ptr _weapon_sprite;
+
+        // Soul indicator
+        bn::sprite_ptr _soul_sprite;
+        bn::optional<bn::sprite_animate_action<10>> _soul_action;
+        bool _soul_positioned;
+
+        // Soul buff states
+        bool _defense_buff_active;
+        bool _defense_buff_fading;
+        bool _silver_soul_active;
+        bool _silver_soul_reversing;
+        int _silver_idle_timer;
+
+        // Ammo display
+        bn::optional<bn::sprite_ptr> _ammo_sprite;
+        int _displayed_ammo;
+
+        // Private helper methods
+        void _configure_hud_sprite(bn::sprite_ptr& sprite);
+        void _update_soul_animations();
+        void _update_soul_position();
+        void _update_ammo_display();
     };
 }
 

@@ -110,6 +110,34 @@ namespace fe
 
     constexpr int COMPANION_HITBOX_SIZE = 16;
     constexpr int COMPANION_REVIVAL_DURATION = 300;
+
+    // HUD Layout Constants
+    // Screen coordinates (GBA screen is 240x160, center is 0,0)
+    constexpr int HUD_HEALTH_BG_X = -262;
+    constexpr int HUD_HEALTH_BG_Y = -215;
+    constexpr int HUD_HEALTH_BG_MAP_INDEX = 2;
+
+    constexpr int HUD_WEAPON_ICON_X = 100;
+    constexpr int HUD_WEAPON_ICON_Y = 66;
+
+    constexpr int HUD_AMMO_X = 100;
+    constexpr int HUD_AMMO_Y = 77;
+
+    constexpr int HUD_SOUL_INITIAL_X = -200;
+    constexpr int HUD_SOUL_INITIAL_Y = -150;
+    constexpr int HUD_SOUL_FINAL_X = 41;   // Positions soul on a circular HUD path (radius 100) at ~90°: (100 * sin(1.57)) - 59 to align with the health HUD area
+    constexpr int HUD_SOUL_FINAL_Y = 22;   // Matching Y for the same circular path/angle: (100 * cos(1.57)) + 22, offset so the soul icon sits correctly over the HUD background
+
+    constexpr int HUD_BG_PRIORITY = 0;
+    constexpr int HUD_SPRITE_Z_ORDER = -32000;
+    constexpr int HUD_BG_Z_ORDER = -32767;
+
+    constexpr int HUD_SOUL_ANIM_SPEED = 8;
+    constexpr int HUD_SOUL_IDLE_ANIM_SPEED = 10;  // Slower animation speed for idle soul animations
+    constexpr int HUD_SOUL_IDLE_INTERVAL = 120;   // Frames between idle animations (2 seconds at 60fps)
+
+    constexpr int HUD_MAX_HP = 2;
+    constexpr int HUD_MAX_AMMO = 10;
 }
 
 #endif
