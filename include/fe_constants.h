@@ -125,15 +125,16 @@ namespace fe
 
     constexpr int HUD_SOUL_INITIAL_X = -200;
     constexpr int HUD_SOUL_INITIAL_Y = -150;
-    constexpr int HUD_SOUL_FINAL_X = 41;   // Calculated from angle 1.57: (100 * sin(1.57)) - 59
-    constexpr int HUD_SOUL_FINAL_Y = 22;   // Calculated from angle 1.57: (100 * cos(1.57)) + 22
+    constexpr int HUD_SOUL_FINAL_X = 41;   // Positions soul on a circular HUD path (radius 100) at ~90°: (100 * sin(1.57)) - 59 to align with the health HUD area
+    constexpr int HUD_SOUL_FINAL_Y = 22;   // Matching Y for the same circular path/angle: (100 * cos(1.57)) + 22, offset so the soul icon sits correctly over the HUD background
 
     constexpr int HUD_BG_PRIORITY = 0;
     constexpr int HUD_SPRITE_Z_ORDER = -32000;
     constexpr int HUD_BG_Z_ORDER = -32767;
 
     constexpr int HUD_SOUL_ANIM_SPEED = 8;
-    constexpr int HUD_SOUL_IDLE_INTERVAL = 120;  // Frames between idle animations (2 seconds at 60fps)
+    constexpr int HUD_SOUL_IDLE_ANIM_SPEED = 10;  // Slower animation speed for idle soul animations
+    constexpr int HUD_SOUL_IDLE_INTERVAL = 120;   // Frames between idle animations (2 seconds at 60fps)
 
     constexpr int HUD_MAX_HP = 2;
     constexpr int HUD_MAX_AMMO = 10;

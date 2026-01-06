@@ -48,7 +48,9 @@ namespace fe
 
         // Initialize ammo display (hidden by default since we start with sword)
         _ammo_sprite = bn::sprite_items::ammo.create_sprite(HUD_AMMO_X, HUD_AMMO_Y, 0);
-        _configure_hud_sprite(*_ammo_sprite);
+        _ammo_sprite->set_bg_priority(HUD_BG_PRIORITY);
+        _ammo_sprite->remove_camera();
+        _ammo_sprite->set_z_order(HUD_SPRITE_Z_ORDER);
         _ammo_sprite->set_visible(false);
     }
 
@@ -212,7 +214,7 @@ namespace fe
                 {
                     _soul_sprite.set_item(bn::sprite_items::soul_silver_idle);
                     _soul_action = bn::create_sprite_animate_action_once(
-                        _soul_sprite, 10,
+                        _soul_sprite, HUD_SOUL_IDLE_ANIM_SPEED,
                         bn::sprite_items::soul_silver_idle.tiles_item(),
                         0, 1, 2, 1, 0, 0, 0, 0, 0, 0);
                 }
