@@ -163,13 +163,10 @@ namespace fe
                 }
             }
 
-            // Exit menu
+            // Exit menu - go back to start screen
             if (bn::keypad::b_pressed())
             {
-                // Return to default world
-                selected_world_id = 0;
-                spawn_location = bn::fixed_point(MAIN_WORLD_SPAWN_X, MAIN_WORLD_SPAWN_Y);
-                return fe::Scene::WORLD;
+                return fe::Scene::START;
             }
         }
     }
