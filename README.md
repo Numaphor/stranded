@@ -35,7 +35,7 @@ Stranded is an action-packed adventure game that combines classic top-down RPG m
 ### 🛠️ Technical Features
 - **Advanced hitbox system** with debug visualization
 - **Entity-Component architecture** for clean code organization
-- **Scene management** (Menu, World transitions)
+- **Scene management** (Start Screen, Level Selector, Controls, World transitions)
 - **Camera system** with smooth player tracking
 - **Audio system** with sound effects and background music
 - **Sprite animation** and visual effects
@@ -123,8 +123,10 @@ The build system automatically processes assets and uses the following directori
 
 ### Gameplay
 - **D-Pad** - Move character
-- **A Button** - Primary action/attack
-- **B Button** - Secondary action
+- **A Button** - Interact/Confirm
+- **B Button** - Attack/Back
+- **L Button** - Switch Weapon
+- **R Button** - Roll/Dodge
 - **Start** - Pause menu
 - **Select** - Secondary functions
 
@@ -168,7 +170,7 @@ stranded/
 ```
 
 ### Architecture
-- **Scene System**: Menu and World scenes with state management
+- **Scene System**: Start Screen, Controls Screen, Level Selector (Menu), and World scenes with state management
 - **Entity Framework**: Base Entity class extended by Player, Enemy, NPC
 - **Component Systems**: Hitbox, Movement, Animation, Audio
 - **State Management**: World persistence and save/load functionality
