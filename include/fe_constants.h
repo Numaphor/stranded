@@ -117,6 +117,10 @@ namespace fe
     constexpr int HUD_HEALTH_BG_Y = -215;
     constexpr int HUD_HEALTH_BG_MAP_INDEX = 2;
 
+    // Soul position relative to healthbar (offsets)
+    constexpr int HUD_SOUL_OFFSET_X = 161;  // Soul X offset from healthbar X position
+    constexpr int HUD_SOUL_OFFSET_Y = 148;  // Soul Y offset from healthbar Y position
+
     constexpr int HUD_WEAPON_ICON_X = 100;
     constexpr int HUD_WEAPON_ICON_Y = 66;
 
@@ -125,8 +129,9 @@ namespace fe
 
     constexpr int HUD_SOUL_INITIAL_X = -200;
     constexpr int HUD_SOUL_INITIAL_Y = -150;
-    constexpr int HUD_SOUL_FINAL_X = -101;  // Final position: moved left from -100 by 1 pixel
-    constexpr int HUD_SOUL_FINAL_Y = -67;   // Moved up from -65 by 2 pixels
+    // Final soul position is calculated relative to healthbar:
+    // X = HUD_HEALTH_BG_X + HUD_SOUL_OFFSET_X = -262 + 161 = -101
+    // Y = HUD_HEALTH_BG_Y + HUD_SOUL_OFFSET_Y = -215 + 148 = -67
 
     constexpr int HUD_BG_PRIORITY = 0;
     constexpr int HUD_SPRITE_Z_ORDER = -32000;

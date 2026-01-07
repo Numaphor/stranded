@@ -22,7 +22,7 @@ namespace fe
      * @brief Heads-Up Display manager for the game
      * 
      * Manages the on-screen HUD elements including:
-     * - Health display (background-based with multiple map states)
+     * - Healthbar display (background-based with multiple map states)
      * - Soul indicator (animated sprite showing buff states)
      * - Weapon icon (current equipped weapon)
      * - Ammo counter (displayed when gun is equipped)
@@ -34,9 +34,10 @@ namespace fe
     public:
         HUD();
 
-        // Health management
+        // Healthbar management
         [[nodiscard]] int hp() const;
         void set_hp(int hp);
+        void set_position(int x, int y);  // Set healthbar position (soul follows)
 
         // Visibility control
         void set_visible(bool is_visible);
@@ -61,7 +62,7 @@ namespace fe
         void set_ammo(int ammo_count);
 
     private:
-        // Health display
+        // Healthbar display
         bn::optional<bn::regular_bg_ptr> _health_bg;
         int _hp;
 

@@ -99,7 +99,7 @@ namespace fe
         {
             WorldState saved_state = state_manager.load_world_state(world_id);
             spawn_location = saved_state.player_position;
-            // Could restore other state like health here
+            // Could restore other state like healthbar here
         }
 
         bn::camera_ptr camera = bn::camera_ptr::create(0, 0);

@@ -4,7 +4,7 @@
 #include "bn_sprite_ptr.h"
 #include "bn_math.h"
 
-#include "bn_regular_bg_items_health.h"
+#include "bn_regular_bg_items_healthbar.h"
 #include "bn_sprite_items_soul.h"
 #include "bn_sprite_items_icon_gun.h"
 #include "bn_sprite_items_soul_silver.h"
@@ -27,8 +27,8 @@ namespace fe
         , _silver_idle_timer(0)
         , _displayed_ammo(HUD_MAX_AMMO)
     {
-        // Initialize health background
-        _health_bg = bn::regular_bg_items::health.create_bg(
+        // Initialize healthbar background
+        _health_bg = bn::regular_bg_items::healthbar.create_bg(
             HUD_HEALTH_BG_X, HUD_HEALTH_BG_Y, HUD_HEALTH_BG_MAP_INDEX);
         _health_bg->set_priority(HUD_BG_PRIORITY);
         _health_bg->set_z_order(HUD_BG_Z_ORDER);
@@ -73,7 +73,20 @@ namespace fe
 
         if (_health_bg.has_value())
         {
-            _health_bg->set_map(bn::regular_bg_items::health.map_item(), _hp);
+            _health_bg->set_map(bn::regular_bg_items::healthbar.map_item(), _hp);
+        }
+    }
+
+    void HUD::set_position(int x, int y)
+    {
+        if (_health_bg.has_value())
+        {
+            _health_bg->set_position(x, y);
+            
+            // Update soul position to follow healthbar
+            int soul_x = x + HUD_SOUL_OFFSET_X;
+            int soul_y = y + HUD_SOUL_OFFSET_Y;
+            _soul_sprite.set_position(soul_x, soul_y);
         }
     }
 
@@ -195,8 +208,14 @@ namespace fe
             return;
         }
 
-        _soul_sprite.set_position(HUD_SOUL_FINAL_X, HUD_SOUL_FINAL_Y);
-        _soul_positioned = true;
+        // Position soul relative to healthbar
+        if (_health_bg.has_value())
+        {
+            int soul_x = HUD_HEALTH_BG_X + HUD_SOUL_OFFSET_X;
+            int soul_y = HUD_HEALTH_BG_Y + HUD_SOUL_OFFSET_Y;
+            _soul_sprite.set_position(soul_x, soul_y);
+            _soul_positioned = true;
+        }
     }
 
     void HUD::_update_soul_animations()
