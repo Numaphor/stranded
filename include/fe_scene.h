@@ -5,7 +5,9 @@ namespace fe
 {
     enum class Scene
     {
+        START,
         MENU,
+        CONTROLS,
         WORLD
     };
 }
