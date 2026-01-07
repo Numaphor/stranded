@@ -125,8 +125,8 @@ namespace fe
 
     constexpr int HUD_SOUL_INITIAL_X = -200;
     constexpr int HUD_SOUL_INITIAL_Y = -150;
-    constexpr int HUD_SOUL_FINAL_X = 41;   // Positions soul on a circular HUD path (radius 100) at ~90°: (100 * sin(1.57)) - 59 to align with the health HUD area
-    constexpr int HUD_SOUL_FINAL_Y = 22;   // Matching Y for the same circular path/angle: (100 * cos(1.57)) + 22, offset so the soul icon sits correctly over the HUD background
+    constexpr int HUD_SOUL_FINAL_X = -101;  // Final position: moved left from -100 by 1 pixel
+    constexpr int HUD_SOUL_FINAL_Y = -67;   // Moved up from -65 by 2 pixels
 
     constexpr int HUD_BG_PRIORITY = 0;
     constexpr int HUD_SPRITE_Z_ORDER = -32000;
