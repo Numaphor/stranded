@@ -59,6 +59,16 @@ namespace fe
     constexpr int MENU_WORLD_LIST_START_Y = -20;
     constexpr int MENU_WORLD_LIST_SPACING = 20;
 
+    constexpr int START_TITLE_Y_POSITION = -60;
+    constexpr int START_OPTIONS_START_Y = -10;
+    constexpr int START_OPTIONS_SPACING = 20;
+    constexpr int START_INSTRUCTIONS_Y_POSITION = 60;
+
+    constexpr int CONTROLS_TITLE_Y_POSITION = -70;
+    constexpr int CONTROLS_LIST_START_Y = -45;
+    constexpr int CONTROLS_LIST_SPACING = 12;
+    constexpr int CONTROLS_INSTRUCTIONS_Y_POSITION = 70;
+
     constexpr bn::fixed MAIN_WORLD_SPAWN_X = 50;
     constexpr bn::fixed MAIN_WORLD_SPAWN_Y = 100;
     constexpr bn::fixed FOREST_WORLD_SPAWN_X = 100;
