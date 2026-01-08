@@ -670,13 +670,11 @@ namespace fe
                     }
                 }
 
-                // Apply to bullets
+                // Apply position scaling to bullets (no visual scaling)
                 for (Bullet& bullet : _player->bullets_mutable())
                 {
                     if (bullet.is_active() && bullet.get_sprite())
                     {
-                        bullet.get_sprite()->set_affine_mat(_zoom_affine_mat.value());
-                        bullet.get_sprite()->set_double_size_mode(bn::sprite_double_size_mode::ENABLED);
                         bn::fixed_point bullet_world_pos = bullet.position();
                         bn::fixed_point offset = bullet_world_pos - cam_pos;
                         bn::fixed_point scaled_pos = cam_pos + bn::fixed_point(offset.x() * _current_zoom_scale, offset.y() * _current_zoom_scale);
