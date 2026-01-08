@@ -327,126 +327,25 @@ namespace fe
                 _minimap->update(_player->pos(), bn::fixed_point(0, 0), _enemies);
             }
 
-            // Improved deadzone camera system with velocity-based lookahead
+            // Simple direct-follow camera system to eliminate vibration
             bn::fixed_point player_pos = _player->pos();
+            
+            // Direct camera follow with simple deadzone
             bn::fixed_point current_camera_pos = _camera.has_value() ? bn::fixed_point(_camera->x(), _camera->y()) : bn::fixed_point(0, 0);
-
-            // Get player velocity for velocity-based lookahead
-            bn::fixed player_vx = _player->velocity_x();
-            bn::fixed player_vy = _player->velocity_y();
-            bool player_is_moving = _player->is_moving();
-            bool player_is_running = _player->is_running();
-
-            // Detect direction changes for temporary slower interpolation
-            PlayerMovement::Direction current_dir = _player->facing_direction();
-            if (player_is_moving && current_dir != _last_camera_direction)
-            {
-                _last_camera_direction = current_dir;
-                _direction_change_frames = CAMERA_DIRECTION_CHANGE_DURATION;
-            }
-
-            // Calculate distance from player to camera for adaptive speed
             bn::fixed_point player_to_camera = player_pos - current_camera_pos;
-            bn::fixed dist_sq = player_to_camera.x() * player_to_camera.x() + 
-                               player_to_camera.y() * player_to_camera.y();
-
-            // Direction-based lookahead with diagonal support
-            bn::fixed_point target_lookahead(0, 0);
-            if (player_is_moving)
-            {
-                // Calculate lookahead multiplier (boost when running)
-                bn::fixed speed_mult = player_is_running ? CAMERA_RUNNING_LOOKAHEAD_BOOST : bn::fixed(1);
-                
-                // Use velocity signs to determine lookahead direction (supports diagonals)
-                bn::fixed lookahead_x = 0;
-                bn::fixed lookahead_y = 0;
-                
-                if (player_vx > 0)
-                    lookahead_x = CAMERA_LOOKAHEAD_X * speed_mult;
-                else if (player_vx < 0)
-                    lookahead_x = -CAMERA_LOOKAHEAD_X * speed_mult;
-                    
-                if (player_vy > 0)
-                    lookahead_y = CAMERA_LOOKAHEAD_Y * speed_mult;
-                else if (player_vy < 0)
-                    lookahead_y = -CAMERA_LOOKAHEAD_Y * speed_mult;
-                
-                // Reduce diagonal lookahead to prevent excessive offset
-                if (lookahead_x != 0 && lookahead_y != 0)
-                {
-                    lookahead_x *= bn::fixed(0.707);
-                    lookahead_y *= bn::fixed(0.707);
-                }
-                
-                target_lookahead = bn::fixed_point(lookahead_x, lookahead_y);
-            }
             
-            // Smooth lookahead with different speeds for building up vs decaying
-            if (player_is_moving)
-            {
-                // Building up lookahead - use standard smoothing
-                _lookahead_current = _lookahead_current + (target_lookahead - _lookahead_current) * CAMERA_LOOKAHEAD_SMOOTHING;
-            }
-            else
-            {
-                // Decaying lookahead when stopped - slower decay for smooth snapback
-                _lookahead_current = _lookahead_current * CAMERA_LOOKAHEAD_DECAY;
-            }
-
-            // Apply center bias to reduce full lookahead usage
-            const bn::fixed lookahead_factor = bn::fixed(1) - CAMERA_CENTER_BIAS;
-            bn::fixed_point desired_focus = player_pos + bn::fixed_point(
-                _lookahead_current.x() * lookahead_factor,
-                _lookahead_current.y() * lookahead_factor
-            );
-
-            // Compute the target camera position based on deadzone boundaries
-            bn::fixed_point desired_offset = desired_focus - current_camera_pos;
-            bn::fixed target_x = current_camera_pos.x();
-            bn::fixed target_y = current_camera_pos.y();
-            if (bn::abs(desired_offset.x()) > CAMERA_DEADZONE_X)
-            {
-                target_x = desired_focus.x() - (desired_offset.x() > 0 ? CAMERA_DEADZONE_X : -CAMERA_DEADZONE_X);
-            }
-            if (bn::abs(desired_offset.y()) > CAMERA_DEADZONE_Y)
-            {
-                target_y = desired_focus.y() - (desired_offset.y() > 0 ? CAMERA_DEADZONE_Y : -CAMERA_DEADZONE_Y);
-            }
-            bn::fixed_point target_pos(target_x, target_y);
-
-            // Decrease direction change counter
-            if (_direction_change_frames > 0)
-            {
-                _direction_change_frames--;
-            }
-
-            // Adaptive interpolation speed based on context
-            bn::fixed interpolation_speed;
-            bool in_direction_change = (_direction_change_frames > 0);
+            bn::fixed new_camera_x = current_camera_pos.x();
+            bn::fixed new_camera_y = current_camera_pos.y();
             
-            if (in_direction_change)
+            // Apply deadzone - only move camera if player moves outside deadzone
+            if (bn::abs(player_to_camera.x()) > CAMERA_DEADZONE_X)
             {
-                // Slower during direction changes for smoother transitions
-                interpolation_speed = CAMERA_DIRECTION_CHANGE_SPEED;
+                new_camera_x = player_pos.x() - (player_to_camera.x() > 0 ? CAMERA_DEADZONE_X : -CAMERA_DEADZONE_X);
             }
-            else if (!player_is_moving)
+            if (bn::abs(player_to_camera.y()) > CAMERA_DEADZONE_Y)
             {
-                // Slower snapback when player stops for natural feel
-                interpolation_speed = CAMERA_SNAPBACK_SPEED;
+                new_camera_y = player_pos.y() - (player_to_camera.y() > 0 ? CAMERA_DEADZONE_Y : -CAMERA_DEADZONE_Y);
             }
-            else if (dist_sq > bn::fixed(2500)) // Player far from camera (50+ pixels)
-            {
-                // Faster catch-up when player is far from camera
-                interpolation_speed = CAMERA_CATCH_UP_SPEED;
-            }
-            else
-            {
-                // Normal follow speed
-                interpolation_speed = CAMERA_FOLLOW_SPEED;
-            }
-
-            // Interpolate camera target position smoothly towards target
-            _camera_target_pos = _camera_target_pos + (target_pos - _camera_target_pos) * interpolation_speed;
             
             // Clamp camera to map boundaries (prevent showing outside world)
             // GBA screen is 240x160, so half is 120x80
@@ -457,12 +356,10 @@ namespace fe
             constexpr bn::fixed map_min_y = -MAP_OFFSET_Y + half_screen_y;
             constexpr bn::fixed map_max_y = MAP_OFFSET_Y - half_screen_y;
             
-            _camera_target_pos = bn::fixed_point(
-                bn::clamp(_camera_target_pos.x(), map_min_x, map_max_x),
-                bn::clamp(_camera_target_pos.y(), map_min_y, map_max_y)
+            bn::fixed_point new_camera_pos(
+                bn::clamp(new_camera_x, map_min_x, map_max_x),
+                bn::clamp(new_camera_y, map_min_y, map_max_y)
             );
-            
-            bn::fixed_point new_camera_pos = _camera_target_pos;
 
             // Store the base camera position before applying shake
             bn::fixed base_camera_x = new_camera_pos.x();
@@ -473,10 +370,11 @@ namespace fe
             bn::fixed shake_y = 0;
 
             // Apply final camera position with shake
+            // Round to integer pixels to prevent sub-pixel jittering
             if (_camera.has_value())
             {
-                _camera->set_x(base_camera_x + shake_x);
-                _camera->set_y(base_camera_y + shake_y);
+                _camera->set_x(bn::fixed((base_camera_x + shake_x).integer()));
+                _camera->set_y(bn::fixed((base_camera_y + shake_y).integer()));
             }
 
             // Remove old shake update call since it's now inline
