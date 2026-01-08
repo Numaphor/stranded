@@ -94,32 +94,28 @@ namespace fe
 
     bool Hitbox::is_in_merchant_interaction_zone(const bn::fixed_point &position, const bn::fixed_point &merchant_center)
     {
-        using namespace hitbox_constants;
-        bn::fixed_point zone_position = calculate_centered_position(merchant_center, MERCHANT_INTERACTION_WIDTH, MERCHANT_INTERACTION_HEIGHT);
-        return position.x() >= zone_position.x() && position.x() < zone_position.x() + MERCHANT_INTERACTION_WIDTH &&
-               position.y() >= zone_position.y() && position.y() < zone_position.y() + MERCHANT_INTERACTION_HEIGHT;
+        bn::fixed_point zone_position = calculate_centered_position(merchant_center, MERCHANT_INTERACTION_ZONE_WIDTH, MERCHANT_INTERACTION_ZONE_HEIGHT);
+        return position.x() >= zone_position.x() && position.x() < zone_position.x() + MERCHANT_INTERACTION_ZONE_WIDTH &&
+               position.y() >= zone_position.y() && position.y() < zone_position.y() + MERCHANT_INTERACTION_ZONE_HEIGHT;
     }
 
     bool Hitbox::is_in_merchant_collision_zone(const bn::fixed_point &position, const bn::fixed_point &merchant_center)
     {
-        using namespace hitbox_constants;
-        bn::fixed_point zone_position = calculate_centered_position(merchant_center, MERCHANT_COLLISION_WIDTH, MERCHANT_COLLISION_HEIGHT);
-        return position.x() >= zone_position.x() && position.x() < zone_position.x() + MERCHANT_COLLISION_WIDTH &&
-               position.y() >= zone_position.y() && position.y() < zone_position.y() + MERCHANT_COLLISION_HEIGHT;
+        bn::fixed_point zone_position = calculate_centered_position(merchant_center, MERCHANT_COLLISION_ZONE_WIDTH, MERCHANT_COLLISION_ZONE_HEIGHT);
+        return position.x() >= zone_position.x() && position.x() < zone_position.x() + MERCHANT_COLLISION_ZONE_WIDTH &&
+               position.y() >= zone_position.y() && position.y() < zone_position.y() + MERCHANT_COLLISION_ZONE_HEIGHT;
     }
 
     Hitbox Hitbox::create_player_hitbox(bn::fixed_point position)
     {
-        using namespace hitbox_constants;
         bn::fixed_point hitbox_pos = calculate_centered_position(position, PLAYER_HITBOX_WIDTH, PLAYER_HITBOX_HEIGHT);
         return Hitbox(hitbox_pos.x(), hitbox_pos.y(), PLAYER_HITBOX_WIDTH, PLAYER_HITBOX_HEIGHT, HitboxType::PLAYER);
     }
 
     Hitbox Hitbox::create_merchant_interaction_zone(bn::fixed_point center)
     {
-        using namespace hitbox_constants;
-        bn::fixed_point position = calculate_centered_position(center, MERCHANT_INTERACTION_WIDTH, MERCHANT_INTERACTION_HEIGHT);
-        return Hitbox(position.x(), position.y(), MERCHANT_INTERACTION_WIDTH, MERCHANT_INTERACTION_HEIGHT, HitboxType::MERCHANT_INTERACTION);
+        bn::fixed_point position = calculate_centered_position(center, MERCHANT_INTERACTION_ZONE_WIDTH, MERCHANT_INTERACTION_ZONE_HEIGHT);
+        return Hitbox(position.x(), position.y(), MERCHANT_INTERACTION_ZONE_WIDTH, MERCHANT_INTERACTION_ZONE_HEIGHT, HitboxType::MERCHANT_INTERACTION);
     }
 
     Hitbox Hitbox::create_sword_zone()

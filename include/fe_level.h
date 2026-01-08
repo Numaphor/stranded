@@ -25,15 +25,6 @@ namespace fe
         bn::optional<bn::fixed_point> _merchant_zone_center;
         bool _merchant_zone_enabled = true; // Allow disabling during conversations
 
-        // Improved merchant zone system with separate collision and interaction zones
-        // Collision zone (20x20) - for physical blocking, smaller than before for better gameplay
-        bn::fixed _merchant_collision_zone_width = fe::MERCHANT_COLLISION_ZONE_WIDTH;
-        bn::fixed _merchant_collision_zone_height = fe::MERCHANT_COLLISION_ZONE_HEIGHT;
-
-        // Interaction zone (25x25) - for triggering conversations
-        bn::fixed _merchant_interaction_zone_width = fe::MERCHANT_INTERACTION_ZONE_WIDTH;
-        bn::fixed _merchant_interaction_zone_height = fe::MERCHANT_INTERACTION_ZONE_HEIGHT;
-
     public:
         Level() = default; // Now this is valid since _bg_map_ptr is optional
         Level(bn::regular_bg_map_ptr bg);
