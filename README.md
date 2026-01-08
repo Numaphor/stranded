@@ -14,14 +14,14 @@ Stranded is an action-packed adventure game that combines classic top-down RPG m
 
 ### 🎮 Gameplay
 - **Top-down action combat** with multiple weapon types
-- **Multiple playable characters** (Hero, Agent, Soldier, Swordmaster)
-- **Diverse enemy types** (TODO)
-- **Interactive NPCs** including merchants and story characters
-- **Companion system** for strategic gameplay
+- **Hero character** with additional character sprites (Agent, Soldier, Swordmaster, Bunny) available as assets for future implementation
+- **Enemy encounters** with Spearguard enemies (additional enemy types like Mutants and Slimes are in development)
+- **Interactive NPCs** including merchants (Merchant, Tortoise)
+- **Companion system** with combat assistance and revival mechanics
 - **World state management** with save/load functionality
 
 ### 🌍 Worlds & Exploration
-- **Multiple interconnected worlds** (TODO)
+- **Multiple interconnected worlds** (Main World, Forest Area, Desert Zone)
 - **Dynamic environments** with unique enemies and NPCs per world
 - **Minimap system** for navigation
 - **Zone-based interactions** and collision detection
@@ -33,12 +33,15 @@ Stranded is an action-packed adventure game that combines classic top-down RPG m
 - **Power-ups and buffs** (Heal, Defense, Power, Energy)
 
 ### 🛠️ Technical Features
-- **Advanced hitbox system** with debug visualization
+- **Advanced hitbox system** with optional debug visualization
 - **Entity-Component architecture** for clean code organization
-- **Scene management** (Start Screen, Level Selector, Controls, World transitions)
+- **Scene management** (Start Screen, Controls Screen, Level Selector, World transitions)
 - **Camera system** with smooth player tracking
 - **Audio system** with sound effects and background music
 - **Sprite animation** and visual effects
+- **State machine pattern** for enemy AI and player states
+- **World state persistence** using save/load system
+- **Screen shake effects** for impactful combat feedback
 
 ## Requirements
 
@@ -131,8 +134,35 @@ The build system automatically processes assets and uses the following directori
 - **Select** - Secondary functions
 
 ### Debug Controls
-- **Select + Start** - Toggle hitbox visualization
 - **Select + A** - Access world selection menu
+
+## Game Content
+
+### Playable Character
+The game features the **Hero** character with complete animations and abilities. Additional character sprites (Agent, Soldier, Swordmaster, Bunny) are available in the graphics assets for future implementation.
+
+### Worlds
+Explore three distinct environments:
+- **Main World (World 0)** - Starting area with merchant NPCs and balanced enemy encounters
+- **Forest Area (World 1)** - Forest-themed environment with unique tile sets
+- **Desert Zone (World 2)** - Challenging desert area with tougher enemies and Tortoise NPC
+
+### Enemies
+Battle against enemy encounters:
+- **Spearguard** - Melee combatants with patrol and chase patterns
+
+Additional enemy types (Mutant, Slime) are defined in the codebase and available for future implementation.
+
+### NPCs
+Interact with non-player characters:
+- **Merchant** - Trade and shop keeper in the Main World
+- **Tortoise** - Desert dweller NPC in the Desert Zone
+
+### Companion System
+A loyal companion that follows and assists in combat:
+- Automatically follows the player and attacks enemies
+- Can be revived by the player if defeated
+- Provides tactical combat support
 
 ## Game Mechanics
 
@@ -146,11 +176,12 @@ The build system automatically processes assets and uses the following directori
 - Interactive zones and collision detection
 - Merchant interactions and trading
 - Environmental storytelling through NPCs
+- World state persistence (saves player position and health per world)
 
 ### Combat
 - Real-time action combat
 - Multiple attack patterns and strategies
-- Enemy AI with state machines
+- Enemy AI with state machines (Idle, Patrol, Chase, Attack, Return to Post, Stunned)
 - Tactical companion usage
 
 ## Development
@@ -171,9 +202,11 @@ stranded/
 
 ### Architecture
 - **Scene System**: Start Screen, Controls Screen, Level Selector (Menu), and World scenes with state management
-- **Entity Framework**: Base Entity class extended by Player, Enemy, NPC
-- **Component Systems**: Hitbox, Movement, Animation, Audio
-- **State Management**: World persistence and save/load functionality
+- **Entity Framework**: Base Entity class extended by Player, Enemy, and NPC
+- **Component Systems**: Hitbox, Movement, Animation, Audio, Bullet Management
+- **State Management**: World persistence with save/load functionality via WorldStateManager
+- **Enemy AI**: State machine with multiple states (Idle, Patrol, Chase, Attack, Return to Post, Stunned)
+- **Camera System**: Smooth tracking with screen shake effects for combat feedback
 
 ### Debugging
 - Comprehensive hitbox visualization system
