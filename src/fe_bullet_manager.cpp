@@ -1,7 +1,7 @@
 #include "fe_bullet_manager.h"
 #include "fe_constants.h"
 #include "fe_enemy.h"
-#include "bn_sprite_items_hero.h"
+#include "bn_sprite_items_hero_sword.h"
 #include "bn_log.h"
 
 namespace fe
@@ -9,7 +9,7 @@ namespace fe
     Bullet::Bullet(bn::fixed_point pos, bn::fixed_point velocity, bn::camera_ptr camera, Direction direction)
         : _pos(pos), _velocity(velocity), _active(true), _hitbox(pos.x(), pos.y(), 2, 2), _lifetime(BULLET_LIFETIME)
     {
-        _sprite = bn::sprite_items::hero.create_sprite(_pos.x(), _pos.y(), 0);
+        _sprite = bn::sprite_items::hero_sword.create_sprite(_pos.x(), _pos.y(), 0);
         _sprite->set_camera(camera);
         _sprite->set_z_order(Z_ORDER_BULLET); // Match existing bullet z-order
         _sprite->set_scale(BULLET_SCALE, BULLET_SCALE); // Make bullet small like in player implementation

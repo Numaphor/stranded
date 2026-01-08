@@ -2,7 +2,7 @@
 #include "fe_constants.h"
 #include "fe_player_companion.h"
 #include "bn_keypad.h"
-#include "bn_sprite_items_hero.h"
+#include "bn_sprite_items_hero_sword.h"
 #include "bn_sprite_animate_actions.h"
 #include "fe_level.h"
 #include "fe_collision.h"

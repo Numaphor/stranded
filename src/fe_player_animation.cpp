@@ -1,5 +1,5 @@
 #include "fe_player.h"
-#include "bn_sprite_items_hero.h"
+#include "bn_sprite_items_hero_sword.h"
 
 namespace fe
 {
@@ -28,19 +28,19 @@ namespace fe
         };
 
         static const AnimData animations[] = {
-            {12, 187, 12, 0, 13, 144, 12},  // IDLE: idle_up(187-198=12), idle_down(0-12=13), lr_idle(144-155=12)
-            {5, 199, 8, 109, 8, 156, 8},    // WALKING: move_up(199-206=8), move_down(109-116=8), lr_move(156-163=8) - 75ms per frame
-            {8, 207, 8, 117, 8, 164, 8},    // RUNNING: run_up(207-214=8), run_down(117-124=8), lr_run(164-171=8)
-            {8, 226, 8, 136, 8, 172, 6},    // ROLLING: roll_up(226-233=8), roll_down(136-143=8), lr_roll(172-177=6)
-            {8, 219, 7, 129, 7, 178, 4},    // SLASHING: attack_up(219-225=7), slash_down(129-135=7), lr_slash(178-181=4)
-            {8, 219, 7, 129, 7, 182, 5},    // ATTACKING: attack_up(219-225=7), slash_down(129-135=7), lr_slash(182-186=5)
-            {10, 215, 4, 125, 4, 178, 4},   // CHOPPING: chop_up(215-218=4), chop_down(125-128=4), lr_slash(178-181=4)
-            {4, 13, 24, 13, 24, 13, 24},    // HEAL_BUFF: heal_buff(13-36=24) all directions
-            {4, 37, 24, 37, 24, 37, 24},    // DEFENCE_BUFF: defence_buff(37-60=24) all directions
-            {4, 61, 24, 61, 24, 61, 24},    // POWER_BUFF: power_buff(61-84=24) all directions
-            {4, 85, 24, 85, 24, 85, 24},    // ENERGY_BUFF: energy_buff(85-108=24) all directions
-            {6, 0, 13, 0, 13, 0, 13},       // HIT: use idle_down frames temporarily (0-12=13) all directions
-            {15, 234, 13, 234, 13, 234, 13} // DEAD: death(234-246=13) all directions - much slower animation
+            {12, 384, 12, 0, 12, 240, 12},  // IDLE: idle_up(row16), idle_down(row0, 12 frames), lr_idle(row10)
+            {5, 408, 8, 120, 8, 264, 8},    // WALKING: move_up(row17), move_down(row5), lr_move(row11)
+            {8, 432, 8, 144, 8, 288, 8},    // RUNNING: run_up(row18), run_down(row6), lr_run(row12)
+            {8, 504, 8, 216, 8, 312, 6},    // ROLLING: roll_up(row21), roll_down(row9), lr_roll(row13)
+            {8, 480, 7, 192, 7, 336, 4},    // SLASHING: attack_up(row20), slash_down(row8), lr_slash(row14)
+            {8, 480, 7, 192, 7, 360, 5},    // ATTACKING: attack_up(row20), slash_down(row8), lr_slash2(row15)
+            {10, 456, 4, 168, 4, 336, 4},   // CHOPPING: chop_up(row19), chop_down(row7), lr_slash(row14)
+            {4, 24, 24, 24, 24, 24, 24},    // HEAL_BUFF: heal_buff(row1) all directions
+            {4, 48, 24, 48, 24, 48, 24},    // DEFENCE_BUFF: defence_buff(row2) all directions
+            {4, 72, 24, 72, 24, 72, 24},    // POWER_BUFF: power_buff(row3) all directions
+            {4, 96, 24, 96, 24, 96, 24},    // ENERGY_BUFF: energy_buff(row4) all directions
+            {6, 0, 13, 0, 13, 0, 13},       // HIT: use idle_down frames temporarily (row0) all directions
+            {15, 528, 13, 528, 13, 528, 13} // DEAD: death(row22) all directions - much slower animation
         };
 
         int state_idx = static_cast<int>(state);
@@ -102,7 +102,7 @@ namespace fe
         }
 
         _animation = bn::sprite_animate_action<32>::forever(
-            _sprite, speed, bn::sprite_items::hero.tiles_item(),
+            _sprite, speed, bn::sprite_items::hero_sword.tiles_item(),
             bn::span<const uint16_t>(frames.data(), frames.size()));
     }
 
@@ -115,7 +115,7 @@ namespace fe
         }
 
         _animation = bn::sprite_animate_action<32>::once(
-            _sprite, speed, bn::sprite_items::hero.tiles_item(),
+            _sprite, speed, bn::sprite_items::hero_sword.tiles_item(),
             bn::span<const uint16_t>(frames.data(), frames.size()));
     }
 

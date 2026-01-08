@@ -9,7 +9,7 @@
 #include "bn_keypad.h"
 #include "bn_sprite_double_size_mode.h"
 #include "bn_sprite_builder.h"
-#include "bn_sprite_items_hero.h"
+#include "bn_sprite_items_hero_sword.h"
 #include "bn_bg_tiles.h"
 #include "bn_unique_ptr.h"
 #include "bn_bg_palette_items_palette.h"
@@ -88,7 +88,7 @@ namespace fe
                      _gun_affine_mat(bn::nullopt)
     {
         // Create player sprite with correct shape and size
-        bn::sprite_builder builder(bn::sprite_items::hero);
+        bn::sprite_builder builder(bn::sprite_items::hero_sword);
         builder.set_bg_priority(1);
         _player = new Player(builder.release_build());
         // Initialize camera lookahead state

@@ -1,5 +1,5 @@
 #include "fe_player.h"
-#include "bn_sprite_items_hero.h"
+#include "bn_sprite_items_hero_sword.h"
 
 namespace fe
 {
@@ -19,7 +19,7 @@ namespace fe
             if (!_vfx_sprite.has_value())
             {
                 // Create VFX sprite - using hero sprite for now
-                _vfx_sprite = bn::sprite_items::hero.create_sprite(0, 0);
+                _vfx_sprite = bn::sprite_items::hero_sword.create_sprite(0, 0);
                 if (_camera.has_value())
                 {
                     _vfx_sprite->set_camera(*_camera);
@@ -104,7 +104,7 @@ namespace fe
             return;
 
         _vfx_animation = bn::create_sprite_animate_action_forever(
-            *_vfx_sprite, speed, bn::sprite_items::hero.tiles_item(), start_frame, end_frame);
+            *_vfx_sprite, speed, bn::sprite_items::hero_sword.tiles_item(), start_frame, end_frame);
     }
 
     void PlayerVFX::make_vfx_anim_range_once(int speed, int start_frame, int end_frame)
@@ -113,6 +113,6 @@ namespace fe
             return;
 
         _vfx_animation = bn::create_sprite_animate_action_once(
-            *_vfx_sprite, speed, bn::sprite_items::hero.tiles_item(), start_frame, end_frame);
+            *_vfx_sprite, speed, bn::sprite_items::hero_sword.tiles_item(), start_frame, end_frame);
     }
 }
