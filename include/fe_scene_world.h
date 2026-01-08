@@ -64,6 +64,7 @@ namespace fe
         bool _zoomed_out;                                              // Whether camera is zoomed out
         bn::fixed _current_zoom_scale;                                 // Current zoom scale (interpolates between normal and zoomed)
         bn::optional<bn::sprite_affine_mat_ptr> _zoom_affine_mat;      // Shared affine matrix for zoom scaling
+        bn::optional<bn::sprite_affine_mat_ptr> _gun_affine_mat;       // Separate affine matrix for gun (needs its own rotation)
 
         void _init_world_specific_content(int world_id, bn::camera_ptr &camera, bn::regular_bg_ptr &bg, bn::sprite_text_generator &text_generator);
         void _save_current_state();

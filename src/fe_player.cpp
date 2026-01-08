@@ -367,13 +367,14 @@ namespace fe
         int get_gun_z_offset(PlayerMovement::Direction dir)
         {
             // Z-order offsets for gun sprite relative to player
-            // UP: -5 (in front), DOWN: 5 (behind), LEFT: 0, RIGHT: 0
+            // Lower z-order = drawn on top (in front)
+            // UP: gun behind player, DOWN: gun in front of player
             switch (dir)
             {
             case PlayerMovement::Direction::UP:
-                return -5;
+                return 5;   // gun behind player
             case PlayerMovement::Direction::DOWN:
-                return 5;
+                return -5;  // gun in front of player
             case PlayerMovement::Direction::LEFT:
             case PlayerMovement::Direction::RIGHT:
                 return 0;

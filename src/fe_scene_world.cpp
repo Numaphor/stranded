@@ -4,6 +4,7 @@
 #include "fe_hitbox.h"
 #include "fe_level.h"
 #include "fe_constants.h"
+#include "fe_direction_utils.h"
 #include "bn_core.h"
 #include "bn_keypad.h"
 #include "bn_sprite_double_size_mode.h"
@@ -83,7 +84,8 @@ namespace fe
                      _continuous_fire_frames(0),
                      _zoomed_out(false),
                      _current_zoom_scale(ZOOM_NORMAL_SCALE),
-                     _zoom_affine_mat(bn::nullopt)
+                     _zoom_affine_mat(bn::nullopt),
+                     _gun_affine_mat(bn::nullopt)
     {
         // Create player sprite with correct shape and size
         bn::sprite_builder builder(bn::sprite_items::hero);
@@ -204,11 +206,19 @@ namespace fe
                     _zoom_affine_mat = bn::sprite_affine_mat_ptr::create();
                 }
                 _zoom_affine_mat->set_scale(_current_zoom_scale);
+                
+                // Create or update gun affine matrix (needs separate matrix for rotation)
+                if (!_gun_affine_mat.has_value())
+                {
+                    _gun_affine_mat = bn::sprite_affine_mat_ptr::create();
+                }
+                _gun_affine_mat->set_scale(_current_zoom_scale);
             }
             else
             {
-                // Clear affine matrix when at normal scale
+                // Clear affine matrices when at normal scale
                 _zoom_affine_mat.reset();
+                _gun_affine_mat.reset();
             }
 
             // Handle NPC interactions BEFORE player input processing
@@ -610,9 +620,16 @@ namespace fe
                 }
 
                 // Apply to gun sprite - use player world pos + gun offset
-                if (_player->gun_sprite())
+                // Gun needs its own affine matrix to combine zoom scale with gun rotation
+                if (_player->gun_sprite() && _gun_affine_mat.has_value())
                 {
-                    _player->gun_sprite()->set_affine_mat(_zoom_affine_mat.value());
+                    // Get gun rotation from player's facing direction (not sprite, since affine mat overrides rotation)
+                    // Note: Don't set horizontal_flip on affine mat - sprite's own flip is applied separately
+                    int dir_idx = int(_player->facing_direction());
+                    bn::fixed gun_rotation = player_constants::GUN_ANGLES[dir_idx];
+                    _gun_affine_mat->set_rotation_angle(gun_rotation);
+                    
+                    _player->gun_sprite()->set_affine_mat(_gun_affine_mat.value());
                     _player->gun_sprite()->set_double_size_mode(bn::sprite_double_size_mode::ENABLED);
                     // Gun world position is player pos + relative gun offset
                     bn::fixed_point player_world_pos = _player->pos();
@@ -735,6 +752,9 @@ namespace fe
                 if (_player->gun_sprite() && _player->gun_sprite()->affine_mat().has_value())
                 {
                     _player->gun_sprite()->remove_affine_mat();
+                    // Re-apply gun rotation/flip/position after removing affine matrix
+                    // (setup_gun was called before this, but rotation is ignored when affine mat is attached)
+                    _player->update_gun_position(_player->facing_direction());
                 }
                 // Remove from companion and its revival sprites
                 if (_player->has_companion() && _player->get_companion())

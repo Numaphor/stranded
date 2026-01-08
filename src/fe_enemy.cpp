@@ -65,6 +65,7 @@ namespace fe
                                                                                                          _type(type),
                                                                                                          _dir(0),
                                                                                                          _hp(hp),
+                                                                                                         _max_hp(hp),
                                                                                                          _map(map),
                                                                                                          _map_cells(map.map().cells_ref().value())
     {
@@ -562,36 +563,30 @@ namespace fe
     {
         if (_health_bar_sprite.has_value())
         {
-            if (_dead)
+            // Calculate healthbar frame for 3-slot system (frames are in reverse order)
+            // Frame 0 = full (3 slots), Frame 1 = 2 slots, Frame 2 = 1 slot, Frame 3 = empty (0 health)
+            int frame;
+            if (_hp <= 0 || _dead)
             {
-                // Show empty healthbar (frame 3) when dead
-                _health_bar_sprite->set_tiles(bn::sprite_items::healthbar_enemy.tiles_item().create_tiles(3));
-                _health_bar_sprite->set_visible(true);
+                frame = 3; // Empty
+            }
+            else if (_hp >= _max_hp)
+            {
+                frame = 0; // Full - 3 slots
             }
             else
             {
-                // Calculate healthbar frame for 3-slot system (frames are in reverse order)
-                // Frame 0 = full (3 slots), Frame 1 = 2 slots, Frame 2 = 1 slot, Frame 3 = empty (0 health)
-                int frame;
-                if (_hp <= 0)
-                {
-                    frame = 3; // Empty
-                }
-                else if (_hp >= _max_hp)
-                {
-                    frame = 0; // Full - 3 slots
-                }
-                else
-                {
-                    // Map HP to slots and invert: for 3 max HP -> 3 HP = frame 0, 2 HP = frame 1, 1 HP = frame 2
-                    int health_slots = (_hp * 3) / _max_hp;
-                    if (health_slots == 0 && _hp > 0)
-                        health_slots = 1;     // Ensure at least 1 slot if HP > 0
-                    frame = 3 - health_slots; // Invert the frame order
-                }
-                _health_bar_sprite->set_tiles(bn::sprite_items::healthbar_enemy.tiles_item().create_tiles(frame));
-                _health_bar_sprite->set_visible(true);
+                // Map HP to slots and invert: for 3 max HP -> 3 HP = frame 0, 2 HP = frame 1, 1 HP = frame 2
+                int health_slots = (_hp * 3) / _max_hp;
+                if (health_slots == 0 && _hp > 0)
+                    health_slots = 1;     // Ensure at least 1 slot if HP > 0
+                frame = 3 - health_slots; // Invert the frame order
             }
+            
+            // Recreate the sprite tiles with the correct frame
+            bn::sprite_tiles_ptr new_tiles = bn::sprite_items::healthbar_enemy.tiles_item().create_tiles(frame);
+            _health_bar_sprite->set_tiles(bn::move(new_tiles));
+            _health_bar_sprite->set_visible(true);
         }
     }
 
