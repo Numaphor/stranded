@@ -14,10 +14,10 @@ Stranded is an action-packed adventure game that combines classic top-down RPG m
 
 ### 🎮 Gameplay
 - **Top-down action combat** with multiple weapon types
-- **Multiple playable characters** (Hero, Agent, Soldier, Swordmaster, Bunny)
-- **Diverse enemy types** including Spearguards, Mutants, and Slimes
-- **Interactive NPCs** including merchants (Merchant, Tortoise) and companions
-- **Companion system** for strategic gameplay
+- **Hero character** with additional character sprites (Agent, Soldier, Swordmaster, Bunny) available as assets for future implementation
+- **Enemy encounters** with Spearguard enemies (additional enemy types like Mutants and Slimes are in development)
+- **Interactive NPCs** including merchants (Merchant, Tortoise)
+- **Companion system** with combat assistance and revival mechanics
 - **World state management** with save/load functionality
 
 ### 🌍 Worlds & Exploration
@@ -33,7 +33,7 @@ Stranded is an action-packed adventure game that combines classic top-down RPG m
 - **Power-ups and buffs** (Heal, Defense, Power, Energy)
 
 ### 🛠️ Technical Features
-- **Advanced hitbox system** with debug visualization (toggle with SELECT+START)
+- **Advanced hitbox system** with optional debug visualization
 - **Entity-Component architecture** for clean code organization
 - **Scene management** (Start Screen, Controls Screen, Level Selector, World transitions)
 - **Camera system** with smooth player tracking
@@ -134,18 +134,12 @@ The build system automatically processes assets and uses the following directori
 - **Select** - Secondary functions
 
 ### Debug Controls
-- **Select + Start** - Toggle hitbox visualization
 - **Select + A** - Access world selection menu
 
 ## Game Content
 
-### Playable Characters
-The game features 5 unique playable characters, each with distinct visual styles:
-- **Hero** - The versatile protagonist
-- **Agent** - Stealth-focused character
-- **Soldier** - Combat specialist
-- **Swordmaster** - Melee expert
-- **Bunny** - Agile character
+### Playable Character
+The game features the **Hero** character with complete animations and abilities. Additional character sprites (Agent, Soldier, Swordmaster, Bunny) are available in the graphics assets for future implementation.
 
 ### Worlds
 Explore three distinct environments:
@@ -154,16 +148,21 @@ Explore three distinct environments:
 - **Desert Zone (World 2)** - Challenging desert area with tougher enemies and Tortoise NPC
 
 ### Enemies
-Battle against various enemy types with unique behaviors:
+Battle against enemy encounters:
 - **Spearguard** - Melee combatants with patrol and chase patterns
-- **Mutant** - Aggressive creatures
-- **Slime** - Basic enemies (in development)
+
+Additional enemy types (Mutant, Slime) are defined in the codebase and available for future implementation.
 
 ### NPCs
-Interact with various non-player characters:
+Interact with non-player characters:
 - **Merchant** - Trade and shop keeper in the Main World
 - **Tortoise** - Desert dweller NPC in the Desert Zone
-- **Companion** - Allies that assist in combat
+
+### Companion System
+A loyal companion that follows and assists in combat:
+- Automatically follows the player and attacks enemies
+- Can be revived by the player if defeated
+- Provides tactical combat support
 
 ## Game Mechanics
 
