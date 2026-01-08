@@ -8,14 +8,6 @@
 
 namespace fe
 {
-    namespace hitbox_constants
-    {
-        constexpr bn::fixed MERCHANT_COLLISION_WIDTH = fe::MERCHANT_COLLISION_ZONE_WIDTH;
-        constexpr bn::fixed MERCHANT_COLLISION_HEIGHT = fe::MERCHANT_COLLISION_ZONE_HEIGHT;
-        constexpr bn::fixed MERCHANT_INTERACTION_WIDTH = fe::MERCHANT_INTERACTION_ZONE_WIDTH;
-        constexpr bn::fixed MERCHANT_INTERACTION_HEIGHT = fe::MERCHANT_INTERACTION_ZONE_HEIGHT;
-    }
-
     enum class directions
     {
         up,

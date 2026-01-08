@@ -96,10 +96,10 @@ namespace fe
 
         // Calculate interaction zone boundaries (larger zone for conversation triggers)
         // Using same pattern as other zones: inclusive left/top, exclusive right/bottom
-        const bn::fixed zone_left = center.x() - _merchant_interaction_zone_width / 2;
-        const bn::fixed zone_right = center.x() + _merchant_interaction_zone_width / 2;
-        const bn::fixed zone_top = center.y() - _merchant_interaction_zone_height / 2;
-        const bn::fixed zone_bottom = center.y() + _merchant_interaction_zone_height / 2;
+        const bn::fixed zone_left = center.x() - MERCHANT_INTERACTION_ZONE_WIDTH / 2;
+        const bn::fixed zone_right = center.x() + MERCHANT_INTERACTION_ZONE_WIDTH / 2;
+        const bn::fixed zone_top = center.y() - MERCHANT_INTERACTION_ZONE_HEIGHT / 2;
+        const bn::fixed zone_bottom = center.y() + MERCHANT_INTERACTION_ZONE_HEIGHT / 2;
 
         return position.x() >= zone_left && position.x() < zone_right &&
                position.y() >= zone_top && position.y() < zone_bottom;
@@ -117,10 +117,10 @@ namespace fe
 
         // Calculate collision zone boundaries (smaller zone for physical blocking)
         // Using same pattern as other zones: inclusive left/top, exclusive right/bottom
-        const bn::fixed zone_left = center.x() - _merchant_collision_zone_width / 2;
-        const bn::fixed zone_right = center.x() + _merchant_collision_zone_width / 2;
-        const bn::fixed zone_top = center.y() - _merchant_collision_zone_height / 2;
-        const bn::fixed zone_bottom = center.y() + _merchant_collision_zone_height / 2;
+        const bn::fixed zone_left = center.x() - MERCHANT_COLLISION_ZONE_WIDTH / 2;
+        const bn::fixed zone_right = center.x() + MERCHANT_COLLISION_ZONE_WIDTH / 2;
+        const bn::fixed zone_top = center.y() - MERCHANT_COLLISION_ZONE_HEIGHT / 2;
+        const bn::fixed zone_bottom = center.y() + MERCHANT_COLLISION_ZONE_HEIGHT / 2;
 
         return position.x() >= zone_left && position.x() < zone_right &&
                position.y() >= zone_top && position.y() < zone_bottom;

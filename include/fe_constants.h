@@ -75,7 +75,6 @@ namespace fe
     constexpr bn::fixed FOREST_WORLD_SPAWN_Y = 50;
 
     constexpr int Z_ORDER_BULLET = -15;
-    constexpr int Z_ORDER_PLAYER_STATUS_HIGH_PRIORITY = -1000;
     constexpr int Z_ORDER_MINIMAP_PLAYER = 11;
     constexpr int Z_ORDER_MINIMAP_ENEMY = 10;
 
@@ -95,15 +94,10 @@ namespace fe
     constexpr bn::fixed CAMERA_CENTER_BIAS = 0.2;
     
     // Velocity-based lookahead multipliers
-    constexpr bn::fixed CAMERA_VELOCITY_LOOKAHEAD_MULT = 35;  // Multiplied by velocity for lookahead
     constexpr bn::fixed CAMERA_RUNNING_LOOKAHEAD_BOOST = 1.5; // Extra lookahead when running
     constexpr bn::fixed CAMERA_SNAPBACK_SPEED = 0.03;         // Slower return to center when idle
     constexpr bn::fixed CAMERA_CATCH_UP_SPEED = 0.12;         // Faster catch-up when player far from camera
 
-    constexpr bn::fixed PLAYER_STATUS_X = 76;
-    constexpr bn::fixed PLAYER_STATUS_Y = 70;
-
-    constexpr int GUNFIRE_SHAKE_FRAMES = 6;
     constexpr bn::fixed GUNFIRE_SHAKE_BASE_INTENSITY = 1.0;
     constexpr bn::fixed GUNFIRE_SHAKE_MAX_INTENSITY = 5.0;
     constexpr int GUNFIRE_BUILDUP_FRAMES = 120;
@@ -112,7 +106,6 @@ namespace fe
 
     constexpr bn::fixed PLAYER_ROLL_SPEED = 3.75;
     constexpr int PLAYER_ROLL_DURATION = 64;
-    constexpr int PLAYER_ROLL_IFRAME_DURATION = 30;
     constexpr int PLAYER_DEATH_ANIMATION_DURATION = 90;
     constexpr int PLAYER_CHOP_DURATION = 40;
     constexpr int PLAYER_SLASH_DURATION = 25;
@@ -122,7 +115,6 @@ namespace fe
     constexpr bn::fixed ENEMY_KNOCKBACK_STRENGTH = 2.5;
     constexpr int ENEMY_DEATH_ANIMATION_DURATION = 150;
     constexpr int ENEMY_KNOCKBACK_DURATION = 10;
-    constexpr int ENEMY_ATTACK_DURATION = 60;
     constexpr bn::fixed ENEMY_ATTACK_DISTANCE = 20;
 
     constexpr int COMPANION_HITBOX_SIZE = 16;
