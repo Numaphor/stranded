@@ -153,6 +153,8 @@ namespace fe
         ENEMY_TYPE type();
         bool is_ready_for_removal(); // Check if dead enemy should be removed
         void _update_spearguard_animation();
+        // Access to health bar sprite for zoom scaling
+        [[nodiscard]] bn::sprite_ptr* get_health_bar_sprite() { return _health_bar_sprite.has_value() ? &_health_bar_sprite.value() : nullptr; }
         [[nodiscard]] Hitbox get_hitbox() const override
         {
             return Entity::get_hitbox();

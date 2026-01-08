@@ -153,6 +153,13 @@ namespace fe
 
     constexpr int HUD_MAX_HP = 2;
     constexpr int HUD_MAX_AMMO = 10;
+
+    // Zoom constants
+    // Note: In GBA affine, scale < 1 makes sprites appear larger, scale > 1 makes them smaller
+    // For zoom out effect (seeing more), we want sprites to appear smaller, so scale > 1
+    constexpr bn::fixed ZOOM_NORMAL_SCALE = 1;
+    constexpr bn::fixed ZOOM_OUT_SCALE = bn::fixed(0.5);  // Scale of 0.5 makes sprites appear at half size (zoomed out)
+    constexpr bn::fixed ZOOM_TRANSITION_SPEED = 0.1;  // How fast zoom transitions
 }
 
 #endif

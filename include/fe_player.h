@@ -274,6 +274,7 @@ namespace fe
 
         // Returns list of active bullets for collision checking
         [[nodiscard]] const bn::vector<Bullet, 32> &bullets() const { return _bullet_manager.bullets(); }
+        [[nodiscard]] bn::vector<Bullet, 32> &bullets_mutable() { return const_cast<bn::vector<Bullet, 32>&>(_bullet_manager.bullets()); }
 
         // Check if bullet was just fired this frame (for screen shake)
         [[nodiscard]] bool bullet_just_fired() const { return _bullet_just_fired; }
@@ -288,6 +289,9 @@ namespace fe
 
         // Access to HUD for weapon management
         [[nodiscard]] fe::HUD &get_hud() { return _hud; }
+
+        // Access to gun sprite for zoom scaling
+        [[nodiscard]] bn::sprite_ptr* gun_sprite() { return _gun_sprite.has_value() ? &_gun_sprite.value() : nullptr; }
 
         // Ammo management
         [[nodiscard]] int get_ammo() const { return _ammo_count; }

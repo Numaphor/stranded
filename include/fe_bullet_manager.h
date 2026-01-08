@@ -44,6 +44,9 @@ namespace fe
             }
         }
 
+        // Access to sprite for zoom scaling
+        [[nodiscard]] bn::sprite_ptr* get_sprite() { return _sprite.has_value() ? &_sprite.value() : nullptr; }
+
     private:
         bn::fixed_point _pos;
         bn::fixed_point _velocity;

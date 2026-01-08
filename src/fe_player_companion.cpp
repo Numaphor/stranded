@@ -389,20 +389,36 @@ namespace fe
         text_generator.set_center_alignment();
 
         // Create text sprites at position above the dead companion
-        bn::fixed_point text_pos = _death_position + bn::fixed_point(0, -20); // 20 pixels above companion
+        bn::fixed_point text_center = _death_position + bn::fixed_point(0, -20); // 20 pixels above companion
         text_generator.set_bg_priority(0);
-        text_generator.generate(text_pos, "Press A to revive", _text_sprites);
+        text_generator.generate(text_center, "Press A to revive", _text_sprites);
 
-        // Set camera for text sprites
+        // Store original offsets from text center and set camera
+        _text_original_offsets.clear();
         for (bn::sprite_ptr &text_sprite : _text_sprites)
         {
             text_sprite.set_camera(_sprite.camera());
             text_sprite.set_z_order(-32767); // Ensure text is on top
+            // Store offset from text center
+            _text_original_offsets.push_back(text_sprite.position() - text_center);
         }
     }
 
     void PlayerCompanion::hide_revival_text()
     {
         _text_sprites.clear();
+    }
+
+    void PlayerCompanion::reset_text_positions()
+    {
+        if (_text_sprites.empty() || _text_original_offsets.empty())
+            return;
+        
+        // Restore original positions from stored offsets
+        bn::fixed_point text_center = _death_position + bn::fixed_point(0, -20);
+        for (int i = 0; i < _text_sprites.size() && i < _text_original_offsets.size(); ++i)
+        {
+            _text_sprites[i].set_position(text_center + _text_original_offsets[i]);
+        }
     }
 }

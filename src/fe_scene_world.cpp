@@ -6,6 +6,7 @@
 #include "fe_constants.h"
 #include "bn_core.h"
 #include "bn_keypad.h"
+#include "bn_sprite_double_size_mode.h"
 #include "bn_sprite_builder.h"
 #include "bn_sprite_items_hero.h"
 #include "bn_bg_tiles.h"
@@ -79,7 +80,10 @@ namespace fe
                      _current_world_id(0),
                      _shake_frames(0),
                      _shake_intensity(0),
-                     _continuous_fire_frames(0)
+                     _continuous_fire_frames(0),
+                     _zoomed_out(false),
+                     _current_zoom_scale(ZOOM_NORMAL_SCALE),
+                     _zoom_affine_mat(bn::nullopt)
     {
         // Create player sprite with correct shape and size
         bn::sprite_builder builder(bn::sprite_items::hero);
@@ -121,9 +125,10 @@ namespace fe
         // Reset lookahead on world start
         _lookahead_current = bn::fixed_point(0, 0);
 
-        // Initialize sword background with camera
-        _sword_bg = bn::regular_bg_items::sword.create_bg(0, 0);
+        // Initialize sword background with camera (affine for scaling support)
+        _sword_bg = bn::affine_bg_items::sword.create_bg(0, 0);
         _sword_bg->set_visible(true);
+        _sword_bg->set_wrapping_enabled(false); // Disable wrapping to prevent repeating when zoomed
         _sword_bg->set_camera(camera); // Make it follow the camera
 
         // Get the outside window and set it to hide the sword background by default
@@ -163,6 +168,47 @@ namespace fe
                 // Save current state before going to menu
                 _save_current_state();
                 return fe::Scene::MENU;
+            }
+
+            // Toggle zoom with SELECT pressed alone (not combined with other buttons)
+            if (bn::keypad::select_pressed() && 
+                !bn::keypad::a_held() && !bn::keypad::b_held() && 
+                !bn::keypad::l_held() && !bn::keypad::r_held() &&
+                !bn::keypad::up_held() && !bn::keypad::down_held() &&
+                !bn::keypad::left_held() && !bn::keypad::right_held())
+            {
+                _zoomed_out = !_zoomed_out;
+            }
+
+            // Smoothly interpolate zoom scale
+            bn::fixed target_scale = _zoomed_out ? ZOOM_OUT_SCALE : ZOOM_NORMAL_SCALE;
+            if (_current_zoom_scale != target_scale)
+            {
+                bn::fixed diff = target_scale - _current_zoom_scale;
+                if (bn::abs(diff) < ZOOM_TRANSITION_SPEED)
+                {
+                    _current_zoom_scale = target_scale;
+                }
+                else
+                {
+                    _current_zoom_scale += diff * ZOOM_TRANSITION_SPEED * 2;
+                }
+            }
+
+            // Manage zoom affine matrix based on current scale
+            if (_current_zoom_scale != ZOOM_NORMAL_SCALE)
+            {
+                // Create or update affine matrix when zoomed
+                if (!_zoom_affine_mat.has_value())
+                {
+                    _zoom_affine_mat = bn::sprite_affine_mat_ptr::create();
+                }
+                _zoom_affine_mat->set_scale(_current_zoom_scale);
+            }
+            else
+            {
+                // Clear affine matrix when at normal scale
+                _zoom_affine_mat.reset();
             }
 
             // Handle NPC interactions BEFORE player input processing
@@ -526,6 +572,215 @@ namespace fe
                 camera.set_position(0, 0);
 
                 continue; // Skip the rest of the loop for this frame
+            }
+
+            // Apply zoom scaling to affine backgrounds
+            if (_sword_bg && _current_zoom_scale != ZOOM_NORMAL_SCALE)
+            {
+                _sword_bg->set_scale(_current_zoom_scale);
+                // Scale sword position relative to camera
+                bn::fixed_point cam_pos = bn::fixed_point(camera.x(), camera.y());
+                bn::fixed_point sword_world_pos = bn::fixed_point(0, 0); // Sword is at world origin
+                bn::fixed_point offset = sword_world_pos - cam_pos;
+                bn::fixed_point scaled_pos = cam_pos + bn::fixed_point(offset.x() * _current_zoom_scale, offset.y() * _current_zoom_scale);
+                _sword_bg->set_position(scaled_pos.x(), scaled_pos.y());
+            }
+            else if (_sword_bg)
+            {
+                _sword_bg->set_scale(1);
+                _sword_bg->set_position(0, 0); // Reset to original position
+            }
+
+            // Apply zoom affine matrix and position scaling to all game sprites
+            // Use camera as zoom center, scale positions relative to camera
+            if (_zoom_affine_mat.has_value())
+            {
+                // Camera position is the zoom center (screen center)
+                bn::fixed_point cam_pos = bn::fixed_point(camera.x(), camera.y());
+                
+                // Apply to player sprite
+                if (_player->sprite())
+                {
+                    _player->sprite()->set_affine_mat(_zoom_affine_mat.value());
+                    _player->sprite()->set_double_size_mode(bn::sprite_double_size_mode::ENABLED);
+                    bn::fixed_point player_world_pos = _player->pos();
+                    bn::fixed_point offset = player_world_pos - cam_pos;
+                    bn::fixed_point scaled_pos = cam_pos + bn::fixed_point(offset.x() * _current_zoom_scale, offset.y() * _current_zoom_scale);
+                    _player->sprite()->set_position(scaled_pos);
+                }
+
+                // Apply to gun sprite - use player world pos + gun offset
+                if (_player->gun_sprite())
+                {
+                    _player->gun_sprite()->set_affine_mat(_zoom_affine_mat.value());
+                    _player->gun_sprite()->set_double_size_mode(bn::sprite_double_size_mode::ENABLED);
+                    // Gun world position is player pos + relative gun offset
+                    bn::fixed_point player_world_pos = _player->pos();
+                    bn::fixed_point gun_screen_pos = _player->gun_sprite()->position();
+                    // Gun offset from player in world space
+                    bn::fixed_point gun_offset_from_player = gun_screen_pos - player_world_pos;
+                    bn::fixed_point gun_world_pos = player_world_pos + gun_offset_from_player;
+                    bn::fixed_point offset = gun_world_pos - cam_pos;
+                    bn::fixed_point scaled_pos = cam_pos + bn::fixed_point(offset.x() * _current_zoom_scale, offset.y() * _current_zoom_scale);
+                    _player->gun_sprite()->set_position(scaled_pos);
+                }
+
+                // Apply to companion sprite
+                if (_player->has_companion() && _player->get_companion())
+                {
+                    PlayerCompanion* companion = _player->get_companion();
+                    bn::sprite_ptr companion_sprite = companion->get_sprite();
+                    companion_sprite.set_affine_mat(_zoom_affine_mat.value());
+                    companion_sprite.set_double_size_mode(bn::sprite_double_size_mode::ENABLED);
+                    bn::fixed_point comp_world_pos = companion->pos();
+                    bn::fixed_point offset = comp_world_pos - cam_pos;
+                    bn::fixed_point scaled_pos = cam_pos + bn::fixed_point(offset.x() * _current_zoom_scale, offset.y() * _current_zoom_scale);
+                    companion_sprite.set_position(scaled_pos);
+                    
+                    // Apply to companion revival progress bar - position relative to scaled companion pos
+                    bn::sprite_ptr* progress_bar = companion->get_progress_bar_sprite();
+                    if (progress_bar)
+                    {
+                        progress_bar->set_affine_mat(_zoom_affine_mat.value());
+                        progress_bar->set_double_size_mode(bn::sprite_double_size_mode::ENABLED);
+                        // Progress bar is above companion - use scaled companion position + scaled offset
+                        bn::fixed_point pb_offset_from_companion = bn::fixed_point(0, -16);
+                        bn::fixed_point scaled_pb_offset = bn::fixed_point(pb_offset_from_companion.x() * _current_zoom_scale, pb_offset_from_companion.y() * _current_zoom_scale);
+                        progress_bar->set_position(scaled_pos + scaled_pb_offset);
+                    }
+                    
+                    // Text sprites - scale visually and compact spacing using stored original offsets
+                    bn::vector<bn::sprite_ptr, 16>& text_sprites = companion->get_text_sprites();
+                    const bn::vector<bn::fixed_point, 16>& original_offsets = companion->get_text_original_offsets();
+                    if (!text_sprites.empty() && !original_offsets.empty())
+                    {
+                        // Text center is at companion death position + text offset
+                        bn::fixed_point text_center_world = companion->get_text_center();
+                        bn::fixed_point text_center_offset = text_center_world - cam_pos;
+                        bn::fixed_point scaled_text_center = cam_pos + bn::fixed_point(text_center_offset.x() * _current_zoom_scale, text_center_offset.y() * _current_zoom_scale);
+                        
+                        for (int i = 0; i < text_sprites.size() && i < original_offsets.size(); ++i)
+                        {
+                            text_sprites[i].set_affine_mat(_zoom_affine_mat.value());
+                            text_sprites[i].set_double_size_mode(bn::sprite_double_size_mode::ENABLED);
+                            // Use stored original offset and scale it inward
+                            bn::fixed_point scaled_offset = bn::fixed_point(original_offsets[i].x() * _current_zoom_scale, original_offsets[i].y() * _current_zoom_scale);
+                            text_sprites[i].set_position(scaled_text_center + scaled_offset);
+                        }
+                    }
+                }
+
+                // Apply to bullets
+                for (Bullet& bullet : _player->bullets_mutable())
+                {
+                    if (bullet.is_active() && bullet.get_sprite())
+                    {
+                        bullet.get_sprite()->set_affine_mat(_zoom_affine_mat.value());
+                        bullet.get_sprite()->set_double_size_mode(bn::sprite_double_size_mode::ENABLED);
+                        bn::fixed_point bullet_world_pos = bullet.position();
+                        bn::fixed_point offset = bullet_world_pos - cam_pos;
+                        bn::fixed_point scaled_pos = cam_pos + bn::fixed_point(offset.x() * _current_zoom_scale, offset.y() * _current_zoom_scale);
+                        bullet.get_sprite()->set_position(scaled_pos);
+                    }
+                }
+
+                // Apply to enemies
+                for (Enemy& enemy : _enemies)
+                {
+                    if (enemy.has_sprite())
+                    {
+                        bn::sprite_ptr* enemy_sprite = enemy.get_sprite();
+                        if (enemy_sprite)
+                        {
+                            enemy_sprite->set_affine_mat(_zoom_affine_mat.value());
+                            enemy_sprite->set_double_size_mode(bn::sprite_double_size_mode::ENABLED);
+                            bn::fixed_point enemy_world_pos = enemy.get_position();
+                            bn::fixed_point offset = enemy_world_pos - cam_pos;
+                            bn::fixed_point scaled_pos = cam_pos + bn::fixed_point(offset.x() * _current_zoom_scale, offset.y() * _current_zoom_scale);
+                            enemy_sprite->set_position(scaled_pos);
+                        }
+                    }
+                    // Health bar - position it above the scaled enemy position
+                    bn::sprite_ptr* health_bar = enemy.get_health_bar_sprite();
+                    if (health_bar)
+                    {
+                        bn::fixed_point enemy_world_pos = enemy.get_position();
+                        bn::fixed_point hb_world_pos = enemy_world_pos + bn::fixed_point(0, -12); // Health bar offset above enemy
+                        bn::fixed_point offset = hb_world_pos - cam_pos;
+                        bn::fixed_point scaled_pos = cam_pos + bn::fixed_point(offset.x() * _current_zoom_scale, offset.y() * _current_zoom_scale);
+                        health_bar->set_position(scaled_pos);
+                    }
+                }
+
+                // Apply to merchant
+                if (_merchant && _merchant->has_sprite())
+                {
+                    bn::sprite_ptr* merchant_sprite = _merchant->get_sprite();
+                    if (merchant_sprite)
+                    {
+                        merchant_sprite->set_affine_mat(_zoom_affine_mat.value());
+                        merchant_sprite->set_double_size_mode(bn::sprite_double_size_mode::ENABLED);
+                        bn::fixed_point merchant_world_pos = _merchant->pos();
+                        bn::fixed_point offset = merchant_world_pos - cam_pos;
+                        bn::fixed_point scaled_pos = cam_pos + bn::fixed_point(offset.x() * _current_zoom_scale, offset.y() * _current_zoom_scale);
+                        merchant_sprite->set_position(scaled_pos);
+                    }
+                }
+            }
+            else
+            {
+                // Remove affine matrix when not zooming
+                if (_player->sprite() && _player->sprite()->affine_mat().has_value())
+                {
+                    _player->sprite()->remove_affine_mat();
+                }
+                if (_player->gun_sprite() && _player->gun_sprite()->affine_mat().has_value())
+                {
+                    _player->gun_sprite()->remove_affine_mat();
+                }
+                // Remove from companion and its revival sprites
+                if (_player->has_companion() && _player->get_companion())
+                {
+                    PlayerCompanion* companion = _player->get_companion();
+                    bn::sprite_ptr companion_sprite = companion->get_sprite();
+                    if (companion_sprite.affine_mat().has_value())
+                    {
+                        companion_sprite.remove_affine_mat();
+                    }
+                    bn::sprite_ptr* progress_bar = companion->get_progress_bar_sprite();
+                    if (progress_bar && progress_bar->affine_mat().has_value())
+                    {
+                        progress_bar->remove_affine_mat();
+                    }
+                    // Remove affine matrices from text sprites and reset positions
+                    for (bn::sprite_ptr& text_sprite : companion->get_text_sprites())
+                    {
+                        if (text_sprite.affine_mat().has_value())
+                        {
+                            text_sprite.remove_affine_mat();
+                        }
+                    }
+                    companion->reset_text_positions();
+                }
+                for (Enemy& enemy : _enemies)
+                {
+                    if (enemy.has_sprite())
+                    {
+                        bn::sprite_ptr* enemy_sprite = enemy.get_sprite();
+                        if (enemy_sprite && enemy_sprite->affine_mat().has_value())
+                        {
+                            enemy_sprite->remove_affine_mat();
+                        }
+                    }
+                }
+                if (_merchant && _merchant->has_sprite())
+                {
+                    bn::sprite_ptr* merchant_sprite = _merchant->get_sprite();
+                    if (merchant_sprite && merchant_sprite->affine_mat().has_value())
+                    {
+                        merchant_sprite->remove_affine_mat();
+                    }
+                }
             }
 
             // Check win condition
