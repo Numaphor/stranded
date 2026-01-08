@@ -40,6 +40,9 @@ namespace fe
         [[nodiscard]] float get_revival_progress_percent() const { return float(_revival_timer) / float(COMPANION_REVIVAL_DURATION); }
         void show_revival_text(); // Show "Press A to revive" text
         void hide_revival_text(); // Hide revival text
+        void reset_text_positions(); // Reset text sprite positions to original
+        [[nodiscard]] const bn::vector<bn::fixed_point, 16>& get_text_original_offsets() const { return _text_original_offsets; }
+        [[nodiscard]] bn::fixed_point get_text_center() const { return _death_position + bn::fixed_point(0, -20); }
         [[nodiscard]] Position get_position_side() const { return _position_side; }
         [[nodiscard]] bn::fixed_point pos() const { return _position; }
         [[nodiscard]] bool is_flying() const { return _is_flying; }
@@ -47,6 +50,9 @@ namespace fe
         [[nodiscard]] bool is_reviving() const { return _is_reviving; }
         [[nodiscard]] bool can_be_revived() const { return _can_be_revived; }
         [[nodiscard]] bn::sprite_ptr get_sprite() const { return _sprite; }
+        // Access for zoom scaling
+        [[nodiscard]] bn::sprite_ptr* get_progress_bar_sprite() { return _progress_bar_sprite.has_value() ? &_progress_bar_sprite.value() : nullptr; }
+        [[nodiscard]] bn::vector<bn::sprite_ptr, 16>& get_text_sprites() { return _text_sprites; }
 
     private:
         bn::sprite_ptr _sprite;
@@ -72,6 +78,7 @@ namespace fe
 
         // Revival text message
         bn::vector<bn::sprite_ptr, 16> _text_sprites;
+        bn::vector<bn::fixed_point, 16> _text_original_offsets; // Original offsets from text center
 
         void update_animation();
         void update_position(bn::fixed_point player_pos);

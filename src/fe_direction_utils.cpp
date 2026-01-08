@@ -30,12 +30,14 @@ namespace fe
         int get_gun_z_offset(Direction dir)
         {
             // Z-order offsets for gun sprite relative to player
-            // Original behavior: UP -> behind player (1), others -> in front (-1)
+            // Lower z-order = drawn on top (in front)
+            // UP: gun behind player (higher z), DOWN: gun in front (lower z)
             switch (dir)
             {
             case Direction::UP:
-                return 1;
+                return -1;  // gun behind player (drawn first)
             case Direction::DOWN:
+                return 1;   // gun in front of player (drawn on top)
             case Direction::LEFT:
             case Direction::RIGHT:
             default:

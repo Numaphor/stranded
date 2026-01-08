@@ -10,8 +10,10 @@
 #include "bn_regular_bg_map_ptr.h"
 #include "bn_regular_bg_tiles_ptr.h"
 #include "bn_bg_palette_ptr.h"
-#include "bn_regular_bg_items_sword.h"
+#include "bn_affine_bg_ptr.h"
+#include "bn_affine_bg_items_sword.h"
 #include "bn_rect_window.h"
+#include "bn_sprite_affine_mat_ptr.h"
 #include "fe_constants.h"
 
 #include "fe_scene.h"
@@ -41,7 +43,7 @@ namespace fe
         Level *_level;
         bn::vector<Enemy, 16> _enemies;
         Minimap *_minimap;
-        bn::optional<bn::regular_bg_ptr> _sword_bg;
+        bn::optional<bn::affine_bg_ptr> _sword_bg;
         NPC *_merchant;                                             // Changed to base NPC pointer to allow different types
         PlayerStatusDisplay *_player_status_display;                // Future: Player status display (will be converted to unique_ptr)
         bn::optional<bn::camera_ptr> _camera;                       // Camera for positioning
@@ -57,6 +59,12 @@ namespace fe
         int _shake_frames;                                             // Number of frames left to shake
         bn::fixed _shake_intensity;                                    // Current shake intensity
         int _continuous_fire_frames;                                   // How many frames player has been firing continuously
+
+        // Zoom system
+        bool _zoomed_out;                                              // Whether camera is zoomed out
+        bn::fixed _current_zoom_scale;                                 // Current zoom scale (interpolates between normal and zoomed)
+        bn::optional<bn::sprite_affine_mat_ptr> _zoom_affine_mat;      // Shared affine matrix for zoom scaling
+        bn::optional<bn::sprite_affine_mat_ptr> _gun_affine_mat;       // Separate affine matrix for gun (needs its own rotation)
 
         void _init_world_specific_content(int world_id, bn::camera_ptr &camera, bn::regular_bg_ptr &bg, bn::sprite_text_generator &text_generator);
         void _save_current_state();
