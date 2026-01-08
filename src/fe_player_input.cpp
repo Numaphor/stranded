@@ -21,7 +21,7 @@ namespace fe
     // Player input methods
     void Player::handle_input()
     {
-        if (_state.listening())
+        if (_state.listening() || _movement.current_state() == PlayerMovement::State::DEAD)
         {
             return;
         }

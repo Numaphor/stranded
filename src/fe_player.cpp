@@ -259,12 +259,16 @@ namespace fe
                 _hp = 0;
                 // Start death animation instead of immediately requiring reset
                 _movement.set_state(PlayerMovement::State::DEAD);
+                _movement.stop_movement(); // Stop all momentum
                 _death_timer = PLAYER_DEATH_ANIMATION_DURATION;
                 _death_sound_played = false; // Reset flag for death sound
 
                 // Clear invulnerability during death to prevent blinking
                 _state.set_invulnerable(false);
                 _state.set_inv_timer(0);
+
+                // Trigger death animation
+                update_animation();
             }
             else
             {
