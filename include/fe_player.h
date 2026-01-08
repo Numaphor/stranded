@@ -240,6 +240,9 @@ namespace fe
 
         [[nodiscard]] bn::fixed_point pos() const override { return Entity::pos(); }
         [[nodiscard]] bool is_moving() const { return _movement.is_moving(); }
+        [[nodiscard]] bn::fixed velocity_x() const { return _movement.dx(); }
+        [[nodiscard]] bn::fixed velocity_y() const { return _movement.dy(); }
+        [[nodiscard]] bool is_running() const { return _movement.is_state(PlayerMovement::State::RUNNING); }
         [[nodiscard]] bool is_state(PlayerMovement::State state) const { return _movement.is_state(state); }
         [[nodiscard]] PlayerMovement::Direction facing_direction() const { return _movement.facing_direction(); }
         [[nodiscard]] bool listening() const { return _state.listening(); }

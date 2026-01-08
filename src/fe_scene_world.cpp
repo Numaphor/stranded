@@ -327,12 +327,15 @@ namespace fe
                 _minimap->update(_player->pos(), bn::fixed_point(0, 0), _enemies);
             }
 
-            // Proper deadzone camera system with smooth interpolation and lookahead
+            // Improved deadzone camera system with velocity-based lookahead
             bn::fixed_point player_pos = _player->pos();
             bn::fixed_point current_camera_pos = _camera.has_value() ? bn::fixed_point(_camera->x(), _camera->y()) : bn::fixed_point(0, 0);
 
-            // Check if player is actively moving
+            // Get player velocity for velocity-based lookahead
+            bn::fixed player_vx = _player->velocity_x();
+            bn::fixed player_vy = _player->velocity_y();
             bool player_is_moving = _player->is_moving();
+            bool player_is_running = _player->is_running();
 
             // Detect direction changes for temporary slower interpolation
             PlayerMovement::Direction current_dir = _player->facing_direction();
@@ -342,43 +345,60 @@ namespace fe
                 _direction_change_frames = CAMERA_DIRECTION_CHANGE_DURATION;
             }
 
-            // Calculate distance from player to camera
+            // Calculate distance from player to camera for adaptive speed
             bn::fixed_point player_to_camera = player_pos - current_camera_pos;
+            bn::fixed dist_sq = player_to_camera.x() * player_to_camera.x() + 
+                               player_to_camera.y() * player_to_camera.y();
 
-            // Check if player is outside deadzone
-            bool outside_deadzone_x = bn::abs(player_to_camera.x()) > CAMERA_DEADZONE_X;
-            bool outside_deadzone_y = bn::abs(player_to_camera.y()) > CAMERA_DEADZONE_Y;
-            bool outside_deadzone = outside_deadzone_x || outside_deadzone_y;
-            (void) outside_deadzone; // computed for clarity/debug; behavior uses boundary clamping below
-
-            // Smooth lookahead calculation towards the player's facing direction
+            // Direction-based lookahead with diagonal support
             bn::fixed_point target_lookahead(0, 0);
             if (player_is_moving)
             {
-                switch (current_dir)
+                // Calculate lookahead multiplier (boost when running)
+                bn::fixed speed_mult = player_is_running ? CAMERA_RUNNING_LOOKAHEAD_BOOST : bn::fixed(1);
+                
+                // Use velocity signs to determine lookahead direction (supports diagonals)
+                bn::fixed lookahead_x = 0;
+                bn::fixed lookahead_y = 0;
+                
+                if (player_vx > 0)
+                    lookahead_x = CAMERA_LOOKAHEAD_X * speed_mult;
+                else if (player_vx < 0)
+                    lookahead_x = -CAMERA_LOOKAHEAD_X * speed_mult;
+                    
+                if (player_vy > 0)
+                    lookahead_y = CAMERA_LOOKAHEAD_Y * speed_mult;
+                else if (player_vy < 0)
+                    lookahead_y = -CAMERA_LOOKAHEAD_Y * speed_mult;
+                
+                // Reduce diagonal lookahead to prevent excessive offset
+                if (lookahead_x != 0 && lookahead_y != 0)
                 {
-                case PlayerMovement::Direction::LEFT:
-                    target_lookahead = bn::fixed_point(-CAMERA_LOOKAHEAD_X, 0);
-                    break;
-                case PlayerMovement::Direction::RIGHT:
-                    target_lookahead = bn::fixed_point(CAMERA_LOOKAHEAD_X, 0);
-                    break;
-                case PlayerMovement::Direction::UP:
-                    target_lookahead = bn::fixed_point(0, -CAMERA_LOOKAHEAD_Y);
-                    break;
-                case PlayerMovement::Direction::DOWN:
-                default:
-                    target_lookahead = bn::fixed_point(0, CAMERA_LOOKAHEAD_Y);
-                    break;
+                    lookahead_x *= bn::fixed(0.707);
+                    lookahead_y *= bn::fixed(0.707);
                 }
+                
+                target_lookahead = bn::fixed_point(lookahead_x, lookahead_y);
             }
-            // Exponential smoothing of lookahead
-            _lookahead_current = _lookahead_current + (target_lookahead - _lookahead_current) * CAMERA_LOOKAHEAD_SMOOTHING;
+            
+            // Smooth lookahead with different speeds for building up vs decaying
+            if (player_is_moving)
+            {
+                // Building up lookahead - use standard smoothing
+                _lookahead_current = _lookahead_current + (target_lookahead - _lookahead_current) * CAMERA_LOOKAHEAD_SMOOTHING;
+            }
+            else
+            {
+                // Decaying lookahead when stopped - slower decay for smooth snapback
+                _lookahead_current = _lookahead_current * CAMERA_LOOKAHEAD_DECAY;
+            }
 
             // Apply center bias to reduce full lookahead usage
-            const bn::fixed lookahead_factor = bn::fixed(1) - CAMERA_CENTER_BIAS; // e.g., 0.7 when bias is 0.3
-            bn::fixed_point desired_focus = player_pos + bn::fixed_point(_lookahead_current.x() * lookahead_factor,
-                                                                          _lookahead_current.y() * lookahead_factor);
+            const bn::fixed lookahead_factor = bn::fixed(1) - CAMERA_CENTER_BIAS;
+            bn::fixed_point desired_focus = player_pos + bn::fixed_point(
+                _lookahead_current.x() * lookahead_factor,
+                _lookahead_current.y() * lookahead_factor
+            );
 
             // Compute the target camera position based on deadzone boundaries
             bn::fixed_point desired_offset = desired_focus - current_camera_pos;
@@ -400,12 +420,48 @@ namespace fe
                 _direction_change_frames--;
             }
 
-            // Choose interpolation speed based on whether we're in direction change period
+            // Adaptive interpolation speed based on context
+            bn::fixed interpolation_speed;
             bool in_direction_change = (_direction_change_frames > 0);
-            bn::fixed interpolation_speed = in_direction_change ? CAMERA_DIRECTION_CHANGE_SPEED : CAMERA_FOLLOW_SPEED;
+            
+            if (in_direction_change)
+            {
+                // Slower during direction changes for smoother transitions
+                interpolation_speed = CAMERA_DIRECTION_CHANGE_SPEED;
+            }
+            else if (!player_is_moving)
+            {
+                // Slower snapback when player stops for natural feel
+                interpolation_speed = CAMERA_SNAPBACK_SPEED;
+            }
+            else if (dist_sq > bn::fixed(2500)) // Player far from camera (50+ pixels)
+            {
+                // Faster catch-up when player is far from camera
+                interpolation_speed = CAMERA_CATCH_UP_SPEED;
+            }
+            else
+            {
+                // Normal follow speed
+                interpolation_speed = CAMERA_FOLLOW_SPEED;
+            }
 
             // Interpolate camera target position smoothly towards target
             _camera_target_pos = _camera_target_pos + (target_pos - _camera_target_pos) * interpolation_speed;
+            
+            // Clamp camera to map boundaries (prevent showing outside world)
+            // GBA screen is 240x160, so half is 120x80
+            constexpr bn::fixed half_screen_x = 120;
+            constexpr bn::fixed half_screen_y = 80;
+            constexpr bn::fixed map_min_x = -MAP_OFFSET_X + half_screen_x;
+            constexpr bn::fixed map_max_x = MAP_OFFSET_X - half_screen_x;
+            constexpr bn::fixed map_min_y = -MAP_OFFSET_Y + half_screen_y;
+            constexpr bn::fixed map_max_y = MAP_OFFSET_Y - half_screen_y;
+            
+            _camera_target_pos = bn::fixed_point(
+                bn::clamp(_camera_target_pos.x(), map_min_x, map_max_x),
+                bn::clamp(_camera_target_pos.y(), map_min_y, map_max_y)
+            );
+            
             bn::fixed_point new_camera_pos = _camera_target_pos;
 
             // Store the base camera position before applying shake

@@ -86,13 +86,19 @@ namespace fe
     constexpr int MENU_BG_COLOR_B = 8;
 
     constexpr bn::fixed CAMERA_DEADZONE_X = 16;
-    constexpr bn::fixed CAMERA_DEADZONE_Y = 6;
-    constexpr bn::fixed CAMERA_FOLLOW_SPEED = 0.05;
-    constexpr bn::fixed CAMERA_DIRECTION_CHANGE_SPEED = 0.012;
-    constexpr int CAMERA_DIRECTION_CHANGE_DURATION = 28;
-    constexpr bn::fixed CAMERA_LOOKAHEAD_X = 120;
-    constexpr bn::fixed CAMERA_LOOKAHEAD_Y = 100;
-    constexpr bn::fixed CAMERA_CENTER_BIAS = 0.3;
+    constexpr bn::fixed CAMERA_DEADZONE_Y = 10;
+    constexpr bn::fixed CAMERA_FOLLOW_SPEED = 0.06;
+    constexpr bn::fixed CAMERA_DIRECTION_CHANGE_SPEED = 0.03;
+    constexpr int CAMERA_DIRECTION_CHANGE_DURATION = 15;
+    constexpr bn::fixed CAMERA_LOOKAHEAD_X = 36;
+    constexpr bn::fixed CAMERA_LOOKAHEAD_Y = 24;
+    constexpr bn::fixed CAMERA_CENTER_BIAS = 0.2;
+    
+    // Velocity-based lookahead multipliers
+    constexpr bn::fixed CAMERA_VELOCITY_LOOKAHEAD_MULT = 35;  // Multiplied by velocity for lookahead
+    constexpr bn::fixed CAMERA_RUNNING_LOOKAHEAD_BOOST = 1.5; // Extra lookahead when running
+    constexpr bn::fixed CAMERA_SNAPBACK_SPEED = 0.03;         // Slower return to center when idle
+    constexpr bn::fixed CAMERA_CATCH_UP_SPEED = 0.12;         // Faster catch-up when player far from camera
 
     constexpr bn::fixed PLAYER_STATUS_X = 76;
     constexpr bn::fixed PLAYER_STATUS_Y = 70;
@@ -101,7 +107,8 @@ namespace fe
     constexpr bn::fixed GUNFIRE_SHAKE_BASE_INTENSITY = 1.0;
     constexpr bn::fixed GUNFIRE_SHAKE_MAX_INTENSITY = 5.0;
     constexpr int GUNFIRE_BUILDUP_FRAMES = 120;
-    constexpr bn::fixed CAMERA_LOOKAHEAD_SMOOTHING = 0.7;
+    constexpr bn::fixed CAMERA_LOOKAHEAD_SMOOTHING = 0.12;    // How fast lookahead builds up
+    constexpr bn::fixed CAMERA_LOOKAHEAD_DECAY = 0.95;        // Slower decay for smooth return when stopping
 
     constexpr bn::fixed PLAYER_ROLL_SPEED = 3.75;
     constexpr int PLAYER_ROLL_DURATION = 64;
