@@ -349,6 +349,8 @@ namespace fe
                 case PlayerMovement::Direction::DOWN:
                     desired_lookahead = bn::fixed_point(0, CAMERA_LOOKAHEAD_Y);
                     break;
+                default:
+                    break;
             }
             
             // Smoothly interpolate current lookahead towards desired lookahead
