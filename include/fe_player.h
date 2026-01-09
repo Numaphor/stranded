@@ -353,6 +353,7 @@ namespace fe
         void cycle_gun_sprite();   // Cycle gun animation sprites
         void cycle_sword_sprite(); // Cycle sword animation sprites (placeholder)
         void update_gun_if_active();
+        void activate_buff(PlayerMovement::State buff_state); // Helper to activate a buff with proper animations
     };
 
     // ... other members ...
