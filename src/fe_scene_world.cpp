@@ -327,24 +327,53 @@ namespace fe
                 _minimap->update(_player->pos(), bn::fixed_point(0, 0), _enemies);
             }
 
-            // Simple direct-follow camera system to eliminate vibration
+            // Camera system with look-ahead (shake disabled)
             bn::fixed_point player_pos = _player->pos();
+            PlayerMovement::Direction facing_dir = _player->facing_direction();
             
-            // Direct camera follow with simple deadzone
+            // Calculate desired lookahead based on player's facing direction
+            bn::fixed_point desired_lookahead(0, 0);
+            
+            // Apply lookahead in the direction the player is facing
+            switch (facing_dir)
+            {
+                case PlayerMovement::Direction::RIGHT:
+                    desired_lookahead = bn::fixed_point(CAMERA_LOOKAHEAD_X, 0);
+                    break;
+                case PlayerMovement::Direction::LEFT:
+                    desired_lookahead = bn::fixed_point(-CAMERA_LOOKAHEAD_X, 0);
+                    break;
+                case PlayerMovement::Direction::UP:
+                    desired_lookahead = bn::fixed_point(0, -CAMERA_LOOKAHEAD_Y);
+                    break;
+                case PlayerMovement::Direction::DOWN:
+                    desired_lookahead = bn::fixed_point(0, CAMERA_LOOKAHEAD_Y);
+                    break;
+                default:
+                    break;
+            }
+            
+            // Smoothly interpolate current lookahead towards desired lookahead
+            _lookahead_current = _lookahead_current + (desired_lookahead - _lookahead_current) * CAMERA_LOOKAHEAD_SMOOTHING;
+            
+            // Calculate target camera position with lookahead
+            bn::fixed_point camera_target = player_pos + _lookahead_current;
+            
+            // Get current camera position
             bn::fixed_point current_camera_pos = _camera.has_value() ? bn::fixed_point(_camera->x(), _camera->y()) : bn::fixed_point(0, 0);
-            bn::fixed_point player_to_camera = player_pos - current_camera_pos;
+            bn::fixed_point camera_to_target = camera_target - current_camera_pos;
             
             bn::fixed new_camera_x = current_camera_pos.x();
             bn::fixed new_camera_y = current_camera_pos.y();
             
-            // Apply deadzone - only move camera if player moves outside deadzone
-            if (bn::abs(player_to_camera.x()) > CAMERA_DEADZONE_X)
+            // Apply deadzone - only move camera if target is outside deadzone
+            if (bn::abs(camera_to_target.x()) > CAMERA_DEADZONE_X)
             {
-                new_camera_x = player_pos.x() - (player_to_camera.x() > 0 ? CAMERA_DEADZONE_X : -CAMERA_DEADZONE_X);
+                new_camera_x = camera_target.x() - (camera_to_target.x() > 0 ? CAMERA_DEADZONE_X : -CAMERA_DEADZONE_X);
             }
-            if (bn::abs(player_to_camera.y()) > CAMERA_DEADZONE_Y)
+            if (bn::abs(camera_to_target.y()) > CAMERA_DEADZONE_Y)
             {
-                new_camera_y = player_pos.y() - (player_to_camera.y() > 0 ? CAMERA_DEADZONE_Y : -CAMERA_DEADZONE_Y);
+                new_camera_y = camera_target.y() - (camera_to_target.y() > 0 ? CAMERA_DEADZONE_Y : -CAMERA_DEADZONE_Y);
             }
             
             // Clamp camera to map boundaries (prevent showing outside world)
@@ -361,24 +390,13 @@ namespace fe
                 bn::clamp(new_camera_y, map_min_y, map_max_y)
             );
 
-            // Store the base camera position before applying shake
-            bn::fixed base_camera_x = new_camera_pos.x();
-            bn::fixed base_camera_y = new_camera_pos.y();
-
-            // Calculate shake offset - DISABLED to remove screen shake while walking
-            bn::fixed shake_x = 0;
-            bn::fixed shake_y = 0;
-
-            // Apply final camera position with shake
+            // Apply final camera position (shake is disabled, set to 0)
             // Round to integer pixels to prevent sub-pixel jittering
             if (_camera.has_value())
             {
-                _camera->set_x(bn::fixed((base_camera_x + shake_x).integer()));
-                _camera->set_y(bn::fixed((base_camera_y + shake_y).integer()));
+                _camera->set_x(bn::fixed(new_camera_pos.x().integer()));
+                _camera->set_y(bn::fixed(new_camera_pos.y().integer()));
             }
-
-            // Remove old shake update call since it's now inline
-            // _update_camera_shake();
 
             // Update sword position and priority based on player position
             if (_sword_bg)
