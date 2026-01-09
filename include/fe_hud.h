@@ -19,6 +19,26 @@ namespace fe
     };
 
     /**
+     * @brief Buff menu states
+     */
+    enum class BUFF_MENU_STATE
+    {
+        CLOSED,
+        OPEN
+    };
+
+    /**
+     * @brief Buff menu option indices (matching buff types)
+     */
+    enum class BUFF_OPTION
+    {
+        UP = 0,      // Maps to HEAL_BUFF
+        RIGHT = 1,   // Maps to ENERGY_BUFF
+        DOWN = 2,    // Maps to POWER_BUFF
+        LEFT = 3     // Maps to DEFENCE_BUFF
+    };
+
+    /**
      * @brief Heads-Up Display manager for the game
      * 
      * Manages the on-screen HUD elements including:
@@ -26,6 +46,7 @@ namespace fe
      * - Soul indicator (animated sprite showing buff states)
      * - Weapon icon (current equipped weapon)
      * - Ammo counter (displayed when gun is equipped)
+     * - Buff menu (temptest sprites for buff selection)
      * 
      * All HUD elements are positioned in screen-space (not affected by camera)
      */
@@ -61,6 +82,13 @@ namespace fe
         // Ammo management
         void set_ammo(int ammo_count);
 
+        // Buff menu management
+        void toggle_buff_menu();
+        void navigate_buff_menu_next();
+        void navigate_buff_menu_prev();
+        [[nodiscard]] bool is_buff_menu_open() const;
+        [[nodiscard]] int get_selected_buff() const;
+
     private:
         // Healthbar display
         bn::optional<bn::regular_bg_ptr> _health_bg;
@@ -89,11 +117,18 @@ namespace fe
         bn::optional<bn::sprite_ptr> _ammo_sprite;
         int _displayed_ammo;
 
+        // Buff menu system
+        BUFF_MENU_STATE _buff_menu_state;
+        bn::sprite_ptr _buff_menu_base;
+        bn::optional<bn::sprite_ptr> _buff_menu_option_sprites[4];  // Up, Right, Down, Left
+        int _selected_buff_option;  // 0-3 for the four options
+
         // Private helper methods
         void _configure_hud_sprite(bn::sprite_ptr& sprite);
         void _update_soul_animations();
         void _update_soul_position();
         void _update_ammo_display();
+        void _update_buff_menu_sprites();
     };
 }
 

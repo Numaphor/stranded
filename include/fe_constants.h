@@ -153,6 +153,22 @@ namespace fe
     constexpr int HUD_MAX_HP = 2;
     constexpr int HUD_MAX_AMMO = 10;
 
+    // Buff menu constants
+    // Base temptest position (bottom-left, opposite to gun icon at 100, 66)
+    constexpr int HUD_BUFF_MENU_BASE_X = -100;
+    constexpr int HUD_BUFF_MENU_BASE_Y = 66;
+    
+    // Option sprites positioned around base (up, right, down, left pattern)
+    constexpr int HUD_BUFF_MENU_OPTION_OFFSET = 24;  // Distance from base sprite
+    constexpr int HUD_BUFF_MENU_OPTION_UP_X = 0;
+    constexpr int HUD_BUFF_MENU_OPTION_UP_Y = -HUD_BUFF_MENU_OPTION_OFFSET;
+    constexpr int HUD_BUFF_MENU_OPTION_RIGHT_X = HUD_BUFF_MENU_OPTION_OFFSET;
+    constexpr int HUD_BUFF_MENU_OPTION_RIGHT_Y = 0;
+    constexpr int HUD_BUFF_MENU_OPTION_DOWN_X = 0;
+    constexpr int HUD_BUFF_MENU_OPTION_DOWN_Y = HUD_BUFF_MENU_OPTION_OFFSET;
+    constexpr int HUD_BUFF_MENU_OPTION_LEFT_X = -HUD_BUFF_MENU_OPTION_OFFSET;
+    constexpr int HUD_BUFF_MENU_OPTION_LEFT_Y = 0;
+
     // Zoom constants
     // Note: In GBA affine, scale < 1 makes sprites appear larger, scale > 1 makes them smaller
     // For zoom out effect (seeing more), we want sprites to appear smaller, so scale > 1

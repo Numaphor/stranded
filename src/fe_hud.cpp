@@ -10,6 +10,7 @@
 #include "bn_sprite_items_soul_silver.h"
 #include "bn_sprite_items_soul_silver_idle.h"
 #include "bn_sprite_items_ammo.h"
+#include "bn_sprite_items_temptest.h"
 
 namespace fe
 {
@@ -26,6 +27,9 @@ namespace fe
         , _silver_soul_reversing(false)
         , _silver_idle_timer(0)
         , _displayed_ammo(HUD_MAX_AMMO)
+        , _buff_menu_state(BUFF_MENU_STATE::CLOSED)
+        , _buff_menu_base(bn::sprite_items::temptest.create_sprite(HUD_BUFF_MENU_BASE_X, HUD_BUFF_MENU_BASE_Y, 0))
+        , _selected_buff_option(0)
     {
         // Initialize healthbar background
         _health_bg = bn::regular_bg_items::healthbar.create_bg(
@@ -52,6 +56,10 @@ namespace fe
         _ammo_sprite->remove_camera();
         _ammo_sprite->set_z_order(HUD_SPRITE_Z_ORDER);
         _ammo_sprite->set_visible(false);
+
+        // Initialize buff menu base sprite
+        _configure_hud_sprite(_buff_menu_base);
+        _buff_menu_base.set_visible(true);
     }
 
     void HUD::_configure_hud_sprite(bn::sprite_ptr& sprite)
@@ -101,11 +109,24 @@ namespace fe
 
         _weapon_sprite.set_visible(is_visible);
         _soul_sprite.set_visible(is_visible);
+        _buff_menu_base.set_visible(is_visible);
 
         if (_ammo_sprite.has_value())
         {
             bool show_ammo = is_visible && _weapon == WEAPON_TYPE::GUN && _displayed_ammo > 0;
             _ammo_sprite->set_visible(show_ammo);
+        }
+
+        // Update buff menu option sprites visibility
+        if (_buff_menu_state == BUFF_MENU_STATE::OPEN)
+        {
+            for (int i = 0; i < 4; ++i)
+            {
+                if (_buff_menu_option_sprites[i].has_value())
+                {
+                    _buff_menu_option_sprites[i]->set_visible(is_visible);
+                }
+            }
         }
     }
 
@@ -199,6 +220,7 @@ namespace fe
     {
         _update_soul_position();
         _update_soul_animations();
+        _update_buff_menu_sprites();
     }
 
     void HUD::_update_soul_position()
@@ -330,6 +352,116 @@ namespace fe
         else
         {
             _ammo_sprite->set_visible(false);
+        }
+    }
+
+    void HUD::toggle_buff_menu()
+    {
+        if (_buff_menu_state == BUFF_MENU_STATE::CLOSED)
+        {
+            _buff_menu_state = BUFF_MENU_STATE::OPEN;
+            
+            // Create the 4 option sprites positioned around the base
+            int offsets_x[4] = {HUD_BUFF_MENU_OPTION_UP_X, HUD_BUFF_MENU_OPTION_RIGHT_X, 
+                                HUD_BUFF_MENU_OPTION_DOWN_X, HUD_BUFF_MENU_OPTION_LEFT_X};
+            int offsets_y[4] = {HUD_BUFF_MENU_OPTION_UP_Y, HUD_BUFF_MENU_OPTION_RIGHT_Y, 
+                                HUD_BUFF_MENU_OPTION_DOWN_Y, HUD_BUFF_MENU_OPTION_LEFT_Y};
+            
+            for (int i = 0; i < 4; ++i)
+            {
+                int sprite_x = HUD_BUFF_MENU_BASE_X + offsets_x[i];
+                int sprite_y = HUD_BUFF_MENU_BASE_Y + offsets_y[i];
+                
+                // Create sprite with appropriate frame based on selection
+                int frame = (i == _selected_buff_option) ? 1 : 0;
+                _buff_menu_option_sprites[i] = bn::sprite_items::temptest.create_sprite(sprite_x, sprite_y, frame);
+                _configure_hud_sprite(_buff_menu_option_sprites[i].value());
+            }
+        }
+        else
+        {
+            _buff_menu_state = BUFF_MENU_STATE::CLOSED;
+            
+            // Hide/destroy the option sprites
+            for (int i = 0; i < 4; ++i)
+            {
+                _buff_menu_option_sprites[i].reset();
+            }
+        }
+    }
+
+    void HUD::navigate_buff_menu_next()
+    {
+        if (_buff_menu_state != BUFF_MENU_STATE::OPEN)
+        {
+            return;
+        }
+
+        // Update previous selection to normal frame
+        if (_buff_menu_option_sprites[_selected_buff_option].has_value())
+        {
+            _buff_menu_option_sprites[_selected_buff_option]->set_tiles(
+                bn::sprite_items::temptest.tiles_item(), 0);
+        }
+
+        // Move to next option (cycle 0->1->2->3->0)
+        _selected_buff_option = (_selected_buff_option + 1) % 4;
+
+        // Update new selection to highlighted frame
+        if (_buff_menu_option_sprites[_selected_buff_option].has_value())
+        {
+            _buff_menu_option_sprites[_selected_buff_option]->set_tiles(
+                bn::sprite_items::temptest.tiles_item(), 1);
+        }
+    }
+
+    void HUD::navigate_buff_menu_prev()
+    {
+        if (_buff_menu_state != BUFF_MENU_STATE::OPEN)
+        {
+            return;
+        }
+
+        // Update previous selection to normal frame
+        if (_buff_menu_option_sprites[_selected_buff_option].has_value())
+        {
+            _buff_menu_option_sprites[_selected_buff_option]->set_tiles(
+                bn::sprite_items::temptest.tiles_item(), 0);
+        }
+
+        // Move to previous option (cycle 3->2->1->0->3)
+        _selected_buff_option = (_selected_buff_option + 3) % 4;
+
+        // Update new selection to highlighted frame
+        if (_buff_menu_option_sprites[_selected_buff_option].has_value())
+        {
+            _buff_menu_option_sprites[_selected_buff_option]->set_tiles(
+                bn::sprite_items::temptest.tiles_item(), 1);
+        }
+    }
+
+    bool HUD::is_buff_menu_open() const
+    {
+        return _buff_menu_state == BUFF_MENU_STATE::OPEN;
+    }
+
+    int HUD::get_selected_buff() const
+    {
+        return _selected_buff_option;
+    }
+
+    void HUD::_update_buff_menu_sprites()
+    {
+        // Ensure option sprites follow visibility state
+        if (_buff_menu_state == BUFF_MENU_STATE::OPEN)
+        {
+            for (int i = 0; i < 4; ++i)
+            {
+                if (_buff_menu_option_sprites[i].has_value())
+                {
+                    _buff_menu_option_sprites[i]->set_visible(_is_visible);
+                }
+            }
         }
     }
 }

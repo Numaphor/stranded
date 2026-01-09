@@ -78,8 +78,8 @@ namespace fe
             cycle_sword_sprite();
         }
 
-        // Action inputs (consolidated) - disabled while reviving companion
-        if (!performing_action && !reviving_companion)
+        // Action inputs (consolidated) - disabled while reviving companion or when buff menu is open
+        if (!performing_action && !reviving_companion && !_hud.is_buff_menu_open())
         {
             if (bn::keypad::b_pressed() && !bn::keypad::select_held() && _abilities.rolling_available())
             {
@@ -120,7 +120,8 @@ namespace fe
             }
             else if (bn::keypad::select_held() && _abilities.buff_abilities_available())
             {
-                // Buff inputs (consolidated)
+                // Buff inputs (consolidated) - LEGACY: replaced by buff menu system
+                // Keeping for backwards compatibility if buff menu not used
                 PlayerMovement::State buff_state = PlayerMovement::State::IDLE;
                 if (bn::keypad::up_pressed())
                     buff_state = PlayerMovement::State::HEAL_BUFF;
@@ -156,8 +157,77 @@ namespace fe
             }
         }
 
-        // Movement inputs (consolidated) - disabled while reviving companion
-        if (!performing_action && !reviving_companion)
+        // Buff menu system (new approach with L button)
+        if (!performing_action && !reviving_companion && _abilities.buff_abilities_available())
+        {
+            // Toggle buff menu with L button (when not holding SELECT to avoid weapon switch conflict)
+            if (bn::keypad::l_pressed() && !bn::keypad::select_held())
+            {
+                if (!_hud.is_buff_menu_open())
+                {
+                    // Open the buff menu
+                    _hud.toggle_buff_menu();
+                }
+                else
+                {
+                    // Menu is open - activate selected buff and close menu
+                    int selected = _hud.get_selected_buff();
+                    PlayerMovement::State buff_state = PlayerMovement::State::IDLE;
+                    
+                    // Map option index to buff type: 0=Up(Heal), 1=Right(Energy), 2=Down(Power), 3=Left(Defence)
+                    if (selected == 0)
+                        buff_state = PlayerMovement::State::HEAL_BUFF;
+                    else if (selected == 1)
+                        buff_state = PlayerMovement::State::ENERGY_BUFF;
+                    else if (selected == 2)
+                        buff_state = PlayerMovement::State::POWER_BUFF;
+                    else if (selected == 3)
+                        buff_state = PlayerMovement::State::DEFENCE_BUFF;
+                    
+                    if (buff_state != PlayerMovement::State::IDLE)
+                    {
+                        _movement.start_action(buff_state, PLAYER_BUFF_DURATION);
+                        _abilities.set_buff_cooldown(PLAYER_BUFF_DURATION);
+
+                        // Trigger soul animation for defense buff
+                        if (buff_state == PlayerMovement::State::DEFENCE_BUFF)
+                        {
+                            _hud.activate_soul_animation();
+                        }
+                        // Trigger silver soul animation for energy buff
+                        else if (buff_state == PlayerMovement::State::ENERGY_BUFF)
+                        {
+                            _hud.activate_silver_soul();
+                        }
+                        // Deactivate both soul effects when healing
+                        else if (buff_state == PlayerMovement::State::HEAL_BUFF)
+                        {
+                            _hud.deactivate_silver_soul();
+                            _hud.deactivate_soul_animation();
+                        }
+                    }
+                    
+                    // Close the menu
+                    _hud.toggle_buff_menu();
+                }
+            }
+            
+            // Navigate buff menu with A and B when menu is open
+            if (_hud.is_buff_menu_open())
+            {
+                if (bn::keypad::a_pressed())
+                {
+                    _hud.navigate_buff_menu_next();
+                }
+                else if (bn::keypad::b_pressed())
+                {
+                    _hud.navigate_buff_menu_prev();
+                }
+            }
+        }
+
+        // Movement inputs (consolidated) - disabled while reviving companion or when buff menu is open
+        if (!performing_action && !reviving_companion && !_hud.is_buff_menu_open())
         {
             bool should_run = !_is_strafing && _abilities.running_available();
 
