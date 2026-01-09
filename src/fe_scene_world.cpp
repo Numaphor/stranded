@@ -85,7 +85,9 @@ namespace fe
                      _zoomed_out(false),
                      _current_zoom_scale(ZOOM_NORMAL_SCALE),
                      _zoom_affine_mat(bn::nullopt),
-                     _gun_affine_mat(bn::nullopt)
+                     _gun_affine_mat(bn::nullopt),
+                     _player_affine_mat(bn::nullopt),
+                     _vfx_affine_mat(bn::nullopt)
     {
         // Create player sprite with correct shape and size
         bn::sprite_builder builder(bn::sprite_items::hero_sword);
@@ -213,12 +215,28 @@ namespace fe
                     _gun_affine_mat = bn::sprite_affine_mat_ptr::create();
                 }
                 _gun_affine_mat->set_scale(_current_zoom_scale);
+
+                // Create or update player affine matrix (needs separate matrix for flip)
+                if (!_player_affine_mat.has_value())
+                {
+                    _player_affine_mat = bn::sprite_affine_mat_ptr::create();
+                }
+                _player_affine_mat->set_scale(_current_zoom_scale);
+
+                // Create or update VFX affine matrix (needs separate matrix for flip)
+                if (!_vfx_affine_mat.has_value())
+                {
+                    _vfx_affine_mat = bn::sprite_affine_mat_ptr::create();
+                }
+                _vfx_affine_mat->set_scale(_current_zoom_scale);
             }
             else
             {
                 // Clear affine matrices when at normal scale
                 _zoom_affine_mat.reset();
                 _gun_affine_mat.reset();
+                _player_affine_mat.reset();
+                _vfx_affine_mat.reset();
             }
 
             // Handle NPC interactions BEFORE player input processing
@@ -580,15 +598,34 @@ namespace fe
                 // Camera position is the zoom center (screen center)
                 bn::fixed_point cam_pos = bn::fixed_point(camera.x(), camera.y());
                 
-                // Apply to player sprite
-                if (_player->sprite())
+                // Apply to player sprite - needs its own affine mat for horizontal flip
+                if (_player->sprite() && _player_affine_mat.has_value())
                 {
-                    _player->sprite()->set_affine_mat(_zoom_affine_mat.value());
+                    // Update player affine mat with current flip state
+                    bool facing_left = _player->facing_direction() == PlayerMovement::Direction::LEFT;
+                    _player_affine_mat->set_horizontal_flip(facing_left);
+                    
+                    _player->sprite()->set_affine_mat(_player_affine_mat.value());
                     _player->sprite()->set_double_size_mode(bn::sprite_double_size_mode::ENABLED);
                     bn::fixed_point player_world_pos = _player->pos();
                     bn::fixed_point offset = player_world_pos - cam_pos;
                     bn::fixed_point scaled_pos = cam_pos + bn::fixed_point(offset.x() * _current_zoom_scale, offset.y() * _current_zoom_scale);
                     _player->sprite()->set_position(scaled_pos);
+                }
+
+                // Apply to VFX sprite - needs its own affine mat for horizontal flip
+                if (_player->vfx_sprite() && _vfx_affine_mat.has_value())
+                {
+                    // Update VFX affine mat with current flip state
+                    bool facing_left = _player->facing_direction() == PlayerMovement::Direction::LEFT;
+                    _vfx_affine_mat->set_horizontal_flip(facing_left);
+                    
+                    _player->vfx_sprite()->set_affine_mat(_vfx_affine_mat.value());
+                    _player->vfx_sprite()->set_double_size_mode(bn::sprite_double_size_mode::ENABLED);
+                    bn::fixed_point vfx_world_pos = _player->vfx_sprite()->position();
+                    bn::fixed_point offset = vfx_world_pos - cam_pos;
+                    bn::fixed_point scaled_pos = cam_pos + bn::fixed_point(offset.x() * _current_zoom_scale, offset.y() * _current_zoom_scale);
+                    _player->vfx_sprite()->set_position(scaled_pos);
                 }
 
                 // Apply to gun sprite - use player world pos + gun offset
@@ -720,6 +757,10 @@ namespace fe
                 if (_player->sprite() && _player->sprite()->affine_mat().has_value())
                 {
                     _player->sprite()->remove_affine_mat();
+                }
+                if (_player->vfx_sprite() && _player->vfx_sprite()->affine_mat().has_value())
+                {
+                    _player->vfx_sprite()->remove_affine_mat();
                 }
                 if (_player->gun_sprite() && _player->gun_sprite()->affine_mat().has_value())
                 {

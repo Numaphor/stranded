@@ -146,6 +146,7 @@ namespace fe
         void update(bn::fixed_point player_pos, PlayerMovement::State state, PlayerMovement::Direction direction);
         void apply_vfx_state(PlayerMovement::State state, PlayerMovement::Direction direction);
         void hide_vfx();
+        [[nodiscard]] bn::sprite_ptr* vfx_sprite() { return _vfx_sprite.has_value() ? &_vfx_sprite.value() : nullptr; }
 
     private:
         bn::optional<bn::sprite_ptr> _vfx_sprite;
@@ -303,6 +304,7 @@ namespace fe
         [[nodiscard]] bool has_ammo() const;
 
         void update_gun_position(PlayerMovement::Direction direction);
+        [[nodiscard]] bn::sprite_ptr* vfx_sprite() { return _vfx.vfx_sprite(); }
 
     private:
         PlayerMovement _movement;
