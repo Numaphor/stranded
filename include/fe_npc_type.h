@@ -5,7 +5,6 @@ namespace fe
 {
     enum class NPC_TYPE
     {
-        TORTOISE,
         MERCHANT
     };
 }

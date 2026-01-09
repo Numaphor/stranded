@@ -862,7 +862,7 @@ namespace fe
 
         case 2: // Desert Zone
             // Desert-specific setup
-            _merchant = new TortoiseNPC(bn::fixed_point(-80, 100), camera, text_generator);
+            _merchant = new MerchantNPC(bn::fixed_point(-80, 100), camera, text_generator);
 
             // More challenging enemies
             _enemies.push_back(Enemy(0, 0, camera, bg, ENEMY_TYPE::SPEARGUARD, 4));
