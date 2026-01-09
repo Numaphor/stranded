@@ -43,8 +43,8 @@ namespace fe
         if (bn::keypad::select_held() && bn::keypad::l_pressed() && !reviving_companion)
             switch_weapon();
 
-        // Auto-reload when holding L with gun active (but not SELECT + L)
-        if (bn::keypad::l_held() && !bn::keypad::select_held() && _gun_active && !reviving_companion)
+        // Auto-reload when holding L with gun active (but not SELECT + L, and not when buff menu is open)
+        if (bn::keypad::l_held() && !bn::keypad::select_held() && _gun_active && !reviving_companion && !_hud.is_buff_menu_open())
         {
             // Start timer if it's not already running
             if (_auto_reload_timer == 0)
