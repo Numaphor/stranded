@@ -2,7 +2,6 @@
 #define FE_NPC_DERIVED_H
 
 #include "fe_npc.h"
-#include "bn_sprite_items_tortoise_sprite.h"
 #include "bn_sprite_items_merchant.h"
 
 namespace fe

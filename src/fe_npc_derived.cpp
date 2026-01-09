@@ -34,7 +34,8 @@ namespace fe
 
     void TortoiseNPC::initialize_sprite()
     {
-        bn::sprite_builder builder(bn::sprite_items::tortoise_sprite);
+        // TODO: Replace with actual tortoise sprite when available
+        bn::sprite_builder builder(bn::sprite_items::merchant);
         builder.set_position(pos());
         builder.set_bg_priority(1);
         builder.set_z_order(100);
