@@ -120,8 +120,7 @@ namespace fe
             }
             else if (bn::keypad::select_held() && _abilities.buff_abilities_available())
             {
-                // Buff inputs (consolidated) - LEGACY: replaced by buff menu system
-                // Keeping for backwards compatibility if buff menu not used
+                // Legacy buff inputs with SELECT + D-Pad (remains fully functional alongside new menu)
                 PlayerMovement::State buff_state = PlayerMovement::State::IDLE;
                 if (bn::keypad::up_pressed())
                     buff_state = PlayerMovement::State::HEAL_BUFF;

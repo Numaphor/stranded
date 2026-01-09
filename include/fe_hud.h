@@ -28,14 +28,14 @@ namespace fe
     };
 
     /**
-     * @brief Buff menu option indices (matching buff types)
+     * @brief Buff menu option indices (matching legacy D-Pad buff mapping)
      */
     enum class BUFF_OPTION
     {
         UP = 0,      // Maps to HEAL_BUFF
         RIGHT = 1,   // Maps to ENERGY_BUFF
-        DOWN = 2,    // Maps to POWER_BUFF
-        LEFT = 3     // Maps to DEFENCE_BUFF
+        DOWN = 2,    // Maps to DEFENCE_BUFF
+        LEFT = 3     // Maps to POWER_BUFF
     };
 
     /**
