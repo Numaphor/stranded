@@ -131,7 +131,10 @@ namespace fe
                 else if (bn::keypad::right_pressed())
                     buff_state = PlayerMovement::State::ENERGY_BUFF;
 
-                activate_buff(buff_state);
+                if (buff_state != PlayerMovement::State::IDLE)
+                {
+                    activate_buff(buff_state);
+                }
             }
         }
 
@@ -154,14 +157,24 @@ namespace fe
                     
                     // Map option index to buff type to match legacy D-Pad mapping:
                     // 0=Up(Heal), 1=Right(Energy), 2=Down(Defence), 3=Left(Power)
-                    if (selected == 0)
+                    switch (selected)
+                    {
+                    case 0:
                         buff_state = PlayerMovement::State::HEAL_BUFF;
-                    else if (selected == 1)
+                        break;
+                    case 1:
                         buff_state = PlayerMovement::State::ENERGY_BUFF;
-                    else if (selected == 2)
+                        break;
+                    case 2:
                         buff_state = PlayerMovement::State::DEFENCE_BUFF;
-                    else if (selected == 3)
+                        break;
+                    case 3:
                         buff_state = PlayerMovement::State::POWER_BUFF;
+                        break;
+                    default:
+                        // Keep buff_state as IDLE if selection is out of range
+                        break;
+                    }
                     
                     activate_buff(buff_state);
                     

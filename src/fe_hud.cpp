@@ -14,6 +14,15 @@
 
 namespace fe
 {
+    // Static constexpr arrays for buff menu option sprite offsets
+    namespace
+    {
+        constexpr int buff_menu_offsets_x[4] = {HUD_BUFF_MENU_OPTION_UP_X, HUD_BUFF_MENU_OPTION_RIGHT_X, 
+                                                  HUD_BUFF_MENU_OPTION_DOWN_X, HUD_BUFF_MENU_OPTION_LEFT_X};
+        constexpr int buff_menu_offsets_y[4] = {HUD_BUFF_MENU_OPTION_UP_Y, HUD_BUFF_MENU_OPTION_RIGHT_Y, 
+                                                  HUD_BUFF_MENU_OPTION_DOWN_Y, HUD_BUFF_MENU_OPTION_LEFT_Y};
+    }
+
     HUD::HUD()
         : _hp(HUD_MAX_HP)
         , _is_visible(true)
@@ -361,16 +370,11 @@ namespace fe
         {
             _buff_menu_state = BUFF_MENU_STATE::OPEN;
             
-            // Create the 4 option sprites positioned around the base
-            int offsets_x[4] = {HUD_BUFF_MENU_OPTION_UP_X, HUD_BUFF_MENU_OPTION_RIGHT_X, 
-                                HUD_BUFF_MENU_OPTION_DOWN_X, HUD_BUFF_MENU_OPTION_LEFT_X};
-            int offsets_y[4] = {HUD_BUFF_MENU_OPTION_UP_Y, HUD_BUFF_MENU_OPTION_RIGHT_Y, 
-                                HUD_BUFF_MENU_OPTION_DOWN_Y, HUD_BUFF_MENU_OPTION_LEFT_Y};
-            
+            // Create the 4 option sprites positioned around the base using static offset arrays
             for (int i = 0; i < 4; ++i)
             {
-                int sprite_x = HUD_BUFF_MENU_BASE_X + offsets_x[i];
-                int sprite_y = HUD_BUFF_MENU_BASE_Y + offsets_y[i];
+                int sprite_x = HUD_BUFF_MENU_BASE_X + buff_menu_offsets_x[i];
+                int sprite_y = HUD_BUFF_MENU_BASE_Y + buff_menu_offsets_y[i];
                 
                 // Create sprite with appropriate frame based on selection
                 int frame = (i == _selected_buff_option) ? 1 : 0;
