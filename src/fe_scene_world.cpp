@@ -133,7 +133,7 @@ namespace fe
         _sword_bg = bn::affine_bg_items::sword.create_bg(0, 0);
         _sword_bg->set_visible(true);
         _sword_bg->set_wrapping_enabled(false); // Disable wrapping to prevent repeating when zoomed
-        _sword_bg->set_camera(camera); // Make it follow the camera
+        _sword_bg->set_camera(camera);          // Make it follow the camera
 
         // Get the outside window and set it to hide the sword background by default
         bn::window outside_window = bn::window::outside();
@@ -175,8 +175,8 @@ namespace fe
             }
 
             // Toggle zoom with SELECT pressed alone (not combined with other buttons)
-            if (bn::keypad::select_pressed() && 
-                !bn::keypad::a_held() && !bn::keypad::b_held() && 
+            if (bn::keypad::select_pressed() &&
+                !bn::keypad::a_held() && !bn::keypad::b_held() &&
                 !bn::keypad::l_held() && !bn::keypad::r_held() &&
                 !bn::keypad::up_held() && !bn::keypad::down_held() &&
                 !bn::keypad::left_held() && !bn::keypad::right_held())
@@ -208,7 +208,7 @@ namespace fe
                     _zoom_affine_mat = bn::sprite_affine_mat_ptr::create();
                 }
                 _zoom_affine_mat->set_scale(_current_zoom_scale);
-                
+
                 // Create or update gun affine matrix (needs separate matrix for rotation)
                 if (!_gun_affine_mat.has_value())
                 {
@@ -348,42 +348,42 @@ namespace fe
             // Camera system with look-ahead (shake disabled)
             bn::fixed_point player_pos = _player->pos();
             PlayerMovement::Direction facing_dir = _player->facing_direction();
-            
+
             // Calculate desired lookahead based on player's facing direction
             bn::fixed_point desired_lookahead(0, 0);
-            
+
             // Apply lookahead in the direction the player is facing
             switch (facing_dir)
             {
-                case PlayerMovement::Direction::RIGHT:
-                    desired_lookahead = bn::fixed_point(CAMERA_LOOKAHEAD_X, 0);
-                    break;
-                case PlayerMovement::Direction::LEFT:
-                    desired_lookahead = bn::fixed_point(-CAMERA_LOOKAHEAD_X, 0);
-                    break;
-                case PlayerMovement::Direction::UP:
-                    desired_lookahead = bn::fixed_point(0, -CAMERA_LOOKAHEAD_Y);
-                    break;
-                case PlayerMovement::Direction::DOWN:
-                    desired_lookahead = bn::fixed_point(0, CAMERA_LOOKAHEAD_Y);
-                    break;
-                default:
-                    break;
+            case PlayerMovement::Direction::RIGHT:
+                desired_lookahead = bn::fixed_point(CAMERA_LOOKAHEAD_X, 0);
+                break;
+            case PlayerMovement::Direction::LEFT:
+                desired_lookahead = bn::fixed_point(-CAMERA_LOOKAHEAD_X, 0);
+                break;
+            case PlayerMovement::Direction::UP:
+                desired_lookahead = bn::fixed_point(0, -CAMERA_LOOKAHEAD_Y);
+                break;
+            case PlayerMovement::Direction::DOWN:
+                desired_lookahead = bn::fixed_point(0, CAMERA_LOOKAHEAD_Y);
+                break;
+            default:
+                break;
             }
-            
+
             // Smoothly interpolate current lookahead towards desired lookahead
             _lookahead_current = _lookahead_current + (desired_lookahead - _lookahead_current) * CAMERA_LOOKAHEAD_SMOOTHING;
-            
+
             // Calculate target camera position with lookahead
             bn::fixed_point camera_target = player_pos + _lookahead_current;
-            
+
             // Get current camera position
             bn::fixed_point current_camera_pos = _camera.has_value() ? bn::fixed_point(_camera->x(), _camera->y()) : bn::fixed_point(0, 0);
             bn::fixed_point camera_to_target = camera_target - current_camera_pos;
-            
+
             bn::fixed new_camera_x = current_camera_pos.x();
             bn::fixed new_camera_y = current_camera_pos.y();
-            
+
             // Apply deadzone - only move camera if target is outside deadzone
             if (bn::abs(camera_to_target.x()) > CAMERA_DEADZONE_X)
             {
@@ -393,7 +393,7 @@ namespace fe
             {
                 new_camera_y = camera_target.y() - (camera_to_target.y() > 0 ? CAMERA_DEADZONE_Y : -CAMERA_DEADZONE_Y);
             }
-            
+
             // Clamp camera to map boundaries (prevent showing outside world)
             // GBA screen is 240x160, so half is 120x80
             constexpr bn::fixed half_screen_x = 120;
@@ -402,11 +402,10 @@ namespace fe
             constexpr bn::fixed map_max_x = MAP_OFFSET_X - half_screen_x;
             constexpr bn::fixed map_min_y = -MAP_OFFSET_Y + half_screen_y;
             constexpr bn::fixed map_max_y = MAP_OFFSET_Y - half_screen_y;
-            
+
             bn::fixed_point new_camera_pos(
                 bn::clamp(new_camera_x, map_min_x, map_max_x),
-                bn::clamp(new_camera_y, map_min_y, map_max_y)
-            );
+                bn::clamp(new_camera_y, map_min_y, map_max_y));
 
             // Apply final camera position (shake is disabled, set to 0)
             // Round to integer pixels to prevent sub-pixel jittering
@@ -597,14 +596,14 @@ namespace fe
             {
                 // Camera position is the zoom center (screen center)
                 bn::fixed_point cam_pos = bn::fixed_point(camera.x(), camera.y());
-                
+
                 // Apply to player sprite - needs its own affine mat for horizontal flip
                 if (_player->sprite() && _player_affine_mat.has_value())
                 {
                     // Update player affine mat with current flip state
                     bool facing_left = _player->facing_direction() == PlayerMovement::Direction::LEFT;
                     _player_affine_mat->set_horizontal_flip(facing_left);
-                    
+
                     _player->sprite()->set_affine_mat(_player_affine_mat.value());
                     _player->sprite()->set_double_size_mode(bn::sprite_double_size_mode::ENABLED);
                     bn::fixed_point player_world_pos = _player->pos();
@@ -619,7 +618,7 @@ namespace fe
                     // Update VFX affine mat with current flip state
                     bool facing_left = _player->facing_direction() == PlayerMovement::Direction::LEFT;
                     _vfx_affine_mat->set_horizontal_flip(facing_left);
-                    
+
                     _player->vfx_sprite()->set_affine_mat(_vfx_affine_mat.value());
                     _player->vfx_sprite()->set_double_size_mode(bn::sprite_double_size_mode::ENABLED);
                     bn::fixed_point vfx_world_pos = _player->vfx_sprite()->position();
@@ -637,7 +636,7 @@ namespace fe
                     int dir_idx = int(_player->facing_direction());
                     bn::fixed gun_rotation = player_constants::GUN_ANGLES[dir_idx];
                     _gun_affine_mat->set_rotation_angle(gun_rotation);
-                    
+
                     _player->gun_sprite()->set_affine_mat(_gun_affine_mat.value());
                     _player->gun_sprite()->set_double_size_mode(bn::sprite_double_size_mode::ENABLED);
                     // Gun world position is player pos + relative gun offset
@@ -654,7 +653,7 @@ namespace fe
                 // Apply to companion sprite
                 if (_player->has_companion() && _player->get_companion())
                 {
-                    PlayerCompanion* companion = _player->get_companion();
+                    PlayerCompanion *companion = _player->get_companion();
                     bn::sprite_ptr companion_sprite = companion->get_sprite();
                     companion_sprite.set_affine_mat(_zoom_affine_mat.value());
                     companion_sprite.set_double_size_mode(bn::sprite_double_size_mode::ENABLED);
@@ -662,9 +661,9 @@ namespace fe
                     bn::fixed_point offset = comp_world_pos - cam_pos;
                     bn::fixed_point scaled_pos = cam_pos + bn::fixed_point(offset.x() * _current_zoom_scale, offset.y() * _current_zoom_scale);
                     companion_sprite.set_position(scaled_pos);
-                    
+
                     // Apply to companion revival progress bar - position relative to scaled companion pos
-                    bn::sprite_ptr* progress_bar = companion->get_progress_bar_sprite();
+                    bn::sprite_ptr *progress_bar = companion->get_progress_bar_sprite();
                     if (progress_bar)
                     {
                         progress_bar->set_affine_mat(_zoom_affine_mat.value());
@@ -674,17 +673,17 @@ namespace fe
                         bn::fixed_point scaled_pb_offset = bn::fixed_point(pb_offset_from_companion.x() * _current_zoom_scale, pb_offset_from_companion.y() * _current_zoom_scale);
                         progress_bar->set_position(scaled_pos + scaled_pb_offset);
                     }
-                    
+
                     // Text sprites - scale visually and compact spacing using stored original offsets
-                    bn::vector<bn::sprite_ptr, 16>& text_sprites = companion->get_text_sprites();
-                    const bn::vector<bn::fixed_point, 16>& original_offsets = companion->get_text_original_offsets();
+                    bn::vector<bn::sprite_ptr, 16> &text_sprites = companion->get_text_sprites();
+                    const bn::vector<bn::fixed_point, 16> &original_offsets = companion->get_text_original_offsets();
                     if (!text_sprites.empty() && !original_offsets.empty())
                     {
                         // Text center is at companion death position + text offset
                         bn::fixed_point text_center_world = companion->get_text_center();
                         bn::fixed_point text_center_offset = text_center_world - cam_pos;
                         bn::fixed_point scaled_text_center = cam_pos + bn::fixed_point(text_center_offset.x() * _current_zoom_scale, text_center_offset.y() * _current_zoom_scale);
-                        
+
                         for (int i = 0; i < text_sprites.size() && i < original_offsets.size(); ++i)
                         {
                             text_sprites[i].set_affine_mat(_zoom_affine_mat.value());
@@ -697,7 +696,7 @@ namespace fe
                 }
 
                 // Apply position scaling to bullets (no visual scaling)
-                for (Bullet& bullet : _player->bullets_mutable())
+                for (Bullet &bullet : _player->bullets_mutable())
                 {
                     if (bullet.is_active() && bullet.get_sprite())
                     {
@@ -709,11 +708,11 @@ namespace fe
                 }
 
                 // Apply to enemies
-                for (Enemy& enemy : _enemies)
+                for (Enemy &enemy : _enemies)
                 {
                     if (enemy.has_sprite())
                     {
-                        bn::sprite_ptr* enemy_sprite = enemy.get_sprite();
+                        bn::sprite_ptr *enemy_sprite = enemy.get_sprite();
                         if (enemy_sprite)
                         {
                             enemy_sprite->set_affine_mat(_zoom_affine_mat.value());
@@ -725,7 +724,7 @@ namespace fe
                         }
                     }
                     // Health bar - position it above the scaled enemy position
-                    bn::sprite_ptr* health_bar = enemy.get_health_bar_sprite();
+                    bn::sprite_ptr *health_bar = enemy.get_health_bar_sprite();
                     if (health_bar)
                     {
                         bn::fixed_point enemy_world_pos = enemy.get_position();
@@ -739,7 +738,7 @@ namespace fe
                 // Apply to merchant
                 if (_merchant && _merchant->has_sprite())
                 {
-                    bn::sprite_ptr* merchant_sprite = _merchant->get_sprite();
+                    bn::sprite_ptr *merchant_sprite = _merchant->get_sprite();
                     if (merchant_sprite)
                     {
                         merchant_sprite->set_affine_mat(_zoom_affine_mat.value());
@@ -772,19 +771,19 @@ namespace fe
                 // Remove from companion and its revival sprites
                 if (_player->has_companion() && _player->get_companion())
                 {
-                    PlayerCompanion* companion = _player->get_companion();
+                    PlayerCompanion *companion = _player->get_companion();
                     bn::sprite_ptr companion_sprite = companion->get_sprite();
                     if (companion_sprite.affine_mat().has_value())
                     {
                         companion_sprite.remove_affine_mat();
                     }
-                    bn::sprite_ptr* progress_bar = companion->get_progress_bar_sprite();
+                    bn::sprite_ptr *progress_bar = companion->get_progress_bar_sprite();
                     if (progress_bar && progress_bar->affine_mat().has_value())
                     {
                         progress_bar->remove_affine_mat();
                     }
                     // Remove affine matrices from text sprites and reset positions
-                    for (bn::sprite_ptr& text_sprite : companion->get_text_sprites())
+                    for (bn::sprite_ptr &text_sprite : companion->get_text_sprites())
                     {
                         if (text_sprite.affine_mat().has_value())
                         {
@@ -793,11 +792,11 @@ namespace fe
                     }
                     companion->reset_text_positions();
                 }
-                for (Enemy& enemy : _enemies)
+                for (Enemy &enemy : _enemies)
                 {
                     if (enemy.has_sprite())
                     {
-                        bn::sprite_ptr* enemy_sprite = enemy.get_sprite();
+                        bn::sprite_ptr *enemy_sprite = enemy.get_sprite();
                         if (enemy_sprite && enemy_sprite->affine_mat().has_value())
                         {
                             enemy_sprite->remove_affine_mat();
@@ -806,7 +805,7 @@ namespace fe
                 }
                 if (_merchant && _merchant->has_sprite())
                 {
-                    bn::sprite_ptr* merchant_sprite = _merchant->get_sprite();
+                    bn::sprite_ptr *merchant_sprite = _merchant->get_sprite();
                     if (merchant_sprite && merchant_sprite->affine_mat().has_value())
                     {
                         merchant_sprite->remove_affine_mat();

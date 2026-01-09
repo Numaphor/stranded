@@ -41,7 +41,7 @@ namespace fe
             bool is_attack = (state == PlayerMovement::State::SLASHING ||
                               state == PlayerMovement::State::ATTACKING ||
                               state == PlayerMovement::State::CHOPPING);
-            if (is_attack && (direction == PlayerMovement::Direction::UP || 
+            if (is_attack && (direction == PlayerMovement::Direction::UP ||
                               direction == PlayerMovement::Direction::DOWN))
             {
                 vfx_pos = bn::fixed_point(player_pos.x() + 8, player_pos.y());
@@ -85,45 +85,45 @@ namespace fe
         // Row 19: chop_up (456+), Row 20: attack_up (480+)
         switch (state)
         {
-            case PlayerMovement::State::SLASHING:
-                if (direction == PlayerMovement::Direction::UP)
-                    make_vfx_anim_range_once(4, 480, 486);  // attack_up (row 20, 7 frames)
-                else if (direction == PlayerMovement::Direction::DOWN)
-                    make_vfx_anim_range_once(4, 192, 198);  // slash_down (row 8, 7 frames)
-                else
-                    make_vfx_anim_range_once(4, 336, 339);  // lr_slash (row 14, 4 frames)
-                break;
-            case PlayerMovement::State::ATTACKING:
-                if (direction == PlayerMovement::Direction::UP)
-                    make_vfx_anim_range_once(4, 480, 486);  // attack_up (row 20, 7 frames)
-                else if (direction == PlayerMovement::Direction::DOWN)
-                    make_vfx_anim_range_once(4, 192, 198);  // slash_down (row 8, 7 frames)
-                else
-                    make_vfx_anim_range_once(4, 360, 364);  // lr_slash2 (row 15, 5 frames)
-                break;
-            case PlayerMovement::State::CHOPPING:
-                if (direction == PlayerMovement::Direction::UP)
-                    make_vfx_anim_range_once(5, 456, 459);  // chop_up (row 19, 4 frames)
-                else if (direction == PlayerMovement::Direction::DOWN)
-                    make_vfx_anim_range_once(5, 168, 171);  // chop_down (row 7, 4 frames)
-                else
-                    make_vfx_anim_range_once(5, 336, 339);  // lr_slash (row 14, 4 frames)
-                break;
-            case PlayerMovement::State::HEAL_BUFF:
-                make_vfx_anim_range(4, 24, 47);    // Row 1
-                break;
-            case PlayerMovement::State::DEFENCE_BUFF:
-                make_vfx_anim_range(4, 48, 71);   // Row 2
-                break;
-            case PlayerMovement::State::POWER_BUFF:
-                make_vfx_anim_range(4, 72, 95);   // Row 3
-                break;
-            case PlayerMovement::State::ENERGY_BUFF:
-                make_vfx_anim_range(4, 96, 119);  // Row 4
-                break;
-            default:
-                hide_vfx();
-                break;
+        case PlayerMovement::State::SLASHING:
+            if (direction == PlayerMovement::Direction::UP)
+                make_vfx_anim_range_once(4, 480, 486); // attack_up (row 20, 7 frames)
+            else if (direction == PlayerMovement::Direction::DOWN)
+                make_vfx_anim_range_once(4, 192, 198); // slash_down (row 8, 7 frames)
+            else
+                make_vfx_anim_range_once(4, 336, 339); // lr_slash (row 14, 4 frames)
+            break;
+        case PlayerMovement::State::ATTACKING:
+            if (direction == PlayerMovement::Direction::UP)
+                make_vfx_anim_range_once(4, 480, 486); // attack_up (row 20, 7 frames)
+            else if (direction == PlayerMovement::Direction::DOWN)
+                make_vfx_anim_range_once(4, 192, 198); // slash_down (row 8, 7 frames)
+            else
+                make_vfx_anim_range_once(4, 360, 364); // lr_slash2 (row 15, 5 frames)
+            break;
+        case PlayerMovement::State::CHOPPING:
+            if (direction == PlayerMovement::Direction::UP)
+                make_vfx_anim_range_once(5, 456, 459); // chop_up (row 19, 4 frames)
+            else if (direction == PlayerMovement::Direction::DOWN)
+                make_vfx_anim_range_once(5, 168, 171); // chop_down (row 7, 4 frames)
+            else
+                make_vfx_anim_range_once(5, 336, 339); // lr_slash (row 14, 4 frames)
+            break;
+        case PlayerMovement::State::HEAL_BUFF:
+            make_vfx_anim_range(4, 24, 47); // Row 1
+            break;
+        case PlayerMovement::State::DEFENCE_BUFF:
+            make_vfx_anim_range(4, 48, 71); // Row 2
+            break;
+        case PlayerMovement::State::POWER_BUFF:
+            make_vfx_anim_range(4, 72, 95); // Row 3
+            break;
+        case PlayerMovement::State::ENERGY_BUFF:
+            make_vfx_anim_range(4, 96, 119); // Row 4
+            break;
+        default:
+            hide_vfx();
+            break;
         }
     }
 

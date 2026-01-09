@@ -48,11 +48,11 @@ namespace fe
 
         // Movement constants
         // Normal responsiveness values
-        static constexpr bn::fixed acc_const = 0.35;          // acceleration per frame
-        static constexpr bn::fixed friction_const = 0.65;     // only applied when no input
-        static constexpr bn::fixed movement_threshold = 0.1;  // minimal velocity considered moving
-        static constexpr bn::fixed max_speed = 1;             // max velocity per axis (halved)
-        static constexpr bn::fixed diagonal_factor = 0.707;   // 1/√2 for diagonal movement normalization
+        static constexpr bn::fixed acc_const = 0.35;         // acceleration per frame
+        static constexpr bn::fixed friction_const = 0.65;    // only applied when no input
+        static constexpr bn::fixed movement_threshold = 0.1; // minimal velocity considered moving
+        static constexpr bn::fixed max_speed = 1;            // max velocity per axis (halved)
+        static constexpr bn::fixed diagonal_factor = 0.707;  // 1/√2 for diagonal movement normalization
 
         PlayerMovement();
 
@@ -146,7 +146,7 @@ namespace fe
         void update(bn::fixed_point player_pos, PlayerMovement::State state, PlayerMovement::Direction direction);
         void apply_vfx_state(PlayerMovement::State state, PlayerMovement::Direction direction);
         void hide_vfx();
-        [[nodiscard]] bn::sprite_ptr* vfx_sprite() { return _vfx_sprite.has_value() ? &_vfx_sprite.value() : nullptr; }
+        [[nodiscard]] bn::sprite_ptr *vfx_sprite() { return _vfx_sprite.has_value() ? &_vfx_sprite.value() : nullptr; }
 
     private:
         bn::optional<bn::sprite_ptr> _vfx_sprite;
@@ -278,7 +278,7 @@ namespace fe
 
         // Returns list of active bullets for collision checking
         [[nodiscard]] const bn::vector<Bullet, 32> &bullets() const { return _bullet_manager.bullets(); }
-        [[nodiscard]] bn::vector<Bullet, 32> &bullets_mutable() { return const_cast<bn::vector<Bullet, 32>&>(_bullet_manager.bullets()); }
+        [[nodiscard]] bn::vector<Bullet, 32> &bullets_mutable() { return const_cast<bn::vector<Bullet, 32> &>(_bullet_manager.bullets()); }
 
         // Check if bullet was just fired this frame (for screen shake)
         [[nodiscard]] bool bullet_just_fired() const { return _bullet_just_fired; }
@@ -295,7 +295,7 @@ namespace fe
         [[nodiscard]] fe::HUD &get_hud() { return _hud; }
 
         // Access to gun sprite for zoom scaling
-        [[nodiscard]] bn::sprite_ptr* gun_sprite() { return _gun_sprite.has_value() ? &_gun_sprite.value() : nullptr; }
+        [[nodiscard]] bn::sprite_ptr *gun_sprite() { return _gun_sprite.has_value() ? &_gun_sprite.value() : nullptr; }
 
         // Ammo management
         [[nodiscard]] int get_ammo() const { return _ammo_count; }
@@ -304,7 +304,7 @@ namespace fe
         [[nodiscard]] bool has_ammo() const;
 
         void update_gun_position(PlayerMovement::Direction direction);
-        [[nodiscard]] bn::sprite_ptr* vfx_sprite() { return _vfx.vfx_sprite(); }
+        [[nodiscard]] bn::sprite_ptr *vfx_sprite() { return _vfx.vfx_sprite(); }
 
     private:
         PlayerMovement _movement;
