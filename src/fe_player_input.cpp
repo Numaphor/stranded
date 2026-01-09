@@ -170,8 +170,8 @@ namespace fe
                 }
             }
             
-            // Navigate buff menu with A and B when menu is open
-            if (_hud.is_buff_menu_open())
+            // Navigate buff menu with A and B when menu is open (not during SELECT combos)
+            if (_hud.is_buff_menu_open() && !bn::keypad::select_held())
             {
                 if (bn::keypad::a_pressed())
                 {

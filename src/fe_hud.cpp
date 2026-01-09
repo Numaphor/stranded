@@ -430,7 +430,7 @@ namespace fe
         }
 
         // Move to previous option (cycle 3->2->1->0->3)
-        _selected_buff_option = (_selected_buff_option + 3) % 4;
+        _selected_buff_option = (_selected_buff_option - 1 + 4) % 4;
 
         // Update new selection to highlighted frame
         if (_buff_menu_option_sprites[_selected_buff_option].has_value())
