@@ -158,16 +158,12 @@ namespace fe
     constexpr int HUD_BUFF_MENU_BASE_X = -100;
     constexpr int HUD_BUFF_MENU_BASE_Y = 66;
     
-    // Option sprites positioned around base (up, right, down, left pattern)
-    constexpr int HUD_BUFF_MENU_OPTION_OFFSET = 24;  // Distance from base sprite
-    constexpr int HUD_BUFF_MENU_OPTION_UP_X = 0;
-    constexpr int HUD_BUFF_MENU_OPTION_UP_Y = -HUD_BUFF_MENU_OPTION_OFFSET;
-    constexpr int HUD_BUFF_MENU_OPTION_RIGHT_X = HUD_BUFF_MENU_OPTION_OFFSET;
-    constexpr int HUD_BUFF_MENU_OPTION_RIGHT_Y = 0;
-    constexpr int HUD_BUFF_MENU_OPTION_DOWN_X = 0;
-    constexpr int HUD_BUFF_MENU_OPTION_DOWN_Y = HUD_BUFF_MENU_OPTION_OFFSET;
-    constexpr int HUD_BUFF_MENU_OPTION_LEFT_X = -HUD_BUFF_MENU_OPTION_OFFSET;
-    constexpr int HUD_BUFF_MENU_OPTION_LEFT_Y = 0;
+    // Only 2 options: Energy and Power - positioned up and right from base
+    constexpr int HUD_BUFF_MENU_OPTION_OFFSET = 24;  // Base distance from center sprite
+    constexpr int HUD_BUFF_MENU_OPTION_ENERGY_X = 0;                              // Energy: straight up
+    constexpr int HUD_BUFF_MENU_OPTION_ENERGY_Y = -HUD_BUFF_MENU_OPTION_OFFSET;
+    constexpr int HUD_BUFF_MENU_OPTION_POWER_X = HUD_BUFF_MENU_OPTION_OFFSET;     // Power: straight right
+    constexpr int HUD_BUFF_MENU_OPTION_POWER_Y = 0;
 
     // Zoom constants
     // Note: In GBA affine, scale < 1 makes sprites appear larger, scale > 1 makes them smaller

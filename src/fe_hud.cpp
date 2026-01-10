@@ -11,16 +11,17 @@
 #include "bn_sprite_items_soul_silver_idle.h"
 #include "bn_sprite_items_ammo.h"
 #include "bn_sprite_items_temptest.h"
+#include "bn_sprite_items_hud_icons.h"
 
 namespace fe
 {
-    // Static constexpr arrays for buff menu option sprite offsets
+    // Static constexpr arrays for buff menu option sprite offsets (Energy and Power only)
     namespace
     {
-        constexpr int buff_menu_offsets_x[4] = {HUD_BUFF_MENU_OPTION_UP_X, HUD_BUFF_MENU_OPTION_RIGHT_X, 
-                                                  HUD_BUFF_MENU_OPTION_DOWN_X, HUD_BUFF_MENU_OPTION_LEFT_X};
-        constexpr int buff_menu_offsets_y[4] = {HUD_BUFF_MENU_OPTION_UP_Y, HUD_BUFF_MENU_OPTION_RIGHT_Y, 
-                                                  HUD_BUFF_MENU_OPTION_DOWN_Y, HUD_BUFF_MENU_OPTION_LEFT_Y};
+        constexpr int buff_menu_offsets_x[2] = {HUD_BUFF_MENU_OPTION_ENERGY_X, HUD_BUFF_MENU_OPTION_POWER_X};
+        constexpr int buff_menu_offsets_y[2] = {HUD_BUFF_MENU_OPTION_ENERGY_Y, HUD_BUFF_MENU_OPTION_POWER_Y};
+        // Icon frame indices: Energy = 1, Power = 3
+        constexpr int buff_menu_icon_frames[2] = {1, 3};
     }
 
     HUD::HUD()
@@ -129,7 +130,7 @@ namespace fe
         // Update buff menu option sprites visibility
         if (_buff_menu_state == BUFF_MENU_STATE::OPEN)
         {
-            for (int i = 0; i < 4; ++i)
+            for (int i = 0; i < 2; ++i)
             {
                 if (_buff_menu_option_sprites[i].has_value())
                 {
@@ -370,16 +371,21 @@ namespace fe
         {
             _buff_menu_state = BUFF_MENU_STATE::OPEN;
             
-            // Create the 4 option sprites positioned around the base using static offset arrays
-            for (int i = 0; i < 4; ++i)
+            // Create the 2 option sprites (Energy and Power) using icons sprite
+            for (int i = 0; i < 2; ++i)
             {
                 int sprite_x = HUD_BUFF_MENU_BASE_X + buff_menu_offsets_x[i];
                 int sprite_y = HUD_BUFF_MENU_BASE_Y + buff_menu_offsets_y[i];
                 
-                // Create sprite with appropriate frame based on selection
-                int frame = (i == _selected_buff_option) ? 1 : 0;
-                _buff_menu_option_sprites[i] = bn::sprite_items::temptest.create_sprite(sprite_x, sprite_y, frame);
+                // Create sprite with the appropriate icon frame
+                _buff_menu_option_sprites[i] = bn::sprite_items::hud_icons.create_sprite(sprite_x, sprite_y, buff_menu_icon_frames[i]);
                 _configure_hud_sprite(_buff_menu_option_sprites[i].value());
+                
+                // Grey out non-selected options using blending
+                if (i != _selected_buff_option)
+                {
+                    _buff_menu_option_sprites[i]->set_blending_enabled(true);
+                }
             }
         }
         else
@@ -387,7 +393,7 @@ namespace fe
             _buff_menu_state = BUFF_MENU_STATE::CLOSED;
             
             // Hide/destroy the option sprites
-            for (int i = 0; i < 4; ++i)
+            for (int i = 0; i < 2; ++i)
             {
                 _buff_menu_option_sprites[i].reset();
             }
@@ -401,21 +407,19 @@ namespace fe
             return;
         }
 
-        // Update previous selection to normal frame
+        // Grey out previous selection (enable blending)
         if (_buff_menu_option_sprites[_selected_buff_option].has_value())
         {
-            _buff_menu_option_sprites[_selected_buff_option]->set_tiles(
-                bn::sprite_items::temptest.tiles_item(), 0);
+            _buff_menu_option_sprites[_selected_buff_option]->set_blending_enabled(true);
         }
 
-        // Move to next option (cycle 0->1->2->3->0)
-        _selected_buff_option = (_selected_buff_option + 1) % 4;
+        // Move to next option (cycle 0->1->0)
+        _selected_buff_option = (_selected_buff_option + 1) % 2;
 
-        // Update new selection to highlighted frame
+        // Highlight new selection (disable blending)
         if (_buff_menu_option_sprites[_selected_buff_option].has_value())
         {
-            _buff_menu_option_sprites[_selected_buff_option]->set_tiles(
-                bn::sprite_items::temptest.tiles_item(), 1);
+            _buff_menu_option_sprites[_selected_buff_option]->set_blending_enabled(false);
         }
     }
 
@@ -426,21 +430,19 @@ namespace fe
             return;
         }
 
-        // Update previous selection to normal frame
+        // Grey out previous selection (enable blending)
         if (_buff_menu_option_sprites[_selected_buff_option].has_value())
         {
-            _buff_menu_option_sprites[_selected_buff_option]->set_tiles(
-                bn::sprite_items::temptest.tiles_item(), 0);
+            _buff_menu_option_sprites[_selected_buff_option]->set_blending_enabled(true);
         }
 
-        // Move to previous option (cycle 3->2->1->0->3)
-        _selected_buff_option = (_selected_buff_option - 1 + 4) % 4;
+        // Move to previous option (cycle 1->0->1)
+        _selected_buff_option = (_selected_buff_option - 1 + 2) % 2;
 
-        // Update new selection to highlighted frame
+        // Highlight new selection (disable blending)
         if (_buff_menu_option_sprites[_selected_buff_option].has_value())
         {
-            _buff_menu_option_sprites[_selected_buff_option]->set_tiles(
-                bn::sprite_items::temptest.tiles_item(), 1);
+            _buff_menu_option_sprites[_selected_buff_option]->set_blending_enabled(false);
         }
     }
 
@@ -459,7 +461,7 @@ namespace fe
         // Ensure option sprites follow visibility state
         if (_buff_menu_state == BUFF_MENU_STATE::OPEN)
         {
-            for (int i = 0; i < 4; ++i)
+            for (int i = 0; i < 2; ++i)
             {
                 if (_buff_menu_option_sprites[i].has_value())
                 {

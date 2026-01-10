@@ -155,20 +155,13 @@ namespace fe
                     int selected = _hud.get_selected_buff();
                     PlayerMovement::State buff_state = PlayerMovement::State::IDLE;
                     
-                    // Map option index to buff type to match legacy D-Pad mapping:
-                    // 0=Up(Heal), 1=Right(Energy), 2=Down(Defence), 3=Left(Power)
+                    // Map option index to buff type: 0=Energy, 1=Power
                     switch (selected)
                     {
                     case 0:
-                        buff_state = PlayerMovement::State::HEAL_BUFF;
-                        break;
-                    case 1:
                         buff_state = PlayerMovement::State::ENERGY_BUFF;
                         break;
-                    case 2:
-                        buff_state = PlayerMovement::State::DEFENCE_BUFF;
-                        break;
-                    case 3:
+                    case 1:
                         buff_state = PlayerMovement::State::POWER_BUFF;
                         break;
                     default:
@@ -454,21 +447,22 @@ namespace fe
         _movement.start_action(buff_state, PLAYER_BUFF_DURATION);
         _abilities.set_buff_cooldown(PLAYER_BUFF_DURATION);
 
-        // Trigger soul animation for defense buff
-        if (buff_state == PlayerMovement::State::DEFENCE_BUFF)
-        {
-            _hud.activate_soul_animation();
-        }
-        // Trigger silver soul animation for energy buff
-        else if (buff_state == PlayerMovement::State::ENERGY_BUFF)
-        {
-            _hud.activate_silver_soul();
-        }
-        // Deactivate both soul effects when healing
-        else if (buff_state == PlayerMovement::State::HEAL_BUFF)
-        {
-            _hud.deactivate_silver_soul();
-            _hud.deactivate_soul_animation();
-        }
+        // TEMP: Soul effects disabled
+        // // Trigger soul animation for defense buff
+        // if (buff_state == PlayerMovement::State::DEFENCE_BUFF)
+        // {
+        //     _hud.activate_soul_animation();
+        // }
+        // // Trigger silver soul animation for energy buff
+        // else if (buff_state == PlayerMovement::State::ENERGY_BUFF)
+        // {
+        //     _hud.activate_silver_soul();
+        // }
+        // // Deactivate both soul effects when healing
+        // else if (buff_state == PlayerMovement::State::HEAL_BUFF)
+        // {
+        //     _hud.deactivate_silver_soul();
+        //     _hud.deactivate_soul_animation();
+        // }
     }
 }

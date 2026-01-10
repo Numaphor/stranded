@@ -28,14 +28,12 @@ namespace fe
     };
 
     /**
-     * @brief Buff menu option indices (matching legacy D-Pad buff mapping)
+     * @brief Buff menu option indices for the 2-buff menu
      */
     enum class BUFF_OPTION
     {
-        UP = 0,      // Maps to HEAL_BUFF
-        RIGHT = 1,   // Maps to ENERGY_BUFF
-        DOWN = 2,    // Maps to DEFENCE_BUFF
-        LEFT = 3     // Maps to POWER_BUFF
+        ENERGY = 0,  // Energy buff
+        POWER = 1    // Power buff
     };
 
     /**
@@ -120,8 +118,8 @@ namespace fe
         // Buff menu system
         BUFF_MENU_STATE _buff_menu_state;
         bn::sprite_ptr _buff_menu_base;
-        bn::optional<bn::sprite_ptr> _buff_menu_option_sprites[4];  // Up, Right, Down, Left
-        int _selected_buff_option;  // 0-3 for the four options
+        bn::optional<bn::sprite_ptr> _buff_menu_option_sprites[2];  // Energy, Power
+        int _selected_buff_option;  // 0-1 for the two options
 
         // Private helper methods
         void _configure_hud_sprite(bn::sprite_ptr& sprite);
