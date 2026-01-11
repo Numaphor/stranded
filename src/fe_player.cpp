@@ -289,7 +289,7 @@ namespace fe
 
     void Player::reset()
     {
-        _hp = 2;
+        _hp = 3;
         _reset_required = false;
         _death_timer = 0;
         _death_sound_played = false;
@@ -376,9 +376,9 @@ namespace fe
             switch (dir)
             {
             case PlayerMovement::Direction::UP:
-                return 5;   // gun behind player
+                return 5; // gun behind player
             case PlayerMovement::Direction::DOWN:
-                return -5;  // gun in front of player
+                return -5; // gun in front of player
             case PlayerMovement::Direction::LEFT:
             case PlayerMovement::Direction::RIGHT:
                 return 0;

@@ -174,12 +174,10 @@ namespace fe
                 return fe::Scene::MENU;
             }
 
-            // Toggle zoom with SELECT pressed alone (not combined with other buttons)
+            // Toggle zoom with SELECT pressed alone (not combined with action buttons)
             if (bn::keypad::select_pressed() &&
                 !bn::keypad::a_held() && !bn::keypad::b_held() &&
-                !bn::keypad::l_held() && !bn::keypad::r_held() &&
-                !bn::keypad::up_held() && !bn::keypad::down_held() &&
-                !bn::keypad::left_held() && !bn::keypad::right_held())
+                !bn::keypad::l_held() && !bn::keypad::r_held())
             {
                 _zoomed_out = !_zoomed_out;
             }
@@ -862,7 +860,7 @@ namespace fe
 
         case 2: // Desert Zone
             // Desert-specific setup
-            _merchant = new TortoiseNPC(bn::fixed_point(-80, 100), camera, text_generator);
+            _merchant = new MerchantNPC(bn::fixed_point(-80, 100), camera, text_generator);
 
             // More challenging enemies
             _enemies.push_back(Enemy(0, 0, camera, bg, ENEMY_TYPE::SPEARGUARD, 4));

@@ -10,22 +10,22 @@
 #include "bn_sprite_items_soul_silver.h"
 #include "bn_sprite_items_soul_silver_idle.h"
 #include "bn_sprite_items_ammo.h"
+#include "bn_sprite_items_temptest.h"
+#include "bn_sprite_items_hud_icons.h"
 
 namespace fe
 {
+    // Static constexpr arrays for buff menu option sprite offsets (Energy and Power only)
+    namespace
+    {
+        constexpr int buff_menu_offsets_x[2] = {HUD_BUFF_MENU_OPTION_ENERGY_X, HUD_BUFF_MENU_OPTION_POWER_X};
+        constexpr int buff_menu_offsets_y[2] = {HUD_BUFF_MENU_OPTION_ENERGY_Y, HUD_BUFF_MENU_OPTION_POWER_Y};
+        // Icon frame indices: Energy = 1, Power = 3
+        constexpr int buff_menu_icon_frames[2] = {1, 3};
+    }
+
     HUD::HUD()
-        : _hp(HUD_MAX_HP)
-        , _is_visible(true)
-        , _weapon(WEAPON_TYPE::SWORD)
-        , _weapon_sprite(bn::sprite_items::icon_gun.create_sprite(HUD_WEAPON_ICON_X, HUD_WEAPON_ICON_Y, 0))
-        , _soul_sprite(bn::sprite_items::soul.create_sprite(HUD_SOUL_INITIAL_X, HUD_SOUL_INITIAL_Y, 0))
-        , _soul_positioned(false)
-        , _defense_buff_active(false)
-        , _defense_buff_fading(false)
-        , _silver_soul_active(false)
-        , _silver_soul_reversing(false)
-        , _silver_idle_timer(0)
-        , _displayed_ammo(HUD_MAX_AMMO)
+        : _hp(HUD_MAX_HP), _is_visible(true), _weapon(WEAPON_TYPE::SWORD), _weapon_sprite(bn::sprite_items::icon_gun.create_sprite(HUD_WEAPON_ICON_X, HUD_WEAPON_ICON_Y, 0)), _soul_sprite(bn::sprite_items::soul.create_sprite(HUD_SOUL_INITIAL_X, HUD_SOUL_INITIAL_Y, 0)), _soul_positioned(false), _defense_buff_active(false), _defense_buff_fading(false), _silver_soul_active(false), _silver_soul_reversing(false), _silver_idle_timer(0), _displayed_ammo(HUD_MAX_AMMO), _buff_menu_state(BUFF_MENU_STATE::CLOSED), _buff_menu_base(bn::sprite_items::temptest.create_sprite(HUD_BUFF_MENU_BASE_X, HUD_BUFF_MENU_BASE_Y, 0)), _selected_buff_option(0), _buff_menu_hold_timer(0), _buff_menu_cooldown_timer(0)
     {
         // Initialize healthbar background
         _health_bg = bn::regular_bg_items::healthbar.create_bg(
@@ -52,9 +52,14 @@ namespace fe
         _ammo_sprite->remove_camera();
         _ammo_sprite->set_z_order(HUD_SPRITE_Z_ORDER);
         _ammo_sprite->set_visible(false);
+
+        // Initialize buff menu base sprite
+        _configure_hud_sprite(_buff_menu_base);
+        _buff_menu_base.set_horizontal_flip(true);
+        _buff_menu_base.set_visible(true);
     }
 
-    void HUD::_configure_hud_sprite(bn::sprite_ptr& sprite)
+    void HUD::_configure_hud_sprite(bn::sprite_ptr &sprite)
     {
         sprite.set_bg_priority(HUD_BG_PRIORITY);
         sprite.remove_camera();
@@ -82,7 +87,7 @@ namespace fe
         if (_health_bg.has_value())
         {
             _health_bg->set_position(x, y);
-            
+
             // Update soul position to follow healthbar
             int soul_x = x + HUD_SOUL_OFFSET_X;
             int soul_y = y + HUD_SOUL_OFFSET_Y;
@@ -101,11 +106,24 @@ namespace fe
 
         _weapon_sprite.set_visible(is_visible);
         _soul_sprite.set_visible(is_visible);
+        _buff_menu_base.set_visible(is_visible);
 
         if (_ammo_sprite.has_value())
         {
             bool show_ammo = is_visible && _weapon == WEAPON_TYPE::GUN && _displayed_ammo > 0;
             _ammo_sprite->set_visible(show_ammo);
+        }
+
+        // Update buff menu option sprites visibility
+        if (_buff_menu_state == BUFF_MENU_STATE::OPEN)
+        {
+            for (int i = 0; i < 2; ++i)
+            {
+                if (_buff_menu_option_sprites[i].has_value())
+                {
+                    _buff_menu_option_sprites[i]->set_visible(is_visible);
+                }
+            }
         }
     }
 
@@ -199,6 +217,7 @@ namespace fe
     {
         _update_soul_position();
         _update_soul_animations();
+        _update_buff_menu_sprites();
     }
 
     void HUD::_update_soul_position()
@@ -330,6 +349,193 @@ namespace fe
         else
         {
             _ammo_sprite->set_visible(false);
+        }
+    }
+
+    void HUD::toggle_buff_menu()
+    {
+        if (_buff_menu_state == BUFF_MENU_STATE::CLOSED)
+        {
+            _buff_menu_state = BUFF_MENU_STATE::OPEN;
+
+            // Create the 2 option sprites (Energy and Power) using icons sprite
+            for (int i = 0; i < 2; ++i)
+            {
+                int sprite_x = HUD_BUFF_MENU_BASE_X + buff_menu_offsets_x[i];
+                int sprite_y = HUD_BUFF_MENU_BASE_Y + buff_menu_offsets_y[i];
+
+                // Create sprite with the appropriate icon frame
+                _buff_menu_option_sprites[i] = bn::sprite_items::hud_icons.create_sprite(sprite_x, sprite_y, buff_menu_icon_frames[i]);
+                _configure_hud_sprite(_buff_menu_option_sprites[i].value());
+
+                // Grey out non-selected options using blending
+                if (i != _selected_buff_option)
+                {
+                    _buff_menu_option_sprites[i]->set_blending_enabled(true);
+                }
+            }
+        }
+        else
+        {
+            _buff_menu_state = BUFF_MENU_STATE::CLOSED;
+
+            // Hide/destroy the option sprites
+            for (int i = 0; i < 2; ++i)
+            {
+                _buff_menu_option_sprites[i].reset();
+            }
+        }
+    }
+
+    void HUD::navigate_buff_menu_next()
+    {
+        if (_buff_menu_state != BUFF_MENU_STATE::OPEN)
+        {
+            return;
+        }
+
+        // Grey out previous selection (enable blending)
+        if (_buff_menu_option_sprites[_selected_buff_option].has_value())
+        {
+            _buff_menu_option_sprites[_selected_buff_option]->set_blending_enabled(true);
+        }
+
+        // Move to next option (cycle 0->1->0)
+        _selected_buff_option = (_selected_buff_option + 1) % 2;
+
+        // Highlight new selection (disable blending)
+        if (_buff_menu_option_sprites[_selected_buff_option].has_value())
+        {
+            _buff_menu_option_sprites[_selected_buff_option]->set_blending_enabled(false);
+        }
+    }
+
+    void HUD::navigate_buff_menu_prev()
+    {
+        if (_buff_menu_state != BUFF_MENU_STATE::OPEN)
+        {
+            return;
+        }
+
+        // Grey out previous selection (enable blending)
+        if (_buff_menu_option_sprites[_selected_buff_option].has_value())
+        {
+            _buff_menu_option_sprites[_selected_buff_option]->set_blending_enabled(true);
+        }
+
+        // Move to previous option (cycle 1->0->1)
+        _selected_buff_option = (_selected_buff_option - 1 + 2) % 2;
+
+        // Highlight new selection (disable blending)
+        if (_buff_menu_option_sprites[_selected_buff_option].has_value())
+        {
+            _buff_menu_option_sprites[_selected_buff_option]->set_blending_enabled(false);
+        }
+    }
+
+    bool HUD::is_buff_menu_open() const
+    {
+        return _buff_menu_state == BUFF_MENU_STATE::OPEN;
+    }
+
+    int HUD::get_selected_buff() const
+    {
+        return _selected_buff_option;
+    }
+
+    void HUD::start_buff_menu_hold()
+    {
+        if (_buff_menu_state == BUFF_MENU_STATE::CLOSED && _buff_menu_hold_timer == 0)
+        {
+            _buff_menu_hold_timer = 1; // Start hold timer
+            // Set base icon to frame 8 (empty - start of hold animation)
+            _buff_menu_base.set_tiles(bn::sprite_items::temptest.tiles_item(), 8);
+        }
+    }
+
+    void HUD::update_buff_menu_hold()
+    {
+        if (_buff_menu_hold_timer > 0 && _buff_menu_state == BUFF_MENU_STATE::CLOSED)
+        {
+            _buff_menu_hold_timer++;
+
+            // Calculate which animation frame to show (8-1 over the hold duration)
+            // Frame 8 = empty, frames go to 1 = full (filling up as you hold)
+            int frame = 8 - (_buff_menu_hold_timer * 7) / HUD_BUFF_MENU_HOLD_FRAMES;
+            if (frame < 1)
+            {
+                frame = 1; // Clamp to full frame
+            }
+            _buff_menu_base.set_tiles(bn::sprite_items::temptest.tiles_item(), frame);
+        }
+    }
+
+    void HUD::cancel_buff_menu_hold()
+    {
+        _buff_menu_hold_timer = 0;
+        // Reset base icon to frame 0 (empty/idle)
+        _buff_menu_base.set_tiles(bn::sprite_items::temptest.tiles_item(), 0);
+    }
+
+    bool HUD::is_buff_menu_hold_complete() const
+    {
+        return _buff_menu_hold_timer >= HUD_BUFF_MENU_HOLD_FRAMES;
+    }
+
+    bool HUD::is_buff_menu_holding() const
+    {
+        return _buff_menu_hold_timer > 0;
+    }
+
+    void HUD::start_buff_menu_cooldown()
+    {
+        _buff_menu_cooldown_timer = 1;
+        // Start at frame 1 (full) and countdown to frame 8 (empty)
+        _buff_menu_base.set_tiles(bn::sprite_items::temptest.tiles_item(), 1);
+    }
+
+    void HUD::update_buff_menu_cooldown()
+    {
+        if (_buff_menu_cooldown_timer > 0)
+        {
+            _buff_menu_cooldown_timer++;
+
+            // Calculate which animation frame to show (1-8 over the cooldown duration)
+            // Frame 1 = full, frames go to 8 = empty (draining as cooldown progresses)
+            int frame = 1 + (_buff_menu_cooldown_timer * 7) / HUD_BUFF_MENU_COOLDOWN_FRAMES;
+            if (frame > 8)
+            {
+                frame = 8;
+            }
+            _buff_menu_base.set_tiles(bn::sprite_items::temptest.tiles_item(), frame);
+
+            // Check if cooldown is complete
+            if (_buff_menu_cooldown_timer >= HUD_BUFF_MENU_COOLDOWN_FRAMES)
+            {
+                _buff_menu_cooldown_timer = 0;
+                // Reset to idle frame 0 (empty)
+                _buff_menu_base.set_tiles(bn::sprite_items::temptest.tiles_item(), 0);
+            }
+        }
+    }
+
+    bool HUD::is_buff_menu_on_cooldown() const
+    {
+        return _buff_menu_cooldown_timer > 0;
+    }
+
+    void HUD::_update_buff_menu_sprites()
+    {
+        // Ensure option sprites follow visibility state
+        if (_buff_menu_state == BUFF_MENU_STATE::OPEN)
+        {
+            for (int i = 0; i < 2; ++i)
+            {
+                if (_buff_menu_option_sprites[i].has_value())
+                {
+                    _buff_menu_option_sprites[i]->set_visible(_is_visible);
+                }
+            }
         }
     }
 }
