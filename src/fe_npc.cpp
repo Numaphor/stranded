@@ -38,7 +38,7 @@ namespace fe
                 render_dialog_options();
                 return;
             }
-            
+
             // Only process input if we're not waiting for the last line to finish
             if (_currentChar >= _lines.at(_currentLine).size() * 2)
             {
@@ -252,10 +252,10 @@ namespace fe
     {
         _text_sprites.clear();
         _text_generator.set_left_alignment();
-        
+
         constexpr int max_option_text_length = 64; // Max characters for option text including cursor
         bn::fixed y_pos = _text_y_limit - 20;
-        
+
         for (int i = 0; i < _dialog_options.size(); ++i)
         {
             bn::string<max_option_text_length> option_text;
@@ -268,7 +268,7 @@ namespace fe
                 option_text = "  ";
             }
             option_text.append(_dialog_options[i].option_text);
-            
+
             _text_generator.generate(-90, y_pos, option_text, _text_sprites);
             y_pos += _text_y_inc;
         }
@@ -301,10 +301,10 @@ namespace fe
         if (_selected_option < _dialog_options.size())
         {
             bn::sound_items::hello.play();
-            
+
             // Load the response lines for the selected option
             _lines = _dialog_options[_selected_option].response_lines;
-            
+
             // Check if this option should end the conversation
             if (_dialog_options[_selected_option].ends_conversation)
             {
@@ -314,7 +314,7 @@ namespace fe
             {
                 _dialog_state = DIALOG_STATE::SHOWING_RESPONSE; // Will return to options
             }
-            
+
             _currentLine = 0;
             _currentChar = 0;
             _currentChars = "";

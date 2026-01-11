@@ -22,10 +22,10 @@ namespace fe
     // Dialog states for managing conversation flow
     enum class DIALOG_STATE
     {
-        GREETING,        // Showing initial greeting
-        SHOWING_OPTIONS, // Showing dialog options
+        GREETING,         // Showing initial greeting
+        SHOWING_OPTIONS,  // Showing dialog options
         SHOWING_RESPONSE, // Showing response to selected option
-        ENDING           // Showing final response before ending conversation
+        ENDING            // Showing final response before ending conversation
     };
 
     // Structure to hold a dialog option
@@ -34,7 +34,7 @@ namespace fe
         bn::string_view option_text;
         bn::span<bn::string_view> response_lines;
         bool ends_conversation; // If true, conversation ends after showing response
-        
+
         DialogOption() : option_text(""), response_lines(), ends_conversation(false) {}
         DialogOption(bn::string_view text, bn::span<bn::string_view> lines, bool ends = false)
             : option_text(text), response_lines(lines), ends_conversation(ends) {}
