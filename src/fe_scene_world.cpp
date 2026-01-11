@@ -604,7 +604,8 @@ namespace fe
 
                     _player->sprite()->set_affine_mat(_player_affine_mat.value());
                     _player->sprite()->set_double_size_mode(bn::sprite_double_size_mode::ENABLED);
-                    bn::fixed_point player_world_pos = _player->pos();
+                    // Apply the same Y offset used in Player::update_sprite_position()
+                    bn::fixed_point player_world_pos = _player->pos() + bn::fixed_point(0, PLAYER_SPRITE_Y_OFFSET);
                     bn::fixed_point offset = player_world_pos - cam_pos;
                     bn::fixed_point scaled_pos = cam_pos + bn::fixed_point(offset.x() * _current_zoom_scale, offset.y() * _current_zoom_scale);
                     _player->sprite()->set_position(scaled_pos);
