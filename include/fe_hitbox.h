@@ -133,6 +133,7 @@ namespace fe
         [[nodiscard]] MarkerOffsetConfig get_marker_config() const;
 
         // Static factory methods for common hitbox types
+        [[nodiscard]] static Hitbox create_player_hitbox(bn::fixed_point position);
         [[nodiscard]] static Hitbox create_merchant_interaction_zone(bn::fixed_point center);
         [[nodiscard]] static Hitbox create_sword_zone();
 
