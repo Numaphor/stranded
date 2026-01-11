@@ -1,0 +1,106 @@
+===========================================
+DEBUG MODE IMPLEMENTATION SUMMARY
+===========================================
+
+TASK: Implement debug mode activation functionality
+TRIGGER: SELECT + START button combination
+STATUS: ✓ COMPLETE
+
+===========================================
+CHANGES MADE
+===========================================
+
+1. NEW FILES CREATED:
+   - include/fe_debug.h          (31 lines)
+   - src/fe_debug.cpp             (48 lines)  
+   - DEBUG_MODE.md                (78 lines documentation)
+   - IMPLEMENTATION_SUMMARY.txt   (this file)
+
+2. FILES MODIFIED:
+   - include/fe_scene_world.h     (+4 lines)
+   - src/fe_scene_world.cpp       (+41 lines)
+
+TOTAL: 201 lines added, 1 line removed
+
+===========================================
+IMPLEMENTATION DETAILS
+===========================================
+
+DebugSystem Class (fe_debug.h/cpp):
+- toggle_debug_mode(): Toggles debug state on/off
+- is_debug_active(): Returns current debug state
+- clear_debug_markers(): Removes all debug markers
+- add_hitbox_marker(): Adds a visual marker at hitbox center
+- update(): Reserved for future enhancements
+
+World Class Integration (fe_scene_world.cpp):
+- Added SELECT+START input detection
+- Added per-frame debug visualization
+- Visualizes: Player, Enemies, Merchant zones, Sword zone
+- Uses bullet sprites as simple red marker dots
+
+===========================================
+HOW TO USE
+===========================================
+
+1. Build the game: make -j8
+2. Run the game in an emulator
+3. During gameplay, press SELECT + START
+4. Red dots appear at hitbox centers
+5. Press SELECT + START again to disable
+
+===========================================
+TECHNICAL NOTES
+===========================================
+
+- Uses Butano's bn::sprite_ptr for markers
+- Maximum 32 markers (configurable)
+- Z-order: -32000 (appears above game objects)
+- Camera-aware: All markers follow camera
+- Performance: Only active when enabled
+- Console logging: ON/OFF messages
+
+===========================================
+ARCHITECTURE ALIGNMENT
+===========================================
+
+✓ Follows fe namespace convention
+✓ Uses _private_member naming
+✓ Integrates with existing Hitbox system
+✓ Uses Butano containers (bn::vector)
+✓ Proper camera integration
+✓ Minimal code changes to existing systems
+✓ Non-intrusive to gameplay
+
+===========================================
+TESTING REQUIREMENTS
+===========================================
+
+⚠ Build environment not available in CI
+⚠ Requires devkitARM and mmutil setup
+⚠ Manual testing needed on target hardware/emulator
+
+Recommended Test Cases:
+1. Toggle debug on/off multiple times
+2. Move player and verify markers follow
+3. Spawn/kill enemies and verify markers update
+4. Check merchant interaction zone visualization
+5. Verify sword zone is visible
+6. Test with zoom feature (SELECT alone)
+7. Verify no conflict with SELECT+A (menu)
+
+===========================================
+FUTURE ENHANCEMENTS
+===========================================
+
+- Different colors for different hitbox types
+- Full hitbox boundary visualization (not just centers)
+- Frame rate counter display
+- Memory usage display
+- Collision event visualization
+- Enemy AI state display
+- Performance metrics overlay
+
+===========================================
+END OF SUMMARY
+===========================================
