@@ -112,7 +112,7 @@ namespace fe
             if (bn::keypad::b_pressed() && !bn::keypad::select_held() && _abilities.rolling_available())
             {
                 _movement.start_action(PlayerMovement::State::ROLLING, PLAYER_ROLL_DURATION);
-                _abilities.set_roll_cooldown(90); // Reasonable cooldown - 1.5 seconds
+                _abilities.set_roll_cooldown(PLAYER_ROLL_COOLDOWN);
 
                 // Set invulnerability but don't start the blinking timer during roll
                 _state.set_invulnerable(true);
@@ -143,7 +143,7 @@ namespace fe
                 else if (_abilities.slashing_available())
                 {
                     _movement.start_action(PlayerMovement::State::SLASHING, PLAYER_SLASH_DURATION);
-                    _abilities.set_slash_cooldown(60);
+                    _abilities.set_slash_cooldown(PLAYER_SLASH_COOLDOWN);
                 }
             }
             else if (bn::keypad::select_held() && _abilities.buff_abilities_available())
@@ -495,7 +495,7 @@ namespace fe
         if (_gun_active && _gun_sprite.has_value())
         {
             // Use shared gun frame
-            shared_gun_frame = (shared_gun_frame + 1) % 6;
+            shared_gun_frame = (shared_gun_frame + 1) % WEAPON_GUN_FRAMES;
 
             // Update gun sprite to next frame
             _gun_sprite->set_tiles(bn::sprite_items::gun.tiles_item(), shared_gun_frame);
@@ -511,7 +511,7 @@ namespace fe
     {
         // Placeholder for sword sprite cycling
         // Use shared sword frame
-        shared_sword_frame = (shared_sword_frame + 1) % 6; // Assume 6 sword variants like gun
+        shared_sword_frame = (shared_sword_frame + 1) % WEAPON_SWORD_FRAMES;
 
         // Log for debugging
     }

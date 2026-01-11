@@ -45,13 +45,13 @@ namespace fe
         bn::regular_bg_map_item map_item;
         int _background_tile; // Store the background tile for this world
 
-        bg_map(int world_id = 0) : map_item(cells[0], bn::size(columns, rows))
+        bg_map(int world_id = WORLD_ID_MAIN) : map_item(cells[0], bn::size(columns, rows))
         {
             // Choose background tile based on world_id
-            _background_tile = 1; // Default tile
-            if (world_id == 1)    // Forest Area (second world)
+            _background_tile = BG_TILE_DEFAULT;
+            if (world_id == WORLD_ID_FOREST)
             {
-                _background_tile = 2;
+                _background_tile = BG_TILE_FOREST;
             }
 
             // Fill all squares with the appropriate background tile
@@ -147,7 +147,7 @@ namespace fe
         // Priority will be set in the update loop based on player position
 
         // Initialize minimap in top-right corner
-        _minimap = new Minimap(bn::fixed_point(100, -80), bg_map_ptr, camera);
+        _minimap = new Minimap(bn::fixed_point(MINIMAP_X, MINIMAP_Y), bg_map_ptr, camera);
         _player->set_camera(camera);
 
         // Create text generator for NPCs
@@ -393,13 +393,10 @@ namespace fe
             }
 
             // Clamp camera to map boundaries (prevent showing outside world)
-            // GBA screen is 240x160, so half is 120x80
-            constexpr bn::fixed half_screen_x = 120;
-            constexpr bn::fixed half_screen_y = 80;
-            constexpr bn::fixed map_min_x = -MAP_OFFSET_X + half_screen_x;
-            constexpr bn::fixed map_max_x = MAP_OFFSET_X - half_screen_x;
-            constexpr bn::fixed map_min_y = -MAP_OFFSET_Y + half_screen_y;
-            constexpr bn::fixed map_max_y = MAP_OFFSET_Y - half_screen_y;
+            constexpr bn::fixed map_min_x = -MAP_OFFSET_X + SCREEN_HALF_WIDTH;
+            constexpr bn::fixed map_max_x = MAP_OFFSET_X - SCREEN_HALF_WIDTH;
+            constexpr bn::fixed map_min_y = -MAP_OFFSET_Y + SCREEN_HALF_HEIGHT;
+            constexpr bn::fixed map_max_y = MAP_OFFSET_Y - SCREEN_HALF_HEIGHT;
 
             bn::fixed_point new_camera_pos(
                 bn::clamp(new_camera_x, map_min_x, map_max_x),
@@ -468,7 +465,7 @@ namespace fe
                             // Knockback effect
                             bn::fixed_point knockback_vector = _player->pos() - enemy.get_position();
                             // Simple knockback in the x direction based on relative positions
-                            bn::fixed knockback_x = (knockback_vector.x() > 0) ? 10 : -10;
+                            bn::fixed knockback_x = (knockback_vector.x() > 0) ? PLAYER_KNOCKBACK_DISTANCE : -PLAYER_KNOCKBACK_DISTANCE;
                             bn::fixed_point knockback(knockback_x, 0);
                             _player->set_position(_player->pos() + knockback);
                         }
@@ -555,15 +552,15 @@ namespace fe
 
                 // Reset minimap
                 delete _minimap;
-                _minimap = new Minimap(bn::fixed_point(100, -80), bg_map_ptr, camera);
+                _minimap = new Minimap(bn::fixed_point(MINIMAP_X, MINIMAP_Y), bg_map_ptr, camera);
 
                 // Reset player position
                 _player->spawn(spawn_location, camera);
 
                 // Reset enemies
-                _enemies.push_back(Enemy(0, -100, camera, bg, ENEMY_TYPE::SPEARGUARD, 3));
-                _enemies.push_back(Enemy(50, -80, camera, bg, ENEMY_TYPE::SPEARGUARD, 3));
-                _enemies.push_back(Enemy(-50, -120, camera, bg, ENEMY_TYPE::SPEARGUARD, 3));
+                _enemies.push_back(Enemy(0, -100, camera, bg, ENEMY_TYPE::SPEARGUARD, ENEMY_HP_MAIN_WORLD));
+                _enemies.push_back(Enemy(50, -80, camera, bg, ENEMY_TYPE::SPEARGUARD, ENEMY_HP_MAIN_WORLD));
+                _enemies.push_back(Enemy(-50, -120, camera, bg, ENEMY_TYPE::SPEARGUARD, ENEMY_HP_MAIN_WORLD));
 
                 // Reset camera
                 camera.set_position(0, 0);
@@ -843,36 +840,36 @@ namespace fe
         // Initialize different content based on world ID
         switch (world_id)
         {
-        case 0: // Main World
+        case WORLD_ID_MAIN:
             // Create merchant NPC
             _merchant = new MerchantNPC(bn::fixed_point(100, -50), camera, text_generator);
 
             // Spawn 3 spearguard enemies
-            _enemies.push_back(Enemy(0, -100, camera, bg, ENEMY_TYPE::SPEARGUARD, 3));
-            _enemies.push_back(Enemy(50, -80, camera, bg, ENEMY_TYPE::SPEARGUARD, 3));
-            _enemies.push_back(Enemy(-50, -120, camera, bg, ENEMY_TYPE::SPEARGUARD, 3));
+            _enemies.push_back(Enemy(0, -100, camera, bg, ENEMY_TYPE::SPEARGUARD, ENEMY_HP_MAIN_WORLD));
+            _enemies.push_back(Enemy(50, -80, camera, bg, ENEMY_TYPE::SPEARGUARD, ENEMY_HP_MAIN_WORLD));
+            _enemies.push_back(Enemy(-50, -120, camera, bg, ENEMY_TYPE::SPEARGUARD, ENEMY_HP_MAIN_WORLD));
             break;
 
-        case 1: // Forest Area
+        case WORLD_ID_FOREST:
             // Spawn different enemy configuration
-            _enemies.push_back(Enemy(-100, -50, camera, bg, ENEMY_TYPE::SPEARGUARD, 2));
-            _enemies.push_back(Enemy(80, -100, camera, bg, ENEMY_TYPE::SPEARGUARD, 2));
+            _enemies.push_back(Enemy(-100, -50, camera, bg, ENEMY_TYPE::SPEARGUARD, ENEMY_HP_FOREST_WORLD));
+            _enemies.push_back(Enemy(80, -100, camera, bg, ENEMY_TYPE::SPEARGUARD, ENEMY_HP_FOREST_WORLD));
             break;
 
-        case 2: // Desert Zone
+        case WORLD_ID_DESERT:
             // Desert-specific setup
             _merchant = new MerchantNPC(bn::fixed_point(-80, 100), camera, text_generator);
 
             // More challenging enemies
-            _enemies.push_back(Enemy(0, 0, camera, bg, ENEMY_TYPE::SPEARGUARD, 4));
-            _enemies.push_back(Enemy(100, 20, camera, bg, ENEMY_TYPE::SPEARGUARD, 4));
-            _enemies.push_back(Enemy(-100, 40, camera, bg, ENEMY_TYPE::SPEARGUARD, 4));
-            _enemies.push_back(Enemy(0, 80, camera, bg, ENEMY_TYPE::SPEARGUARD, 4));
+            _enemies.push_back(Enemy(0, 0, camera, bg, ENEMY_TYPE::SPEARGUARD, ENEMY_HP_DESERT_WORLD));
+            _enemies.push_back(Enemy(100, 20, camera, bg, ENEMY_TYPE::SPEARGUARD, ENEMY_HP_DESERT_WORLD));
+            _enemies.push_back(Enemy(-100, 40, camera, bg, ENEMY_TYPE::SPEARGUARD, ENEMY_HP_DESERT_WORLD));
+            _enemies.push_back(Enemy(0, 80, camera, bg, ENEMY_TYPE::SPEARGUARD, ENEMY_HP_DESERT_WORLD));
             break;
 
         default: // Default to main world
             _merchant = new MerchantNPC(bn::fixed_point(100, -50), camera, text_generator);
-            _enemies.push_back(Enemy(0, -100, camera, bg, ENEMY_TYPE::SPEARGUARD, 3));
+            _enemies.push_back(Enemy(0, -100, camera, bg, ENEMY_TYPE::SPEARGUARD, ENEMY_HP_MAIN_WORLD));
             break;
         }
     }
@@ -892,19 +889,19 @@ namespace fe
         {
             // Decrease shake frames and intensity
             _shake_frames--;
-            _shake_intensity *= 0.85; // Slower decay to maintain intensity longer
+            _shake_intensity *= SHAKE_DECAY;
 
             // Generate random shake offset using simpler method
             static int shake_seed = 1234;
-            shake_seed = (shake_seed * 1664525 + 1013904223) % 32768;
-            int shake_x_int = (shake_seed % 16) - 8; // Range: -8 to +7
+            shake_seed = (shake_seed * SHAKE_SEED_MULTIPLIER + SHAKE_SEED_INCREMENT) % SHAKE_SEED_MODULUS;
+            int shake_x_int = (shake_seed % SHAKE_RANGE) - SHAKE_HALF_RANGE;
 
-            shake_seed = (shake_seed * 1664525 + 1013904223) % 32768;
-            int shake_y_int = (shake_seed % 16) - 8; // Range: -8 to +7
+            shake_seed = (shake_seed * SHAKE_SEED_MULTIPLIER + SHAKE_SEED_INCREMENT) % SHAKE_SEED_MODULUS;
+            int shake_y_int = (shake_seed % SHAKE_RANGE) - SHAKE_HALF_RANGE;
 
             // Convert to fixed point and apply intensity
-            bn::fixed shake_x = bn::fixed(shake_x_int) * _shake_intensity / 4;
-            bn::fixed shake_y = bn::fixed(shake_y_int) * _shake_intensity / 4;
+            bn::fixed shake_x = bn::fixed(shake_x_int) * _shake_intensity / SHAKE_DIVISOR;
+            bn::fixed shake_y = bn::fixed(shake_y_int) * _shake_intensity / SHAKE_DIVISOR;
 
             // Apply shake offset to camera
             bn::fixed current_x = _camera->x();

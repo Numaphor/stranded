@@ -27,10 +27,9 @@ namespace fe
         bn::fixed dist_x = player_pos.x() - enemy.pos().x();
         bn::fixed dist_y = player_pos.y() - enemy.pos().y();
         bn::fixed dist_sq = dist_x * dist_x + dist_y * dist_y;
-        const bn::fixed follow_dist_sq = 48 * 48; // 6 tiles squared
 
         // Check if player should be chased (only if not listening to NPCs)
-        if (!player_listening && dist_sq <= follow_dist_sq)
+        if (!player_listening && dist_sq <= ENEMY_FOLLOW_DISTANCE_SQ)
         {
             // Transition to chase state
             bn::unique_ptr<ChaseState> chase_state = bn::make_unique<ChaseState>();
@@ -71,10 +70,9 @@ namespace fe
         bn::fixed dist_x = player_pos.x() - enemy.pos().x();
         bn::fixed dist_y = player_pos.y() - enemy.pos().y();
         bn::fixed dist_sq = dist_x * dist_x + dist_y * dist_y;
-        const bn::fixed follow_dist_sq = 48 * 48; // 6 tiles squared
 
         // Check if player should be chased (only if not listening to NPCs)
-        if (!player_listening && dist_sq <= follow_dist_sq)
+        if (!player_listening && dist_sq <= ENEMY_FOLLOW_DISTANCE_SQ)
         {
             // Transition to chase state
             bn::unique_ptr<ChaseState> chase_state = bn::make_unique<ChaseState>();
@@ -88,8 +86,8 @@ namespace fe
             static bn::random random;
             int angle = random.get() % 360;
             bn::fixed radians = angle * 3.14159 / 180;
-            _target_dx = 0.35 * bn::sin(radians);
-            _target_dy = 0.35 * bn::cos(radians);
+            _target_dx = ENEMY_PATROL_SPEED * bn::sin(radians);
+            _target_dy = ENEMY_PATROL_SPEED * bn::cos(radians);
             _direction_set = true;
         }
 
@@ -102,7 +100,7 @@ namespace fe
         {
             // Transition back to idle state
             static bn::random random;
-            int idle_duration = 20 + (random.get() % 40);
+            int idle_duration = ENEMY_IDLE_DURATION_MIN + (random.get() % ENEMY_IDLE_DURATION_RANGE);
             bn::unique_ptr<IdleState> idle_state = bn::make_unique<IdleState>(idle_duration);
             enemy._state_machine.transition_to(enemy, bn::move(idle_state));
             return;
@@ -133,13 +131,13 @@ namespace fe
         bn::fixed unfollow_dist_sq;
         if (enemy.type() == ENEMY_TYPE::SPEARGUARD && enemy._aggroed)
         {
-            // Aggroed spearguards have much larger chase range (16 tiles instead of 8)
-            unfollow_dist_sq = 128 * 128; // 16 tiles squared
+            // Aggroed spearguards have much larger chase range
+            unfollow_dist_sq = ENEMY_AGGRO_CHASE_DISTANCE_SQ;
         }
         else
         {
             // Normal chase range
-            unfollow_dist_sq = 64 * 64; // 8 tiles squared
+            unfollow_dist_sq = ENEMY_UNFOLLOW_DISTANCE_SQ;
         }
 
         // Check if player is too far away or listening to NPCs
@@ -156,7 +154,7 @@ namespace fe
             {
                 // Other enemies go idle
                 static bn::random random;
-                int idle_duration = 20 + (random.get() % 40);
+                int idle_duration = ENEMY_IDLE_DURATION_MIN + (random.get() % ENEMY_IDLE_DURATION_RANGE);
                 bn::unique_ptr<IdleState> idle_state = bn::make_unique<IdleState>(idle_duration);
                 enemy._state_machine.transition_to(enemy, bn::move(idle_state));
             }
@@ -174,7 +172,7 @@ namespace fe
             // Only attack if the horizontal distance is significant relative to vertical distance
             // and the player is within reasonable attack range horizontally
             // Also ensure we're roughly Y-aligned (vertical distance is small)
-            if (abs_dist_x <= ENEMY_ATTACK_DISTANCE && abs_dist_x >= abs_dist_y * 0.5 && abs_dist_y <= 16)
+            if (abs_dist_x <= ENEMY_ATTACK_DISTANCE && abs_dist_x >= abs_dist_y * 0.5 && abs_dist_y <= ENEMY_Y_ALIGNMENT_TOLERANCE)
             {
                 // Transition to attack state
                 bn::unique_ptr<AttackState> attack_state = bn::make_unique<AttackState>();
@@ -190,20 +188,19 @@ namespace fe
             if (enemy.type() == ENEMY_TYPE::SPEARGUARD)
             {
                 // Spearguards prioritize vertical alignment first, then horizontal positioning
-                bn::fixed abs_dist_x = bn::abs(dist_x);
                 bn::fixed abs_dist_y = bn::abs(dist_y);
 
                 // If not Y-aligned, prioritize vertical movement
-                if (abs_dist_y > 8) // Allow small Y tolerance
+                if (abs_dist_y > ENEMY_Y_ALIGNMENT_TOLERANCE_SMALL)
                 {
-                    enemy._target_dx = (dist_x / len) * _chase_speed * 0.3; // Slower horizontal movement
-                    enemy._target_dy = (dist_y / len) * _chase_speed;       // Full vertical movement
+                    enemy._target_dx = (dist_x / len) * _chase_speed * ENEMY_CHASE_SPEED_REDUCED; // Slower horizontal movement
+                    enemy._target_dy = (dist_y / len) * _chase_speed;                              // Full vertical movement
                 }
                 else
                 {
                     // Y-aligned, now move horizontally to attack position
                     enemy._target_dx = (dist_x / len) * _chase_speed;
-                    enemy._target_dy = (dist_y / len) * _chase_speed * 0.3; // Maintain Y position
+                    enemy._target_dy = (dist_y / len) * _chase_speed * ENEMY_CHASE_SPEED_REDUCED; // Maintain Y position
                 }
             }
             else
@@ -253,9 +250,8 @@ namespace fe
             bn::fixed dist_x = player_pos.x() - enemy.pos().x();
             bn::fixed dist_y = player_pos.y() - enemy.pos().y();
             bn::fixed dist_sq = dist_x * dist_x + dist_y * dist_y;
-            const bn::fixed follow_dist_sq = 48 * 48; // 6 tiles squared
 
-            if (!player_listening && dist_sq <= follow_dist_sq)
+            if (!player_listening && dist_sq <= ENEMY_FOLLOW_DISTANCE_SQ)
             {
                 // Continue chasing
                 bn::unique_ptr<ChaseState> chase_state = bn::make_unique<ChaseState>();
@@ -333,9 +329,8 @@ namespace fe
         bn::fixed dist_x = player_pos.x() - enemy.pos().x();
         bn::fixed dist_y = player_pos.y() - enemy.pos().y();
         bn::fixed dist_sq = dist_x * dist_x + dist_y * dist_y;
-        const bn::fixed follow_dist_sq = 48 * 48; // 6 tiles squared
 
-        if (!player_listening && dist_sq <= follow_dist_sq)
+        if (!player_listening && dist_sq <= ENEMY_FOLLOW_DISTANCE_SQ)
         {
             // Player is back in range, start chasing again
             bn::unique_ptr<ChaseState> chase_state = bn::make_unique<ChaseState>();
@@ -379,9 +374,8 @@ namespace fe
             bn::fixed dist_x = player_pos.x() - enemy.pos().x();
             bn::fixed dist_y = player_pos.y() - enemy.pos().y();
             bn::fixed dist_sq = dist_x * dist_x + dist_y * dist_y;
-            const bn::fixed follow_dist_sq = 48 * 48; // 6 tiles squared
 
-            if (!player_listening && dist_sq <= follow_dist_sq)
+            if (!player_listening && dist_sq <= ENEMY_FOLLOW_DISTANCE_SQ)
             {
                 // Player is close, start chasing
                 bn::unique_ptr<ChaseState> chase_state = bn::make_unique<ChaseState>();

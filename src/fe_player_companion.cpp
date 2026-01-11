@@ -32,7 +32,7 @@ namespace fe
         // Don't override position if companion died independently and is staying at death position
         if (!_independent_death)
         {
-            _position = pos + bn::fixed_point(8, -8);
+            _position = pos + bn::fixed_point(COMPANION_SPAWN_OFFSET_X, COMPANION_SPAWN_OFFSET_Y);
         }
         _target_offset = calculate_companion_offset();
         _sprite.set_camera(camera);
@@ -142,15 +142,15 @@ namespace fe
 
             if (distance > 1)
             {
-                bn::fixed speed = (distance * 0.08 < 1.2) ? distance * 0.08 : 1.2;
-                speed = (speed > 0.3) ? speed : 0.3;
+                bn::fixed speed = (distance * COMPANION_FOLLOW_ACCELERATION < COMPANION_MAX_FOLLOW_SPEED) ? distance * COMPANION_FOLLOW_ACCELERATION : COMPANION_MAX_FOLLOW_SPEED;
+                speed = (speed > COMPANION_MIN_FOLLOW_SPEED) ? speed : COMPANION_MIN_FOLLOW_SPEED;
                 _position += (diff / distance) * speed;
             }
         }
 
         // Update position side more frequently for responsive sprite direction changes
         // Allow this even when not moving so companion can face the right direction
-        if (player_distance > 8)
+        if (player_distance > COMPANION_FACING_THRESHOLD)
         {
             bn::fixed_point offset = _position - player_pos;
             Position new_side;
@@ -188,13 +188,13 @@ namespace fe
         switch (_position_side)
         {
         case Position::RIGHT:
-            return {16, 0};
+            return {COMPANION_OFFSET_RIGHT_X, 0};
         case Position::LEFT:
-            return {-16, 0};
+            return {COMPANION_OFFSET_LEFT_X, 0};
         case Position::BELOW:
-            return {0, 12};
+            return {0, COMPANION_OFFSET_BELOW_Y};
         default:
-            return {16, 0};
+            return {COMPANION_OFFSET_RIGHT_X, 0};
         }
     }
 
@@ -204,20 +204,20 @@ namespace fe
         {
             // Play death animation in reverse for revival
             _animation = bn::create_sprite_animate_action_once(
-                _sprite, 8, bn::sprite_items::companion.tiles_item(),
-                21, 20, 19, 18, 17, 16, 15, 14, 13, 12);
+                _sprite, COMPANION_ANIM_SPEED_DEATH, bn::sprite_items::companion.tiles_item(),
+                COMPANION_DEATH_FRAME_END, 20, 19, 18, 17, 16, 15, 14, 13, COMPANION_DEATH_FRAME_START);
         }
         else if (_is_dead)
         {
             _animation = bn::create_sprite_animate_action_once(
-                _sprite, 8, bn::sprite_items::companion.tiles_item(),
-                12, 13, 14, 15, 16, 17, 18, 19, 20, 21);
+                _sprite, COMPANION_ANIM_SPEED_DEATH, bn::sprite_items::companion.tiles_item(),
+                COMPANION_DEATH_FRAME_START, 13, 14, 15, 16, 17, 18, 19, 20, COMPANION_DEATH_FRAME_END);
         }
         else
         {
-            int start_frame = static_cast<int>(_position_side) * 4;
+            int start_frame = static_cast<int>(_position_side) * COMPANION_ANIM_FRAMES_PER_DIRECTION;
             _animation = bn::create_sprite_animate_action_forever(
-                _sprite, 12, bn::sprite_items::companion.tiles_item(),
+                _sprite, COMPANION_ANIM_SPEED_IDLE, bn::sprite_items::companion.tiles_item(),
                 start_frame, start_frame + 1, start_frame + 2, start_frame + 3);
         }
     }
@@ -335,7 +335,7 @@ namespace fe
                 {
                     _progress_bar_sprite->set_tiles(bn::sprite_items::companion_load.tiles_item(), progress_frame);
                     // Keep progress bar positioned above companion
-                    _progress_bar_sprite->set_position(_death_position.x() + 12, _death_position.y());
+                    _progress_bar_sprite->set_position(_death_position.x() + COMPANION_REVIVAL_PROGRESS_OFFSET_X, _death_position.y());
                 }
 
                 // Check if revival is complete
@@ -389,7 +389,7 @@ namespace fe
         text_generator.set_center_alignment();
 
         // Create text sprites at position above the dead companion
-        bn::fixed_point text_center = _death_position + bn::fixed_point(0, -20); // 20 pixels above companion
+        bn::fixed_point text_center = _death_position + bn::fixed_point(0, COMPANION_REVIVAL_TEXT_OFFSET_Y);
         text_generator.set_bg_priority(0);
         text_generator.generate(text_center, "Press A to revive", _text_sprites);
 
@@ -398,7 +398,7 @@ namespace fe
         for (bn::sprite_ptr &text_sprite : _text_sprites)
         {
             text_sprite.set_camera(_sprite.camera());
-            text_sprite.set_z_order(-32767); // Ensure text is on top
+            text_sprite.set_z_order(COMPANION_TEXT_Z_ORDER); // Ensure text is on top
             // Store offset from text center
             _text_original_offsets.push_back(text_sprite.position() - text_center);
         }
@@ -415,7 +415,7 @@ namespace fe
             return;
         
         // Restore original positions from stored offsets
-        bn::fixed_point text_center = _death_position + bn::fixed_point(0, -20);
+        bn::fixed_point text_center = _death_position + bn::fixed_point(0, COMPANION_REVIVAL_TEXT_OFFSET_Y);
         for (int i = 0; i < _text_sprites.size() && i < _text_original_offsets.size(); ++i)
         {
             _text_sprites[i].set_position(text_center + _text_original_offsets[i]);

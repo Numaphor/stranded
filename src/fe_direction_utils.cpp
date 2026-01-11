@@ -9,7 +9,7 @@ namespace fe
             // Use linear momentum decay for smoother animation sync
             bn::fixed momentum_factor = bn::fixed(frames_remaining) / bn::fixed(total_frames);
             // Start fast, end slower but not too dramatic
-            momentum_factor = (momentum_factor * 0.7) + 0.3; // Range from 1.0 to 0.3
+            momentum_factor = (momentum_factor * ROLL_MOMENTUM_DECAY_RANGE) + ROLL_MOMENTUM_DECAY_MIN;
             bn::fixed current_speed = PLAYER_ROLL_SPEED * momentum_factor;
 
             switch (dir)

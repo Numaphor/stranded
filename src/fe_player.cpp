@@ -125,7 +125,7 @@ namespace fe
         if (_state.invulnerable() && _state.inv_timer() > 0)
         {
             _state.set_inv_timer(_state.inv_timer() - 1);
-            if (_state.inv_timer() % 10 == 0)
+            if (_state.inv_timer() % PLAYER_INVULNERABILITY_BLINK_RATE == 0)
             {
                 set_visible(!get_sprite()->visible());
             }
@@ -230,16 +230,16 @@ namespace fe
             bn::fixed player_y = pos().y();
             bn::fixed companion_y = companion_pos.y();
 
-            // If player is 8+ pixels below companion, player should appear on top
-            if (player_y >= companion_y + 8)
+            // If player is below companion by threshold, player should appear on top
+            if (player_y >= companion_y + COMPANION_BEHIND_PLAYER_Y_THRESHOLD)
             {
                 // Player appears on top (companion behind)
-                _companion->set_z_order(z_order + 10);
+                _companion->set_z_order(z_order + Z_ORDER_COMPANION_OFFSET);
             }
             else
             {
                 // Companion appears on top (player behind)
-                _companion->set_z_order(z_order - 10);
+                _companion->set_z_order(z_order - Z_ORDER_COMPANION_OFFSET);
             }
         }
     }
@@ -275,7 +275,7 @@ namespace fe
             {
                 // Only set invulnerability if not dead
                 _state.set_invulnerable(true);
-                _state.set_inv_timer(60); // 1 second of invulnerability at 60 FPS
+                _state.set_inv_timer(PLAYER_INVULNERABILITY_FRAMES);
 
                 // Visual feedback for taking damage (but not for death)
                 set_visible(false);
@@ -292,14 +292,14 @@ namespace fe
 
     void Player::heal(int amount)
     {
-        if (_hp < 3 && _hp > 0)
+        if (_hp < HUD_MAX_HP && _hp > 0)
         {
             int old_hp = _hp;
-            _hp = bn::min(_hp + amount, 3);
+            _hp = bn::min(_hp + amount, HUD_MAX_HP);
             _hud.set_hp(_hp);
 
-            // When reaching full health (3), regain the soul shield
-            if (old_hp < 3 && _hp == 3)
+            // When reaching full health, regain the soul shield
+            if (old_hp < HUD_MAX_HP && _hp == HUD_MAX_HP)
             {
                 _hud.activate_soul_animation();
             }
@@ -310,7 +310,7 @@ namespace fe
 
     void Player::reset()
     {
-        _hp = 3;
+        _hp = HUD_MAX_HP;
         _reset_required = false;
         _death_timer = 0;
         _death_sound_played = false;
@@ -371,7 +371,7 @@ namespace fe
             // Use linear momentum decay for smoother animation sync
             bn::fixed momentum_factor = bn::fixed(frames_remaining) / bn::fixed(total_frames);
             // Start fast, end slower but not too dramatic
-            momentum_factor = (momentum_factor * 0.7) + 0.3; // Range from 1.0 to 0.3
+            momentum_factor = (momentum_factor * ROLL_MOMENTUM_DECAY_RANGE) + ROLL_MOMENTUM_DECAY_MIN; // Range from 1.0 to 0.3
             bn::fixed current_speed = PLAYER_ROLL_SPEED * momentum_factor;
 
             switch (dir)
@@ -397,9 +397,9 @@ namespace fe
             switch (dir)
             {
             case PlayerMovement::Direction::UP:
-                return 5; // gun behind player
+                return GUN_Z_OFFSET_BEHIND; // gun behind player
             case PlayerMovement::Direction::DOWN:
-                return -5; // gun in front of player
+                return GUN_Z_OFFSET_FRONT; // gun in front of player
             case PlayerMovement::Direction::LEFT:
             case PlayerMovement::Direction::RIGHT:
                 return 0;

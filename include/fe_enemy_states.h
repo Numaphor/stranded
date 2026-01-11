@@ -2,6 +2,7 @@
 #define FE_ENEMY_STATES_H
 
 #include "fe_enemy_state.h"
+#include "fe_constants.h"
 #include "bn_fixed_point.h"
 #include "bn_random.h"
 
@@ -21,7 +22,7 @@ namespace fe
         int _idle_duration;
         
     public:
-        IdleState(int duration = 60) : _idle_duration(duration) {}
+        IdleState(int duration = ENEMY_PATROL_DURATION) : _idle_duration(duration) {}
         
         void enter(Enemy& enemy) override;
         void update(Enemy& enemy, bn::fixed_point player_pos, const Level& level, bool player_listening) override;
@@ -42,7 +43,7 @@ namespace fe
         bool _direction_set;
         
     public:
-        PatrolState(int duration = 90) : _patrol_duration(duration), _target_dx(0), _target_dy(0), _direction_set(false) {}
+        PatrolState(int duration = ENEMY_PATROL_DURATION + 30) : _patrol_duration(duration), _target_dx(0), _target_dy(0), _direction_set(false) {}
         
         void enter(Enemy& enemy) override;
         void update(Enemy& enemy, bn::fixed_point player_pos, const Level& level, bool player_listening) override;
@@ -60,7 +61,7 @@ namespace fe
         bn::fixed _chase_speed;
         
     public:
-        ChaseState(bn::fixed speed = 0.35) : _chase_speed(speed) {}
+        ChaseState(bn::fixed speed = ENEMY_PATROL_SPEED) : _chase_speed(speed) {}
         
         void enter(Enemy& enemy) override;
         void update(Enemy& enemy, bn::fixed_point player_pos, const Level& level, bool player_listening) override;
@@ -78,7 +79,7 @@ namespace fe
         int _attack_duration;
         
     public:
-        AttackState(int duration = 60) : _attack_duration(duration) {}
+        AttackState(int duration = ENEMY_ATTACK_DURATION) : _attack_duration(duration) {}
         
         void enter(Enemy& enemy) override;
         void update(Enemy& enemy, bn::fixed_point player_pos, const Level& level, bool player_listening) override;
@@ -97,7 +98,7 @@ namespace fe
         bn::fixed _threshold;
         
     public:
-        ReturnToPostState(bn::fixed speed = 0.25, bn::fixed threshold = 8) 
+        ReturnToPostState(bn::fixed speed = ENEMY_RETURN_SPEED, bn::fixed threshold = ENEMY_RETURN_THRESHOLD) 
             : _return_speed(speed), _threshold(threshold) {}
         
         void enter(Enemy& enemy) override;
@@ -116,7 +117,7 @@ namespace fe
         int _stun_duration;
         
     public:
-        StunnedState(int duration = 10) : _stun_duration(duration) {}
+        StunnedState(int duration = ENEMY_STUN_DURATION) : _stun_duration(duration) {}
         
         void enter(Enemy& enemy) override;
         void update(Enemy& enemy, bn::fixed_point player_pos, const Level& level, bool player_listening) override;

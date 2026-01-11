@@ -24,12 +24,11 @@
 
 namespace fe
 {
-    constexpr int HEALTHBAR_Z_ORDER = -1000; // Z-order for healthbar sprite
     [[nodiscard]] int _get_map_cell(bn::fixed x, bn::fixed y, bn::regular_bg_ptr & /*map*/, bn::span<const bn::regular_bg_map_cell> cells)
     {
-        int map_x = ((x.integer() + 384) / 8);
-        int map_y = ((y.integer() + 256) / 8);
-        return cells.at(map_y * (768 / 8) + map_x);
+        int map_x = ((x.integer() + 384) / TILE_SIZE);
+        int map_y = ((y.integer() + 256) / TILE_SIZE);
+        return cells.at(map_y * (768 / TILE_SIZE) + map_x);
     }
 
     [[nodiscard]] bool _contains_cell(int tile, bn::vector<int, 32> tiles)
@@ -99,7 +98,7 @@ namespace fe
 
         set_camera(_camera);
 
-        _hitbox = Hitbox(pos().x() - 4, pos().y() - 4, 8, 8);
+        _hitbox = Hitbox(pos().x() - ENEMY_HITBOX_HALF_SIZE, pos().y() - ENEMY_HITBOX_HALF_SIZE, ENEMY_HITBOX_SIZE, ENEMY_HITBOX_SIZE);
 
         // Store original position for spearguards to return to
         if (_type == ENEMY_TYPE::SPEARGUARD)
@@ -113,7 +112,7 @@ namespace fe
             // Start with Idle animation (frames 0-5)
             _action = bn::create_sprite_animate_action_forever(
                 *_sprite,
-                12, // Slower animation speed for idle
+                ENEMY_ANIM_SPEED_IDLE, // Slower animation speed for idle
                 bn::sprite_items::spearguard.tiles_item(),
                 0, 1, 2, 3, 4, 5 // Idle frames
             );
@@ -124,7 +123,7 @@ namespace fe
             // Default animation for other enemy types
             _action = bn::create_sprite_animate_action_forever(
                 *_sprite,
-                8,
+                ENEMY_ANIM_SPEED_RUN,
                 bn::sprite_items::spearguard.tiles_item(),
                 0, 1, 2, 3);
         }
@@ -135,10 +134,10 @@ namespace fe
         _state_machine.initialize(bn::move(initial_state));
 
         // Initialize healthbar
-        _health_bar_sprite = bn::sprite_items::healthbar_enemy.create_sprite(pos().x(), pos().y() - 20, 0);
+        _health_bar_sprite = bn::sprite_items::healthbar_enemy.create_sprite(pos().x(), pos().y() + ENEMY_HEALTHBAR_SPAWN_Y, 0);
         _health_bar_sprite->set_camera(_camera);
         _health_bar_sprite->set_bg_priority(3);
-        _health_bar_sprite->set_z_order(HEALTHBAR_Z_ORDER);
+        _health_bar_sprite->set_z_order(ENEMY_HEALTHBAR_Z_ORDER);
         _update_health_bar();
     }
 
@@ -241,8 +240,8 @@ namespace fe
     void Enemy::update_hitbox()
     {
         // Adjust hitbox position to account for center-based sprite positioning
-        _hitbox.set_x(pos().x() - 4); // Adjust for smaller hitbox
-        _hitbox.set_y(pos().y() - 4);
+        _hitbox.set_x(pos().x() - ENEMY_HITBOX_HALF_SIZE);
+        _hitbox.set_y(pos().y() - ENEMY_HITBOX_HALF_SIZE);
     }
 
     void Enemy::update(bn::fixed_point player_pos, const Level &level, bool player_listening)
@@ -256,8 +255,8 @@ namespace fe
             set_position(bn::fixed_point(pos().x() + _knockback_dx, pos().y() + _knockback_dy));
 
             // Apply friction to knockback
-            _knockback_dx *= 0.9;
-            _knockback_dy *= 0.9;
+            _knockback_dx *= ENEMY_KNOCKBACK_DECAY;
+            _knockback_dy *= ENEMY_KNOCKBACK_DECAY;
 
             // If knockback is done, clear the state
             if (_knockback_timer == 0)
@@ -283,9 +282,8 @@ namespace fe
             _state_machine.update(*this, player_pos, level, player_listening);
 
             // Smoothly interpolate _dx/_dy to _target_dx/_target_dy
-            const bn::fixed lerp = 0.1;
-            _dx += (_target_dx - _dx) * lerp;
-            _dy += (_target_dy - _dy) * lerp;
+            _dx += (_target_dx - _dx) * ENEMY_MOVEMENT_LERP;
+            _dy += (_target_dy - _dy) * ENEMY_MOVEMENT_LERP;
 
             // Update movement component
             _movement.set_velocity(bn::fixed_point(_dx, _dy));
@@ -388,7 +386,7 @@ namespace fe
 
         _hp -= damage;
         _invulnerable = true;
-        _inv_timer = 30; // Invincibility frames
+        _inv_timer = ENEMY_INVULNERABILITY_FRAMES;
         _stunned = true;
 
         // Spearguards become aggroed when shot - they will chase indefinitely
@@ -518,7 +516,7 @@ namespace fe
             case AnimationState::IDLE:
                 _action = bn::create_sprite_animate_action_forever(
                     *_sprite,
-                    12, // Slower for idle
+                    ENEMY_ANIM_SPEED_IDLE, // Slower for idle
                     bn::sprite_items::spearguard.tiles_item(),
                     0, 1, 2, 3, 4, 5 // Idle frames 0-5
                 );
@@ -527,7 +525,7 @@ namespace fe
             case AnimationState::RUN:
                 _action = bn::create_sprite_animate_action_forever(
                     *_sprite,
-                    8, // Faster for running
+                    ENEMY_ANIM_SPEED_RUN, // Faster for running
                     bn::sprite_items::spearguard.tiles_item(),
                     6, 7, 8, 9 // Run frames 6-9
                 );
@@ -536,7 +534,7 @@ namespace fe
             case AnimationState::ATTACK:
                 _action = bn::create_sprite_animate_action_forever(
                     *_sprite,
-                    6, // Fast for attack
+                    ENEMY_ANIM_SPEED_ATTACK, // Fast for attack
                     bn::sprite_items::spearguard.tiles_item(),
                     10, 11, 12, 13, 14 // Attack frames 10-14
                 );
@@ -546,7 +544,7 @@ namespace fe
                 // Use all available death frames (15-30) and play only once
                 _action = bn::create_sprite_animate_action_once(
                     *_sprite,
-                    8, // Medium speed for death
+                    ENEMY_ANIM_SPEED_DEATH, // Medium speed for death
                     bn::sprite_items::spearguard.tiles_item(),
                     15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30 // All dead frames 15-30
                 );
@@ -595,7 +593,7 @@ namespace fe
         if (_health_bar_sprite.has_value())
         {
             // Position healthbar above the enemy
-            _health_bar_sprite->set_position(pos().x() - 3, pos().y() - 12);
+            _health_bar_sprite->set_position(pos().x() + ENEMY_HEALTHBAR_OFFSET_X, pos().y() + ENEMY_HEALTHBAR_OFFSET_Y);
         }
     }
 }
