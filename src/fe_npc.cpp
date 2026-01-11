@@ -298,7 +298,7 @@ namespace fe
 
     void NPC::select_dialog_option()
     {
-        if (_selected_option >= 0 && _selected_option < _dialog_options.size())
+        if (_selected_option < _dialog_options.size())
         {
             bn::sound_items::hello.play();
             
