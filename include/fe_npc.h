@@ -22,9 +22,10 @@ namespace fe
     // Dialog states for managing conversation flow
     enum class DIALOG_STATE
     {
-        GREETING,      // Showing initial greeting
+        GREETING,        // Showing initial greeting
         SHOWING_OPTIONS, // Showing dialog options
-        SHOWING_RESPONSE // Showing response to selected option
+        SHOWING_RESPONSE, // Showing response to selected option
+        ENDING           // Showing final response before ending conversation
     };
 
     // Structure to hold a dialog option

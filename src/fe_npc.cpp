@@ -308,7 +308,7 @@ namespace fe
             // Check if this option should end the conversation
             if (_dialog_options[_selected_option].ends_conversation)
             {
-                _dialog_state = DIALOG_STATE::GREETING; // Will end after showing response
+                _dialog_state = DIALOG_STATE::ENDING; // Will end after showing response
             }
             else
             {
