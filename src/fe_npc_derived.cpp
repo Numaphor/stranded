@@ -4,18 +4,36 @@
 
 namespace fe
 {
-    bn::string_view MerchantNPC::_dialogue_lines[5] = {
+    // Initial greeting dialog
+    bn::string_view MerchantNPC::_dialogue_lines[3] = {
         "Hello there, traveler!",
-        "Would you like to see my wares?",
-        "I have the finest goods in the land.",
-        "Come back anytime!",
-        "Safe travels!"};
+        "I'm a wandering merchant.",
+        "What can I help you with?"};
+
+    // Response for "Ask about past" option
+    bn::string_view MerchantNPC::_past_response_lines[4] = {
+        "Ah, my past... well,",
+        "I've traveled far and wide,",
+        "trading goods across the lands.",
+        "Every journey has a story!"};
+
+    // Response for "Ask for directions" option
+    bn::string_view MerchantNPC::_directions_response_lines[3] = {
+        "Looking for somewhere specific?",
+        "Head north for the forest,",
+        "or south to reach the desert."};
+
+    // Response for "Goodbye" option
+    bn::string_view MerchantNPC::_goodbye_response_lines[2] = {
+        "Safe travels, friend!",
+        "Come back anytime!"};
 
     MerchantNPC::MerchantNPC(bn::fixed_point pos, bn::camera_ptr &camera, bn::sprite_text_generator &text_generator)
         : NPC(pos, camera, NPC_TYPE::MERCHANT, text_generator)
     {
         initialize_sprite();
         initialize_dialogue();
+        initialize_dialog_options();
     }
 
     void MerchantNPC::initialize_sprite()
@@ -34,5 +52,22 @@ namespace fe
     void MerchantNPC::initialize_dialogue()
     {
         _lines = bn::span(_dialogue_lines);
+    }
+
+    void MerchantNPC::initialize_dialog_options()
+    {
+        _has_dialog_options = true;
+        
+        // Add "Ask about past" option
+        DialogOption past_option("Ask about his past", bn::span(_past_response_lines));
+        _dialog_options.push_back(past_option);
+        
+        // Add "Ask for directions" option
+        DialogOption directions_option("Ask for directions", bn::span(_directions_response_lines));
+        _dialog_options.push_back(directions_option);
+        
+        // Add "Goodbye" option
+        DialogOption goodbye_option("Goodbye", bn::span(_goodbye_response_lines));
+        _dialog_options.push_back(goodbye_option);
     }
 }

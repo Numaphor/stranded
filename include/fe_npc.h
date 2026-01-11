@@ -19,6 +19,25 @@
 
 namespace fe
 {
+    // Dialog states for managing conversation flow
+    enum class DIALOG_STATE
+    {
+        GREETING,      // Showing initial greeting
+        SHOWING_OPTIONS, // Showing dialog options
+        SHOWING_RESPONSE // Showing response to selected option
+    };
+
+    // Structure to hold a dialog option
+    struct DialogOption
+    {
+        bn::string_view option_text;
+        bn::span<bn::string_view> response_lines;
+        
+        DialogOption() : option_text(""), response_lines() {}
+        DialogOption(bn::string_view text, bn::span<bn::string_view> lines)
+            : option_text(text), response_lines(lines) {}
+    };
+
     class NPC : public Entity
     {
     protected:
@@ -43,6 +62,12 @@ namespace fe
         int _last_char_count = -1;
         bn::string_view _currentChars = "";
 
+        // Dialog option system
+        DIALOG_STATE _dialog_state = DIALOG_STATE::GREETING;
+        bn::vector<DialogOption, 8> _dialog_options;
+        int _selected_option = 0;
+        bool _has_dialog_options = false;
+
     public:
         NPC(bn::fixed_point pos, bn::camera_ptr &camera, NPC_TYPE type, bn::sprite_text_generator &text_generator);
         virtual ~NPC() = default;
@@ -64,11 +89,15 @@ namespace fe
     private:
         // Private helper methods
         void end_conversation();
+        void render_dialog_options();
+        void handle_option_navigation();
+        void select_dialog_option();
 
     protected:
         // Virtual methods for derived classes to override
         virtual void initialize_sprite() {}
         virtual void initialize_dialogue() {}
+        virtual void initialize_dialog_options() {}
     };
 }
 

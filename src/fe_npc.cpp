@@ -31,6 +31,14 @@ namespace fe
 
         if (_is_talking)
         {
+            // Handle dialog option state
+            if (_dialog_state == DIALOG_STATE::SHOWING_OPTIONS)
+            {
+                handle_option_navigation();
+                render_dialog_options();
+                return;
+            }
+            
             // Only process input if we're not waiting for the last line to finish
             if (_currentChar >= _lines.at(_currentLine).size() * 2)
             {
@@ -38,6 +46,23 @@ namespace fe
                 {
                     if (_currentLine == _lines.size() - 1)
                     {
+                        // Check if we should show dialog options after greeting
+                        if (_dialog_state == DIALOG_STATE::GREETING && _has_dialog_options)
+                        {
+                            _dialog_state = DIALOG_STATE::SHOWING_OPTIONS;
+                            _selected_option = 0;
+                            return;
+                        }
+                        // After showing response, return to options
+                        else if (_dialog_state == DIALOG_STATE::SHOWING_RESPONSE && _has_dialog_options)
+                        {
+                            _dialog_state = DIALOG_STATE::SHOWING_OPTIONS;
+                            _selected_option = 0;
+                            _currentLine = 0;
+                            _currentChar = 0;
+                            _currentChars = "";
+                            return;
+                        }
                         // End conversation after last line
                         end_conversation();
                         return;
@@ -57,6 +82,7 @@ namespace fe
                     _currentChars = "";
                     _currentChar = 0;
                     _currentLine = 0;
+                    _dialog_state = DIALOG_STATE::GREETING;
                     _has_spoken_once = true;
                 }
             }
@@ -182,6 +208,7 @@ namespace fe
         if (!_is_talking)
         {
             _is_talking = true;
+            _dialog_state = DIALOG_STATE::GREETING;
             _currentLine = 0;
             _currentChar = 0;
             _currentChars = "";
@@ -215,9 +242,72 @@ namespace fe
         _currentChars = "";
         _currentChar = 0;
         _currentLine = 0;
+        _dialog_state = DIALOG_STATE::GREETING;
         _has_spoken_once = true;
         _text_sprites.clear();
         // Don't reset _is_near_player here - let the scene world handle listening state properly
+    }
+
+    void NPC::render_dialog_options()
+    {
+        _text_sprites.clear();
+        _text_generator.set_left_alignment();
+        
+        bn::fixed y_pos = _text_y_limit - 20;
+        for (int i = 0; i < _dialog_options.size(); ++i)
+        {
+            bn::string<64> option_text;
+            if (i == _selected_option)
+            {
+                option_text = "> ";
+            }
+            else
+            {
+                option_text = "  ";
+            }
+            option_text.append(_dialog_options[i].option_text);
+            
+            _text_generator.generate(-90, y_pos, option_text, _text_sprites);
+            y_pos += _text_y_inc;
+        }
+    }
+
+    void NPC::handle_option_navigation()
+    {
+        if (bn::keypad::down_pressed())
+        {
+            bn::sound_items::hello.play();
+            _selected_option = (_selected_option + 1) % _dialog_options.size();
+        }
+        else if (bn::keypad::up_pressed())
+        {
+            bn::sound_items::hello.play();
+            _selected_option = (_selected_option - 1 + _dialog_options.size()) % _dialog_options.size();
+        }
+        else if (bn::keypad::a_pressed())
+        {
+            select_dialog_option();
+        }
+        else if (bn::keypad::start_pressed())
+        {
+            end_conversation();
+        }
+    }
+
+    void NPC::select_dialog_option()
+    {
+        if (_selected_option >= 0 && _selected_option < _dialog_options.size())
+        {
+            bn::sound_items::hello.play();
+            
+            // Load the response lines for the selected option
+            _lines = _dialog_options[_selected_option].response_lines;
+            _dialog_state = DIALOG_STATE::SHOWING_RESPONSE;
+            _currentLine = 0;
+            _currentChar = 0;
+            _currentChars = "";
+            _last_char_count = -1;
+        }
     }
 
 }
