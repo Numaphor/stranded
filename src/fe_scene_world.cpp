@@ -87,7 +87,8 @@ namespace fe
                      _zoom_affine_mat(bn::nullopt),
                      _gun_affine_mat(bn::nullopt),
                      _player_affine_mat(bn::nullopt),
-                     _vfx_affine_mat(bn::nullopt)
+                     _vfx_affine_mat(bn::nullopt),
+                     _hitbox_debug(nullptr)
     {
         // Create player sprite with correct shape and size
         bn::sprite_builder builder(bn::sprite_items::hero_sword);
@@ -156,9 +157,21 @@ namespace fe
         // Initialize world-specific content
         _init_world_specific_content(world_id, camera, bg, text_generator);
 
+        // Initialize debug system
+        _hitbox_debug = new HitboxDebug(bg_map_ptr, bg_map_obj._background_tile);
+
         while (true)
         {
             bn::core::update();
+
+            // Toggle debug mode with SELECT + START
+            if (bn::keypad::select_held() && bn::keypad::start_pressed())
+            {
+                if (_hitbox_debug)
+                {
+                    _hitbox_debug->toggle();
+                }
+            }
 
             // Check for menu access - SELECT + A opens world selection menu
             if (bn::keypad::select_held() && bn::keypad::a_pressed())
@@ -811,6 +824,12 @@ namespace fe
                 }
             }
 
+            // Update debug visualization
+            if (_hitbox_debug && _hitbox_debug->is_active())
+            {
+                _hitbox_debug->update(_player, _enemies, _merchant, camera);
+            }
+
             // Check win condition
             if (_enemies.empty())
             {
@@ -824,6 +843,7 @@ namespace fe
         delete _level;
         delete _minimap;
         delete _merchant;
+        delete _hitbox_debug;
         // _player_status_display is unique_ptr - automatically cleaned up
     }
 
