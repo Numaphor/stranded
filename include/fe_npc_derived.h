@@ -15,9 +15,13 @@ namespace fe
     protected:
         void initialize_sprite() override;
         void initialize_dialogue() override;
+        void initialize_dialog_options() override;
 
     private:
-        static bn::string_view _dialogue_lines[5];
+        static bn::string_view _dialogue_lines[3];
+        static bn::string_view _past_response_lines[4];
+        static bn::string_view _directions_response_lines[3];
+        static bn::string_view _goodbye_response_lines[2];
     };
 }
 
