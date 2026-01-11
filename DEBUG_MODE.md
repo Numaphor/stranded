@@ -55,8 +55,10 @@ Debug mode is integrated into the `World` class:
 
 - Debug visualization only updates when active
 - Uses background tile manipulation (no sprite overhead)
-- Tiles are cleared and redrawn each frame
+- **Optimized clearing**: Only modified tiles are tracked and cleared (up to 512 cells per frame)
+- Typically clears <100 tiles per frame vs. 102,400 tiles in naive implementation
 - Background map is reloaded after updates for immediate visual feedback
+- Minimal CPU overhead even with many entities visible
 
 ### Tile Coordinate System
 
@@ -73,12 +75,12 @@ To add new hitbox visualizations:
 
 1. Add a call to `_draw_hitbox()` or `_draw_point()` in `HitboxDebug::update()`
 2. Choose an appropriate tile ID (3-7 are currently used)
-3. Pass the hitbox/point, tile ID, and camera reference
+3. Pass the hitbox/point and tile ID
 
 Example:
 ```cpp
 Hitbox new_zone = create_some_hitbox();
-_draw_hitbox(new_zone, 8, camera);  // Use tile 8 for new visualization
+_draw_hitbox(new_zone, 8);  // Use tile 8 for new visualization
 ```
 
 ### Customizing Colors
