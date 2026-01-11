@@ -15,13 +15,14 @@
 
 namespace fe
 {
-    // Static constexpr arrays for buff menu option sprite offsets (Energy and Power only)
+    // Static constexpr arrays for buff menu option sprite offsets (Heal, Energy, and Power)
     namespace
     {
-        constexpr int buff_menu_offsets_x[2] = {HUD_BUFF_MENU_OPTION_ENERGY_X, HUD_BUFF_MENU_OPTION_POWER_X};
-        constexpr int buff_menu_offsets_y[2] = {HUD_BUFF_MENU_OPTION_ENERGY_Y, HUD_BUFF_MENU_OPTION_POWER_Y};
-        // Icon frame indices: Energy = 1, Power = 3
-        constexpr int buff_menu_icon_frames[2] = {1, 3};
+        constexpr int BUFF_MENU_OPTION_COUNT = 3;
+        constexpr int buff_menu_offsets_x[BUFF_MENU_OPTION_COUNT] = {HUD_BUFF_MENU_OPTION_HEAL_X, HUD_BUFF_MENU_OPTION_ENERGY_X, HUD_BUFF_MENU_OPTION_POWER_X};
+        constexpr int buff_menu_offsets_y[BUFF_MENU_OPTION_COUNT] = {HUD_BUFF_MENU_OPTION_HEAL_Y, HUD_BUFF_MENU_OPTION_ENERGY_Y, HUD_BUFF_MENU_OPTION_POWER_Y};
+        // Icon frame indices: Heal = 0, Energy = 1, Power = 3
+        constexpr int buff_menu_icon_frames[BUFF_MENU_OPTION_COUNT] = {0, 1, 3};
     }
 
     HUD::HUD()
@@ -117,7 +118,7 @@ namespace fe
         // Update buff menu option sprites visibility
         if (_buff_menu_state == BUFF_MENU_STATE::OPEN)
         {
-            for (int i = 0; i < 2; ++i)
+            for (int i = 0; i < BUFF_MENU_OPTION_COUNT; ++i)
             {
                 if (_buff_menu_option_sprites[i].has_value())
                 {
@@ -358,8 +359,8 @@ namespace fe
         {
             _buff_menu_state = BUFF_MENU_STATE::OPEN;
 
-            // Create the 2 option sprites (Energy and Power) using icons sprite
-            for (int i = 0; i < 2; ++i)
+            // Create the 3 option sprites (Heal, Energy, and Power) using icons sprite
+            for (int i = 0; i < BUFF_MENU_OPTION_COUNT; ++i)
             {
                 int sprite_x = HUD_BUFF_MENU_BASE_X + buff_menu_offsets_x[i];
                 int sprite_y = HUD_BUFF_MENU_BASE_Y + buff_menu_offsets_y[i];
@@ -380,16 +381,16 @@ namespace fe
             _buff_menu_state = BUFF_MENU_STATE::CLOSED;
 
             // Hide/destroy the option sprites
-            for (int i = 0; i < 2; ++i)
+            for (int i = 0; i < BUFF_MENU_OPTION_COUNT; ++i)
             {
                 _buff_menu_option_sprites[i].reset();
             }
         }
     }
 
-    void HUD::navigate_buff_menu_next()
+    void HUD::_update_selection(int new_selection)
     {
-        if (_buff_menu_state != BUFF_MENU_STATE::OPEN)
+        if (new_selection == _selected_buff_option || new_selection < 0 || new_selection >= BUFF_MENU_OPTION_COUNT)
         {
             return;
         }
@@ -400,8 +401,7 @@ namespace fe
             _buff_menu_option_sprites[_selected_buff_option]->set_blending_enabled(true);
         }
 
-        // Move to next option (cycle 0->1->0)
-        _selected_buff_option = (_selected_buff_option + 1) % 2;
+        _selected_buff_option = new_selection;
 
         // Highlight new selection (disable blending)
         if (_buff_menu_option_sprites[_selected_buff_option].has_value())
@@ -410,26 +410,62 @@ namespace fe
         }
     }
 
-    void HUD::navigate_buff_menu_prev()
+    void HUD::navigate_buff_menu_up()
     {
         if (_buff_menu_state != BUFF_MENU_STATE::OPEN)
         {
             return;
         }
 
-        // Grey out previous selection (enable blending)
-        if (_buff_menu_option_sprites[_selected_buff_option].has_value())
+        // Layout: Energy(1) top-left, Heal(0) top-right, Power(2) bottom-right
+        // Up from Power(2) -> Heal(0)
+        if (_selected_buff_option == 2)
         {
-            _buff_menu_option_sprites[_selected_buff_option]->set_blending_enabled(true);
+            _update_selection(0);
+        }
+    }
+
+    void HUD::navigate_buff_menu_down()
+    {
+        if (_buff_menu_state != BUFF_MENU_STATE::OPEN)
+        {
+            return;
         }
 
-        // Move to previous option (cycle 1->0->1)
-        _selected_buff_option = (_selected_buff_option - 1 + 2) % 2;
-
-        // Highlight new selection (disable blending)
-        if (_buff_menu_option_sprites[_selected_buff_option].has_value())
+        // Down from Heal(0) -> Power(2)
+        // Down from Energy(1) -> Power(2)
+        if (_selected_buff_option == 0 || _selected_buff_option == 1)
         {
-            _buff_menu_option_sprites[_selected_buff_option]->set_blending_enabled(false);
+            _update_selection(2);
+        }
+    }
+
+    void HUD::navigate_buff_menu_left()
+    {
+        if (_buff_menu_state != BUFF_MENU_STATE::OPEN)
+        {
+            return;
+        }
+
+        // Left from Heal(0) -> Energy(1)
+        // Left from Power(2) -> Energy(1)
+        if (_selected_buff_option == 0 || _selected_buff_option == 2)
+        {
+            _update_selection(1);
+        }
+    }
+
+    void HUD::navigate_buff_menu_right()
+    {
+        if (_buff_menu_state != BUFF_MENU_STATE::OPEN)
+        {
+            return;
+        }
+
+        // Right from Energy(1) -> Heal(0)
+        if (_selected_buff_option == 1)
+        {
+            _update_selection(0);
         }
     }
 
@@ -529,7 +565,7 @@ namespace fe
         // Ensure option sprites follow visibility state
         if (_buff_menu_state == BUFF_MENU_STATE::OPEN)
         {
-            for (int i = 0; i < 2; ++i)
+            for (int i = 0; i < BUFF_MENU_OPTION_COUNT; ++i)
             {
                 if (_buff_menu_option_sprites[i].has_value())
                 {

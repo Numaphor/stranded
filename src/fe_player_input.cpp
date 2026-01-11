@@ -77,11 +77,33 @@ namespace fe
             cycle_sword_sprite();
         }
 
-        // Cancel roll if B is pressed while rolling
-        if (_movement.current_state() == PlayerMovement::State::ROLLING && bn::keypad::b_pressed() && !bn::keypad::select_held())
+        // Cancel roll if opposite direction key is pressed while rolling
+        if (_movement.current_state() == PlayerMovement::State::ROLLING)
         {
-            _movement.stop_action();
-            _state.set_invulnerable(false);
+            bool should_cancel = false;
+            PlayerMovement::Direction roll_dir = _movement.facing_direction();
+
+            switch (roll_dir)
+            {
+            case PlayerMovement::Direction::RIGHT:
+                should_cancel = bn::keypad::left_pressed();
+                break;
+            case PlayerMovement::Direction::LEFT:
+                should_cancel = bn::keypad::right_pressed();
+                break;
+            case PlayerMovement::Direction::UP:
+                should_cancel = bn::keypad::down_pressed();
+                break;
+            case PlayerMovement::Direction::DOWN:
+                should_cancel = bn::keypad::up_pressed();
+                break;
+            }
+
+            if (should_cancel)
+            {
+                _movement.stop_action();
+                _state.set_invulnerable(false);
+            }
         }
 
         // Action inputs (consolidated) - disabled while reviving companion or when buff menu is open
@@ -188,13 +210,16 @@ namespace fe
                         int selected = _hud.get_selected_buff();
                         PlayerMovement::State buff_state = PlayerMovement::State::IDLE;
 
-                        // Map option index to buff type: 0=Energy, 1=Power
+                        // Map option index to buff type: 0=Heal, 1=Energy, 2=Power
                         switch (selected)
                         {
                         case 0:
-                            buff_state = PlayerMovement::State::ENERGY_BUFF;
+                            buff_state = PlayerMovement::State::HEAL_BUFF;
                             break;
                         case 1:
+                            buff_state = PlayerMovement::State::ENERGY_BUFF;
+                            break;
+                        case 2:
                             buff_state = PlayerMovement::State::POWER_BUFF;
                             break;
                         default:
@@ -219,13 +244,21 @@ namespace fe
             // Navigate buff menu with D-pad when menu is open (not during SELECT combos)
             if (_hud.is_buff_menu_open() && !bn::keypad::select_held())
             {
-                if (bn::keypad::right_pressed() || bn::keypad::down_pressed())
+                if (bn::keypad::up_pressed())
                 {
-                    _hud.navigate_buff_menu_next();
+                    _hud.navigate_buff_menu_up();
                 }
-                else if (bn::keypad::left_pressed() || bn::keypad::up_pressed())
+                else if (bn::keypad::down_pressed())
                 {
-                    _hud.navigate_buff_menu_prev();
+                    _hud.navigate_buff_menu_down();
+                }
+                else if (bn::keypad::left_pressed())
+                {
+                    _hud.navigate_buff_menu_left();
+                }
+                else if (bn::keypad::right_pressed())
+                {
+                    _hud.navigate_buff_menu_right();
                 }
             }
         }
@@ -492,6 +525,12 @@ namespace fe
 
         _movement.start_action(buff_state, PLAYER_BUFF_DURATION);
         _abilities.set_buff_cooldown(PLAYER_BUFF_DURATION);
+
+        // Heal buff restores 1 health
+        if (buff_state == PlayerMovement::State::HEAL_BUFF)
+        {
+            heal(1);
+        }
 
         // TEMP: Soul effects disabled
         // // Trigger soul animation for defense buff

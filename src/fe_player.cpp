@@ -253,6 +253,7 @@ namespace fe
     {
         if (!_state.invulnerable() && _hp > 0)
         {
+            int old_hp = _hp;
             _hp -= damage;
             if (_hp <= 0)
             {
@@ -279,10 +280,30 @@ namespace fe
                 // Visual feedback for taking damage (but not for death)
                 set_visible(false);
 
-                // Play reverse soul animation when taking damage
-                _hud.play_soul_damage_animation();
+                // Play reverse soul animation only when losing the 3rd health slot (soul shield)
+                if (old_hp == 3 && _hp < 3)
+                {
+                    _hud.play_soul_damage_animation();
+                }
             }
             _hud.set_hp(_hp);
+        }
+    }
+
+    void Player::heal(int amount)
+    {
+        if (_hp < 3 && _hp > 0)
+        {
+            int old_hp = _hp;
+            _hp = bn::min(_hp + amount, 3);
+            _hud.set_hp(_hp);
+
+            // When reaching full health (3), regain the soul shield
+            if (old_hp < 3 && _hp == 3)
+            {
+                _hud.activate_soul_animation();
+            }
+
             _hud.update();
         }
     }

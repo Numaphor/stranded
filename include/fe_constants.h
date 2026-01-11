@@ -164,8 +164,10 @@ namespace fe
     constexpr int HUD_BUFF_MENU_COOLDOWN_FRAMES = 600;
     constexpr int HUD_BUFF_MENU_ANIM_FRAMES = 9; // Animation has 9 frames
 
-    // Only 2 options: Energy and Power - positioned up and right from base
-    constexpr int HUD_BUFF_MENU_OPTION_OFFSET = 24;  // Base distance from center sprite
+    // 3 options: Heal, Energy, and Power - positioned top-right, up, and right from base
+    constexpr int HUD_BUFF_MENU_OPTION_OFFSET = 24;                          // Base distance from center sprite
+    constexpr int HUD_BUFF_MENU_OPTION_HEAL_X = HUD_BUFF_MENU_OPTION_OFFSET; // Heal: top right (diagonal)
+    constexpr int HUD_BUFF_MENU_OPTION_HEAL_Y = -HUD_BUFF_MENU_OPTION_OFFSET;
     constexpr int HUD_BUFF_MENU_OPTION_ENERGY_X = 0; // Energy: straight up
     constexpr int HUD_BUFF_MENU_OPTION_ENERGY_Y = -HUD_BUFF_MENU_OPTION_OFFSET;
     constexpr int HUD_BUFF_MENU_OPTION_POWER_X = HUD_BUFF_MENU_OPTION_OFFSET; // Power: straight right
