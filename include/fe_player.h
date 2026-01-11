@@ -267,6 +267,7 @@ namespace fe
 
         [[nodiscard]] int get_hp() const { return _hp; }
         void take_damage(int damage);
+        void heal(int amount);
 
         [[nodiscard]] bool is_reset_required() const { return _reset_required; }
 

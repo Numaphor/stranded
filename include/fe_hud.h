@@ -82,8 +82,10 @@ namespace fe
 
         // Buff menu management
         void toggle_buff_menu();
-        void navigate_buff_menu_next();
-        void navigate_buff_menu_prev();
+        void navigate_buff_menu_up();
+        void navigate_buff_menu_down();
+        void navigate_buff_menu_left();
+        void navigate_buff_menu_right();
         [[nodiscard]] bool is_buff_menu_open() const;
         [[nodiscard]] int get_selected_buff() const;
 
@@ -130,8 +132,8 @@ namespace fe
         // Buff menu system
         BUFF_MENU_STATE _buff_menu_state;
         bn::sprite_ptr _buff_menu_base;
-        bn::optional<bn::sprite_ptr> _buff_menu_option_sprites[2]; // Energy, Power
-        int _selected_buff_option;                                 // 0-1 for the two options
+        bn::optional<bn::sprite_ptr> _buff_menu_option_sprites[3]; // Heal, Energy, Power
+        int _selected_buff_option;                                 // 0-2 for the three options
         int _buff_menu_hold_timer;                                 // Hold timer for L button activation
         int _buff_menu_cooldown_timer;                             // Cooldown timer after buff activation
 
@@ -141,6 +143,7 @@ namespace fe
         void _update_soul_position();
         void _update_ammo_display();
         void _update_buff_menu_sprites();
+        void _update_selection(int new_selection);
     };
 }
 
