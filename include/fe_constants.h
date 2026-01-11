@@ -33,11 +33,11 @@ namespace fe
     constexpr int COLLISION_ZONE_TILE_INDEX = 3;
     constexpr int INTERACTION_ZONE_TILE_INDEX = 4;
 
-    constexpr bn::fixed PLAYER_HITBOX_WIDTH = 32;
+    constexpr bn::fixed PLAYER_HITBOX_WIDTH = 16;
     constexpr bn::fixed PLAYER_HITBOX_HEIGHT = 16;
     constexpr int PLAYER_HITBOX_VERTICAL_OFFSET = 8;
     constexpr int PLAYER_HITBOX_REDUCED_WIDTH = 16;
-    constexpr int PLAYER_SPRITE_Y_OFFSET = 12; // Offset to align 32x32 sprite with 16px hitbox
+    constexpr int PLAYER_SPRITE_Y_OFFSET = 8; // Offset to align 32x32 sprite with 16px hitbox
 
     constexpr int DEFAULT_ENTITY_WIDTH = 32;
     constexpr int DEFAULT_ENTITY_HEIGHT = 32;

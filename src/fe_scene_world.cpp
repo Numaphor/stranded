@@ -173,11 +173,17 @@ namespace fe
                 _save_current_state();
                 return fe::Scene::MENU;
             }
+            
+            // Toggle debug hitbox visualization with SELECT + START
+            if (bn::keypad::select_held() && bn::keypad::start_pressed())
+            {
+                _hitbox_debug.toggle();
+            }
 
             // Toggle zoom with SELECT pressed alone (not combined with action buttons)
             if (bn::keypad::select_pressed() &&
                 !bn::keypad::a_held() && !bn::keypad::b_held() &&
-                !bn::keypad::l_held() && !bn::keypad::r_held())
+                !bn::keypad::l_held() && !bn::keypad::r_held() && !bn::keypad::start_held())
             {
                 _zoomed_out = !_zoomed_out;
             }
@@ -604,10 +610,12 @@ namespace fe
 
                     _player->sprite()->set_affine_mat(_player_affine_mat.value());
                     _player->sprite()->set_double_size_mode(bn::sprite_double_size_mode::ENABLED);
-                    // Apply the same Y offset used in Player::update_sprite_position()
-                    bn::fixed_point player_world_pos = _player->pos() + bn::fixed_point(0, PLAYER_SPRITE_Y_OFFSET);
+                    // Scale player position relative to camera, then apply Y offset in screen space
+                    bn::fixed_point player_world_pos = _player->pos();
                     bn::fixed_point offset = player_world_pos - cam_pos;
                     bn::fixed_point scaled_pos = cam_pos + bn::fixed_point(offset.x() * _current_zoom_scale, offset.y() * _current_zoom_scale);
+                    // Apply Y offset in screen space (after scaling) to keep sprite aligned with hitbox
+                    scaled_pos = scaled_pos + bn::fixed_point(0, PLAYER_SPRITE_Y_OFFSET);
                     _player->sprite()->set_position(scaled_pos);
                 }
 
@@ -811,6 +819,9 @@ namespace fe
                     }
                 }
             }
+            
+            // Update debug hitbox visualization
+            _hitbox_debug.update(_player, _enemies, camera, _current_zoom_scale);
 
             // Check win condition
             if (_enemies.empty())
