@@ -86,18 +86,18 @@ namespace fe
         void navigate_buff_menu_prev();
         [[nodiscard]] bool is_buff_menu_open() const;
         [[nodiscard]] int get_selected_buff() const;
-        
+
         // Buff menu hold activation
-        void start_buff_menu_hold();      // Start hold animation
-        void update_buff_menu_hold();     // Update hold progress and animation
-        void cancel_buff_menu_hold();     // Cancel hold and reset animation
-        [[nodiscard]] bool is_buff_menu_hold_complete() const;  // Check if hold duration reached
-        [[nodiscard]] bool is_buff_menu_holding() const;  // Check if currently holding
-        
+        void start_buff_menu_hold();                           // Start hold animation
+        void update_buff_menu_hold();                          // Update hold progress and animation
+        void cancel_buff_menu_hold();                          // Cancel hold and reset animation
+        [[nodiscard]] bool is_buff_menu_hold_complete() const; // Check if hold duration reached
+        [[nodiscard]] bool is_buff_menu_holding() const;       // Check if currently holding
+
         // Buff menu cooldown (after buff activation)
-        void start_buff_menu_cooldown();  // Start cooldown after buff activation
-        void update_buff_menu_cooldown(); // Update cooldown animation (call in update())
-        [[nodiscard]] bool is_buff_menu_on_cooldown() const;  // Check if menu is on cooldown
+        void start_buff_menu_cooldown();                     // Start cooldown after buff activation
+        void update_buff_menu_cooldown();                    // Update cooldown animation (call in update())
+        [[nodiscard]] bool is_buff_menu_on_cooldown() const; // Check if menu is on cooldown
 
     private:
         // Healthbar display

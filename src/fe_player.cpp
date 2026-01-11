@@ -376,9 +376,9 @@ namespace fe
             switch (dir)
             {
             case PlayerMovement::Direction::UP:
-                return 5;   // gun behind player
+                return 5; // gun behind player
             case PlayerMovement::Direction::DOWN:
-                return -5;  // gun in front of player
+                return -5; // gun in front of player
             case PlayerMovement::Direction::LEFT:
             case PlayerMovement::Direction::RIGHT:
                 return 0;

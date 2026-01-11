@@ -447,7 +447,7 @@ namespace fe
     {
         if (_buff_menu_state == BUFF_MENU_STATE::CLOSED && _buff_menu_hold_timer == 0)
         {
-            _buff_menu_hold_timer = 1;  // Start hold timer
+            _buff_menu_hold_timer = 1; // Start hold timer
             // Set base icon to frame 8 (empty - start of hold animation)
             _buff_menu_base.set_tiles(bn::sprite_items::temptest.tiles_item(), 8);
         }
@@ -458,13 +458,13 @@ namespace fe
         if (_buff_menu_hold_timer > 0 && _buff_menu_state == BUFF_MENU_STATE::CLOSED)
         {
             _buff_menu_hold_timer++;
-            
+
             // Calculate which animation frame to show (8-1 over the hold duration)
             // Frame 8 = empty, frames go to 1 = full (filling up as you hold)
             int frame = 8 - (_buff_menu_hold_timer * 7) / HUD_BUFF_MENU_HOLD_FRAMES;
             if (frame < 1)
             {
-                frame = 1;  // Clamp to full frame
+                frame = 1; // Clamp to full frame
             }
             _buff_menu_base.set_tiles(bn::sprite_items::temptest.tiles_item(), frame);
         }
@@ -499,7 +499,7 @@ namespace fe
         if (_buff_menu_cooldown_timer > 0)
         {
             _buff_menu_cooldown_timer++;
-            
+
             // Calculate which animation frame to show (1-8 over the cooldown duration)
             // Frame 1 = full, frames go to 8 = empty (draining as cooldown progresses)
             int frame = 1 + (_buff_menu_cooldown_timer * 7) / HUD_BUFF_MENU_COOLDOWN_FRAMES;
@@ -508,7 +508,7 @@ namespace fe
                 frame = 8;
             }
             _buff_menu_base.set_tiles(bn::sprite_items::temptest.tiles_item(), frame);
-            
+
             // Check if cooldown is complete
             if (_buff_menu_cooldown_timer >= HUD_BUFF_MENU_COOLDOWN_FRAMES)
             {

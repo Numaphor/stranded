@@ -160,12 +160,12 @@ namespace fe
                     {
                         // Continue holding - update animation
                         _hud.update_buff_menu_hold();
-                        
+
                         // Check if hold is complete
                         if (_hud.is_buff_menu_hold_complete())
                         {
-                            _hud.cancel_buff_menu_hold();  // Reset hold state
-                            _hud.toggle_buff_menu();       // Open the menu
+                            _hud.cancel_buff_menu_hold(); // Reset hold state
+                            _hud.toggle_buff_menu();      // Open the menu
                         }
                     }
                     else if (!bn::keypad::l_held() && _hud.is_buff_menu_holding())

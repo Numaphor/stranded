@@ -162,7 +162,7 @@ namespace fe
     constexpr int HUD_BUFF_MENU_HOLD_FRAMES = 120;
     // Cooldown duration after buff activation (10 seconds = 600 frames at 60fps)
     constexpr int HUD_BUFF_MENU_COOLDOWN_FRAMES = 600;
-    constexpr int HUD_BUFF_MENU_ANIM_FRAMES = 9;  // Animation has 9 frames
+    constexpr int HUD_BUFF_MENU_ANIM_FRAMES = 9; // Animation has 9 frames
 
     // Only 2 options: Energy and Power - positioned up and right from base
     constexpr int HUD_BUFF_MENU_OPTION_OFFSET = 24;  // Base distance from center sprite
