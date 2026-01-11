@@ -193,8 +193,8 @@ namespace fe
         if (auto sprite = get_sprite())
         {
             bn::fixed_point pos = Entity::pos();
-            // No offset needed since the new 32x32 sprite tightly fits around the player
-            sprite->set_position(pos.x(), pos.y());
+            // Offset sprite down by 16 pixels to align with hitbox (32x32 sprite, 16px hitbox at bottom)
+            sprite->set_position(pos.x(), pos.y() + 12);
         }
     }
 
