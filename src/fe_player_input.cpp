@@ -77,11 +77,33 @@ namespace fe
             cycle_sword_sprite();
         }
 
-        // Cancel roll if B is pressed while rolling
-        if (_movement.current_state() == PlayerMovement::State::ROLLING && bn::keypad::b_pressed() && !bn::keypad::select_held())
+        // Cancel roll if opposite direction key is pressed while rolling
+        if (_movement.current_state() == PlayerMovement::State::ROLLING)
         {
-            _movement.stop_action();
-            _state.set_invulnerable(false);
+            bool should_cancel = false;
+            PlayerMovement::Direction roll_dir = _movement.facing_direction();
+
+            switch (roll_dir)
+            {
+            case PlayerMovement::Direction::RIGHT:
+                should_cancel = bn::keypad::left_pressed();
+                break;
+            case PlayerMovement::Direction::LEFT:
+                should_cancel = bn::keypad::right_pressed();
+                break;
+            case PlayerMovement::Direction::UP:
+                should_cancel = bn::keypad::down_pressed();
+                break;
+            case PlayerMovement::Direction::DOWN:
+                should_cancel = bn::keypad::up_pressed();
+                break;
+            }
+
+            if (should_cancel)
+            {
+                _movement.stop_action();
+                _state.set_invulnerable(false);
+            }
         }
 
         // Action inputs (consolidated) - disabled while reviving companion or when buff menu is open
