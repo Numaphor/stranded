@@ -36,7 +36,7 @@ namespace fe
         if (bn::keypad::r_held())
         {
             _r_hold_frames++;
-            
+
             // Auto-reload when holding R past the switch window (gun must be active)
             if (_r_hold_frames > WEAPON_SWITCH_WINDOW && _gun_active && !reviving_companion && !_hud.is_buff_menu_open())
             {
