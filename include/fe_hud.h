@@ -19,14 +19,33 @@ namespace fe
     };
 
     /**
+     * @brief Buff menu states
+     */
+    enum class BUFF_MENU_STATE
+    {
+        CLOSED,
+        OPEN
+    };
+
+    /**
+     * @brief Buff menu option indices for the 2-buff menu
+     */
+    enum class BUFF_OPTION
+    {
+        ENERGY = 0, // Energy buff
+        POWER = 1   // Power buff
+    };
+
+    /**
      * @brief Heads-Up Display manager for the game
-     * 
+     *
      * Manages the on-screen HUD elements including:
      * - Healthbar display (background-based with multiple map states)
      * - Soul indicator (animated sprite showing buff states)
      * - Weapon icon (current equipped weapon)
      * - Ammo counter (displayed when gun is equipped)
-     * 
+     * - Buff menu (temptest sprites for buff selection)
+     *
      * All HUD elements are positioned in screen-space (not affected by camera)
      */
     class HUD
@@ -37,17 +56,17 @@ namespace fe
         // Healthbar management
         [[nodiscard]] int hp() const;
         void set_hp(int hp);
-        void set_position(int x, int y);  // Set healthbar position (soul follows)
+        void set_position(int x, int y); // Set healthbar position (soul follows)
 
         // Visibility control
         void set_visible(bool is_visible);
 
         // Soul animation (buff indicators)
-        void activate_soul_animation();     // Defense buff visual
-        void deactivate_soul_animation();   // Return to idle state
-        void play_soul_damage_animation();  // Visual feedback when taking damage
-        void activate_silver_soul();        // Energy buff visual
-        void deactivate_silver_soul();      // Return from energy buff
+        void activate_soul_animation();    // Defense buff visual
+        void deactivate_soul_animation();  // Return to idle state
+        void play_soul_damage_animation(); // Visual feedback when taking damage
+        void activate_silver_soul();       // Energy buff visual
+        void deactivate_silver_soul();     // Return from energy buff
 
         // Main update loop
         void update();
@@ -60,6 +79,25 @@ namespace fe
 
         // Ammo management
         void set_ammo(int ammo_count);
+
+        // Buff menu management
+        void toggle_buff_menu();
+        void navigate_buff_menu_next();
+        void navigate_buff_menu_prev();
+        [[nodiscard]] bool is_buff_menu_open() const;
+        [[nodiscard]] int get_selected_buff() const;
+
+        // Buff menu hold activation
+        void start_buff_menu_hold();                           // Start hold animation
+        void update_buff_menu_hold();                          // Update hold progress and animation
+        void cancel_buff_menu_hold();                          // Cancel hold and reset animation
+        [[nodiscard]] bool is_buff_menu_hold_complete() const; // Check if hold duration reached
+        [[nodiscard]] bool is_buff_menu_holding() const;       // Check if currently holding
+
+        // Buff menu cooldown (after buff activation)
+        void start_buff_menu_cooldown();                     // Start cooldown after buff activation
+        void update_buff_menu_cooldown();                    // Update cooldown animation (call in update())
+        [[nodiscard]] bool is_buff_menu_on_cooldown() const; // Check if menu is on cooldown
 
     private:
         // Healthbar display
@@ -89,11 +127,20 @@ namespace fe
         bn::optional<bn::sprite_ptr> _ammo_sprite;
         int _displayed_ammo;
 
+        // Buff menu system
+        BUFF_MENU_STATE _buff_menu_state;
+        bn::sprite_ptr _buff_menu_base;
+        bn::optional<bn::sprite_ptr> _buff_menu_option_sprites[2]; // Energy, Power
+        int _selected_buff_option;                                 // 0-1 for the two options
+        int _buff_menu_hold_timer;                                 // Hold timer for L button activation
+        int _buff_menu_cooldown_timer;                             // Cooldown timer after buff activation
+
         // Private helper methods
-        void _configure_hud_sprite(bn::sprite_ptr& sprite);
+        void _configure_hud_sprite(bn::sprite_ptr &sprite);
         void _update_soul_animations();
         void _update_soul_position();
         void _update_ammo_display();
+        void _update_buff_menu_sprites();
     };
 }
 

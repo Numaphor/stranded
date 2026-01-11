@@ -92,7 +92,7 @@ namespace fe
     constexpr bn::fixed CAMERA_LOOKAHEAD_X = 36;
     constexpr bn::fixed CAMERA_LOOKAHEAD_Y = 24;
     constexpr bn::fixed CAMERA_CENTER_BIAS = 0.2;
-    
+
     // Velocity-based lookahead multipliers
     constexpr bn::fixed CAMERA_RUNNING_LOOKAHEAD_BOOST = 1.5; // Extra lookahead when running
     constexpr bn::fixed CAMERA_SNAPBACK_SPEED = 0.03;         // Slower return to center when idle
@@ -101,8 +101,8 @@ namespace fe
     constexpr bn::fixed GUNFIRE_SHAKE_BASE_INTENSITY = 1.0;
     constexpr bn::fixed GUNFIRE_SHAKE_MAX_INTENSITY = 5.0;
     constexpr int GUNFIRE_BUILDUP_FRAMES = 120;
-    constexpr bn::fixed CAMERA_LOOKAHEAD_SMOOTHING = 0.12;    // How fast lookahead builds up
-    constexpr bn::fixed CAMERA_LOOKAHEAD_DECAY = 0.95;        // Slower decay for smooth return when stopping
+    constexpr bn::fixed CAMERA_LOOKAHEAD_SMOOTHING = 0.12; // How fast lookahead builds up
+    constexpr bn::fixed CAMERA_LOOKAHEAD_DECAY = 0.95;     // Slower decay for smooth return when stopping
 
     constexpr bn::fixed PLAYER_ROLL_SPEED = 3.75;
     constexpr int PLAYER_ROLL_DURATION = 64;
@@ -122,13 +122,13 @@ namespace fe
 
     // HUD Layout Constants
     // Screen coordinates (GBA screen is 240x160, center is 0,0)
-    constexpr int HUD_HEALTH_BG_X = -262;
+    constexpr int HUD_HEALTH_BG_X = -258;
     constexpr int HUD_HEALTH_BG_Y = -215;
     constexpr int HUD_HEALTH_BG_MAP_INDEX = 2;
 
     // Soul position relative to healthbar (offsets)
-    constexpr int HUD_SOUL_OFFSET_X = 161;  // Soul X offset from healthbar X position
-    constexpr int HUD_SOUL_OFFSET_Y = 148;  // Soul Y offset from healthbar Y position
+    constexpr int HUD_SOUL_OFFSET_X = 161; // Soul X offset from healthbar X position
+    constexpr int HUD_SOUL_OFFSET_Y = 148; // Soul Y offset from healthbar Y position
 
     constexpr int HUD_WEAPON_ICON_X = 100;
     constexpr int HUD_WEAPON_ICON_Y = 66;
@@ -139,7 +139,7 @@ namespace fe
     constexpr int HUD_SOUL_INITIAL_X = -200;
     constexpr int HUD_SOUL_INITIAL_Y = -150;
     // Final soul position is calculated relative to healthbar:
-    // X = HUD_HEALTH_BG_X + HUD_SOUL_OFFSET_X = -262 + 161 = -101
+    // X = HUD_HEALTH_BG_X + HUD_SOUL_OFFSET_X = -258 + 161 = -97
     // Y = HUD_HEALTH_BG_Y + HUD_SOUL_OFFSET_Y = -215 + 148 = -67
 
     constexpr int HUD_BG_PRIORITY = 0;
@@ -147,18 +147,36 @@ namespace fe
     constexpr int HUD_BG_Z_ORDER = -32767;
 
     constexpr int HUD_SOUL_ANIM_SPEED = 8;
-    constexpr int HUD_SOUL_IDLE_ANIM_SPEED = 10;  // Slower animation speed for idle soul animations
-    constexpr int HUD_SOUL_IDLE_INTERVAL = 120;   // Frames between idle animations (2 seconds at 60fps)
+    constexpr int HUD_SOUL_IDLE_ANIM_SPEED = 10; // Slower animation speed for idle soul animations
+    constexpr int HUD_SOUL_IDLE_INTERVAL = 120;  // Frames between idle animations (2 seconds at 60fps)
 
-    constexpr int HUD_MAX_HP = 2;
+    constexpr int HUD_MAX_HP = 3;
     constexpr int HUD_MAX_AMMO = 10;
+
+    // Buff menu constants
+    // Base temptest position (bottom-left, opposite to gun icon at 100, 66)
+    constexpr int HUD_BUFF_MENU_BASE_X = -100;
+    constexpr int HUD_BUFF_MENU_BASE_Y = 66;
+
+    // Hold duration to open buff menu (2 seconds = 120 frames at 60fps)
+    constexpr int HUD_BUFF_MENU_HOLD_FRAMES = 120;
+    // Cooldown duration after buff activation (10 seconds = 600 frames at 60fps)
+    constexpr int HUD_BUFF_MENU_COOLDOWN_FRAMES = 600;
+    constexpr int HUD_BUFF_MENU_ANIM_FRAMES = 9; // Animation has 9 frames
+
+    // Only 2 options: Energy and Power - positioned up and right from base
+    constexpr int HUD_BUFF_MENU_OPTION_OFFSET = 24;  // Base distance from center sprite
+    constexpr int HUD_BUFF_MENU_OPTION_ENERGY_X = 0; // Energy: straight up
+    constexpr int HUD_BUFF_MENU_OPTION_ENERGY_Y = -HUD_BUFF_MENU_OPTION_OFFSET;
+    constexpr int HUD_BUFF_MENU_OPTION_POWER_X = HUD_BUFF_MENU_OPTION_OFFSET; // Power: straight right
+    constexpr int HUD_BUFF_MENU_OPTION_POWER_Y = 0;
 
     // Zoom constants
     // Note: In GBA affine, scale < 1 makes sprites appear larger, scale > 1 makes them smaller
     // For zoom out effect (seeing more), we want sprites to appear smaller, so scale > 1
     constexpr bn::fixed ZOOM_NORMAL_SCALE = 1;
-    constexpr bn::fixed ZOOM_OUT_SCALE = bn::fixed(0.6);  // Scale of 0.6 makes sprites appear at 60% size (zoomed out)
-    constexpr bn::fixed ZOOM_TRANSITION_SPEED = 0.1;  // How fast zoom transitions
+    constexpr bn::fixed ZOOM_OUT_SCALE = bn::fixed(0.6); // Scale of 0.6 makes sprites appear at 60% size (zoomed out)
+    constexpr bn::fixed ZOOM_TRANSITION_SPEED = 0.1;     // How fast zoom transitions
 }
 
 #endif
