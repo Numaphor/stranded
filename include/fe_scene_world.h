@@ -68,6 +68,9 @@ namespace fe
         bn::optional<bn::sprite_affine_mat_ptr> _player_affine_mat; // Separate affine matrix for player (needs its own flip)
         bn::optional<bn::sprite_affine_mat_ptr> _vfx_affine_mat;    // Separate affine matrix for VFX (needs its own flip)
 
+        // Debug system
+        bool _debug_enabled; // Whether hitbox debug visualization is enabled
+
         void _init_world_specific_content(int world_id, bn::camera_ptr &camera, bn::regular_bg_ptr &bg, bn::sprite_text_generator &text_generator);
         void _save_current_state();
         void _update_camera_shake();                                // Update screen shake effect

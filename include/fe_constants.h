@@ -121,6 +121,9 @@ namespace fe
     constexpr int COMPANION_HITBOX_SIZE = 16;
     constexpr int COMPANION_REVIVAL_DURATION = 300;
 
+    // ===== HITBOX DEBUG CONSTANTS =====
+    constexpr bn::fixed HITBOX_MARKER_SPRITE_SIZE = 4;
+
     // HUD Layout Constants
     // Screen coordinates (GBA screen is 240x160, center is 0,0)
     constexpr int HUD_HEALTH_BG_X = -258;

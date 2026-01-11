@@ -87,7 +87,8 @@ namespace fe
                      _zoom_affine_mat(bn::nullopt),
                      _gun_affine_mat(bn::nullopt),
                      _player_affine_mat(bn::nullopt),
-                     _vfx_affine_mat(bn::nullopt)
+                     _vfx_affine_mat(bn::nullopt),
+                     _debug_enabled(false)
     {
         // Create player sprite with correct shape and size
         bn::sprite_builder builder(bn::sprite_items::hero_sword);
@@ -172,6 +173,12 @@ namespace fe
                 // Save current state before going to menu
                 _save_current_state();
                 return fe::Scene::MENU;
+            }
+
+            // Toggle debug visualization with SELECT + START
+            if (bn::keypad::select_held() && bn::keypad::start_pressed())
+            {
+                _debug_enabled = !_debug_enabled;
             }
 
             // Toggle zoom with SELECT pressed alone (not combined with action buttons)
@@ -459,6 +466,9 @@ namespace fe
 
                     if (fe::Collision::check_bb(player_hitbox, collision_hitbox))
                     {
+                        fe::Collision::log_collision("Player", "Enemy",
+                                                     _player->pos(), enemy.get_position());
+
                         // Player can roll through enemies without taking damage, but cannot walk through them
                         if (!_player->is_state(PlayerMovement::State::ROLLING))
                         {
@@ -489,6 +499,9 @@ namespace fe
 
                     if (fe::Collision::check_bb(companion_hitbox, enemy_hitbox))
                     {
+                        fe::Collision::log_collision("Companion", "Enemy",
+                                                     companion_pos, enemy.get_position());
+
                         // Companion dies when hit by enemy
                         _player->kill_companion();
                     }
