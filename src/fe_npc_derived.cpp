@@ -58,16 +58,16 @@ namespace fe
     {
         _has_dialog_options = true;
         
-        // Add "Ask about past" option
-        DialogOption past_option("Ask about his past", bn::span(_past_response_lines));
+        // Add "Ask about past" option (loops back to options)
+        DialogOption past_option("Ask about his past", bn::span(_past_response_lines), false);
         _dialog_options.push_back(past_option);
         
-        // Add "Ask for directions" option
-        DialogOption directions_option("Ask for directions", bn::span(_directions_response_lines));
+        // Add "Ask for directions" option (loops back to options)
+        DialogOption directions_option("Ask for directions", bn::span(_directions_response_lines), false);
         _dialog_options.push_back(directions_option);
         
-        // Add "Goodbye" option
-        DialogOption goodbye_option("Goodbye", bn::span(_goodbye_response_lines));
+        // Add "Goodbye" option (ends conversation)
+        DialogOption goodbye_option("Goodbye", bn::span(_goodbye_response_lines), true);
         _dialog_options.push_back(goodbye_option);
     }
 }

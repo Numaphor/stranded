@@ -32,10 +32,11 @@ namespace fe
     {
         bn::string_view option_text;
         bn::span<bn::string_view> response_lines;
+        bool ends_conversation; // If true, conversation ends after showing response
         
-        DialogOption() : option_text(""), response_lines() {}
-        DialogOption(bn::string_view text, bn::span<bn::string_view> lines)
-            : option_text(text), response_lines(lines) {}
+        DialogOption() : option_text(""), response_lines(), ends_conversation(false) {}
+        DialogOption(bn::string_view text, bn::span<bn::string_view> lines, bool ends = false)
+            : option_text(text), response_lines(lines), ends_conversation(ends) {}
     };
 
     class NPC : public Entity
@@ -64,7 +65,7 @@ namespace fe
 
         // Dialog option system
         DIALOG_STATE _dialog_state = DIALOG_STATE::GREETING;
-        bn::vector<DialogOption, 8> _dialog_options;
+        bn::vector<DialogOption, 8> _dialog_options; // Max 8 options (sufficient for most NPCs)
         int _selected_option = 0;
         bool _has_dialog_options = false;
 

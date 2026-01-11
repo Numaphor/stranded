@@ -253,10 +253,12 @@ namespace fe
         _text_sprites.clear();
         _text_generator.set_left_alignment();
         
+        constexpr int max_option_text_length = 64; // Max characters for option text including cursor
         bn::fixed y_pos = _text_y_limit - 20;
+        
         for (int i = 0; i < _dialog_options.size(); ++i)
         {
-            bn::string<64> option_text;
+            bn::string<max_option_text_length> option_text;
             if (i == _selected_option)
             {
                 option_text = "> ";
@@ -302,7 +304,17 @@ namespace fe
             
             // Load the response lines for the selected option
             _lines = _dialog_options[_selected_option].response_lines;
-            _dialog_state = DIALOG_STATE::SHOWING_RESPONSE;
+            
+            // Check if this option should end the conversation
+            if (_dialog_options[_selected_option].ends_conversation)
+            {
+                _dialog_state = DIALOG_STATE::GREETING; // Will end after showing response
+            }
+            else
+            {
+                _dialog_state = DIALOG_STATE::SHOWING_RESPONSE; // Will return to options
+            }
+            
             _currentLine = 0;
             _currentChar = 0;
             _currentChars = "";
