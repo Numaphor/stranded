@@ -36,12 +36,13 @@ namespace fe
         bn::regular_bg_map_ptr &_bg_map;
         int _background_tile;
         bool _active;
+        bn::vector<int, 512> _modified_cells; // Track modified cell indices for efficient clearing
 
         // Draw a rectangular hitbox on the background map
-        void _draw_hitbox(const Hitbox &hitbox, int tile_id, const bn::camera_ptr &camera);
+        void _draw_hitbox(const Hitbox &hitbox, int tile_id);
         
         // Draw a point marker on the background map
-        void _draw_point(const bn::fixed_point &point, int tile_id, const bn::camera_ptr &camera);
+        void _draw_point(const bn::fixed_point &point, int tile_id);
         
         // Clear all debug visualization
         void _clear_debug_tiles();
