@@ -71,7 +71,7 @@ namespace fe
         
         // Choose sprite based on color_index
         bn::sprite_item sprite_item = (color_index == 0) ? 
-            bn::sprite_items::minimap_player() : bn::sprite_items::minimap_enemy();
+            bn::sprite_items::minimap_player : bn::sprite_items::minimap_enemy;
         
         // Create 4 corner sprites
         bn::fixed_point corners[4] = {
