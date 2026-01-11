@@ -134,7 +134,10 @@ The build system automatically processes assets and uses the following directori
 - **Select** - Secondary functions
 
 ### Debug Controls
+- **Select + START** - Toggle hitbox visualization (shows player, enemy, and zone boundaries)
 - **Select + A** - Access world selection menu
+
+For detailed debug mode documentation, see [DEBUG_MODE.md](DEBUG_MODE.md)
 
 ## Game Content
 
