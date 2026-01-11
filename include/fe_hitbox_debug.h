@@ -2,6 +2,7 @@
 #define FE_HITBOX_DEBUG_H
 
 #include "bn_regular_bg_map_ptr.h"
+#include "bn_regular_bg_map_cell.h"
 #include "bn_camera_ptr.h"
 #include "bn_fixed_point.h"
 #include "bn_vector.h"
@@ -15,7 +16,7 @@ namespace fe
     class HitboxDebug
     {
     public:
-        HitboxDebug(bn::regular_bg_map_ptr &bg_map, int background_tile);
+        HitboxDebug(bn::regular_bg_map_ptr &bg_map, bn::regular_bg_map_cell *cells, int background_tile);
         ~HitboxDebug();
 
         // Toggle debug visualization on/off
@@ -34,6 +35,7 @@ namespace fe
 
     private:
         bn::regular_bg_map_ptr &_bg_map;
+        bn::regular_bg_map_cell *_cells;
         int _background_tile;
         bool _active;
         bn::vector<int, 512> _modified_cells; // Track modified cell indices for efficient clearing

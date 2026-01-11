@@ -5,8 +5,8 @@
 
 namespace fe
 {
-    HitboxDebug::HitboxDebug(bn::regular_bg_map_ptr &bg_map, int background_tile)
-        : _bg_map(bg_map), _background_tile(background_tile), _active(false)
+    HitboxDebug::HitboxDebug(bn::regular_bg_map_ptr &bg_map, bn::regular_bg_map_cell *cells, int background_tile)
+        : _bg_map(bg_map), _cells(cells), _background_tile(background_tile), _active(false)
     {
         _modified_cells.clear();
     }
@@ -115,7 +115,7 @@ namespace fe
                     if (x >= 0 && x < MAP_COLUMNS && y >= 0 && y < MAP_ROWS)
                     {
                         int cell_index = x + y * MAP_COLUMNS;
-                        _bg_map.cells_ref().value()[cell_index] = bn::regular_bg_map_cell(tile_id);
+                        _cells[cell_index] = bn::regular_bg_map_cell(tile_id);
                         
                         // Track this cell for efficient clearing
                         if (_modified_cells.size() < _modified_cells.max_size())
@@ -136,7 +136,7 @@ namespace fe
         if (tile_x >= 0 && tile_x < MAP_COLUMNS && tile_y >= 0 && tile_y < MAP_ROWS)
         {
             int cell_index = tile_x + tile_y * MAP_COLUMNS;
-            _bg_map.cells_ref().value()[cell_index] = bn::regular_bg_map_cell(tile_id);
+            _cells[cell_index] = bn::regular_bg_map_cell(tile_id);
             
             // Track this cell for efficient clearing
             if (_modified_cells.size() < _modified_cells.max_size())
@@ -149,15 +149,11 @@ namespace fe
     void HitboxDebug::_clear_debug_tiles()
     {
         // Restore only the modified tiles to background tile (efficient clearing)
-        auto cells = _bg_map.cells_ref();
-        if (cells.has_value())
+        for (int cell_index : _modified_cells)
         {
-            for (int cell_index : _modified_cells)
+            if (cell_index >= 0 && cell_index < MAP_CELLS_COUNT)
             {
-                if (cell_index >= 0 && cell_index < MAP_CELLS_COUNT)
-                {
-                    cells.value()[cell_index] = bn::regular_bg_map_cell(_background_tile);
-                }
+                _cells[cell_index] = bn::regular_bg_map_cell(_background_tile);
             }
         }
         

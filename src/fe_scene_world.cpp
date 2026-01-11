@@ -158,7 +158,7 @@ namespace fe
         _init_world_specific_content(world_id, camera, bg, text_generator);
 
         // Initialize debug system
-        _hitbox_debug = new HitboxDebug(bg_map_ptr, bg_map_obj._background_tile);
+        _hitbox_debug = new HitboxDebug(bg_map_ptr, bg_map::cells, bg_map_obj._background_tile);
 
         while (true)
         {
