@@ -138,59 +138,99 @@ namespace fe
             }
         }
 
-        // Buff menu system (new approach with L button)
-        if (!performing_action && !reviving_companion && _abilities.buff_abilities_available())
+        // Update buff menu cooldown animation
+        _hud.update_buff_menu_cooldown();
+
+        // Buff menu system (new approach with L button hold for 2 seconds)
+        // Cannot open menu while on cooldown
+        if (!performing_action && !reviving_companion && _abilities.buff_abilities_available() && !_hud.is_buff_menu_on_cooldown())
         {
-            // Toggle buff menu with L button (when not holding SELECT to avoid weapon switch conflict)
-            if (bn::keypad::l_pressed() && !bn::keypad::select_held())
+            // Hold L button to open menu (when not holding SELECT to avoid weapon switch conflict)
+            if (!bn::keypad::select_held())
             {
                 if (!_hud.is_buff_menu_open())
                 {
-                    // Open the buff menu
-                    _hud.toggle_buff_menu();
+                    // Not in menu - handle hold-to-open
+                    if (bn::keypad::l_pressed())
+                    {
+                        // Start hold timer
+                        _hud.start_buff_menu_hold();
+                    }
+                    else if (bn::keypad::l_held() && _hud.is_buff_menu_holding())
+                    {
+                        // Continue holding - update animation
+                        _hud.update_buff_menu_hold();
+                        
+                        // Check if hold is complete
+                        if (_hud.is_buff_menu_hold_complete())
+                        {
+                            _hud.cancel_buff_menu_hold();  // Reset hold state
+                            _hud.toggle_buff_menu();       // Open the menu
+                        }
+                    }
+                    else if (!bn::keypad::l_held() && _hud.is_buff_menu_holding())
+                    {
+                        // Released before hold complete - cancel
+                        _hud.cancel_buff_menu_hold();
+                    }
                 }
                 else
                 {
-                    // Menu is open - activate selected buff and close menu
-                    int selected = _hud.get_selected_buff();
-                    PlayerMovement::State buff_state = PlayerMovement::State::IDLE;
-                    
-                    // Map option index to buff type: 0=Energy, 1=Power
-                    switch (selected)
+                    // Menu is open - A or L confirms selection, B cancels
+                    if (bn::keypad::a_pressed() || bn::keypad::l_pressed())
                     {
-                    case 0:
-                        buff_state = PlayerMovement::State::ENERGY_BUFF;
-                        break;
-                    case 1:
-                        buff_state = PlayerMovement::State::POWER_BUFF;
-                        break;
-                    default:
-                        // Keep buff_state as IDLE if selection is out of range
-                        break;
+                        int selected = _hud.get_selected_buff();
+                        PlayerMovement::State buff_state = PlayerMovement::State::IDLE;
+
+                        // Map option index to buff type: 0=Energy, 1=Power
+                        switch (selected)
+                        {
+                        case 0:
+                            buff_state = PlayerMovement::State::ENERGY_BUFF;
+                            break;
+                        case 1:
+                            buff_state = PlayerMovement::State::POWER_BUFF;
+                            break;
+                        default:
+                            // Keep buff_state as IDLE if selection is out of range
+                            break;
+                        }
+
+                        activate_buff(buff_state);
+
+                        // Close the menu and start cooldown
+                        _hud.toggle_buff_menu();
+                        _hud.start_buff_menu_cooldown();
                     }
-                    
-                    activate_buff(buff_state);
-                    
-                    // Close the menu
-                    _hud.toggle_buff_menu();
+                    else if (bn::keypad::b_pressed())
+                    {
+                        // Cancel - close menu without activating buff (no cooldown)
+                        _hud.toggle_buff_menu();
+                    }
                 }
             }
-            
-            // Navigate buff menu with A and B when menu is open (not during SELECT combos)
+
+            // Navigate buff menu with D-pad when menu is open (not during SELECT combos)
             if (_hud.is_buff_menu_open() && !bn::keypad::select_held())
             {
-                if (bn::keypad::a_pressed())
+                if (bn::keypad::right_pressed() || bn::keypad::down_pressed())
                 {
                     _hud.navigate_buff_menu_next();
                 }
-                else if (bn::keypad::b_pressed())
+                else if (bn::keypad::left_pressed() || bn::keypad::up_pressed())
                 {
                     _hud.navigate_buff_menu_prev();
                 }
             }
         }
+        else if (_hud.is_buff_menu_holding())
+        {
+            // Cancel hold if conditions are no longer met
+            _hud.cancel_buff_menu_hold();
+        }
 
         // Movement inputs (consolidated) - disabled while reviving companion or when buff menu is open
+        // Note: Movement IS allowed while holding L to charge the menu
         if (!performing_action && !reviving_companion && !_hud.is_buff_menu_open())
         {
             bool should_run = !_is_strafing && _abilities.running_available();

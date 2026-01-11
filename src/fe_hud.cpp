@@ -25,21 +25,7 @@ namespace fe
     }
 
     HUD::HUD()
-        : _hp(HUD_MAX_HP)
-        , _is_visible(true)
-        , _weapon(WEAPON_TYPE::SWORD)
-        , _weapon_sprite(bn::sprite_items::icon_gun.create_sprite(HUD_WEAPON_ICON_X, HUD_WEAPON_ICON_Y, 0))
-        , _soul_sprite(bn::sprite_items::soul.create_sprite(HUD_SOUL_INITIAL_X, HUD_SOUL_INITIAL_Y, 0))
-        , _soul_positioned(false)
-        , _defense_buff_active(false)
-        , _defense_buff_fading(false)
-        , _silver_soul_active(false)
-        , _silver_soul_reversing(false)
-        , _silver_idle_timer(0)
-        , _displayed_ammo(HUD_MAX_AMMO)
-        , _buff_menu_state(BUFF_MENU_STATE::CLOSED)
-        , _buff_menu_base(bn::sprite_items::temptest.create_sprite(HUD_BUFF_MENU_BASE_X, HUD_BUFF_MENU_BASE_Y, 0))
-        , _selected_buff_option(0)
+        : _hp(HUD_MAX_HP), _is_visible(true), _weapon(WEAPON_TYPE::SWORD), _weapon_sprite(bn::sprite_items::icon_gun.create_sprite(HUD_WEAPON_ICON_X, HUD_WEAPON_ICON_Y, 0)), _soul_sprite(bn::sprite_items::soul.create_sprite(HUD_SOUL_INITIAL_X, HUD_SOUL_INITIAL_Y, 0)), _soul_positioned(false), _defense_buff_active(false), _defense_buff_fading(false), _silver_soul_active(false), _silver_soul_reversing(false), _silver_idle_timer(0), _displayed_ammo(HUD_MAX_AMMO), _buff_menu_state(BUFF_MENU_STATE::CLOSED), _buff_menu_base(bn::sprite_items::temptest.create_sprite(HUD_BUFF_MENU_BASE_X, HUD_BUFF_MENU_BASE_Y, 0)), _selected_buff_option(0), _buff_menu_hold_timer(0), _buff_menu_cooldown_timer(0)
     {
         // Initialize healthbar background
         _health_bg = bn::regular_bg_items::healthbar.create_bg(
@@ -69,10 +55,11 @@ namespace fe
 
         // Initialize buff menu base sprite
         _configure_hud_sprite(_buff_menu_base);
+        _buff_menu_base.set_horizontal_flip(true);
         _buff_menu_base.set_visible(true);
     }
 
-    void HUD::_configure_hud_sprite(bn::sprite_ptr& sprite)
+    void HUD::_configure_hud_sprite(bn::sprite_ptr &sprite)
     {
         sprite.set_bg_priority(HUD_BG_PRIORITY);
         sprite.remove_camera();
@@ -100,7 +87,7 @@ namespace fe
         if (_health_bg.has_value())
         {
             _health_bg->set_position(x, y);
-            
+
             // Update soul position to follow healthbar
             int soul_x = x + HUD_SOUL_OFFSET_X;
             int soul_y = y + HUD_SOUL_OFFSET_Y;
@@ -370,17 +357,17 @@ namespace fe
         if (_buff_menu_state == BUFF_MENU_STATE::CLOSED)
         {
             _buff_menu_state = BUFF_MENU_STATE::OPEN;
-            
+
             // Create the 2 option sprites (Energy and Power) using icons sprite
             for (int i = 0; i < 2; ++i)
             {
                 int sprite_x = HUD_BUFF_MENU_BASE_X + buff_menu_offsets_x[i];
                 int sprite_y = HUD_BUFF_MENU_BASE_Y + buff_menu_offsets_y[i];
-                
+
                 // Create sprite with the appropriate icon frame
                 _buff_menu_option_sprites[i] = bn::sprite_items::hud_icons.create_sprite(sprite_x, sprite_y, buff_menu_icon_frames[i]);
                 _configure_hud_sprite(_buff_menu_option_sprites[i].value());
-                
+
                 // Grey out non-selected options using blending
                 if (i != _selected_buff_option)
                 {
@@ -391,7 +378,7 @@ namespace fe
         else
         {
             _buff_menu_state = BUFF_MENU_STATE::CLOSED;
-            
+
             // Hide/destroy the option sprites
             for (int i = 0; i < 2; ++i)
             {
@@ -454,6 +441,87 @@ namespace fe
     int HUD::get_selected_buff() const
     {
         return _selected_buff_option;
+    }
+
+    void HUD::start_buff_menu_hold()
+    {
+        if (_buff_menu_state == BUFF_MENU_STATE::CLOSED && _buff_menu_hold_timer == 0)
+        {
+            _buff_menu_hold_timer = 1;  // Start hold timer
+            // Set base icon to frame 8 (empty - start of hold animation)
+            _buff_menu_base.set_tiles(bn::sprite_items::temptest.tiles_item(), 8);
+        }
+    }
+
+    void HUD::update_buff_menu_hold()
+    {
+        if (_buff_menu_hold_timer > 0 && _buff_menu_state == BUFF_MENU_STATE::CLOSED)
+        {
+            _buff_menu_hold_timer++;
+            
+            // Calculate which animation frame to show (8-1 over the hold duration)
+            // Frame 8 = empty, frames go to 1 = full (filling up as you hold)
+            int frame = 8 - (_buff_menu_hold_timer * 7) / HUD_BUFF_MENU_HOLD_FRAMES;
+            if (frame < 1)
+            {
+                frame = 1;  // Clamp to full frame
+            }
+            _buff_menu_base.set_tiles(bn::sprite_items::temptest.tiles_item(), frame);
+        }
+    }
+
+    void HUD::cancel_buff_menu_hold()
+    {
+        _buff_menu_hold_timer = 0;
+        // Reset base icon to frame 0 (empty/idle)
+        _buff_menu_base.set_tiles(bn::sprite_items::temptest.tiles_item(), 0);
+    }
+
+    bool HUD::is_buff_menu_hold_complete() const
+    {
+        return _buff_menu_hold_timer >= HUD_BUFF_MENU_HOLD_FRAMES;
+    }
+
+    bool HUD::is_buff_menu_holding() const
+    {
+        return _buff_menu_hold_timer > 0;
+    }
+
+    void HUD::start_buff_menu_cooldown()
+    {
+        _buff_menu_cooldown_timer = 1;
+        // Start at frame 1 (full) and countdown to frame 8 (empty)
+        _buff_menu_base.set_tiles(bn::sprite_items::temptest.tiles_item(), 1);
+    }
+
+    void HUD::update_buff_menu_cooldown()
+    {
+        if (_buff_menu_cooldown_timer > 0)
+        {
+            _buff_menu_cooldown_timer++;
+            
+            // Calculate which animation frame to show (1-8 over the cooldown duration)
+            // Frame 1 = full, frames go to 8 = empty (draining as cooldown progresses)
+            int frame = 1 + (_buff_menu_cooldown_timer * 7) / HUD_BUFF_MENU_COOLDOWN_FRAMES;
+            if (frame > 8)
+            {
+                frame = 8;
+            }
+            _buff_menu_base.set_tiles(bn::sprite_items::temptest.tiles_item(), frame);
+            
+            // Check if cooldown is complete
+            if (_buff_menu_cooldown_timer >= HUD_BUFF_MENU_COOLDOWN_FRAMES)
+            {
+                _buff_menu_cooldown_timer = 0;
+                // Reset to idle frame 0 (empty)
+                _buff_menu_base.set_tiles(bn::sprite_items::temptest.tiles_item(), 0);
+            }
+        }
+    }
+
+    bool HUD::is_buff_menu_on_cooldown() const
+    {
+        return _buff_menu_cooldown_timer > 0;
     }
 
     void HUD::_update_buff_menu_sprites()

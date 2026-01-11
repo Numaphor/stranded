@@ -312,7 +312,7 @@ namespace fe
         PlayerVFX _vfx;
         PlayerState _state;
         PlayerAbilities _abilities;
-        int _hp = 2;
+        int _hp = 3;
         bool _reset_required = false;
         int _death_timer = 0;
         bool _death_sound_played = false;

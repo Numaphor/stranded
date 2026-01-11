@@ -132,7 +132,7 @@ namespace fe
             }
             _text_generator.set_left_alignment();
             _text_sprites.clear();
-            _text_generator.generate(-110, _text_y_limit, _currentChars, _text_sprites);
+            _text_generator.generate(-90, _text_y_limit, _currentChars, _text_sprites);
         }
         else if (_is_near_player && !_finished)
         {

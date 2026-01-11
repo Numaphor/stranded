@@ -289,7 +289,7 @@ namespace fe
 
     void Player::reset()
     {
-        _hp = 2;
+        _hp = 3;
         _reset_required = false;
         _death_timer = 0;
         _death_sound_played = false;

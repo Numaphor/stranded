@@ -174,12 +174,10 @@ namespace fe
                 return fe::Scene::MENU;
             }
 
-            // Toggle zoom with SELECT pressed alone (not combined with other buttons)
+            // Toggle zoom with SELECT pressed alone (not combined with action buttons)
             if (bn::keypad::select_pressed() &&
                 !bn::keypad::a_held() && !bn::keypad::b_held() &&
-                !bn::keypad::l_held() && !bn::keypad::r_held() &&
-                !bn::keypad::up_held() && !bn::keypad::down_held() &&
-                !bn::keypad::left_held() && !bn::keypad::right_held())
+                !bn::keypad::l_held() && !bn::keypad::r_held())
             {
                 _zoomed_out = !_zoomed_out;
             }
