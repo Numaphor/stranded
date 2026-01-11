@@ -174,10 +174,17 @@ namespace fe
                 return fe::Scene::MENU;
             }
 
+            // Toggle debug mode with SELECT + START
+            if (bn::keypad::select_held() && bn::keypad::start_pressed())
+            {
+                _debug_system.toggle_debug_mode();
+            }
+
             // Toggle zoom with SELECT pressed alone (not combined with action buttons)
             if (bn::keypad::select_pressed() &&
                 !bn::keypad::a_held() && !bn::keypad::b_held() &&
-                !bn::keypad::l_held() && !bn::keypad::r_held())
+                !bn::keypad::l_held() && !bn::keypad::r_held() &&
+                !bn::keypad::start_held())
             {
                 _zoomed_out = !_zoomed_out;
             }
@@ -569,6 +576,38 @@ namespace fe
                 camera.set_position(0, 0);
 
                 continue; // Skip the rest of the loop for this frame
+            }
+
+            // Debug visualization - render hitboxes when debug mode is active
+            if (_debug_system.is_debug_active())
+            {
+                _debug_system.clear_debug_markers();
+
+                // Visualize player hitbox
+                if (_player)
+                {
+                    Hitbox player_hitbox = _player->get_hitbox();
+                    _debug_system.add_hitbox_marker(player_hitbox, camera);
+                }
+
+                // Visualize enemy hitboxes
+                for (Enemy &enemy : _enemies)
+                {
+                    Hitbox enemy_hitbox = enemy.get_hitbox();
+                    _debug_system.add_hitbox_marker(enemy_hitbox, camera);
+                }
+
+                // Visualize merchant collision zone
+                if (_merchant && fe::ZoneManager::get_merchant_zone_center().has_value())
+                {
+                    bn::fixed_point merchant_center = fe::ZoneManager::get_merchant_zone_center().value();
+                    Hitbox merchant_collision = Hitbox::create_merchant_interaction_zone(merchant_center);
+                    _debug_system.add_hitbox_marker(merchant_collision, camera);
+                }
+
+                // Visualize sword zone
+                Hitbox sword_zone = Hitbox::create_sword_zone();
+                _debug_system.add_hitbox_marker(sword_zone, camera);
             }
 
             // Apply zoom scaling to affine backgrounds

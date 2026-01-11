@@ -24,6 +24,7 @@
 #include "fe_npc_derived.h" // Include NPC derived classes
 #include "fe_hitbox.h"
 #include "fe_world_state.h"
+#include "fe_debug.h"
 
 namespace fe
 {
@@ -67,6 +68,9 @@ namespace fe
         bn::optional<bn::sprite_affine_mat_ptr> _gun_affine_mat;    // Separate affine matrix for gun (needs its own rotation)
         bn::optional<bn::sprite_affine_mat_ptr> _player_affine_mat; // Separate affine matrix for player (needs its own flip)
         bn::optional<bn::sprite_affine_mat_ptr> _vfx_affine_mat;    // Separate affine matrix for VFX (needs its own flip)
+
+        // Debug system
+        DebugSystem _debug_system;
 
         void _init_world_specific_content(int world_id, bn::camera_ptr &camera, bn::regular_bg_ptr &bg, bn::sprite_text_generator &text_generator);
         void _save_current_state();
