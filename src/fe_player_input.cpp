@@ -31,39 +31,38 @@ namespace fe
 
         bool performing_action = _movement.is_performing_action();
 
-        // Toggle controls (disabled while reviving companion)
-        if (bn::keypad::r_pressed() && !performing_action && !reviving_companion)
+        // R button: tap to switch weapon, hold to reload
+        // Track how long R is held to distinguish tap from hold
+        if (bn::keypad::r_held())
         {
-            _is_strafing = !_is_strafing;
-            if (_is_strafing)
-                _strafing_direction = _movement.facing_direction();
-        }
-
-        // Weapon switching moved to SELECT + L (SHIFT + L equivalent)
-        if (bn::keypad::select_held() && bn::keypad::l_pressed() && !reviving_companion)
-            switch_weapon();
-
-        // Auto-reload when holding L with gun active (but not SELECT + L, and not when buff menu is open)
-        if (bn::keypad::l_held() && !bn::keypad::select_held() && _gun_active && !reviving_companion && !_hud.is_buff_menu_open())
-        {
-            // Start timer if it's not already running
-            if (_auto_reload_timer == 0)
+            _r_hold_frames++;
+            
+            // Auto-reload when holding R past the switch window (gun must be active)
+            if (_r_hold_frames > WEAPON_SWITCH_WINDOW && _gun_active && !reviving_companion && !_hud.is_buff_menu_open())
             {
-                _auto_reload_timer = AUTO_RELOAD_INTERVAL;
-            }
+                // Start timer if it's not already running
+                if (_auto_reload_timer == 0)
+                {
+                    _auto_reload_timer = AUTO_RELOAD_INTERVAL;
+                }
 
-            _auto_reload_timer--;
-            if (_auto_reload_timer <= 0 && _ammo_count < MAX_AMMO)
-            {
-                _ammo_count++;
-                _hud.set_ammo(_ammo_count);
-                _auto_reload_timer = AUTO_RELOAD_INTERVAL; // Reset timer for next reload
+                _auto_reload_timer--;
+                if (_auto_reload_timer <= 0 && _ammo_count < MAX_AMMO)
+                {
+                    _ammo_count++;
+                    _hud.set_ammo(_ammo_count);
+                    _auto_reload_timer = AUTO_RELOAD_INTERVAL; // Reset timer for next reload
+                }
             }
         }
         else
         {
-            // Keep current timer value when not holding L (don't reset to 0)
-            // This prevents spam-clicking L to get instant bullets
+            // R released - check if it was a quick tap (weapon switch)
+            if (_r_hold_frames > 0 && _r_hold_frames <= WEAPON_SWITCH_WINDOW && !performing_action && !reviving_companion)
+            {
+                switch_weapon();
+            }
+            _r_hold_frames = 0;
         }
 
         // Gun sprite cycling with SELECT + B (only when gun is active)
@@ -76,6 +75,13 @@ namespace fe
         if (bn::keypad::select_held() && bn::keypad::b_pressed() && !_gun_active && _hud.get_weapon() == WEAPON_TYPE::SWORD && !reviving_companion)
         {
             cycle_sword_sprite();
+        }
+
+        // Cancel roll if B is pressed while rolling
+        if (_movement.current_state() == PlayerMovement::State::ROLLING && bn::keypad::b_pressed() && !bn::keypad::select_held())
+        {
+            _movement.stop_action();
+            _state.set_invulnerable(false);
         }
 
         // Action inputs (consolidated) - disabled while reviving companion or when buff menu is open

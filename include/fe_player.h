@@ -332,8 +332,10 @@ namespace fe
         int _ammo_count = 10;
         static constexpr int MAX_AMMO = 10;
         bool _reload_on_roll_end = false;
-        int _auto_reload_timer = 0;                     // Timer for automatic reload when holding L
+        int _auto_reload_timer = 0;                     // Timer for automatic reload when holding R
         static constexpr int AUTO_RELOAD_INTERVAL = 30; // Reload every 0.5 seconds (30 frames at 60fps)
+        int _r_hold_frames = 0;                          // Track R button hold duration for weapon switch vs reload
+        static constexpr int WEAPON_SWITCH_WINDOW = 12; // Frames to distinguish tap (switch) from hold (reload)
 
         // Strafing state
         bool _is_strafing = false;
