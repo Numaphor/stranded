@@ -211,9 +211,9 @@ namespace fe
 
         MarkerOffsetConfig config = get_marker_config();
 
-        // All sprite hitbox markers have been disabled
-        // Only background tiles are used for zone visualization
-        bool should_show_markers = false;
+        // Enable sprite hitbox markers for debug visualization
+        // Markers are shown for all hitbox types when debug mode is enabled
+        bool should_show_markers = true;
 
         if (!should_show_markers)
         {

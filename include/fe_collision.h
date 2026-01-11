@@ -28,12 +28,20 @@ namespace fe
         }
 
         // Bounding box collision with point and dimensions
+        // Treats x,y as top-left corner (consistent with Hitbox class)
         [[nodiscard]] static bool check_bb(const Hitbox &boxA, bn::fixed x, bn::fixed y, bn::fixed w, bn::fixed h)
         {
-            return boxA.x() - boxA.width() / 2 < x + w / 2 &&
-                   boxA.x() + boxA.width() / 2 > x - w / 2 &&
-                   boxA.y() - boxA.height() / 2 < y + h / 2 &&
-                   boxA.y() + boxA.height() / 2 > y - h / 2;
+            const bn::fixed left_A = boxA.x();
+            const bn::fixed right_A = boxA.x() + boxA.width();
+            const bn::fixed top_A = boxA.y();
+            const bn::fixed bottom_A = boxA.y() + boxA.height();
+
+            const bn::fixed left_B = x;
+            const bn::fixed right_B = x + w;
+            const bn::fixed top_B = y;
+            const bn::fixed bottom_B = y + h;
+
+            return !(right_A <= left_B || left_A >= right_B || bottom_A <= top_B || top_A >= bottom_B);
         }
 
         // Logging collision details
