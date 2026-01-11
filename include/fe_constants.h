@@ -158,9 +158,10 @@ namespace fe
 
     // Patrol state constants
     constexpr bn::fixed ENEMY_PATROL_SPEED = bn::fixed(0.35);
-    constexpr int ENEMY_PATROL_DURATION = 60;    // Default patrol duration in frames
-    constexpr int ENEMY_IDLE_DURATION_MIN = 20;  // Minimum idle frames
-    constexpr int ENEMY_IDLE_DURATION_RANGE = 40; // Random range added to minimum
+    constexpr int ENEMY_IDLE_DURATION_DEFAULT = 60;  // Default idle duration in frames
+    constexpr int ENEMY_PATROL_DURATION = 90;        // Default patrol duration in frames (longer than idle)
+    constexpr int ENEMY_IDLE_DURATION_MIN = 20;      // Minimum idle frames
+    constexpr int ENEMY_IDLE_DURATION_RANGE = 40;    // Random range added to minimum
 
     // Chase state speeds
     constexpr bn::fixed ENEMY_CHASE_SPEED = bn::fixed(0.8);

@@ -22,7 +22,7 @@ namespace fe
         int _idle_duration;
         
     public:
-        IdleState(int duration = ENEMY_PATROL_DURATION) : _idle_duration(duration) {}
+        IdleState(int duration = ENEMY_IDLE_DURATION_DEFAULT) : _idle_duration(duration) {}
         
         void enter(Enemy& enemy) override;
         void update(Enemy& enemy, bn::fixed_point player_pos, const Level& level, bool player_listening) override;
@@ -43,7 +43,7 @@ namespace fe
         bool _direction_set;
         
     public:
-        PatrolState(int duration = ENEMY_PATROL_DURATION + 30) : _patrol_duration(duration), _target_dx(0), _target_dy(0), _direction_set(false) {}
+        PatrolState(int duration = ENEMY_PATROL_DURATION) : _patrol_duration(duration), _target_dx(0), _target_dy(0), _direction_set(false) {}
         
         void enter(Enemy& enemy) override;
         void update(Enemy& enemy, bn::fixed_point player_pos, const Level& level, bool player_listening) override;
@@ -61,7 +61,7 @@ namespace fe
         bn::fixed _chase_speed;
         
     public:
-        ChaseState(bn::fixed speed = ENEMY_PATROL_SPEED) : _chase_speed(speed) {}
+        ChaseState(bn::fixed speed = ENEMY_CHASE_SPEED) : _chase_speed(speed) {}
         
         void enter(Enemy& enemy) override;
         void update(Enemy& enemy, bn::fixed_point player_pos, const Level& level, bool player_listening) override;
