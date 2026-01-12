@@ -200,6 +200,9 @@ namespace fe
     {
         _defense_buff_active = true;
 
+        // Ensure we're using the regular soul sprite before playing shield animation
+        _soul_sprite.set_item(bn::sprite_items::soul);
+
         // Animate soul sprite frames 1-4 for defense buff
         _soul_action = bn::create_sprite_animate_action_once(
             _soul_sprite, HUD_SOUL_ANIM_SPEED,
