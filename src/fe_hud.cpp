@@ -739,7 +739,7 @@ namespace fe
         _soul_action = bn::create_sprite_animate_action_once(
             _soul_sprite, HUD_SOUL_ANIM_SPEED,
             bn::sprite_items::soul_half_1.tiles_item(),
-            0, 1, 2, 3, 4, 3, 2, 1, 0); // Simple flash animation using safe frames
+            0, 1, 2, 3, 4, 5, 6, 7, 8); 
         
         _health_loss_anim_active = true;
     }
