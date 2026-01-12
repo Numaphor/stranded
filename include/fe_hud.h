@@ -158,6 +158,7 @@ namespace fe
         void _update_ammo_display();
         void _update_buff_menu_sprites();
         void _update_selection(int new_selection);
+        void _play_health_transition_anim(const bn::sprite_item& sprite_item, const int* frames, int frame_count, bool is_gain);
     };
 }
 

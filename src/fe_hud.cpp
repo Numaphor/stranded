@@ -17,14 +17,35 @@
 
 namespace fe
 {
-    // Static constexpr arrays for buff menu option sprite offsets (Heal, Energy, and Power)
     namespace
     {
         constexpr int BUFF_MENU_OPTION_COUNT = 3;
         constexpr int buff_menu_offsets_x[BUFF_MENU_OPTION_COUNT] = {HUD_BUFF_MENU_OPTION_HEAL_X, HUD_BUFF_MENU_OPTION_ENERGY_X, HUD_BUFF_MENU_OPTION_POWER_X};
         constexpr int buff_menu_offsets_y[BUFF_MENU_OPTION_COUNT] = {HUD_BUFF_MENU_OPTION_HEAL_Y, HUD_BUFF_MENU_OPTION_ENERGY_Y, HUD_BUFF_MENU_OPTION_POWER_Y};
-        // Icon frame indices: Heal = 0, Energy = 1, Power = 3
         constexpr int buff_menu_icon_frames[BUFF_MENU_OPTION_COUNT] = {0, 1, 3};
+
+        // Buff menu navigation table: [from_option][direction] = to_option (-1 = no change)
+        constexpr int NAV_UP = 0, NAV_DOWN = 1, NAV_LEFT = 2, NAV_RIGHT = 3;
+        constexpr int buff_menu_nav[BUFF_MENU_OPTION_COUNT][4] = {
+            {-1, 2, 1, -1}, // Heal(0): up=none, down=Power(2), left=Energy(1), right=none
+            {-1, 2, -1, 0}, // Energy(1): up=none, down=Power(2), left=none, right=Heal(0)
+            {0, -1, 1, -1}  // Power(2): up=Heal(0), down=none, left=Energy(1), right=none
+        };
+    }
+
+    namespace
+    {
+        void set_soul_sprite_and_frame(bn::sprite_ptr& sprite, const bn::sprite_item& item, int frame)
+        {
+            sprite.set_item(item);
+            sprite.set_tiles(item.tiles_item().create_tiles(frame));
+        }
+
+        template<size_t N>
+        bn::sprite_animate_action<10> create_soul_animation(bn::sprite_ptr& sprite, const bn::sprite_tiles_item& tiles, const int (&frames)[N])
+        {
+            return bn::create_sprite_animate_action_once(sprite, HUD_SOUL_ANIM_SPEED, tiles, frames[0], frames[1], frames[2], frames[3], frames[4], frames[5], frames[6], frames[7], frames[8], frames[9]);
+        }
     }
 
     HUD::HUD()
@@ -107,10 +128,9 @@ namespace fe
                 else
                 {
                     // During reset, ensure soul is set to regular soul sprite with shield appearance
-                    _soul_sprite.set_item(bn::sprite_items::soul);
-                    _soul_sprite.set_tiles(bn::sprite_items::soul.tiles_item().create_tiles(4)); // Frame 4 = shielded state
+                    set_soul_sprite_and_frame(_soul_sprite, bn::sprite_items::soul, 4);
                     _soul_action.reset();
-                    _defense_buff_active = true; // Mark defense buff as active
+                    _defense_buff_active = true;
                 }
             }
         }
@@ -340,8 +360,7 @@ namespace fe
         // Handle reverse transformation completion
         if (_silver_soul_reversing && _soul_action.has_value() && _soul_action.value().done())
         {
-            _soul_sprite.set_item(bn::sprite_items::soul);
-            _soul_sprite.set_tiles(bn::sprite_items::soul.tiles_item().create_tiles(0));
+            set_soul_sprite_and_frame(_soul_sprite, bn::sprite_items::soul, 0);
             _soul_action.reset();
             _silver_soul_reversing = false;
         }
@@ -357,41 +376,20 @@ namespace fe
         // Handle health gain animation completion - return to appropriate idle state
         if (_health_gain_anim_active && _soul_action.has_value() && _soul_action.value().done())
         {
-            // Keep the current sprite (soul_half_1 or soul_half_2) and set to idle frame 0
-            if (_hp == 1)
-            {
-                _soul_sprite.set_tiles(bn::sprite_items::soul_half_1.tiles_item().create_tiles(0));
-            }
-            else if (_hp == 2)
-            {
-                _soul_sprite.set_tiles(bn::sprite_items::soul_half_2.tiles_item().create_tiles(0));
-            }
+            const bn::sprite_item& soul_item = (_hp == 1) ? bn::sprite_items::soul_half_1 : bn::sprite_items::soul_half_2;
+            _soul_sprite.set_tiles(soul_item.tiles_item().create_tiles(0));
             _health_gain_anim_active = false;
         }
 
         // Handle health loss animation completion - return to appropriate idle state
-    if (_health_loss_anim_active && _soul_action.has_value() && _soul_action.value().done())
-    {
-        // Return to appropriate soul sprite based on current health
-        if (_hp == 0)
+        if (_health_loss_anim_active && _soul_action.has_value() && _soul_action.value().done())
         {
-            // Keep soul_half_1 sprite when HP is 0 (until respawn)
-            _soul_sprite.set_item(bn::sprite_items::soul_half_1);
-            _soul_sprite.set_tiles(bn::sprite_items::soul_half_1.tiles_item().create_tiles(0));
+            // Return to appropriate soul sprite based on current health
+            const bn::sprite_item& soul_item = (_hp <= 1) ? bn::sprite_items::soul_half_1 : bn::sprite_items::soul_half_2;
+            set_soul_sprite_and_frame(_soul_sprite, soul_item, 0);
+            _soul_action.reset();
+            _health_loss_anim_active = false;
         }
-        else if (_hp == 1)
-        {
-            _soul_sprite.set_item(bn::sprite_items::soul_half_1);
-            _soul_sprite.set_tiles(bn::sprite_items::soul_half_1.tiles_item().create_tiles(0));
-        }
-        else if (_hp == 2)
-        {
-            _soul_sprite.set_item(bn::sprite_items::soul_half_2);
-            _soul_sprite.set_tiles(bn::sprite_items::soul_half_2.tiles_item().create_tiles(0));
-        }
-        _soul_action.reset();
-        _health_loss_anim_active = false;
-    }
     }
 
     void HUD::set_weapon(WEAPON_TYPE weapon)
@@ -517,60 +515,37 @@ namespace fe
 
     void HUD::navigate_buff_menu_up()
     {
-        if (_buff_menu_state != BUFF_MENU_STATE::OPEN)
+        if (_buff_menu_state == BUFF_MENU_STATE::OPEN)
         {
-            return;
-        }
-
-        // Layout: Energy(1) top-left, Heal(0) top-right, Power(2) bottom-right
-        // Up from Power(2) -> Heal(0)
-        if (_selected_buff_option == 2)
-        {
-            _update_selection(0);
+            int new_sel = buff_menu_nav[_selected_buff_option][NAV_UP];
+            if (new_sel != -1) _update_selection(new_sel);
         }
     }
 
     void HUD::navigate_buff_menu_down()
     {
-        if (_buff_menu_state != BUFF_MENU_STATE::OPEN)
+        if (_buff_menu_state == BUFF_MENU_STATE::OPEN)
         {
-            return;
-        }
-
-        // Down from Heal(0) -> Power(2)
-        // Down from Energy(1) -> Power(2)
-        if (_selected_buff_option == 0 || _selected_buff_option == 1)
-        {
-            _update_selection(2);
+            int new_sel = buff_menu_nav[_selected_buff_option][NAV_DOWN];
+            if (new_sel != -1) _update_selection(new_sel);
         }
     }
 
     void HUD::navigate_buff_menu_left()
     {
-        if (_buff_menu_state != BUFF_MENU_STATE::OPEN)
+        if (_buff_menu_state == BUFF_MENU_STATE::OPEN)
         {
-            return;
-        }
-
-        // Left from Heal(0) -> Energy(1)
-        // Left from Power(2) -> Energy(1)
-        if (_selected_buff_option == 0 || _selected_buff_option == 2)
-        {
-            _update_selection(1);
+            int new_sel = buff_menu_nav[_selected_buff_option][NAV_LEFT];
+            if (new_sel != -1) _update_selection(new_sel);
         }
     }
 
     void HUD::navigate_buff_menu_right()
     {
-        if (_buff_menu_state != BUFF_MENU_STATE::OPEN)
+        if (_buff_menu_state == BUFF_MENU_STATE::OPEN)
         {
-            return;
-        }
-
-        // Right from Energy(1) -> Heal(0)
-        if (_selected_buff_option == 1)
-        {
-            _update_selection(0);
+            int new_sel = buff_menu_nav[_selected_buff_option][NAV_RIGHT];
+            if (new_sel != -1) _update_selection(new_sel);
         }
     }
 
@@ -680,83 +655,52 @@ namespace fe
         }
     }
 
+    void HUD::_play_health_transition_anim(const bn::sprite_item& sprite_item, const int* frames, int frame_count, bool is_gain)
+    {
+        _health_gain_anim_active = is_gain;
+        _health_loss_anim_active = !is_gain;
+        
+        _soul_sprite.set_item(sprite_item);
+        
+        // Create animation based on frame count
+        if (frame_count == 6) {
+            _soul_action = bn::create_sprite_animate_action_once(
+                _soul_sprite, HUD_SOUL_ANIM_SPEED, sprite_item.tiles_item(),
+                frames[0], frames[1], frames[2], frames[3], frames[4], frames[5]);
+        } else {
+            _soul_action = bn::create_sprite_animate_action_once(
+                _soul_sprite, HUD_SOUL_ANIM_SPEED, sprite_item.tiles_item(),
+                frames[0], frames[1], frames[2], frames[3], frames[4], frames[5], frames[6], frames[7], frames[8]);
+        }
+    }
+
     void HUD::play_health_gain_0_to_1()
     {
-        // Cancel any existing animations
-        _health_gain_anim_active = false;
-        _health_loss_anim_active = false;
-        
-        // Switch to soul_half_1 sprite and play 6-frame countdown animation
-        _soul_sprite.set_item(bn::sprite_items::soul_half_1);
-        _soul_action = bn::create_sprite_animate_action_once(
-            _soul_sprite, HUD_SOUL_ANIM_SPEED,
-            bn::sprite_items::soul_half_1.tiles_item(),
-            5, 4, 3, 2, 1, 0); // 6 frames counting down, frame 0 is idle
-        
-        _health_gain_anim_active = true;
+        static constexpr int frames[] = {5, 4, 3, 2, 1, 0};
+        _play_health_transition_anim(bn::sprite_items::soul_half_1, frames, 6, true);
     }
 
     void HUD::play_health_gain_1_to_2()
     {
-        // Cancel any existing animations
-        _health_gain_anim_active = false;
-        _health_loss_anim_active = false;
-        
-        // Switch to soul_half_2 sprite and play 6-frame countdown animation
-        _soul_sprite.set_item(bn::sprite_items::soul_half_2);
-        _soul_action = bn::create_sprite_animate_action_once(
-            _soul_sprite, HUD_SOUL_ANIM_SPEED,
-            bn::sprite_items::soul_half_2.tiles_item(),
-            5, 4, 3, 2, 1, 0); // 6 frames counting down, frame 0 is idle
-        
-        _health_gain_anim_active = true;
+        static constexpr int frames[] = {5, 4, 3, 2, 1, 0};
+        _play_health_transition_anim(bn::sprite_items::soul_half_2, frames, 6, true);
     }
 
     void HUD::play_health_loss_2_to_1()
     {
-        // Cancel any existing animations
-        _health_gain_anim_active = false;
-        _health_loss_anim_active = false;
-        
-        // Start with soul_half_2 sprite and play flash animation
-        _soul_sprite.set_item(bn::sprite_items::soul_half_2);
-        _soul_action = bn::create_sprite_animate_action_once(
-            _soul_sprite, HUD_SOUL_ANIM_SPEED,
-            bn::sprite_items::soul_half_2.tiles_item(),
-            0, 1, 2, 3, 4, 3, 2, 1, 0); // Simple flash animation
-        
-        _health_loss_anim_active = true;
+        static constexpr int frames[] = {0, 1, 2, 3, 4, 3, 2, 1, 0};
+        _play_health_transition_anim(bn::sprite_items::soul_half_2, frames, 9, false);
     }
 
     void HUD::play_health_loss_1_to_0()
     {
-        // Cancel any existing animations
-        _health_gain_anim_active = false;
-        _health_loss_anim_active = false;
-        
-        // Start with soul_half_1 sprite and play safe flash animation
-        _soul_sprite.set_item(bn::sprite_items::soul_half_1);
-        _soul_action = bn::create_sprite_animate_action_once(
-            _soul_sprite, HUD_SOUL_ANIM_SPEED,
-            bn::sprite_items::soul_half_1.tiles_item(),
-            0, 1, 2, 3, 4, 5, 6, 7, 8); 
-        
-        _health_loss_anim_active = true;
+        static constexpr int frames[] = {0, 1, 2, 3, 4, 5, 6, 7, 8};
+        _play_health_transition_anim(bn::sprite_items::soul_half_1, frames, 9, false);
     }
 
     void HUD::play_health_loss_animation()
     {
-        // Cancel any existing animations
-        _health_gain_anim_active = false;
-        _health_loss_anim_active = false;
-        
-        // Use regular soul sprite for damage animation (could be customized)
-        _soul_sprite.set_item(bn::sprite_items::soul);
-        _soul_action = bn::create_sprite_animate_action_once(
-            _soul_sprite, HUD_SOUL_ANIM_SPEED,
-            bn::sprite_items::soul.tiles_item(),
-            0, 1, 2, 3, 4, 3, 2, 1, 0); // Simple flash animation
-        
-        _health_loss_anim_active = true;
+        static constexpr int frames[] = {0, 1, 2, 3, 4, 3, 2, 1, 0};
+        _play_health_transition_anim(bn::sprite_items::soul, frames, 9, false);
     }
 }
