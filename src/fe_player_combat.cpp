@@ -16,7 +16,7 @@ namespace fe
             gun_sprite.set_rotation_angle(player_constants::GUN_ANGLES[idx]);
             gun_sprite.set_position(
                 pos.x() + player_constants::GUN_OFFSET_X[idx],
-                pos.y() + player_constants::GUN_OFFSET_Y[idx]);
+                pos.y() + player_constants::GUN_OFFSET_Y[idx] + PLAYER_SPRITE_Y_OFFSET);
         }
     }
 

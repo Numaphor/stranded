@@ -44,7 +44,11 @@ namespace fe
             if (is_attack && (direction == PlayerMovement::Direction::UP ||
                               direction == PlayerMovement::Direction::DOWN))
             {
-                vfx_pos = bn::fixed_point(player_pos.x() + 8, player_pos.y());
+                vfx_pos = bn::fixed_point(player_pos.x() + 8, player_pos.y() + PLAYER_SPRITE_Y_OFFSET);
+            }
+            else
+            {
+                vfx_pos = bn::fixed_point(player_pos.x(), player_pos.y() + PLAYER_SPRITE_Y_OFFSET);
             }
             _vfx_sprite->set_position(vfx_pos);
 

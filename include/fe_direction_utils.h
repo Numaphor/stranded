@@ -26,7 +26,7 @@ namespace fe
         {
             const int idx = int(dir);
             return {position.x() + player_constants::BULLET_OFFSET_X[idx],
-                    position.y() + player_constants::BULLET_OFFSET_Y[idx]};
+                    position.y() + player_constants::BULLET_OFFSET_Y[idx] + PLAYER_SPRITE_Y_OFFSET};
         }
         
         int get_gun_z_offset(Direction dir);
