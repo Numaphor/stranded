@@ -109,8 +109,8 @@ git submodule update --init --recursive
 ### Building
 
 ```bash
-# Build the ROM (uses all CPU cores)
-make -j$(nproc)
+# Build the ROM (parallel compilation)
+make -j8
 
 # Output: stranded.gba
 ```
