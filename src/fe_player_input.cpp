@@ -268,6 +268,35 @@ namespace fe
             _hud.cancel_buff_menu_hold();
         }
 
+        // Debug controls for testing health animations (SELECT + START + D-Pad)
+        if (bn::keypad::select_held() && bn::keypad::start_held())
+        {
+            if (bn::keypad::up_pressed())
+            {
+                // Test health gain 0->1
+                if (get_hp() > 0) take_damage(get_hp()); // Set to 0
+                heal(1); // Go to 1
+            }
+            else if (bn::keypad::right_pressed())
+            {
+                // Test health gain 1->2
+                if (get_hp() > 1) take_damage(get_hp() - 1); // Set to 1
+                heal(1); // Go to 2
+            }
+            else if (bn::keypad::down_pressed())
+            {
+                // Test health loss 2->1
+                if (get_hp() < 2) heal(2 - get_hp()); // Set to 2
+                take_damage(1); // Go to 1
+            }
+            else if (bn::keypad::left_pressed())
+            {
+                // Test health loss 1->0
+                if (get_hp() < 1) heal(1 - get_hp()); // Set to 1
+                take_damage(1); // Go to 0
+            }
+        }
+
         // Movement inputs (consolidated) - disabled while reviving companion or when buff menu is open
         // Note: Movement IS allowed while holding L to charge the menu
         if (!performing_action && !reviving_companion && !_hud.is_buff_menu_open())

@@ -136,16 +136,18 @@ namespace fe
             }
         }
 
-        // Handle death animation
-        if (_movement.current_state() == PlayerMovement::State::DEAD && _death_timer > 0)
+        // Handle death animation - wait for soul animation to complete
+        if (_movement.current_state() == PlayerMovement::State::DEAD)
         {
-            _death_timer--;
-            if (_death_timer == PLAYER_DEATH_ANIMATION_DURATION / 2 && !_death_sound_played)
+            // Play death sound at start of death (instead of halfway through timer)
+            if (!_death_sound_played)
             {
                 bn::sound_items::death.play();
                 _death_sound_played = true;
             }
-            if (_death_timer == 0)
+            
+            // Check if soul animation is complete before allowing respawn
+            if (_hud.is_soul_animation_complete())
             {
                 _reset_required = true;
             }
@@ -253,7 +255,6 @@ namespace fe
     {
         if (!_state.invulnerable() && _hp > 0)
         {
-            int old_hp = _hp;
             _hp -= damage;
             if (_hp <= 0)
             {
@@ -280,11 +281,7 @@ namespace fe
                 // Visual feedback for taking damage (but not for death)
                 set_visible(false);
 
-                // Play reverse soul animation only when losing the 3rd health slot (soul shield)
-                if (old_hp == 3 && _hp < 3)
-                {
-                    _hud.play_soul_damage_animation();
-                }
+                // Health transition animations are now handled by HUD::set_hp()
             }
             _hud.set_hp(_hp);
         }
@@ -294,15 +291,11 @@ namespace fe
     {
         if (_hp < 3 && _hp > 0)
         {
-            int old_hp = _hp;
             _hp = bn::min(_hp + amount, 3);
             _hud.set_hp(_hp);
 
-            // When reaching full health (3), regain the soul shield
-            if (old_hp < 3 && _hp == 3)
-            {
-                _hud.activate_soul_animation();
-            }
+            // Health transition animations are now handled by HUD::set_hp()
+            // Soul shield activation for reaching full health is handled by the new animation system
 
             _hud.update();
         }
@@ -317,7 +310,12 @@ namespace fe
         _state.reset();
         _movement.reset();
         _abilities.reset();
+        
+        // Set resetting flag to prevent soul animations during reset
+        _hud.set_resetting_health(true);
         _hud.set_hp(_hp);
+        _hud.set_resetting_health(false);
+        
         _hud.update();
         set_visible(true);
         _bullet_manager.clear_bullets();

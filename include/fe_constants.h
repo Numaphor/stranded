@@ -107,7 +107,7 @@ namespace fe
 
     constexpr bn::fixed PLAYER_ROLL_SPEED = 3.75;
     constexpr int PLAYER_ROLL_DURATION = 64;
-    constexpr int PLAYER_DEATH_ANIMATION_DURATION = 90;
+    constexpr int PLAYER_DEATH_ANIMATION_DURATION = 180;
     constexpr int PLAYER_CHOP_DURATION = 40;
     constexpr int PLAYER_SLASH_DURATION = 25;
     constexpr int PLAYER_ATTACK_DURATION = 40;

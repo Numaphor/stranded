@@ -6,6 +6,8 @@
 
 #include "bn_regular_bg_items_healthbar.h"
 #include "bn_sprite_items_soul.h"
+#include "bn_sprite_items_soul_half_1.h"
+#include "bn_sprite_items_soul_half_2.h"
 #include "bn_sprite_items_icon_gun.h"
 #include "bn_sprite_items_soul_silver.h"
 #include "bn_sprite_items_soul_silver_idle.h"
@@ -26,7 +28,7 @@ namespace fe
     }
 
     HUD::HUD()
-        : _hp(HUD_MAX_HP), _is_visible(true), _weapon(WEAPON_TYPE::SWORD), _weapon_sprite(bn::sprite_items::icon_gun.create_sprite(HUD_WEAPON_ICON_X, HUD_WEAPON_ICON_Y, 0)), _soul_sprite(bn::sprite_items::soul.create_sprite(HUD_SOUL_INITIAL_X, HUD_SOUL_INITIAL_Y, 0)), _soul_positioned(false), _defense_buff_active(false), _defense_buff_fading(false), _silver_soul_active(false), _silver_soul_reversing(false), _silver_idle_timer(0), _displayed_ammo(HUD_MAX_AMMO), _buff_menu_state(BUFF_MENU_STATE::CLOSED), _buff_menu_base(bn::sprite_items::temptest.create_sprite(HUD_BUFF_MENU_BASE_X, HUD_BUFF_MENU_BASE_Y, 0)), _selected_buff_option(0), _buff_menu_hold_timer(0), _buff_menu_cooldown_timer(0)
+        : _hp(HUD_MAX_HP), _is_visible(true), _weapon(WEAPON_TYPE::SWORD), _weapon_sprite(bn::sprite_items::icon_gun.create_sprite(HUD_WEAPON_ICON_X, HUD_WEAPON_ICON_Y, 0)), _soul_sprite(bn::sprite_items::soul.create_sprite(HUD_SOUL_INITIAL_X, HUD_SOUL_INITIAL_Y, 0)), _soul_positioned(false), _defense_buff_active(false), _defense_buff_fading(false), _silver_soul_active(false), _silver_soul_reversing(false), _silver_idle_timer(0), _health_gain_anim_active(false), _health_loss_anim_active(false), _resetting_health(false), _displayed_ammo(HUD_MAX_AMMO), _buff_menu_state(BUFF_MENU_STATE::CLOSED), _buff_menu_base(bn::sprite_items::temptest.create_sprite(HUD_BUFF_MENU_BASE_X, HUD_BUFF_MENU_BASE_Y, 0)), _selected_buff_option(0), _buff_menu_hold_timer(0), _buff_menu_cooldown_timer(0)
     {
         // Initialize healthbar background
         _health_bg = bn::regular_bg_items::healthbar.create_bg(
@@ -75,12 +77,78 @@ namespace fe
 
     void HUD::set_hp(int hp)
     {
+        int old_hp = _hp;
         _hp = bn::max(0, bn::min(HUD_MAX_HP, hp));
 
         if (_health_bg.has_value())
         {
             _health_bg->set_map(bn::regular_bg_items::healthbar.map_item(), _hp);
         }
+
+        // Trigger health transition animations based on change
+        if (_hp > old_hp)
+        {
+            // Health gained
+            if (old_hp == 0 && _hp == 1)
+            {
+                play_health_gain_0_to_1();
+            }
+            else if (old_hp == 1 && _hp == 2)
+            {
+                play_health_gain_1_to_2();
+            }
+            else if (old_hp < 3 && _hp == 3)
+            {
+                // When reaching full health (3), activate soul shield (unless resetting)
+                if (!_resetting_health)
+                {
+                    activate_soul_animation();
+                }
+                else
+                {
+                    // During reset, ensure soul is set to regular soul sprite with shield appearance
+                    _soul_sprite.set_item(bn::sprite_items::soul);
+                    _soul_sprite.set_tiles(bn::sprite_items::soul.tiles_item().create_tiles(4)); // Frame 4 = shielded state
+                    _soul_action.reset();
+                    _defense_buff_active = true; // Mark defense buff as active
+                }
+            }
+        }
+        else if (_hp < old_hp)
+        {
+            // Health lost
+            if (old_hp == 3 && _hp < 3)
+            {
+                // Play reverse soul animation when losing soul shield (3rd health slot)
+                play_soul_damage_animation();
+            }
+            else if (old_hp == 2 && _hp == 1)
+            {
+                // Specific animation for 2->1 health loss
+                play_health_loss_2_to_1();
+            }
+            else if (old_hp == 1 && _hp == 0)
+            {
+                // Specific animation for 1->0 health loss
+                play_health_loss_1_to_0();
+            }
+            else
+            {
+                // Generic health loss animation for other cases
+                play_health_loss_animation();
+            }
+        }
+    }
+
+    void HUD::set_resetting_health(bool resetting)
+    {
+        _resetting_health = resetting;
+    }
+
+    bool HUD::is_soul_animation_complete() const
+    {
+        // Soul animation is complete if there's no active animation or if the active animation is done
+        return !_soul_action.has_value() || _soul_action.value().done();
     }
 
     void HUD::set_position(int x, int y)
@@ -282,15 +350,49 @@ namespace fe
             _soul_action.reset();
             _defense_buff_fading = false;
         }
+
+        // Handle health gain animation completion - return to appropriate idle state
+        if (_health_gain_anim_active && _soul_action.has_value() && _soul_action.value().done())
+        {
+            // Keep the current sprite (soul_half_1 or soul_half_2) and set to idle frame 0
+            if (_hp == 1)
+            {
+                _soul_sprite.set_tiles(bn::sprite_items::soul_half_1.tiles_item().create_tiles(0));
+            }
+            else if (_hp == 2)
+            {
+                _soul_sprite.set_tiles(bn::sprite_items::soul_half_2.tiles_item().create_tiles(0));
+            }
+            _health_gain_anim_active = false;
+        }
+
+        // Handle health loss animation completion - return to appropriate idle state
+    if (_health_loss_anim_active && _soul_action.has_value() && _soul_action.value().done())
+    {
+        // Return to appropriate soul sprite based on current health
+        if (_hp == 0)
+        {
+            // Keep soul_half_1 sprite when HP is 0 (until respawn)
+            _soul_sprite.set_item(bn::sprite_items::soul_half_1);
+            _soul_sprite.set_tiles(bn::sprite_items::soul_half_1.tiles_item().create_tiles(0));
+        }
+        else if (_hp == 1)
+        {
+            _soul_sprite.set_item(bn::sprite_items::soul_half_1);
+            _soul_sprite.set_tiles(bn::sprite_items::soul_half_1.tiles_item().create_tiles(0));
+        }
+        else if (_hp == 2)
+        {
+            _soul_sprite.set_item(bn::sprite_items::soul_half_2);
+            _soul_sprite.set_tiles(bn::sprite_items::soul_half_2.tiles_item().create_tiles(0));
+        }
+        _soul_action.reset();
+        _health_loss_anim_active = false;
+    }
     }
 
     void HUD::set_weapon(WEAPON_TYPE weapon)
     {
-        if (_weapon == weapon)
-        {
-            return;
-        }
-
         _weapon = weapon;
 
         // Recreate weapon sprite (both types use icon_gun for now)
@@ -573,5 +675,85 @@ namespace fe
                 }
             }
         }
+    }
+
+    void HUD::play_health_gain_0_to_1()
+    {
+        // Cancel any existing animations
+        _health_gain_anim_active = false;
+        _health_loss_anim_active = false;
+        
+        // Switch to soul_half_1 sprite and play 6-frame countdown animation
+        _soul_sprite.set_item(bn::sprite_items::soul_half_1);
+        _soul_action = bn::create_sprite_animate_action_once(
+            _soul_sprite, HUD_SOUL_ANIM_SPEED,
+            bn::sprite_items::soul_half_1.tiles_item(),
+            5, 4, 3, 2, 1, 0); // 6 frames counting down, frame 0 is idle
+        
+        _health_gain_anim_active = true;
+    }
+
+    void HUD::play_health_gain_1_to_2()
+    {
+        // Cancel any existing animations
+        _health_gain_anim_active = false;
+        _health_loss_anim_active = false;
+        
+        // Switch to soul_half_2 sprite and play 6-frame countdown animation
+        _soul_sprite.set_item(bn::sprite_items::soul_half_2);
+        _soul_action = bn::create_sprite_animate_action_once(
+            _soul_sprite, HUD_SOUL_ANIM_SPEED,
+            bn::sprite_items::soul_half_2.tiles_item(),
+            5, 4, 3, 2, 1, 0); // 6 frames counting down, frame 0 is idle
+        
+        _health_gain_anim_active = true;
+    }
+
+    void HUD::play_health_loss_2_to_1()
+    {
+        // Cancel any existing animations
+        _health_gain_anim_active = false;
+        _health_loss_anim_active = false;
+        
+        // Start with soul_half_2 sprite and play flash animation
+        _soul_sprite.set_item(bn::sprite_items::soul_half_2);
+        _soul_action = bn::create_sprite_animate_action_once(
+            _soul_sprite, HUD_SOUL_ANIM_SPEED,
+            bn::sprite_items::soul_half_2.tiles_item(),
+            0, 1, 2, 3, 4, 3, 2, 1, 0); // Simple flash animation
+        
+        _health_loss_anim_active = true;
+    }
+
+    void HUD::play_health_loss_1_to_0()
+    {
+        // Cancel any existing animations
+        _health_gain_anim_active = false;
+        _health_loss_anim_active = false;
+        
+        // Start with soul_half_1 sprite and play safe flash animation
+        _soul_sprite.set_item(bn::sprite_items::soul_half_1);
+        _soul_action = bn::create_sprite_animate_action_once(
+            _soul_sprite, HUD_SOUL_ANIM_SPEED,
+            bn::sprite_items::soul_half_1.tiles_item(),
+            0, 1, 2, 3, 4, 3, 2, 1, 0); // Simple flash animation using safe frames
+        
+        _health_loss_anim_active = true;
+    }
+
+    void HUD::play_health_loss_animation()
+    {
+        // Cancel any existing animations
+        _health_gain_anim_active = false;
+        _health_loss_anim_active = false;
+        
+        // Use regular soul sprite for damage animation (could be customized)
+        _soul_sprite.set_item(bn::sprite_items::soul);
+        _soul_action = bn::create_sprite_animate_action_once(
+            _soul_sprite, HUD_SOUL_ANIM_SPEED,
+            bn::sprite_items::soul.tiles_item(),
+            0, 1, 2, 3, 4, 3, 2, 1, 0); // Simple flash animation
+        
+        _health_loss_anim_active = true;
     }
 }

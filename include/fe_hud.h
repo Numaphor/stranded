@@ -57,6 +57,8 @@ namespace fe
         [[nodiscard]] int hp() const;
         void set_hp(int hp);
         void set_position(int x, int y); // Set healthbar position (soul follows)
+        void set_resetting_health(bool resetting); // Prevent soul animations during reset
+        [[nodiscard]] bool is_soul_animation_complete() const; // Check if soul animation is done
 
         // Visibility control
         void set_visible(bool is_visible);
@@ -67,6 +69,13 @@ namespace fe
         void play_soul_damage_animation(); // Visual feedback when taking damage
         void activate_silver_soul();       // Energy buff visual
         void deactivate_silver_soul();     // Return from energy buff
+
+        // Health transition animations
+        void play_health_gain_0_to_1();    // Animation for 0->1 health gain
+        void play_health_gain_1_to_2();    // Animation for 1->2 health gain
+        void play_health_loss_2_to_1();    // Animation for 2->1 health loss
+        void play_health_loss_1_to_0();    // Animation for 1->0 health loss
+        void play_health_loss_animation(); // Generic health loss animation
 
         // Main update loop
         void update();
@@ -124,6 +133,11 @@ namespace fe
         bool _silver_soul_active;
         bool _silver_soul_reversing;
         int _silver_idle_timer;
+
+        // Health transition states
+        bool _health_gain_anim_active;
+        bool _health_loss_anim_active;
+        bool _resetting_health;
 
         // Ammo display
         bn::optional<bn::sprite_ptr> _ammo_sprite;
