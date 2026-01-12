@@ -14,17 +14,18 @@ Stranded is an action-packed adventure game that combines classic top-down RPG m
 
 ### 🎮 Gameplay
 - **Top-down action combat** with multiple weapon types
-- **Hero character** with additional character sprites (Agent, Soldier, Swordmaster, Bunny) available as assets for future implementation
-- **Enemy encounters** with Spearguard enemies (additional enemy types like Mutants and Slimes are in development)
-- **Interactive NPCs** including merchants (Merchant, Tortoise)
+- **Hero character** with sword combat abilities
+- **Enemy encounters** with Spearguard enemies
+- **Interactive NPCs** including merchants
 - **Companion system** with combat assistance and revival mechanics
 - **World state management** with save/load functionality
 
 ### 🌍 Worlds & Exploration
-- **Multiple interconnected worlds** (Main World, Forest Area, Desert Zone)
-- **Dynamic environments** with unique enemies and NPCs per world
+- **Multiple interconnected worlds** (Main World, Forest Area)
+- **Dynamic environments** with unique enemies per world
 - **Minimap system** for navigation
 - **Zone-based interactions** and collision detection
+- **Zoom feature** for tactical overview (toggle with SELECT key)
 
 ### ⚔️ Combat System
 - **Multiple movement states** (Idle, Walking, Running, Rolling, Combat)
@@ -109,9 +110,9 @@ The build system automatically processes assets and uses the following directori
 - `src/` - C++ source files
 - `include/` - Header files  
 - `graphics/` - Visual assets organized by type:
-  - `sprite/player/` - Player character sprites (hero.bmp, agent.bmp, etc.)
-  - `sprite/enemy/` - Enemy sprites (mutant.bmp, spearguard.bmp, etc.)
-  - `sprite/npc/` - NPC sprites for interactions
+  - `sprite/player/` - Player character sprites (hero_sword.bmp, soldier.bmp)
+  - `sprite/enemy/` - Enemy sprites (spearguard.bmp)
+  - `sprite/npc/` - NPC sprites (merchant.bmp, companion.bmp)
   - `sprite/vfx/` - Visual effects
   - `bg/` - Background tiles and maps
 - `audio/` - Sound effects (`.wav`) and music (`.it` modules)
@@ -135,28 +136,25 @@ The build system automatically processes assets and uses the following directori
 
 ### Debug Controls
 - **Select + A** - Access world selection menu
+- **Select** - Toggle zoom (tactical view)
 
 ## Game Content
 
 ### Playable Character
-The game features the **Hero** character with complete animations and abilities. Additional character sprites (Agent, Soldier, Swordmaster, Bunny) are available in the graphics assets for future implementation.
+The game features the **Hero** character with complete sword combat animations and abilities.
 
 ### Worlds
-Explore three distinct environments:
-- **Main World (World 0)** - Starting area with merchant NPCs and balanced enemy encounters
-- **Forest Area (World 1)** - Forest-themed environment with unique tile sets
-- **Desert Zone (World 2)** - Challenging desert area with tougher enemies and Tortoise NPC
+Explore two distinct environments:
+- **Main World (World 0)** - Starting area with merchant NPC and balanced enemy encounters
+- **Forest Area (World 1)** - Forest-themed environment with unique tile sets and enemy configurations
 
 ### Enemies
 Battle against enemy encounters:
 - **Spearguard** - Melee combatants with patrol and chase patterns
 
-Additional enemy types (Mutant, Slime) are defined in the codebase and available for future implementation.
-
 ### NPCs
 Interact with non-player characters:
-- **Merchant** - Trade and shop keeper in the Main World
-- **Tortoise** - Desert dweller NPC in the Desert Zone
+- **Merchant** - Trade and shop keeper
 
 ### Companion System
 A loyal companion that follows and assists in combat:
@@ -167,7 +165,6 @@ A loyal companion that follows and assists in combat:
 ## Game Mechanics
 
 ### Character Progression
-- Multiple character types with unique abilities
 - Health and status management
 - Equipment and power-up systems
 
