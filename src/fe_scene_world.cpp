@@ -534,6 +534,28 @@ namespace fe
                     }
                 }
 
+                // Check for collision with player's melee attacks
+                if (_player->is_attacking())
+                {
+                    Hitbox melee_hitbox = _player->get_melee_hitbox();
+                    Hitbox enemy_hitbox = enemy.get_hitbox();
+
+                    if (melee_hitbox.collides_with(enemy_hitbox))
+                    {
+                        // Melee hit enemy - enemy takes 1 damage
+                        bool damage_from_left = melee_hitbox.x() < enemy.get_position().x();
+
+                        if (damage_from_left)
+                        {
+                            enemy.damage_from_left(1);
+                        }
+                        else
+                        {
+                            enemy.damage_from_right(1);
+                        }
+                    }
+                }
+
                 // Remove dead enemies only after death animation completes
                 if (enemy.is_ready_for_removal())
                 {

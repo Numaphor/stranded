@@ -292,6 +292,9 @@ namespace fe
         // Check if player is currently performing a melee attack
         [[nodiscard]] bool is_attacking() const;
 
+        // Get melee attack hitbox for collision detection
+        [[nodiscard]] Hitbox get_melee_hitbox() const;
+
         // Access to HUD for weapon management
         [[nodiscard]] fe::HUD &get_hud() { return _hud; }
 

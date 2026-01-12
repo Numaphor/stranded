@@ -15,10 +15,10 @@ namespace fe
     constexpr int MAP_OFFSET_Y = MAP_ROWS * 4;
     constexpr int MAP_OFFSET = MAP_OFFSET_X;
 
-    constexpr int SWORD_ZONE_TILE_LEFT = 147;
+    constexpr int SWORD_ZONE_TILE_LEFT = 145;
     constexpr int SWORD_ZONE_TILE_RIGHT = 157;
-    constexpr int SWORD_ZONE_TILE_TOP = 162;
-    constexpr int SWORD_ZONE_TILE_BOTTOM = 166;
+    constexpr int SWORD_ZONE_TILE_TOP = 159;
+    constexpr int SWORD_ZONE_TILE_BOTTOM = 165;
 
     constexpr int SWORD_WIDTH = 256;
     constexpr int SWORD_HEIGHT = 256;

@@ -363,6 +363,51 @@ namespace fe
                _movement.current_state() == PlayerMovement::State::ATTACKING;
     }
 
+    Hitbox Player::get_melee_hitbox() const
+    {
+        if (!is_attacking())
+        {
+            // Return empty hitbox when not attacking
+            return Hitbox(0, 0, 0, 0);
+        }
+
+        bn::fixed_point attack_pos = pos();
+        PlayerMovement::Direction dir = _movement.facing_direction();
+        
+        // Melee attack range and size based on direction
+        bn::fixed range = 24; // Attack range in pixels
+        bn::fixed width = 32;  // Attack width
+        bn::fixed height = 16; // Attack height
+        
+        bn::fixed hitbox_x = attack_pos.x();
+        bn::fixed hitbox_y = attack_pos.y() + PLAYER_SPRITE_Y_OFFSET; // Align with sprite
+        
+        // Adjust position based on direction
+        switch (dir)
+        {
+        case PlayerMovement::Direction::UP:
+            hitbox_y -= range;
+            hitbox_x -= width / 2;
+            break;
+        case PlayerMovement::Direction::DOWN:
+            hitbox_y += range;
+            hitbox_x -= width / 2;
+            break;
+        case PlayerMovement::Direction::LEFT:
+            hitbox_x -= range;
+            hitbox_y -= height / 2;
+            break;
+        case PlayerMovement::Direction::RIGHT:
+            hitbox_x += range;
+            hitbox_y -= height / 2;
+            break;
+        default:
+            break;
+        }
+        
+        return Hitbox(hitbox_x, hitbox_y, width, height);
+    }
+
     // Direction utility function implementations
     namespace direction_utils
     {
