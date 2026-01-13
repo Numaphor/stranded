@@ -108,12 +108,12 @@ namespace fe
     constexpr bn::fixed PLAYER_ROLL_SPEED = 3.75;
     constexpr int PLAYER_ROLL_DURATION = 64;
     constexpr int PLAYER_DEATH_ANIMATION_DURATION = 180;
-    constexpr int PLAYER_CHOP_DURATION = 40;
-    constexpr int PLAYER_SLASH_DURATION = 25;
-    constexpr int PLAYER_ATTACK_DURATION = 40;
+    constexpr int PLAYER_CHOP_DURATION = 25;
+    constexpr int PLAYER_SLASH_DURATION = 15;
+    constexpr int PLAYER_ATTACK_DURATION = 25;
     constexpr int PLAYER_BUFF_DURATION = 96;
 
-    constexpr bn::fixed ENEMY_KNOCKBACK_STRENGTH = 2.5;
+    constexpr bn::fixed ENEMY_KNOCKBACK_STRENGTH = 3.5;
     constexpr int ENEMY_DEATH_ANIMATION_DURATION = 150;
     constexpr int ENEMY_KNOCKBACK_DURATION = 10;
     constexpr bn::fixed ENEMY_ATTACK_DISTANCE = 20;

@@ -291,6 +291,9 @@ namespace fe
 
         // Check if player is currently performing a melee attack
         [[nodiscard]] bool is_attacking() const;
+        
+        // Check if player can start a new attack (prevents attack spamming)
+        [[nodiscard]] bool can_start_attack() const;
 
         // Get melee attack hitbox for collision detection
         [[nodiscard]] Hitbox get_melee_hitbox() const;
@@ -345,9 +348,17 @@ namespace fe
         bool _is_strafing = false;
         PlayerMovement::Direction _strafing_direction = PlayerMovement::Direction::DOWN;
 
+        // Combo system for sword attacks
+        int _last_attack_time = 0;                    // Frame counter for combo timing
+        bool _combo_ready = false;                    // Whether next attack should be chop
+        static constexpr int COMBO_WINDOW = 60;       // 1 second (60 frames) for combo timing
+
         // Companion
         bn::optional<PlayerCompanion> _companion;
         bool _companion_initialized = false;
+
+        // Frame counter for combo timing
+        int _frame_counter = 0;
 
         void update_animation(); // Helper to update animation state
         void fire_bullet(PlayerMovement::Direction direction);

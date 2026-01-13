@@ -361,6 +361,12 @@ namespace fe
                _movement.current_state() == PlayerMovement::State::ATTACKING;
     }
 
+    bool Player::can_start_attack() const
+    {
+        // Can only start new attack if not currently attacking and not in any other action
+        return !is_attacking() && !_movement.is_performing_action();
+    }
+
     Hitbox Player::get_melee_hitbox() const
     {
         if (!is_attacking())
@@ -372,8 +378,20 @@ namespace fe
         bn::fixed_point attack_pos = pos();
         PlayerMovement::Direction dir = _movement.facing_direction();
         
-        // Melee attack range and size based on direction
-        bn::fixed range = 24; // Attack range in pixels
+        // Melee attack range and size based on attack type
+        bn::fixed range;
+        if (_movement.is_state(PlayerMovement::State::SLASHING))
+        {
+            range = 24 * 1.1; // 10% increase for slash: 24 → 26.4
+        }
+        else if (_movement.is_state(PlayerMovement::State::CHOPPING))
+        {
+            range = 24 * 1.2; // 20% increase for chop: 24 → 28.8
+        }
+        else
+        {
+            range = 24; // Default range for other attacks
+        }
         bn::fixed width = 32;  // Attack width
         bn::fixed height = 16; // Attack height
         

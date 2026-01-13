@@ -67,8 +67,12 @@ namespace fe
             frame_count = anim.side_count;
         }
 
-        // Use non-looping animation for death and rolling states, looping for all others
-        if (state == PlayerMovement::State::DEAD || state == PlayerMovement::State::ROLLING)
+        // Use non-looping animation for death, rolling, and attack states, looping for all others
+        if (state == PlayerMovement::State::DEAD || 
+            state == PlayerMovement::State::ROLLING ||
+            state == PlayerMovement::State::SLASHING ||
+            state == PlayerMovement::State::ATTACKING ||
+            state == PlayerMovement::State::CHOPPING)
         {
             make_anim_range_once(anim.speed, start_frame, start_frame + frame_count - 1);
         }
