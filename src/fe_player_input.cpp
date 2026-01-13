@@ -140,10 +140,24 @@ namespace fe
                         fire_bullet(_is_strafing ? _strafing_direction : _movement.facing_direction());
                     }
                 }
-                else if (_abilities.slashing_available())
+                else if ((_combo_ready && _abilities.chopping_available() && can_start_attack()) || (!_combo_ready && _abilities.slashing_available() && can_start_attack()))
                 {
-                    _movement.start_action(PlayerMovement::State::SLASHING, PLAYER_SLASH_DURATION);
-                    _abilities.set_slash_cooldown(60);
+                    // Check if we should do chop attack (combo)
+                    if (_combo_ready && (_frame_counter - _last_attack_time) <= COMBO_WINDOW)
+                    {
+                        // Perform CHOPPING attack (second hit in combo)
+                        _movement.start_action(PlayerMovement::State::CHOPPING, PLAYER_CHOP_DURATION);
+                        _abilities.set_chop_cooldown(30);
+                        _combo_ready = false; // Reset combo
+                    }
+                    else
+                    {
+                        // Perform SLASHING attack (first hit in combo)
+                        _movement.start_action(PlayerMovement::State::SLASHING, PLAYER_SLASH_DURATION);
+                        _abilities.set_slash_cooldown(30);
+                        _last_attack_time = _frame_counter; // Record attack time
+                        _combo_ready = true; // Next attack should be chop
+                    }
                 }
             }
             else if (bn::keypad::select_held() && _abilities.buff_abilities_available())
@@ -475,6 +489,10 @@ namespace fe
 
     void Player::switch_weapon()
     {
+        // Reset combo system when switching weapons
+        _combo_ready = false;
+        _last_attack_time = 0;
+
         // Switch between SWORD and GUN
         if (_hud.get_weapon() == WEAPON_TYPE::GUN)
         {
