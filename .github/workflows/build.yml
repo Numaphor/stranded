@@ -122,6 +122,46 @@ jobs:
             exit 1
           fi
 
+      - name: Install mGBA Python bindings for multiplayer tests
+        env:
+          MGBA_VERSION: "0.10.3"
+        run: |
+          # Install dependencies for mGBA build
+          sudo apt-get update
+          sudo apt-get install -y cmake libpng-dev libsqlite3-dev python3-dev python3-cffi \
+            libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libavfilter-dev \
+            python3-pip
+
+          # Clone and build mGBA with Python bindings
+          git clone --depth 1 --branch "$MGBA_VERSION" https://github.com/mgba-emu/mgba.git /tmp/mgba-src
+          cd /tmp/mgba-src && mkdir -p build && cd build
+          cmake -DBUILD_PYTHON=ON -DBUILD_QT=OFF -DBUILD_SDL=OFF \
+            -DUSE_MINIZIP=OFF -DUSE_LIBZIP=OFF \
+            -DUSE_PNG=ON -DUSE_FFMPEG=ON -DUSE_DISCORD_RPC=OFF ..
+          make -j$(nproc)
+
+          # Install Python dependencies
+          pip install cached_property Pillow
+
+      - name: Run multiplayer tests
+        run: |
+          # Dynamically find the mGBA Python module path
+          MGBA_PYTHON_PATH=$(find /tmp/mgba-src/build/python -name "lib.*" -type d 2>/dev/null | head -1)
+          if [ -z "$MGBA_PYTHON_PATH" ]; then
+            echo "Warning: Could not find mGBA Python module path"
+            MGBA_PYTHON_PATH="/tmp/mgba-src/build/python"
+          fi
+
+          # Set up environment for mGBA Python bindings
+          export PYTHONPATH="$MGBA_PYTHON_PATH:$PYTHONPATH"
+          export LD_LIBRARY_PATH="/tmp/mgba-src/build:$LD_LIBRARY_PATH"
+
+          echo "Using PYTHONPATH: $PYTHONPATH"
+
+          # Run multiplayer tests
+          cd $GITHUB_WORKSPACE
+          python3 tests/test_multiplayer.py
+
       - name: Upload ROM Artifact
         uses: actions/upload-artifact@v4
         if: success()
