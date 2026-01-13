@@ -108,12 +108,12 @@ int main()
 #include "bn_affine_bg_ptr.h"           // Affine backgrounds
 #include "bn_bg_palettes.h"             // Background palettes
 #include "bn_sprite_text_generator.h"   // Text rendering
-#include "bn_music. h"                   // Music playback
+#include "bn_music.h"                   // Music playback
 #include "bn_sound.h"                   // Sound effects
 #include "bn_sram.h"                    // Save data
 #include "bn_fixed.h"                   // Fixed-point math
 #include "bn_fixed_point.h"             // Fixed-point 2D vectors
-#include "bn_vector. h"                  // Dynamic arrays
+#include "bn_vector.h"                  // Dynamic arrays
 #include "bn_array.h"                   // Static arrays
 #include "bn_string.h"                  // Strings
 #include "bn_log.h"                     // Logging (emulator only)
@@ -130,42 +130,29 @@ int main()
 // Simple creation
 bn::sprite_ptr player = bn::sprite_items::player.create_sprite(0, 0);
 player.set_position(x, y);
-player.set_x(new_x);
-player.set_y(new_y);
 player.set_rotation_angle(degrees);  // 0-360
 player.set_scale(1.5);
-player.set_horizontal_scale(2);
-player.set_vertical_scale(0.5);
 player.set_horizontal_flip(true);
-player.set_vertical_flip(false);
 player.set_visible(true);
 player.set_bg_priority(0);           // 0-3, lower = in front
-player.set_z_order(0);               // Relative order within same priority
-player.set_mosaic_enabled(true);
-player.set_blending_enabled(true);
 
 // Using builder for complex setup
 bn::sprite_builder builder(bn::sprite_items::player);
 builder.set_position(48, 24);
 builder.set_scale(2);
 builder.set_rotation_angle(45);
-builder.set_horizontal_flip(true);
-builder.set_mosaic_enabled(true);
-builder.set_blending_enabled(true);
 bn::sprite_ptr sprite = builder.build();
 ```
 
 ### Regular Backgrounds
 ```cpp
 #include "bn_regular_bg_ptr.h"
-#include "bn_regular_bg_items_level. h"
+#include "bn_regular_bg_items_level.h"
 
-bn::regular_bg_ptr bg = bn::regular_bg_items::level. create_bg(0, 0);
+bn::regular_bg_ptr bg = bn::regular_bg_items::level.create_bg(0, 0);
 bg.set_position(x, y);
 bg.set_priority(2);          // 0-3, lower = in front
 bg.set_visible(true);
-bg.set_mosaic_enabled(true);
-bg.set_blending_enabled(true);
 ```
 
 ### Affine Backgrounds (Rotation/Scaling)
@@ -173,7 +160,7 @@ bg.set_blending_enabled(true);
 #include "bn_affine_bg_ptr.h"
 #include "bn_affine_bg_items_world.h"
 
-bn::affine_bg_ptr bg = bn:: affine_bg_items::world.create_bg(0, 0);
+bn::affine_bg_ptr bg = bn::affine_bg_items::world.create_bg(0, 0);
 bg.set_rotation_angle(45);
 bg.set_scale(2);
 bg.set_horizontal_scale(1.5);
@@ -188,79 +175,55 @@ bg.set_pivot_position(120, 80);
 // Pressed this frame (rising edge)
 if(bn::keypad::a_pressed()) { }
 if(bn::keypad::b_pressed()) { }
-if(bn::keypad::l_pressed()) { }
-if(bn::keypad::r_pressed()) { }
-if(bn::keypad::start_pressed()) { }
-if(bn::keypad::select_pressed()) { }
 if(bn::keypad::up_pressed()) { }
-if(bn::keypad::down_pressed()) { }
-if(bn::keypad::left_pressed()) { }
-if(bn::keypad::right_pressed()) { }
 
 // Held down (level)
-if(bn::keypad:: a_held()) { }
+if(bn::keypad::a_held()) { }
 if(bn::keypad::left_held()) { }
-if(bn::keypad::right_held()) { }
 
 // Released this frame (falling edge)
 if(bn::keypad::b_released()) { }
 
 // Any key
 if(bn::keypad::any_pressed()) { }
-if(bn::keypad::any_held()) { }
 ```
 
 ### Fixed-Point Math (No Floats on GBA)
 ```cpp
 #include "bn_fixed.h"
 #include "bn_fixed_point.h"
-#include "bn_fixed_size. h"
-#include "bn_fixed_rect.h"
 #include "bn_math.h"
 
 // Basic fixed-point
 bn::fixed speed = 1.5;
 bn::fixed result = speed * 2;        // 3.0
-int whole = result. integer();        // 3
-bn::fixed frac = result. fraction();  // 0.0
+int whole = result.integer();        // 3
 bn::fixed rounded = result.round_integer();
 
 // 2D point
 bn::fixed_point position(100.5, 50.25);
 position.set_x(position.x() + speed);
-bn::fixed dist = position.x();
-
-// Size and rectangles
-bn::fixed_size size(32, 32);
-bn::fixed_rect rect(position, size);
 
 // Math functions
 bn::fixed angle = 45;
 bn::fixed sin_val = bn::degrees_lut_sin(angle);
 bn::fixed cos_val = bn::degrees_lut_cos(angle);
 bn::fixed abs_val = bn::abs(value);
-bn::fixed min_val = bn::min(a, b);
-bn::fixed max_val = bn::max(a, b);
-bn::fixed clamped = bn::clamp(value, min, max);
-int sqrt_val = bn::sqrt(100);  // Integer square root
 ```
 
 ### Audio
 ```cpp
 #include "bn_music.h"
 #include "bn_sound.h"
-#include "bn_music_items. h"
+#include "bn_music_items.h"
 #include "bn_sound_items.h"
 
 // Music (one track at a time)
 bn::music_items::bgm_title.play(0.5);    // volume 0.0-1.0
-bn:: music:: pause();
+bn::music::pause();
 bn::music::resume();
 bn::music::stop();
 bn::music::set_volume(0.8);
-bn::music::set_tempo(1.2);               // Speed multiplier
-bool playing = bn::music::playing();
-bool paused = bn::music::paused();
 
 // Sound effects (multiple simultaneous)
 bn::sound_items::sfx_jump.play();
@@ -273,8 +236,8 @@ bn::sound_items::sfx_coin.play(1.0, 1.5, 0);  // volume, speed, panning (-1 to 1
 #include "bn_dmg_music.h"
 #include "bn_dmg_music_items.h"
 
-bn:: dmg_music_items::song. play();
-bn::dmg_music:: pause();
+bn::dmg_music_items::song.play();
+bn::dmg_music::pause();
 bn::dmg_music::resume();
 bn::dmg_music::stop();
 bn::dmg_music::set_volume(0.8);
@@ -287,13 +250,11 @@ bn::dmg_music::set_volume(0.8);
 #include "bn_string.h"
 #include "common_variable_8x16_sprite_font.h"
 
-bn::sprite_text_generator text_generator(common:: variable_8x16_sprite_font);
+bn::sprite_text_generator text_generator(common::variable_8x16_sprite_font);
 bn::vector<bn::sprite_ptr, 32> text_sprites;
 
 // Alignment
-text_generator.set_left_alignment();
 text_generator.set_center_alignment();
-text_generator.set_right_alignment();
 
 // Generate text
 text_generator.generate(0, 0, "Hello GBA!", text_sprites);
@@ -323,27 +284,18 @@ struct save_data
 save_data data;
 bn::sram::read(data);
 
-// Validate format tag
-bn::array<char, 16> expected_tag;
-bn::istring_base tag_string(expected_tag._data);
-bn::ostringstream(tag_string).append("MYGAME_V1");
-
+// Validate format tag and initialize if needed
 if(data.format_tag != expected_tag)
 {
-    // First run or corrupted save - initialize defaults
+    // Initialize defaults
     data.format_tag = expected_tag;
     data.high_score = 0;
     data.current_level = 1;
-    data.unlocked_levels.fill(0);
-    data.unlocked_levels[0] = 1;
 }
 
 // Write save
 data.high_score = 1000;
 bn::sram::write(data);
-
-// Clear all save data
-bn::sram::clear(bn::sram::size());
 ```
 
 ### Sprite Animations
@@ -365,9 +317,9 @@ bn::sprite_animate_action<4> jump_action = bn::create_sprite_animate_action_once
 );
 
 // In game loop
-if(! walk_action.done())
+if(!walk_action.done())
 {
-    walk_action. update();
+    walk_action.update();
 }
 ```
 
@@ -381,7 +333,7 @@ bn::sprite_move_to_action move_action(sprite, 60, target_x, target_y);
 bn::sprite_move_by_action move_by(sprite, 30, delta_x, delta_y);
 
 // Scale
-bn::sprite_scale_to_action scale_action(sprite, 30, 2. 0);
+bn::sprite_scale_to_action scale_action(sprite, 30, 2.0);
 
 // Rotate
 bn::sprite_rotate_to_action rotate_action(sprite, 45, 180);
@@ -400,13 +352,13 @@ if(!move_action.done())
 ```cpp
 #include "bn_bg_palettes.h"
 #include "bn_sprite_palettes.h"
-#include "bn_color. h"
+#include "bn_color.h"
 
 // Transparent color (color 0)
 bn::bg_palettes::set_transparent_color(bn::color(16, 16, 16));
 
 // Global effects
-bn::bg_palettes:: set_brightness(0.5);      // -1.0 to 1.0
+bn::bg_palettes::set_brightness(0.5);      // -1.0 to 1.0
 bn::bg_palettes::set_contrast(0.5);        // -1.0 to 1.0
 bn::bg_palettes::set_intensity(0.5);       // -1.0 to 1.0
 bn::bg_palettes::set_grayscale_intensity(1.0);  // 0.0 to 1.0
@@ -414,14 +366,13 @@ bn::bg_palettes::set_fade_intensity(0.5);
 bn::bg_palettes::set_fade_color(bn::color(31, 31, 31));  // Fade to white
 
 // Same for sprites
-bn::sprite_palettes:: set_brightness(0.3);
+bn::sprite_palettes::set_brightness(0.3);
 bn::sprite_palettes::set_grayscale_intensity(0.5);
 
 // Individual palette manipulation
 bn::sprite_palette_ptr palette = sprite.palette();
 palette.set_fade(bn::color(0, 0, 0), 0.5);  // Fade to black
 palette.set_inverted(true);
-palette.set_grayscale_intensity(1.0);
 ```
 
 ### Blending
@@ -514,7 +465,7 @@ uint64_t seconds = ticks / bn::timers::ticks_per_second();
 
 ### Date and Time (RTC)
 ```cpp
-#include "bn_date. h"
+#include "bn_date.h"
 #include "bn_time.h"
 
 if(bn::date::active())
@@ -543,10 +494,10 @@ if(bn::time::active())
 
 ### Link Cable (Multiplayer)
 ```cpp
-#include "bn_link. h"
+#include "bn_link.h"
 #include "bn_link_state.h"
 
-bn::link:: activate(19);  // Baud rate divider
+bn::link::activate(19);  // Baud rate divider
 
 if(bn::optional<bn::link_state> link_state = bn::link::receive())
 {
@@ -567,7 +518,6 @@ bn::link::deactivate();
 // Enable logging:  USERFLAGS := -DBN_CFG_LOG_ENABLED=true
 #include "bn_log.h"
 BN_LOG("Player position: ", player.x(), ", ", player.y());
-BN_LOG("Health: ", health, " Lives: ", lives);
 
 // Enable profiler:  USERFLAGS := -DBN_CFG_PROFILER_ENABLED=true
 #include "bn_profiler.h"
@@ -575,16 +525,11 @@ BN_PROFILER_START("physics");
 // code to measure
 BN_PROFILER_STOP();
 
-BN_PROFILER_START("rendering");
-// more code
-BN_PROFILER_STOP();
-
 bn::profiler::show();  // Display results on screen
 
 // Assertions (always available)
 #include "bn_assert.h"
-BN_ASSERT(health > 0, "Health must be positive:  ", health);
-BN_ASSERT(index >= 0 && index < size, "Index out of bounds");
+BN_ASSERT(health > 0, "Health must be positive: ", health);
 BN_ERROR("Unreachable code reached");
 ```
 
@@ -592,7 +537,7 @@ BN_ERROR("Unreachable code reached");
 ```cpp
 #include "bn_core.h"
 
-bn::core:: init();           // Initialize engine (call once at start)
+bn::core::init();           // Initialize engine (call once at start)
 bn::core::update();         // Process frame (call once per frame)
 bn::core::reset();          // Soft reset
 bn::core::sleep(bn::keypad::key_type::A);  // Sleep until key pressed
@@ -961,4 +906,3 @@ This method works in headless CI environments like GitHub Actions:
     export LD_LIBRARY_PATH="/tmp/mgba-src/build:$LD_LIBRARY_PATH"
     pip install cached_property Pillow
     python test_game.py
-```
