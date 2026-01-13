@@ -70,9 +70,10 @@ namespace fe
             // Flip sprite based on direction
             bool facing_left = (_direction == PlayerMovement::Direction::LEFT);
             _sprite->set_horizontal_flip(facing_left);
+            
+            // Update animation (only when sprite is visible)
+            update_animation();
         }
-        
-        update_animation();
     }
 
     void RemotePlayer::set_visible(bool visible)
@@ -275,9 +276,9 @@ namespace fe
 
     int MultiplayerManager::encode_player_data(bn::fixed_point pos, PlayerMovement::Direction dir) const
     {
-        // Scale and clamp position to fit in 7 bits each (-64 to +63)
-        int x = bn::clamp(pos.x().integer() / POSITION_SCALE, -64, 63) + 64;  // 0-127
-        int y = bn::clamp(pos.y().integer() / POSITION_SCALE, -64, 63) + 64;  // 0-127
+        // Scale and clamp position to fit in 7 bits each (POSITION_MIN to POSITION_MAX)
+        int x = bn::clamp(pos.x().integer() / POSITION_SCALE, POSITION_MIN, POSITION_MAX) + POSITION_OFFSET;
+        int y = bn::clamp(pos.y().integer() / POSITION_SCALE, POSITION_MIN, POSITION_MAX) + POSITION_OFFSET;
         
         // Encode direction as 2 bits
         int dir_bits = 0;
@@ -299,9 +300,9 @@ namespace fe
 
     void MultiplayerManager::decode_player_data(int data, bn::fixed_point& pos, PlayerMovement::Direction& dir) const
     {
-        // Extract position (7 bits each, offset by 64)
-        int x = (data & POSITION_MASK) - 64;
-        int y = ((data >> POSITION_BITS) & POSITION_MASK) - 64;
+        // Extract position (7 bits each, offset by POSITION_OFFSET)
+        int x = (data & POSITION_MASK) - POSITION_OFFSET;
+        int y = ((data >> POSITION_BITS) & POSITION_MASK) - POSITION_OFFSET;
         
         // Scale back to world coordinates
         pos = bn::fixed_point(x * POSITION_SCALE, y * POSITION_SCALE);

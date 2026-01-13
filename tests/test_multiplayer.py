@@ -7,7 +7,7 @@ This script runs multiple game instances headlessly and verifies multiplayer
 communication works correctly.
 
 Requirements:
-- mGBA built with Python bindings (DBUILD_PYTHON=ON, DUSE_FFMPEG=ON)
+- mGBA built with Python bindings (-DBUILD_PYTHON=ON, -DUSE_FFMPEG=ON)
 - PIL/Pillow for screenshot capture
 - cached_property package
 

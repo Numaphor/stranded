@@ -19,12 +19,20 @@ namespace fe
     // - Bits 7-13: Y position offset from center (-64 to +63) scaled
     // - Bits 14-15: Direction (0=UP, 1=DOWN, 2=LEFT, 3=RIGHT)
     
-    // Position scale factor - divides actual position for transmission
+    // Position scale factor - divides actual world position for transmission.
+    // With POSITION_SCALE=16 and 7-bit range (-64 to +63), the effective world
+    // coordinate range is approximately -1024 to +1008, which covers most of
+    // the playable map area (MAP_OFFSET is ~1280 from center).
     constexpr int POSITION_SCALE = 16;
     constexpr int POSITION_BITS = 7;
     constexpr int POSITION_MASK = 0x7F;  // 7 bits for position
     constexpr int DIRECTION_SHIFT = 14;
     constexpr int DIRECTION_MASK = 0x03;
+    
+    // Position encoding range constants
+    constexpr int POSITION_MIN = -64;     // Minimum scaled position value
+    constexpr int POSITION_MAX = 63;      // Maximum scaled position value  
+    constexpr int POSITION_OFFSET = 64;   // Offset to make values unsigned (0-127)
 
     /**
      * @brief Represents a remote player's state received from link cable.
