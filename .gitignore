@@ -19,3 +19,4 @@ build/
 .windsurf/
 
 # OS specific files
+*.png
