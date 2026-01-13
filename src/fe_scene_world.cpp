@@ -87,7 +87,8 @@ namespace fe
                      _zoom_affine_mat(bn::nullopt),
                      _gun_affine_mat(bn::nullopt),
                      _player_affine_mat(bn::nullopt),
-                     _vfx_affine_mat(bn::nullopt)
+                     _vfx_affine_mat(bn::nullopt),
+                     _multiplayer_enabled(true)  // Enable multiplayer by default
     {
         // Create player sprite with correct shape and size
         bn::sprite_builder builder(bn::sprite_items::hero_sword);
@@ -155,6 +156,12 @@ namespace fe
 
         // Initialize world-specific content
         _init_world_specific_content(world_id, camera, bg, text_generator);
+
+        // Initialize multiplayer system
+        if (_multiplayer_enabled)
+        {
+            _multiplayer.initialize(camera);
+        }
 
         while (true)
         {
@@ -295,6 +302,12 @@ namespace fe
             // Now update player (which includes input handling)
             _player->update();
             _player->update_gun_position(_player->facing_direction());
+
+            // Update multiplayer system - send/receive player states
+            if (_multiplayer_enabled)
+            {
+                _multiplayer.update(*_player);
+            }
 
             // Handle screen shake based on continuous firing - DISABLED
             // Screen shake has been completely disabled
@@ -770,6 +783,24 @@ namespace fe
                         merchant_sprite->set_position(scaled_pos);
                     }
                 }
+
+                // Apply to remote players (multiplayer)
+                if (_multiplayer_enabled)
+                {
+                    for (RemotePlayer& remote : _multiplayer.remote_players_mutable())
+                    {
+                        bn::sprite_ptr* remote_sprite = remote.get_sprite();
+                        if (remote_sprite)
+                        {
+                            remote_sprite->set_affine_mat(_zoom_affine_mat.value());
+                            remote_sprite->set_double_size_mode(bn::sprite_double_size_mode::ENABLED);
+                            bn::fixed_point remote_world_pos = remote.position();
+                            bn::fixed_point offset = remote_world_pos - cam_pos;
+                            bn::fixed_point scaled_pos = cam_pos + bn::fixed_point(offset.x() * _current_zoom_scale, offset.y() * _current_zoom_scale);
+                            remote_sprite->set_position(scaled_pos);
+                        }
+                    }
+                }
             }
             else
             {
@@ -832,6 +863,18 @@ namespace fe
                         merchant_sprite->remove_affine_mat();
                     }
                 }
+                // Remove affine matrices from remote players
+                if (_multiplayer_enabled)
+                {
+                    for (RemotePlayer& remote : _multiplayer.remote_players_mutable())
+                    {
+                        bn::sprite_ptr* remote_sprite = remote.get_sprite();
+                        if (remote_sprite && remote_sprite->affine_mat().has_value())
+                        {
+                            remote_sprite->remove_affine_mat();
+                        }
+                    }
+                }
             }
 
             // Check win condition
@@ -843,6 +886,11 @@ namespace fe
 
     World::~World()
     {
+        // Shutdown multiplayer system
+        if (_multiplayer_enabled)
+        {
+            _multiplayer.shutdown();
+        }
         delete _player;
         delete _level;
         delete _minimap;

@@ -180,6 +180,12 @@ namespace fe
     constexpr bn::fixed ZOOM_NORMAL_SCALE = 1;
     constexpr bn::fixed ZOOM_OUT_SCALE = bn::fixed(0.6); // Scale of 0.6 makes sprites appear at 60% size (zoomed out)
     constexpr bn::fixed ZOOM_TRANSITION_SPEED = 0.1;     // How fast zoom transitions
+
+    // Multiplayer constants
+    constexpr int MULTIPLAYER_MAX_PLAYERS = 4;           // GBA link cable supports up to 4 players
+    constexpr int MULTIPLAYER_SEND_INTERVAL = 2;         // Send state every N frames
+    constexpr int MULTIPLAYER_CONNECTION_TIMEOUT = 180;  // 3 seconds at 60fps
+    constexpr bn::fixed REMOTE_PLAYER_INTERPOLATION = 0.3; // Smoothing factor for remote player positions
 }
 
 #endif
