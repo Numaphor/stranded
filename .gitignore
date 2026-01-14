@@ -20,3 +20,5 @@ build/
 
 # OS specific files
 *.png
+multiplayer_test_result.png
+*.png
