@@ -73,6 +73,8 @@ namespace fe
         // Health transition animations
         void play_health_gain_0_to_1();    // Animation for 0->1 health gain
         void play_health_gain_1_to_2();    // Animation for 1->2 health gain
+        void play_health_gain_2_to_3();    // Animation for 2->3 health gain
+        void play_health_loss_3_to_2();    // Animation for 3->2 health loss
         void play_health_loss_2_to_1();    // Animation for 2->1 health loss
         void play_health_loss_1_to_0();    // Animation for 1->0 health loss
         void play_health_loss_animation(); // Generic health loss animation
@@ -124,7 +126,7 @@ namespace fe
 
         // Soul indicator
         bn::sprite_ptr _soul_sprite;
-        bn::optional<bn::sprite_animate_action<10>> _soul_action;
+        bn::optional<bn::sprite_animate_action<16>> _soul_action;
         bool _soul_positioned;
 
         // Soul buff states
