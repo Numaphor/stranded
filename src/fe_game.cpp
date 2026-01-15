@@ -309,9 +309,9 @@ namespace fe {
             } else if (_hp == 2) {
                  if (_silver_soul_active) target_item = &bn::sprite_items::heart_silver_half;
                  else if (_defense_buff_active) target_item = &bn::sprite_items::heart_golden_half;
-                 else target_item = &bn::sprite_items::heart_normal_half;
+                 else target_item = &bn::sprite_items::heart_normal_full;
             } else if (_hp == 1) {
-                 target_item = &bn::sprite_items::heart_empty;
+                 target_item = &bn::sprite_items::heart_normal_half;
             } else {
                  // 0 HP -> Nothing
                  target_item = &bn::sprite_items::heart_empty_spawn;
@@ -326,9 +326,9 @@ namespace fe {
             } else if (_hp == 2) {
                  if (_silver_soul_active) target_item = &bn::sprite_items::heart_silver_half;
                  else if (_defense_buff_active) target_item = &bn::sprite_items::heart_golden_half;
-                 else target_item = &bn::sprite_items::heart_normal_half;
+                 else target_item = &bn::sprite_items::heart_normal_full;
             } else if (_hp == 1) {
-                 target_item = &bn::sprite_items::heart_empty;
+                 target_item = &bn::sprite_items::heart_normal_half;
             } else {
                  // 0 HP -> Nothing
                  target_item = &bn::sprite_items::heart_empty_spawn;
@@ -340,7 +340,7 @@ namespace fe {
         else if (_silver_soul_reversing || _defense_buff_fading) {
             if (_hp >= 3) { target_item = &bn::sprite_items::heart_normal_spawn_full; frame_index = 9; }
             else if (_hp == 2) target_item = &bn::sprite_items::heart_normal_half;
-            else if (_hp == 1) target_item = &bn::sprite_items::heart_empty;
+            else if (_hp == 1) target_item = &bn::sprite_items::heart_normal_half;
             else { target_item = &bn::sprite_items::heart_empty_spawn; frame_index = 0; }
             _silver_soul_reversing = false;
             _defense_buff_fading = false;
@@ -348,20 +348,20 @@ namespace fe {
         else if (_silver_soul_active) {
              if (_hp >= 3) target_item = &bn::sprite_items::heart_silver_full;
              else if (_hp == 2) target_item = &bn::sprite_items::heart_silver_half;
-             else if (_hp == 1) target_item = &bn::sprite_items::heart_empty; // No silver empty
+             else if (_hp == 1) target_item = &bn::sprite_items::heart_normal_half; // Use normal half for silver empty
              else { target_item = &bn::sprite_items::heart_empty_spawn; frame_index = 0; }
         } 
         else if (_defense_buff_active) {
              if (_hp >= 3) target_item = &bn::sprite_items::heart_golden_full;
              else if (_hp == 2) target_item = &bn::sprite_items::heart_golden_half;
-             else if (_hp == 1) target_item = &bn::sprite_items::heart_empty; // No golden empty
+             else if (_hp == 1) target_item = &bn::sprite_items::heart_normal_half; // Use normal half for golden empty
              else { target_item = &bn::sprite_items::heart_empty_spawn; frame_index = 0; }
         }
         else {
             // Default idle state
             if (_hp >= 3) { target_item = &bn::sprite_items::heart_normal_spawn_full; frame_index = 9; }
             else if (_hp == 2) target_item = &bn::sprite_items::heart_normal_half;
-            else if (_hp == 1) target_item = &bn::sprite_items::heart_empty;
+            else if (_hp == 1) target_item = &bn::sprite_items::heart_normal_half;
             else { target_item = &bn::sprite_items::heart_empty_spawn; frame_index = 0; }
         }
 
@@ -458,9 +458,8 @@ namespace fe {
     }
 
     void HUD::play_health_loss_2_to_1() {
-        // Half -> Empty (2->1 HP)
-        static constexpr int frames[] = {10, 11, 12, 13};
-        _play_health_transition_anim(bn::sprite_items::heart_normal_spawn_half, frames, 4, false);
+        // Half -> Empty (2->1 HP) - Use blink animation
+        play_health_loss_animation();
     }
 
     void HUD::play_health_loss_1_to_0() {
