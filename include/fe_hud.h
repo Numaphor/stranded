@@ -56,8 +56,8 @@ namespace fe
         // Healthbar management
         [[nodiscard]] int hp() const;
         void set_hp(int hp);
-        void set_position(int x, int y); // Set healthbar position (soul follows)
-        void set_resetting_health(bool resetting); // Prevent soul animations during reset
+        void set_position(int x, int y);                       // Set healthbar position (soul follows)
+        void set_resetting_health(bool resetting);             // Prevent soul animations during reset
         [[nodiscard]] bool is_soul_animation_complete() const; // Check if soul animation is done
 
         // Visibility control
@@ -160,7 +160,7 @@ namespace fe
         void _update_ammo_display();
         void _update_buff_menu_sprites();
         void _update_selection(int new_selection);
-        void _play_health_transition_anim(const bn::sprite_item& sprite_item, const int* frames, int frame_count, bool is_gain);
+        void _play_health_transition_anim(const bn::sprite_item &sprite_item, const int *frames, int frame_count, bool is_gain);
     };
 }
 
