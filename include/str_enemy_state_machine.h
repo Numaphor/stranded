@@ -1,11 +1,11 @@
-#ifndef FE_ENEMY_STATE_MACHINE_H
-#define FE_ENEMY_STATE_MACHINE_H
+#ifndef STR_ENEMY_STATE_MACHINE_H
+#define STR_ENEMY_STATE_MACHINE_H
 
-#include "fe_enemy_state.h"
+#include "str_enemy_state.h"
 #include "bn_unique_ptr.h"
 #include "bn_memory.h"
 
-namespace fe
+namespace str
 {
     // Forward declarations
     class Enemy;

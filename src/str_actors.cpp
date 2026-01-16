@@ -1,15 +1,15 @@
-#include "fe_npc.h"
-#include "fe_npc_derived.h"
-#include "fe_npc_type.h"
-#include "fe_constants.h"
-#include "fe_enemy.h"
-#include "fe_enemy_states.h"
-#include "fe_enemy_state_machine.h"
-#include "fe_level.h"
-#include "fe_enemy_type.h"
-#include "fe_collision.h"
-#include "fe_player.h"
-#include "fe_direction_utils.h"
+#include "str_npc.h"
+#include "str_npc_derived.h"
+#include "str_npc_type.h"
+#include "str_constants.h"
+#include "str_enemy.h"
+#include "str_enemy_states.h"
+#include "str_enemy_state_machine.h"
+#include "str_level.h"
+#include "str_enemy_type.h"
+#include "str_collision.h"
+#include "str_player.h"
+#include "str_direction_utils.h"
 
 #include "bn_optional.h"
 #include "bn_math.h"
@@ -41,7 +41,7 @@
 #include "bn_sprite_items_gun.h"
 #include "common_variable_8x8_sprite_font.h"
 
-namespace fe {
+namespace str {
 
     // =========================================================================
     // NPC Implementation
@@ -82,7 +82,7 @@ namespace fe {
     }
 
     bool NPC::finished_talking() { return _has_spoken_once; }
-    bool NPC::is_in_interaction_zone(bn::fixed_point p) { if (!_finished && !_hidden) { if (bn::abs(pos().x() - p.x()) < fe::MERCHANT_INTERACTION_ZONE_WIDTH && bn::abs(pos().y() - p.y()) < fe::MERCHANT_INTERACTION_ZONE_HEIGHT) return _is_near_player = 1; _is_near_player = 0; } return 0; }
+    bool NPC::is_in_interaction_zone(bn::fixed_point p) { if (!_finished && !_hidden) { if (bn::abs(pos().x() - p.x()) < str::MERCHANT_INTERACTION_ZONE_WIDTH && bn::abs(pos().y() - p.y()) < str::MERCHANT_INTERACTION_ZONE_HEIGHT) return _is_near_player = 1; _is_near_player = 0; } return 0; }
     bool NPC::check_trigger(bn::fixed_point p) { return is_in_interaction_zone(p); }
     void NPC::talk() { if (!_is_talking) { _is_talking = 1; _dialog_state = DIALOG_STATE::GREETING; _currentLine = _currentChar = 0; _currentChars = ""; _has_spoken_once = 1; bn::sound_items::hello.play(); } }
     bool NPC::is_talking() { return _is_talking; }
@@ -857,28 +857,28 @@ namespace fe {
 
     void Player::update_gun_position(PlayerMovement::Direction direction) {
         if (!_gun_sprite) return;
-        direction_utils::setup_gun(*_gun_sprite, static_cast<fe::Direction>(int(direction)), pos()); 
+        direction_utils::setup_gun(*_gun_sprite, static_cast<str::Direction>(int(direction)), pos()); 
     }
 
     void Player::fire_bullet(PlayerMovement::Direction direction) {
         if (!_gun_active || !_gun_sprite.has_value() || !has_ammo()) return;
         if (!_bullet_manager.can_fire()) return;
         
-        direction_utils::setup_gun(*_gun_sprite, static_cast<fe::Direction>(int(direction)), pos());
+        direction_utils::setup_gun(*_gun_sprite, static_cast<str::Direction>(int(direction)), pos());
         
-        // Convert PlayerMovement::Direction to fe::Direction for BulletManager
+        // Convert PlayerMovement::Direction to str::Direction for BulletManager
         // Assuming they map 1:1, or we need a converter.
-        // fe::Direction and PlayerMovement::Direction both have UP, DOWN, LEFT, RIGHT in same order usually.
+        // str::Direction and PlayerMovement::Direction both have UP, DOWN, LEFT, RIGHT in same order usually.
         // Let's check.
-        // fe_bullet_manager.h: UP, DOWN, LEFT, RIGHT
-        // fe_player.h: UP, DOWN, LEFT, RIGHT
+        // str_bullet_manager.h: UP, DOWN, LEFT, RIGHT
+        // str_player.h: UP, DOWN, LEFT, RIGHT
         // So casting is safe.
-        fe::Direction bullet_dir = static_cast<fe::Direction>(int(direction));
+        str::Direction bullet_dir = static_cast<str::Direction>(int(direction));
         
-        // We need get_bullet_position. It's in fe_direction_utils.h and declared as inline.
-        // Since fe_player.cpp includes fe_direction_utils.h, it should be available.
-        // However, it takes fe::Direction.
-        bn::fixed_point bullet_pos = fe::direction_utils::get_bullet_position(bullet_dir, pos());
+        // We need get_bullet_position. It's in str_direction_utils.h and declared as inline.
+        // Since str_player.cpp includes str_direction_utils.h, it should be available.
+        // However, it takes str::Direction.
+        bn::fixed_point bullet_pos = str::direction_utils::get_bullet_position(bullet_dir, pos());
         
         _bullet_manager.fire_bullet(bullet_pos, bullet_dir);
         _ammo_count--;
@@ -1019,4 +1019,4 @@ namespace fe {
         if (buff_state == PlayerMovement::State::HEAL_BUFF) { heal(1); }
     }
 
-} // namespace fe
+} // namespace str

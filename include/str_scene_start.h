@@ -1,12 +1,12 @@
-#ifndef FE_SCENE_START_H
-#define FE_SCENE_START_H
+#ifndef STR_SCENE_START_H
+#define STR_SCENE_START_H
 
 #include "bn_sprite_ptr.h"
 #include "bn_vector.h"
 
-#include "fe_scene.h"
+#include "str_scene.h"
 
-namespace fe
+namespace str
 {
     class Start
     {
@@ -14,7 +14,7 @@ namespace fe
         Start();
         ~Start();
 
-        fe::Scene execute();
+        str::Scene execute();
 
     private:
         int _selected_index;

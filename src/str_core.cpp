@@ -1,21 +1,21 @@
-#include "fe_hud.h"
-#include "fe_hitbox.h"
-#include "fe_level.h"
-#include "fe_minimap.h"
-#include "fe_bullet_manager.h"
-#include "fe_entity.h"
-#include "fe_movement.h"
-#include "fe_direction_utils.h"
-#include "fe_constants.h"
-#include "fe_enemy.h"
-#include "fe_scene.h"
-#include "fe_scene_world.h"
-#include "fe_scene_menu.h"
-#include "fe_scene_start.h"
-#include "fe_scene_controls.h"
-#include "fe_world_state.h"
-#include "fe_collision.h"
-#include "fe_npc.h"
+#include "str_hud.h"
+#include "str_hitbox.h"
+#include "str_level.h"
+#include "str_minimap.h"
+#include "str_bullet_manager.h"
+#include "str_entity.h"
+#include "str_movement.h"
+#include "str_direction_utils.h"
+#include "str_constants.h"
+#include "str_enemy.h"
+#include "str_scene.h"
+#include "str_scene_world.h"
+#include "str_scene_menu.h"
+#include "str_scene_start.h"
+#include "str_scene_controls.h"
+#include "str_world_state.h"
+#include "str_collision.h"
+#include "str_npc.h"
 
 #include "bn_fixed.h"
 #include "bn_fixed_point.h"
@@ -77,7 +77,7 @@
 #include "bn_affine_bg_items_sword.h"
 #include "common_variable_8x8_sprite_font.h"
 
-namespace fe
+namespace str
 {
 
     // =========================================================================
@@ -754,7 +754,7 @@ namespace fe
     void Hitbox::set_y(bn::fixed y) { _pos.set_y(y); }
     void Hitbox::set_position(bn::fixed_point position) { _pos = position; }
 
-    void Hitbox::get_collision_points(bn::fixed_point pos, fe::directions direction, bn::fixed_point points[4]) const
+    void Hitbox::get_collision_points(bn::fixed_point pos, str::directions direction, bn::fixed_point points[4]) const
     {
         bn::fixed left = pos.x();
         bn::fixed right = pos.x() + _width - HITBOX_EDGE_OFFSET;
@@ -767,25 +767,25 @@ namespace fe
 
         switch (direction)
         {
-        case fe::directions::up:
+        case str::directions::up:
             points[0] = bn::fixed_point(left, top);
             points[1] = bn::fixed_point(right, top);
             points[2] = bn::fixed_point(middle_x, top);
             points[3] = bn::fixed_point(quarter_x, top);
             break;
-        case fe::directions::down:
+        case str::directions::down:
             points[0] = bn::fixed_point(left, bottom);
             points[1] = bn::fixed_point(right, bottom);
             points[2] = bn::fixed_point(middle_x, bottom);
             points[3] = bn::fixed_point(quarter_x, bottom);
             break;
-        case fe::directions::left:
+        case str::directions::left:
             points[0] = bn::fixed_point(left, top);
             points[1] = bn::fixed_point(left, bottom);
             points[2] = bn::fixed_point(left, middle_y);
             points[3] = bn::fixed_point(left, quarter_y);
             break;
-        case fe::directions::right:
+        case str::directions::right:
             points[0] = bn::fixed_point(right, top);
             points[1] = bn::fixed_point(right, bottom);
             points[2] = bn::fixed_point(right, middle_y);
@@ -808,10 +808,10 @@ namespace fe
 
     bool Hitbox::is_in_sword_zone(const bn::fixed_point &position)
     {
-        const bn::fixed zone_left = fe::SWORD_ZONE_TILE_LEFT * fe::TILE_SIZE - fe::MAP_OFFSET;
-        const bn::fixed zone_right = fe::SWORD_ZONE_TILE_RIGHT * fe::TILE_SIZE - fe::MAP_OFFSET;
-        const bn::fixed zone_top = fe::SWORD_ZONE_TILE_TOP * fe::TILE_SIZE - fe::MAP_OFFSET;
-        const bn::fixed zone_bottom = fe::SWORD_ZONE_TILE_BOTTOM * fe::TILE_SIZE - fe::MAP_OFFSET;
+        const bn::fixed zone_left = str::SWORD_ZONE_TILE_LEFT * str::TILE_SIZE - str::MAP_OFFSET;
+        const bn::fixed zone_right = str::SWORD_ZONE_TILE_RIGHT * str::TILE_SIZE - str::MAP_OFFSET;
+        const bn::fixed zone_top = str::SWORD_ZONE_TILE_TOP * str::TILE_SIZE - str::MAP_OFFSET;
+        const bn::fixed zone_bottom = str::SWORD_ZONE_TILE_BOTTOM * str::TILE_SIZE - str::MAP_OFFSET;
         return position.x() >= zone_left && position.x() < zone_right &&
                position.y() >= zone_top && position.y() < zone_bottom;
     }
@@ -844,10 +844,10 @@ namespace fe
 
     Hitbox Hitbox::create_sword_zone()
     {
-        const bn::fixed zone_left = fe::SWORD_ZONE_TILE_LEFT * fe::TILE_SIZE - fe::MAP_OFFSET;
-        const bn::fixed zone_top = fe::SWORD_ZONE_TILE_TOP * fe::TILE_SIZE - fe::MAP_OFFSET;
-        const bn::fixed width = (fe::SWORD_ZONE_TILE_RIGHT - fe::SWORD_ZONE_TILE_LEFT) * fe::TILE_SIZE;
-        const bn::fixed height = (fe::SWORD_ZONE_TILE_BOTTOM - fe::SWORD_ZONE_TILE_TOP) * fe::TILE_SIZE;
+        const bn::fixed zone_left = str::SWORD_ZONE_TILE_LEFT * str::TILE_SIZE - str::MAP_OFFSET;
+        const bn::fixed zone_top = str::SWORD_ZONE_TILE_TOP * str::TILE_SIZE - str::MAP_OFFSET;
+        const bn::fixed width = (str::SWORD_ZONE_TILE_RIGHT - str::SWORD_ZONE_TILE_LEFT) * str::TILE_SIZE;
+        const bn::fixed height = (str::SWORD_ZONE_TILE_BOTTOM - str::SWORD_ZONE_TILE_TOP) * str::TILE_SIZE;
         return Hitbox(zone_left, zone_top, width, height, HitboxType::SWORD_ZONE);
     }
 
@@ -1335,7 +1335,7 @@ namespace fe
         delete _merchant;
     }
 
-    fe::Scene fe::World::execute(bn::fixed_point spawn_location, int world_id)
+    str::Scene str::World::execute(bn::fixed_point spawn_location, int world_id)
     {
         _current_world_id = world_id;
         WorldStateManager &state_manager = WorldStateManager::instance();
@@ -1386,7 +1386,7 @@ namespace fe
                 if (_merchant)
                     _merchant->set_is_hidden(true);
                 _save_current_state();
-                return fe::Scene::MENU;
+                return str::Scene::MENU;
             }
             if (bn::keypad::select_pressed() && !bn::keypad::a_held() && !bn::keypad::b_held() && !bn::keypad::l_held() && !bn::keypad::r_held())
                 _zoomed_out = !_zoomed_out;
@@ -1425,12 +1425,12 @@ namespace fe
             {
                 bool mwt = _merchant->is_talking();
                 _merchant->update();
-                fe::ZoneManager::set_merchant_zone_center(_merchant->pos());
-                fe::ZoneManager::set_merchant_zone_enabled(!(_merchant->is_talking() || _player->listening()));
+                str::ZoneManager::set_merchant_zone_center(_merchant->pos());
+                str::ZoneManager::set_merchant_zone_enabled(!(_merchant->is_talking() || _player->listening()));
                 _merchant->set_sprite_z_order(-_merchant->pos().y().integer());
                 if (!_merchant->is_talking() && mwt)
                     _player->set_listening(0);
-                if (fe::Hitbox::is_in_merchant_interaction_zone(_player->pos(), _merchant->pos()))
+                if (str::Hitbox::is_in_merchant_interaction_zone(_player->pos(), _merchant->pos()))
                 {
                     _merchant->set_near_player(1);
                     if (bn::keypad::a_pressed() && !mwt && !_player->listening())
@@ -1453,7 +1453,7 @@ namespace fe
             else
                 _continuous_fire_frames = 0;
             _player->update_z_order();
-            if (!fe::ZoneManager::is_position_valid(_player->pos()))
+            if (!str::ZoneManager::is_position_valid(_player->pos()))
                 _player->revert_position();
             if (_minimap)
                 _minimap->update(_player->pos(), {0, 0}, _enemies);
@@ -1487,13 +1487,13 @@ namespace fe
                 Enemy &e = _enemies[i];
                 bool ignore = _player->listening() || _player->get_hp() <= 0;
                 e.update(_player->pos(), *_level, ignore);
-                if (!ignore && fe::Collision::check_bb(_player->get_hitbox(), e.get_hitbox()) && !_player->is_state(PlayerMovement::State::ROLLING))
+                if (!ignore && str::Collision::check_bb(_player->get_hitbox(), e.get_hitbox()) && !_player->is_state(PlayerMovement::State::ROLLING))
                 {
                     _player->take_damage(1);
                     bn::fixed kx = (_player->pos().x() - e.get_position().x() > 0) ? 10 : -10;
                     _player->set_position(_player->pos() + bn::fixed_point(kx, 0));
                 }
-                if (_player->has_companion() && !_player->get_companion()->is_dead_independently() && fe::Collision::check_bb({_player->get_companion()->pos().x() - COMPANION_HITBOX_SIZE / 2, _player->get_companion()->pos().y() - COMPANION_HITBOX_SIZE / 2, COMPANION_HITBOX_SIZE, COMPANION_HITBOX_SIZE}, e.get_hitbox()))
+                if (_player->has_companion() && !_player->get_companion()->is_dead_independently() && str::Collision::check_bb({_player->get_companion()->pos().x() - COMPANION_HITBOX_SIZE / 2, _player->get_companion()->pos().y() - COMPANION_HITBOX_SIZE / 2, COMPANION_HITBOX_SIZE, COMPANION_HITBOX_SIZE}, e.get_hitbox()))
                     _player->kill_companion();
                 for (const auto &b : _player->bullets())
                     if (b.is_active() && b.get_hitbox().collides_with(e.get_hitbox()))
@@ -1729,7 +1729,7 @@ namespace fe
             move(1);
     }
 
-    fe::Scene Menu::execute(int &wid, bn::fixed_point &sl)
+    str::Scene Menu::execute(int &wid, bn::fixed_point &sl)
     {
         bn::bg_palettes::set_transparent_color(bn::color(MENU_BG_COLOR_R, MENU_BG_COLOR_G, MENU_BG_COLOR_B));
         while (1)
@@ -1741,10 +1741,10 @@ namespace fe
             {
                 wid = _worlds[_selected_index].world_id;
                 sl = _worlds[_selected_index].spawn_location;
-                return fe::Scene::WORLD;
+                return str::Scene::WORLD;
             }
             if (bn::keypad::b_pressed())
-                return fe::Scene::START;
+                return str::Scene::START;
         }
     }
 
@@ -1774,7 +1774,7 @@ namespace fe
         tg.generate(0, START_INSTRUCTIONS_Y_POSITION, "UP/DOWN: Select  A: Confirm", _text_sprites);
     }
 
-    fe::Scene Start::execute()
+    str::Scene Start::execute()
     {
         bn::bg_palettes::set_transparent_color(bn::color(MENU_BG_COLOR_R, MENU_BG_COLOR_G, MENU_BG_COLOR_B));
         while (1)
@@ -1786,7 +1786,7 @@ namespace fe
                 _selected_index = !_selected_index;
             _update_display();
             if (bn::keypad::a_pressed())
-                return _selected_index ? fe::Scene::CONTROLS : fe::Scene::MENU;
+                return _selected_index ? str::Scene::CONTROLS : str::Scene::MENU;
         }
     }
 
@@ -1810,7 +1810,7 @@ namespace fe
         tg.generate(0, CONTROLS_INSTRUCTIONS_Y_POSITION, "Press B to return", _text_sprites);
     }
 
-    fe::Scene Controls::execute()
+    str::Scene Controls::execute()
     {
         bn::bg_palettes::set_transparent_color(bn::color(MENU_BG_COLOR_R, MENU_BG_COLOR_G, MENU_BG_COLOR_B));
         _update_display();
@@ -1818,7 +1818,7 @@ namespace fe
         {
             bn::core::update();
             if (bn::keypad::b_pressed())
-                return fe::Scene::START;
+                return str::Scene::START;
         }
     }
 
@@ -1895,4 +1895,4 @@ namespace fe
         return nullptr;
     }
 
-} // namespace fe
+} // namespace str

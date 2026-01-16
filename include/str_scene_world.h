@@ -1,5 +1,5 @@
-#ifndef FE_SCENE_WORLD_H
-#define FE_SCENE_WORLD_H
+#ifndef STR_SCENE_WORLD_H
+#define STR_SCENE_WORLD_H
 
 #include "bn_fixed_point.h"
 #include "bn_sprite_ptr.h"
@@ -14,18 +14,18 @@
 #include "bn_affine_bg_items_sword.h"
 #include "bn_rect_window.h"
 #include "bn_sprite_affine_mat_ptr.h"
-#include "fe_constants.h"
+#include "str_constants.h"
 
-#include "fe_scene.h"
-#include "fe_player.h"
-#include "fe_enemy.h"
-#include "fe_level.h"
-#include "fe_minimap.h"
-#include "fe_npc_derived.h" // Include NPC derived classes
-#include "fe_hitbox.h"
-#include "fe_world_state.h"
+#include "str_scene.h"
+#include "str_player.h"
+#include "str_enemy.h"
+#include "str_level.h"
+#include "str_minimap.h"
+#include "str_npc_derived.h" // Include NPC derived classes
+#include "str_hitbox.h"
+#include "str_world_state.h"
 
-namespace fe
+namespace str
 {
     // Forward declaration for future feature
     class PlayerStatusDisplay;
@@ -36,7 +36,7 @@ namespace fe
         World();
         ~World();
 
-        fe::Scene execute(bn::fixed_point spawn_location, int world_id = 0);
+        str::Scene execute(bn::fixed_point spawn_location, int world_id = 0);
 
     private:
         Player *_player;

@@ -1,5 +1,5 @@
-#ifndef FE_HUD_H
-#define FE_HUD_H
+#ifndef STR_HUD_H
+#define STR_HUD_H
 
 #include "bn_sprite_ptr.h"
 #include "bn_optional.h"
@@ -7,7 +7,7 @@
 #include "bn_regular_bg_ptr.h"
 #include "bn_regular_bg_map_ptr.h"
 
-namespace fe
+namespace str
 {
     /**
      * @brief Weapon types available to the player
