@@ -9,7 +9,7 @@
 [![Platform](https://img.shields.io/badge/Platform-Game%20Boy%20Advance-9bbc0f?style=for-the-badge&logo=nintendo&logoColor=white)](https://en.wikipedia.org/wiki/Game_Boy_Advance)
 [![Engine](https://img.shields.io/badge/Engine-Butano-306998?style=for-the-badge)](https://github.com/GValiente/butano)
 [![Language](https://img.shields.io/badge/Language-C%2B%2B17-00599C?style=for-the-badge&logo=c%2B%2B)](https://isocpp.org/)
-[![License](https://img.shields.io/badge/License-Open%20Source-green?style=for-the-badge)](LICENSE)
+[![License](https://img.shields.io/badge/License-Open%20Source-green?style=for-the-badge)](./LICENSE)
 
 ---
 
@@ -21,7 +21,7 @@
 
 ## 📖 Overview
 
-**Stranded** is an action-packed adventure game that combines classic top-down RPG mechanics with fast-paced shooter elements. Built entirely for the Game Boy Advance using the modern [Butano](https://github.com/GValiente/butano) C++ engine, it showcases what's possible on 20+ year old hardware.
+**Stranded** is an action-packed adventure game that combines classic top-down RPG mechanics with fast-paced shooter elements. Built entirely for the Game Boy Advance using the modern [Butano](https://github.com/GValiente/butano) C++ engine, it proves that amazing gaming experiences are still possible on beloved 20+ year old hardware!
 
 ### Key Highlights
 
@@ -118,9 +118,9 @@ make -j8
 ### Running
 
 Use any GBA emulator to play:
-- **[mGBA](https://mgba.io/)** — Recommended for accuracy
-- **[Visual Boy Advance](https://visualboyadvance.org/)** — Popular alternative
-- **Real Hardware** — Flash cart or GBA consolizer
+- **[mGBA](https://mgba.io/)** — Highly recommended for the most authentic experience
+- **[Visual Boy Advance](https://visualboyadvance.org/)** — A popular and reliable alternative
+- **Real Hardware** — Use a flash cart or GBA consolizer for the ultimate nostalgic experience!
 
 ---
 
@@ -149,7 +149,7 @@ Use any GBA emulator to play:
 ### Combat Tips
 
 - 🔄 **Roll through enemies** — Invulnerability during roll animation
-- ⚔️ **Combo attacks** — Chain sword strikes for maximum damage  
+- ⚔️ **Combo attacks** — Chain sword strikes for maximum damage
 - 🎯 **Ammo management** — Gun reloads when rolling
 - 🐾 **Revive companion** — Press A near fallen companion
 
@@ -205,7 +205,7 @@ Activate powerful temporary buffs:
 
 ### Project Structure
 
-```
+```text
 stranded/
 ├── src/                    # C++ source files (28 modules)
 │   ├── main.cpp           # Entry point and scene management
@@ -218,7 +218,7 @@ stranded/
 │   ├── bg/               # Background tiles and maps
 │   └── sprite/           # Organized sprite assets
 │       ├── player/       # Hero sprites
-│       ├── enemy/        # Enemy sprites  
+│       ├── enemy/        # Enemy sprites
 │       ├── npc/          # NPC sprites
 │       ├── hud/          # UI elements
 │       ├── item/         # Item sprites
@@ -230,7 +230,7 @@ stranded/
 
 ### Architecture Overview
 
-```
+```text
 ┌─────────────────────────────────────────────────────────┐
 │                     Scene System                         │
 │  ┌─────────┐  ┌──────────┐  ┌──────┐  ┌──────────────┐ │
@@ -270,7 +270,7 @@ stranded/
 
 ### Enemy State Machine
 
-```
+```text
         ┌──────────────┐
         │     IDLE     │ ←───────────┐
         └──────┬───────┘             │
@@ -324,7 +324,7 @@ The Makefile automatically:
 
 ## 📄 License
 
-This project is open source. See the [LICENSE](LICENSE) file for details.
+This project is open source. See the [LICENSE](./LICENSE) file for details.
 
 ---
 
