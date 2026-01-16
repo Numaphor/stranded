@@ -1,0 +1,697 @@
+#include "str_hud.h"
+#include "str_constants.h"
+
+#include "bn_fixed.h"
+#include "bn_sprite_ptr.h"
+#include "bn_optional.h"
+#include "bn_span.h"
+#include "bn_blending.h"
+#include "bn_regular_bg_ptr.h"
+#include "bn_regular_bg_map_ptr.h"
+#include "bn_sprite_builder.h"
+#include "bn_sprite_text_generator.h"
+
+#include "bn_regular_bg_items_healthbar.h"
+#include "bn_sprite_items_heart_normal_full.h"
+#include "bn_sprite_items_heart_normal_half.h"
+#include "bn_sprite_items_heart_empty.h"
+#include "bn_sprite_items_heart_normal_spawn_full.h"
+#include "bn_sprite_items_heart_normal_spawn_half.h"
+#include "bn_sprite_items_heart_empty_spawn.h"
+#include "bn_sprite_items_heart_normal_blink_full.h"
+#include "bn_sprite_items_heart_normal_blink_half.h"
+#include "bn_sprite_items_heart_golden_full.h"
+#include "bn_sprite_items_heart_golden_half.h"
+#include "bn_sprite_items_heart_golden_transform_full.h"
+#include "bn_sprite_items_heart_golden_transform_half.h"
+#include "bn_sprite_items_heart_silver_full.h"
+#include "bn_sprite_items_heart_silver_half.h"
+#include "bn_sprite_items_heart_silver_transform_full.h"
+#include "bn_sprite_items_heart_silver_transform_half.h"
+#include "bn_sprite_items_icon_gun.h"
+#include "bn_sprite_items_ammo.h"
+#include "bn_sprite_items_temptest.h"
+#include "bn_sprite_items_hud_icons.h"
+
+namespace str
+{
+
+    // =========================================================================
+    // HUD Implementation
+    // =========================================================================
+
+    namespace
+    {
+        constexpr int BUFF_MENU_OPTION_COUNT = 3;
+        constexpr int buff_menu_offsets_x[BUFF_MENU_OPTION_COUNT] = {HUD_BUFF_MENU_OPTION_HEAL_X, HUD_BUFF_MENU_OPTION_ENERGY_X, HUD_BUFF_MENU_OPTION_POWER_X};
+        constexpr int buff_menu_offsets_y[BUFF_MENU_OPTION_COUNT] = {HUD_BUFF_MENU_OPTION_HEAL_Y, HUD_BUFF_MENU_OPTION_ENERGY_Y, HUD_BUFF_MENU_OPTION_POWER_Y};
+        constexpr int buff_menu_icon_frames[BUFF_MENU_OPTION_COUNT] = {0, 1, 3};
+
+        constexpr int NAV_UP = 0, NAV_DOWN = 1, NAV_LEFT = 2, NAV_RIGHT = 3;
+        constexpr int buff_menu_nav[BUFF_MENU_OPTION_COUNT][4] = {
+            {-1, 2, 1, -1}, // Heal (0): Up->X, Down->Power, Left->Energy, Right->X
+            {-1, 2, -1, 0}, // Energy (1): Up->X, Down->Power, Left->X, Right->Heal
+            {0, -1, 1, -1}  // Power (2): Up->Heal, Down->X, Left->Energy, Right->X
+        };
+
+        // Helper to set sprite item and frame
+        void set_soul_sprite_and_frame(bn::sprite_ptr &sprite, const bn::sprite_item &item, int frame)
+        {
+            sprite.set_item(item);
+            sprite.set_tiles(item.tiles_item().create_tiles(frame));
+        }
+    }
+
+    HUD::HUD()
+        : _hp(HUD_MAX_HP),
+          _is_visible(true),
+          _weapon(WEAPON_TYPE::SWORD),
+          _weapon_sprite(bn::sprite_items::icon_gun.create_sprite(HUD_WEAPON_ICON_X, HUD_WEAPON_ICON_Y, 0)),
+          _soul_sprite(bn::sprite_items::heart_normal_full.create_sprite(HUD_SOUL_INITIAL_X, HUD_SOUL_INITIAL_Y, 0)),
+          _soul_positioned(false),
+          _defense_buff_active(false),
+          _defense_buff_fading(false),
+          _silver_soul_active(false),
+          _silver_soul_reversing(false),
+          _silver_idle_timer(0),
+          _health_gain_anim_active(false),
+          _health_loss_anim_active(false),
+          _resetting_health(false),
+          _displayed_ammo(HUD_MAX_AMMO),
+          _buff_menu_state(BUFF_MENU_STATE::CLOSED),
+          _buff_menu_base(bn::sprite_items::temptest.create_sprite(HUD_BUFF_MENU_BASE_X, HUD_BUFF_MENU_BASE_Y, 0)),
+          _selected_buff_option(0),
+          _buff_menu_hold_timer(0),
+          _buff_menu_cooldown_timer(0)
+    {
+
+        _health_bg = bn::regular_bg_items::healthbar.create_bg(
+            HUD_HEALTH_BG_X, HUD_HEALTH_BG_Y, HUD_HEALTH_BG_MAP_INDEX);
+        _health_bg->set_priority(HUD_BG_PRIORITY);
+        _health_bg->set_z_order(HUD_BG_Z_ORDER);
+        _health_bg->put_above();
+        _health_bg->remove_camera();
+        _health_bg->set_visible(true);
+
+        _configure_hud_sprite(_weapon_sprite);
+        _configure_hud_sprite(_soul_sprite);
+
+        // Initial animation (Spawn Full)
+        _soul_sprite.set_item(bn::sprite_items::heart_normal_spawn_full);
+        _soul_action = bn::create_sprite_animate_action_once(
+            _soul_sprite, HUD_SOUL_ANIM_SPEED,
+            bn::sprite_items::heart_normal_spawn_full.tiles_item(),
+            0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
+
+        _ammo_sprite = bn::sprite_items::ammo.create_sprite(HUD_AMMO_X, HUD_AMMO_Y, 0);
+        _ammo_sprite->set_bg_priority(HUD_BG_PRIORITY);
+        _ammo_sprite->remove_camera();
+        _ammo_sprite->set_z_order(HUD_SPRITE_Z_ORDER);
+        _ammo_sprite->set_visible(false);
+
+        _configure_hud_sprite(_buff_menu_base);
+        _buff_menu_base.set_horizontal_flip(true);
+        _buff_menu_base.set_visible(true);
+    }
+
+    void HUD::_configure_hud_sprite(bn::sprite_ptr &sprite)
+    {
+        sprite.set_bg_priority(HUD_BG_PRIORITY);
+        sprite.remove_camera();
+        sprite.set_visible(true);
+        sprite.set_z_order(HUD_SPRITE_Z_ORDER);
+    }
+
+    int HUD::hp() const { return _hp; }
+
+    void HUD::set_hp(int hp)
+    {
+        int old_hp = _hp;
+        _hp = bn::clamp(hp, 0, HUD_MAX_HP);
+        if (_health_bg)
+            _health_bg->set_map(bn::regular_bg_items::healthbar.map_item(), _hp);
+        if (_hp > old_hp)
+        {
+            if (_resetting_health && _hp == 3)
+            {
+                set_soul_sprite_and_frame(_soul_sprite, bn::sprite_items::heart_normal_full, 0);
+                _soul_action.reset();
+                _defense_buff_active = _silver_soul_active = false;
+            }
+            else
+            {
+                static const int f[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+                if (old_hp == 0 && _hp == 1)
+                    _play_health_transition_anim(bn::sprite_items::heart_empty_spawn, f, 10, 1);
+                else if (old_hp == 1 && _hp == 2)
+                    _play_health_transition_anim(bn::sprite_items::heart_normal_spawn_half, f, 10, 1);
+                else if (_hp == 3)
+                    _play_health_transition_anim(bn::sprite_items::heart_normal_spawn_full, f, 10, 1);
+            }
+        }
+        else if (_hp < old_hp)
+        {
+            if (old_hp == 3 && _hp == 2)
+            {
+                static const int f[] = {10, 11, 12, 13};
+                _play_health_transition_anim(bn::sprite_items::heart_normal_spawn_full, f, 4, 0);
+            }
+            else if (old_hp == 1 && _hp == 0)
+            {
+                static const int f[] = {10, 11, 12, 13};
+                _play_health_transition_anim(bn::sprite_items::heart_empty_spawn, f, 4, 0);
+            }
+            else
+                play_soul_damage_animation();
+        }
+    }
+
+    void HUD::set_resetting_health(bool resetting) { _resetting_health = resetting; }
+
+    bool HUD::is_soul_animation_complete() const { return !_soul_action.has_value() || _soul_action.value().done(); }
+
+    void HUD::set_position(int x, int y)
+    {
+        if (_health_bg.has_value())
+        {
+            _health_bg->set_position(x, y);
+            int soul_x = x + HUD_SOUL_OFFSET_X;
+            int soul_y = y + HUD_SOUL_OFFSET_Y;
+            _soul_sprite.set_position(soul_x, soul_y);
+        }
+    }
+
+    void HUD::set_visible(bool is_visible)
+    {
+        _is_visible = is_visible;
+        if (_health_bg.has_value())
+        {
+            _health_bg->set_visible(is_visible);
+        }
+        _weapon_sprite.set_visible(is_visible);
+        _soul_sprite.set_visible(is_visible);
+        _buff_menu_base.set_visible(is_visible);
+
+        if (_ammo_sprite.has_value())
+        {
+            bool show_ammo = is_visible && _weapon == WEAPON_TYPE::GUN && _displayed_ammo > 0;
+            _ammo_sprite->set_visible(show_ammo);
+        }
+        else
+        {
+            _buff_menu_state = BUFF_MENU_STATE::CLOSED;
+            for (int i = 0; i < BUFF_MENU_OPTION_COUNT; ++i)
+            {
+                _buff_menu_option_sprites[i].reset();
+            }
+        }
+    }
+
+    void HUD::activate_soul_animation()
+    {
+        // Defense Buff (Golden)
+        _defense_buff_active = true;
+
+        // Transform based on current HP
+        const bn::sprite_item &transform_item = (_hp >= 3) ? bn::sprite_items::heart_golden_transform_full
+                                                           : bn::sprite_items::heart_golden_transform_half;
+
+        _soul_sprite.set_item(transform_item);
+        _soul_action = bn::create_sprite_animate_action_once(
+            _soul_sprite, HUD_SOUL_ANIM_SPEED,
+            transform_item.tiles_item(),
+            0, 1, 2, 3, 4, 5, 6, 7); // 8 frames
+    }
+
+    void HUD::play_soul_damage_animation()
+    {
+        // Generic damage animation (Blink)
+        // Use Full or Half blink depending on current state (before damage)
+        const bn::sprite_item &blink_item = (_hp >= 3) ? bn::sprite_items::heart_normal_blink_full
+                                                       : bn::sprite_items::heart_normal_blink_half;
+
+        _soul_sprite.set_item(blink_item);
+        _soul_action = bn::create_sprite_animate_action_once(
+            _soul_sprite, HUD_SOUL_ANIM_SPEED,
+            blink_item.tiles_item(),
+            0, 1, 2, 1, 0); // Blink
+    }
+
+    void HUD::play_health_loss_animation()
+    {
+        play_soul_damage_animation();
+    }
+
+    void HUD::activate_silver_soul()
+    {
+        // Energy Buff (Silver)
+        _silver_soul_active = true;
+        _silver_idle_timer = 0;
+
+        const bn::sprite_item &transform_item = (_hp >= 3) ? bn::sprite_items::heart_silver_transform_full
+                                                           : bn::sprite_items::heart_silver_transform_half;
+
+        _soul_sprite.set_item(transform_item);
+        _soul_action = bn::create_sprite_animate_action_once(
+            _soul_sprite, HUD_SOUL_ANIM_SPEED,
+            transform_item.tiles_item(),
+            0, 1, 2, 3, 4, 5, 6, 7); // 8 frames
+    }
+
+    void HUD::deactivate_silver_soul()
+    {
+        if (!_silver_soul_active)
+        {
+            return;
+        }
+
+        // Reverse transform
+        const bn::sprite_item &transform_item = (_hp >= 3) ? bn::sprite_items::heart_silver_transform_full
+                                                           : bn::sprite_items::heart_silver_transform_half;
+
+        _soul_sprite.set_item(transform_item);
+        _soul_action = bn::create_sprite_animate_action_once(
+            _soul_sprite, HUD_SOUL_ANIM_SPEED,
+            transform_item.tiles_item(),
+            7, 6, 5, 4, 3, 2, 1, 0);
+
+        _silver_soul_active = false;
+        _silver_soul_reversing = true;
+        _silver_idle_timer = 0;
+    }
+
+    void HUD::set_weapon(WEAPON_TYPE weapon)
+    {
+        _weapon = weapon;
+        _weapon_sprite = bn::sprite_items::icon_gun.create_sprite(HUD_WEAPON_ICON_X, HUD_WEAPON_ICON_Y, 0);
+        _configure_hud_sprite(_weapon_sprite);
+        _update_ammo_display();
+    }
+
+    void HUD::set_weapon_frame(int frame)
+    {
+        if (_weapon == WEAPON_TYPE::GUN)
+        {
+            _weapon_sprite.set_tiles(bn::sprite_items::icon_gun.tiles_item(), frame);
+        }
+    }
+
+    WEAPON_TYPE HUD::get_weapon() const { return _weapon; }
+
+    void HUD::cycle_weapon()
+    {
+        if (_weapon == WEAPON_TYPE::GUN)
+        {
+            set_weapon(WEAPON_TYPE::SWORD);
+        }
+        else
+        {
+            set_weapon(WEAPON_TYPE::GUN);
+        }
+    }
+
+    void HUD::set_ammo(int ammo_count)
+    {
+        _displayed_ammo = bn::max(0, bn::min(ammo_count, HUD_MAX_AMMO));
+        _update_ammo_display();
+    }
+
+    void HUD::_update_ammo_display()
+    {
+        if (!_ammo_sprite.has_value())
+        {
+            return;
+        }
+        bool show_ammo = (_weapon == WEAPON_TYPE::GUN);
+        if (show_ammo)
+        {
+            int frame = HUD_MAX_AMMO - _displayed_ammo;
+            _ammo_sprite->set_tiles(bn::sprite_items::ammo.tiles_item(), frame);
+            _ammo_sprite->set_visible(_is_visible);
+        }
+        else
+        {
+            _ammo_sprite->set_visible(false);
+        }
+    }
+
+    void HUD::update()
+    {
+        _update_soul_position();
+        _update_soul_animations();
+        _update_buff_menu_sprites();
+        update_buff_menu_hold();
+        update_buff_menu_cooldown();
+    }
+
+    void HUD::_update_soul_position()
+    {
+        if (_health_bg.has_value())
+        {
+            bn::fixed_point bg_pos = _health_bg->position();
+            _soul_sprite.set_position(bg_pos.x() + HUD_SOUL_OFFSET_X, bg_pos.y() + HUD_SOUL_OFFSET_Y);
+        }
+    }
+
+    void HUD::_update_soul_animations()
+    {
+        if (!_soul_action.has_value())
+            return;
+
+        if (!_soul_action->done())
+        {
+            _soul_action->update();
+            return;
+        }
+
+        // Animation complete, reset to idle state
+        const bn::sprite_item *target_item = &bn::sprite_items::heart_empty;
+        int frame_index = 0;
+
+        // Health Gain Completion
+        if (_health_gain_anim_active)
+        {
+            if (_hp >= 3)
+            {
+                if (_silver_soul_active)
+                    target_item = &bn::sprite_items::heart_silver_full;
+                else if (_defense_buff_active)
+                    target_item = &bn::sprite_items::heart_golden_full;
+                else
+                {
+                    target_item = &bn::sprite_items::heart_normal_spawn_full;
+                    frame_index = 9;
+                }
+            }
+            else if (_hp == 2)
+            {
+                if (_silver_soul_active)
+                    target_item = &bn::sprite_items::heart_silver_half;
+                else if (_defense_buff_active)
+                    target_item = &bn::sprite_items::heart_golden_half;
+                else
+                    target_item = &bn::sprite_items::heart_normal_full;
+            }
+            else if (_hp == 1)
+            {
+                target_item = &bn::sprite_items::heart_normal_half;
+            }
+            else
+            {
+                // 0 HP -> Nothing
+                target_item = &bn::sprite_items::heart_empty_spawn;
+                frame_index = 0;
+            }
+            _health_gain_anim_active = false;
+        }
+        // Health Loss Completion
+        else if (_health_loss_anim_active)
+        {
+            if (_hp >= 3)
+            {
+                target_item = &bn::sprite_items::heart_normal_spawn_full;
+                frame_index = 9;
+            }
+            else if (_hp == 2)
+            {
+                if (_silver_soul_active)
+                    target_item = &bn::sprite_items::heart_silver_half;
+                else if (_defense_buff_active)
+                    target_item = &bn::sprite_items::heart_golden_half;
+                else
+                    target_item = &bn::sprite_items::heart_normal_full;
+            }
+            else if (_hp == 1)
+            {
+                target_item = &bn::sprite_items::heart_normal_half;
+            }
+            else
+            {
+                // 0 HP -> Nothing
+                target_item = &bn::sprite_items::heart_empty_spawn;
+                frame_index = 0;
+            }
+            _health_loss_anim_active = false;
+        }
+        // Buff Transition/Activation Completion
+        else if (_silver_soul_reversing || _defense_buff_fading)
+        {
+            if (_hp >= 3)
+            {
+                target_item = &bn::sprite_items::heart_normal_spawn_full;
+                frame_index = 9;
+            }
+            else if (_hp == 2)
+                target_item = &bn::sprite_items::heart_normal_half;
+            else if (_hp == 1)
+                target_item = &bn::sprite_items::heart_normal_half;
+            else
+            {
+                target_item = &bn::sprite_items::heart_empty_spawn;
+                frame_index = 0;
+            }
+            _silver_soul_reversing = false;
+            _defense_buff_fading = false;
+        }
+        else if (_silver_soul_active)
+        {
+            if (_hp >= 3)
+                target_item = &bn::sprite_items::heart_silver_full;
+            else if (_hp == 2)
+                target_item = &bn::sprite_items::heart_silver_half;
+            else if (_hp == 1)
+                target_item = &bn::sprite_items::heart_normal_half; // Use normal half for silver empty
+            else
+            {
+                target_item = &bn::sprite_items::heart_empty_spawn;
+                frame_index = 0;
+            }
+        }
+        else if (_defense_buff_active)
+        {
+            if (_hp >= 3)
+                target_item = &bn::sprite_items::heart_golden_full;
+            else if (_hp == 2)
+                target_item = &bn::sprite_items::heart_golden_half;
+            else if (_hp == 1)
+                target_item = &bn::sprite_items::heart_normal_half; // Use normal half for golden empty
+            else
+            {
+                target_item = &bn::sprite_items::heart_empty_spawn;
+                frame_index = 0;
+            }
+        }
+        else
+        {
+            // Default idle state
+            if (_hp >= 3)
+            {
+                target_item = &bn::sprite_items::heart_normal_spawn_full;
+                frame_index = 9;
+            }
+            else if (_hp == 2)
+                target_item = &bn::sprite_items::heart_normal_half;
+            else if (_hp == 1)
+                target_item = &bn::sprite_items::heart_normal_half;
+            else
+            {
+                target_item = &bn::sprite_items::heart_empty_spawn;
+                frame_index = 0;
+            }
+        }
+
+        set_soul_sprite_and_frame(_soul_sprite, *target_item, frame_index);
+        _soul_action.reset();
+    }
+
+    void HUD::toggle_buff_menu()
+    {
+        if (is_buff_menu_on_cooldown())
+            return;
+
+        if (_buff_menu_state == BUFF_MENU_STATE::CLOSED)
+        {
+            _buff_menu_state = BUFF_MENU_STATE::OPEN;
+            _selected_buff_option = 0;
+            // Initialize option sprites
+            for (int i = 0; i < BUFF_MENU_OPTION_COUNT; ++i)
+            {
+                int sprite_x = HUD_BUFF_MENU_BASE_X + buff_menu_offsets_x[i];
+                int sprite_y = HUD_BUFF_MENU_BASE_Y + buff_menu_offsets_y[i];
+                _buff_menu_option_sprites[i] = bn::sprite_items::hud_icons.create_sprite(sprite_x, sprite_y, buff_menu_icon_frames[i]);
+                _configure_hud_sprite(_buff_menu_option_sprites[i].value());
+                if (i != _selected_buff_option)
+                {
+                    _buff_menu_option_sprites[i]->set_blending_enabled(true);
+                }
+            }
+        }
+        else
+        {
+            _buff_menu_state = BUFF_MENU_STATE::CLOSED;
+            for (int i = 0; i < BUFF_MENU_OPTION_COUNT; ++i)
+            {
+                _buff_menu_option_sprites[i].reset();
+            }
+        }
+    }
+
+    void HUD::_play_health_transition_anim(const bn::sprite_item &it, const int *f, int c, bool g)
+    {
+        _health_gain_anim_active = g;
+        _health_loss_anim_active = !g;
+        _soul_sprite.set_item(it);
+        auto s = [&](auto... args)
+        { _soul_action = bn::create_sprite_animate_action_once(_soul_sprite, HUD_SOUL_ANIM_SPEED, it.tiles_item(), args...); };
+        if (c == 14)
+            s(f[0], f[1], f[2], f[3], f[4], f[5], f[6], f[7], f[8], f[9], f[10], f[11], f[12], f[13]);
+        else if (c == 10)
+            s(f[0], f[1], f[2], f[3], f[4], f[5], f[6], f[7], f[8], f[9]);
+        else if (c == 9)
+            s(f[0], f[1], f[2], f[3], f[4], f[5], f[6], f[7], f[8]);
+        else if (c == 7)
+            s(f[0], f[1], f[2], f[3], f[4], f[5], f[6]);
+        else if (c == 5)
+            s(f[0], f[1], f[2], f[3], f[4]);
+        else if (c == 4)
+            s(f[0], f[1], f[2], f[3]);
+        else
+            s(f[0], f[1], f[2], f[3], f[4], f[5]);
+    }
+
+    bool HUD::is_buff_menu_on_cooldown() const { return _buff_menu_cooldown_timer > 0; }
+
+    void HUD::_update_buff_menu_sprites()
+    {
+        if (_buff_menu_state == BUFF_MENU_STATE::OPEN)
+        {
+            for (int i = 0; i < BUFF_MENU_OPTION_COUNT; ++i)
+            {
+                if (_buff_menu_option_sprites[i].has_value())
+                {
+                    _buff_menu_option_sprites[i]->set_visible(_is_visible);
+                }
+            }
+        }
+    }
+
+    void HUD::_update_selection(int new_selection)
+    {
+        if (new_selection == _selected_buff_option || new_selection < 0 || new_selection >= BUFF_MENU_OPTION_COUNT)
+        {
+            return;
+        }
+        if (_buff_menu_option_sprites[_selected_buff_option].has_value())
+        {
+            _buff_menu_option_sprites[_selected_buff_option]->set_blending_enabled(true);
+        }
+        _selected_buff_option = new_selection;
+        if (_buff_menu_option_sprites[_selected_buff_option].has_value())
+        {
+            _buff_menu_option_sprites[_selected_buff_option]->set_blending_enabled(false);
+        }
+    }
+
+    void HUD::navigate_buff_menu_up()
+    {
+        if (_buff_menu_state == BUFF_MENU_STATE::OPEN)
+        {
+            int new_sel = buff_menu_nav[_selected_buff_option][NAV_UP];
+            if (new_sel != -1)
+                _update_selection(new_sel);
+        }
+    }
+
+    void HUD::navigate_buff_menu_down()
+    {
+        if (_buff_menu_state == BUFF_MENU_STATE::OPEN)
+        {
+            int new_sel = buff_menu_nav[_selected_buff_option][NAV_DOWN];
+            if (new_sel != -1)
+                _update_selection(new_sel);
+        }
+    }
+
+    void HUD::navigate_buff_menu_left()
+    {
+        if (_buff_menu_state == BUFF_MENU_STATE::OPEN)
+        {
+            int new_sel = buff_menu_nav[_selected_buff_option][NAV_LEFT];
+            if (new_sel != -1)
+                _update_selection(new_sel);
+        }
+    }
+
+    void HUD::navigate_buff_menu_right()
+    {
+        if (_buff_menu_state == BUFF_MENU_STATE::OPEN)
+        {
+            int new_sel = buff_menu_nav[_selected_buff_option][NAV_RIGHT];
+            if (new_sel != -1)
+                _update_selection(new_sel);
+        }
+    }
+
+    bool HUD::is_buff_menu_open() const { return _buff_menu_state == BUFF_MENU_STATE::OPEN; }
+
+    int HUD::get_selected_buff() const { return _selected_buff_option; }
+
+    void HUD::start_buff_menu_hold()
+    {
+        if (_buff_menu_state == BUFF_MENU_STATE::CLOSED && _buff_menu_hold_timer == 0)
+        {
+            _buff_menu_hold_timer = 1;
+            _buff_menu_base.set_tiles(bn::sprite_items::temptest.tiles_item(), 8);
+        }
+    }
+
+    void HUD::update_buff_menu_hold()
+    {
+        if (_buff_menu_hold_timer > 0 && _buff_menu_state == BUFF_MENU_STATE::CLOSED)
+        {
+            _buff_menu_hold_timer++;
+            int frame = 8 - (_buff_menu_hold_timer * 7) / HUD_BUFF_MENU_HOLD_FRAMES;
+            if (frame < 1)
+            {
+                frame = 1;
+            }
+            _buff_menu_base.set_tiles(bn::sprite_items::temptest.tiles_item(), frame);
+        }
+    }
+
+    void HUD::cancel_buff_menu_hold()
+    {
+        _buff_menu_hold_timer = 0;
+        _buff_menu_base.set_tiles(bn::sprite_items::temptest.tiles_item(), 0);
+    }
+
+    bool HUD::is_buff_menu_hold_complete() const { return _buff_menu_hold_timer >= HUD_BUFF_MENU_HOLD_FRAMES; }
+
+    bool HUD::is_buff_menu_holding() const { return _buff_menu_hold_timer > 0; }
+
+    void HUD::start_buff_menu_cooldown()
+    {
+        _buff_menu_cooldown_timer = 1;
+        _buff_menu_base.set_tiles(bn::sprite_items::temptest.tiles_item(), 1);
+    }
+
+    void HUD::update_buff_menu_cooldown()
+    {
+        if (_buff_menu_cooldown_timer > 0)
+        {
+            _buff_menu_cooldown_timer++;
+            int frame = 1 + (_buff_menu_cooldown_timer * 7) / HUD_BUFF_MENU_COOLDOWN_FRAMES;
+            if (frame > 8)
+            {
+                frame = 8;
+            }
+            _buff_menu_base.set_tiles(bn::sprite_items::temptest.tiles_item(), frame);
+            if (_buff_menu_cooldown_timer >= HUD_BUFF_MENU_COOLDOWN_FRAMES)
+            {
+                _buff_menu_cooldown_timer = 0;
+                _buff_menu_base.set_tiles(bn::sprite_items::temptest.tiles_item(), 0);
+            }
+        }
+    }
+
+} // namespace str
