@@ -51,70 +51,48 @@ namespace fe {
         : Entity(pos), _type(type), _camera(camera), _text_generator(text_generator) { _text_generator.set_bg_priority(0); }
 
     void NPC::update() {
-        if (_action.has_value()) _action->update();
+        if (_action) _action->update();
         if (_is_talking) {
             if (_dialog_state == DIALOG_STATE::SHOWING_OPTIONS) { handle_option_navigation(); render_dialog_options(); return; }
-            if (_currentChar >= _lines.at(_currentLine).size() * 2) {
+            bool line_done = _currentChar >= _lines.at(_currentLine).size() * 2;
+            if (line_done) {
                 if (bn::keypad::up_pressed() || bn::keypad::a_pressed()) {
                     if (_currentLine == _lines.size() - 1) {
-                        if (_dialog_state == DIALOG_STATE::GREETING && _has_dialog_options) { _dialog_state = DIALOG_STATE::SHOWING_OPTIONS; _selected_option = 0; return; }
-                        if (_dialog_state == DIALOG_STATE::SHOWING_RESPONSE && _has_dialog_options) { _dialog_state = DIALOG_STATE::SHOWING_OPTIONS; _selected_option = 0; _currentLine = 0; _currentChar = 0; _currentChars = ""; return; }
+                        if (_has_dialog_options) { _dialog_state = _dialog_state == DIALOG_STATE::GREETING ? DIALOG_STATE::SHOWING_OPTIONS : _dialog_state;
+                            if (_dialog_state == DIALOG_STATE::SHOWING_OPTIONS) { _selected_option = 0; _currentLine = 0; _currentChar = 0; _currentChars = ""; return; }
+                        }
                         end_conversation(); return;
                     }
                     bn::sound_items::hello.play(); _currentLine++; _currentChar = 0; _currentChars = "";
-                } else if (bn::keypad::start_pressed()) { end_conversation(); }
+                } else if (bn::keypad::start_pressed()) end_conversation();
             } else {
-                if (bn::keypad::start_pressed()) { end_conversation(); }
-                else if (bn::keypad::a_pressed() || bn::keypad::up_pressed()) {
-                    _currentChar = _lines.at(_currentLine).size() * 2; _currentChars = _lines.at(_currentLine); _last_char_count = _currentChars.size();
-                }
-                if (_currentChar < _lines.at(_currentLine).size() * 2) {
-                    int char_count = (_currentChar / 2) + 1;
-                    if (char_count != _last_char_count) { _currentChars = _lines.at(_currentLine).substr(0, char_count); _last_char_count = char_count; }
+                if (bn::keypad::start_pressed()) end_conversation();
+                else if (bn::keypad::a_pressed() || bn::keypad::up_pressed()) { _currentChar = _lines.at(_currentLine).size() * 2; _currentChars = _lines.at(_currentLine); }
+                else {
                     static int hold_counter = 0;
-                    bool should_advance = false;
-                    if (bn::keypad::a_held() || bn::keypad::up_held()) { if (++hold_counter >= 2) { should_advance = true; hold_counter = 0; } }
-                    else { hold_counter = 0; should_advance = true; }
-                    if (should_advance) {
-                        if (++_currentChar >= _lines.at(_currentLine).size() * 2 && _currentLine == _lines.size() - 1) {
-                            _currentChars = _lines.at(_currentLine); _last_char_count = _currentChars.size(); _currentChar = _lines.at(_currentLine).size() * 2;
-                        }
+                    if ((bn::keypad::a_held() || bn::keypad::up_held() ? ++hold_counter >= 2 : (hold_counter = 0, true)) && ++_currentChar >= 0) {
+                        _currentChars = _lines.at(_currentLine).substr(0, _currentChar / 2 + 1);
                     }
                 }
             }
             _text_generator.set_left_alignment(); _text_sprites.clear(); _text_generator.generate(-90, _text_y_limit, _currentChars, _text_sprites);
         } else if (_is_near_player && !_finished) {
             _text_generator.set_center_alignment(); _text_sprites.clear(); _text_generator.generate(0, _text_y_limit, "press 'A' to interact", _text_sprites);
-        } else { _text_sprites.clear(); }
+        } else _text_sprites.clear();
     }
 
     bool NPC::finished_talking() { return _has_spoken_once; }
-    bool NPC::is_in_interaction_zone(bn::fixed_point player_pos) {
-        if (!_finished && !_hidden) {
-            if (bn::abs(pos().x() - player_pos.x()) < fe::MERCHANT_INTERACTION_ZONE_WIDTH && bn::abs(pos().y() - player_pos.y()) < fe::MERCHANT_INTERACTION_ZONE_HEIGHT) {
-                _is_near_player = true; return true;
-            }
-            _is_near_player = false;
-        }
-        return false;
-    }
-    bool NPC::check_trigger(bn::fixed_point player_pos) { return is_in_interaction_zone(player_pos); }
-    void NPC::talk() {
-        if (!_is_talking) { _is_talking = true; _dialog_state = DIALOG_STATE::GREETING; _currentLine = 0; _currentChar = 0; _currentChars = ""; _has_spoken_once = true; bn::sound_items::hello.play(); }
-    }
+    bool NPC::is_in_interaction_zone(bn::fixed_point p) { if (!_finished && !_hidden) { if (bn::abs(pos().x() - p.x()) < fe::MERCHANT_INTERACTION_ZONE_WIDTH && bn::abs(pos().y() - p.y()) < fe::MERCHANT_INTERACTION_ZONE_HEIGHT) return _is_near_player = 1; _is_near_player = 0; } return 0; }
+    bool NPC::check_trigger(bn::fixed_point p) { return is_in_interaction_zone(p); }
+    void NPC::talk() { if (!_is_talking) { _is_talking = 1; _dialog_state = DIALOG_STATE::GREETING; _currentLine = _currentChar = 0; _currentChars = ""; _has_spoken_once = 1; bn::sound_items::hello.play(); } }
     bool NPC::is_talking() { return _is_talking; }
-    void NPC::set_is_hidden(bool is_hidden) { _hidden = is_hidden; if (_sprite.has_value()) _sprite->set_visible(!is_hidden); }
+    void NPC::set_is_hidden(bool h) { _hidden = h; if (_sprite) _sprite->set_visible(!h); }
     bool NPC::hidden() { return _hidden; }
-    void NPC::end_conversation() { _is_talking = false; _currentChars = ""; _currentChar = 0; _currentLine = 0; _dialog_state = DIALOG_STATE::GREETING; _has_spoken_once = true; _text_sprites.clear(); }
+    void NPC::end_conversation() { _is_talking = 0; _currentChars = ""; _currentChar = _currentLine = 0; _dialog_state = DIALOG_STATE::GREETING; _has_spoken_once = 1; _text_sprites.clear(); }
 
     void NPC::render_dialog_options() {
-        _text_sprites.clear(); _text_generator.set_left_alignment();
-        bn::fixed y_pos = _text_y_limit - 20;
-        for (int i = 0; i < _dialog_options.size(); ++i) {
-            bn::string<64> option_text = (i == _selected_option ? "> " : "  ");
-            option_text.append(_dialog_options[i].option_text);
-            _text_generator.generate(-90, y_pos, option_text, _text_sprites); y_pos += _text_y_inc;
-        }
+        _text_sprites.clear(); _text_generator.set_left_alignment(); bn::fixed y = _text_y_limit - 20;
+        for (int i = 0; i < _dialog_options.size(); ++i) { bn::string<64> t = (i == _selected_option ? "> " : "  "); t.append(_dialog_options[i].option_text); _text_generator.generate(-90, y, t, _text_sprites); y += _text_y_inc; }
     }
 
     void NPC::handle_option_navigation() {
@@ -125,11 +103,7 @@ namespace fe {
     }
 
     void NPC::select_dialog_option() {
-        if (_selected_option < _dialog_options.size()) {
-            bn::sound_items::hello.play(); _lines = _dialog_options[_selected_option].response_lines;
-            _dialog_state = _dialog_options[_selected_option].ends_conversation ? DIALOG_STATE::ENDING : DIALOG_STATE::SHOWING_RESPONSE;
-            _currentLine = 0; _currentChar = 0; _currentChars = ""; _last_char_count = -1;
-        }
+        if (_selected_option < _dialog_options.size()) { bn::sound_items::hello.play(); _lines = _dialog_options[_selected_option].response_lines; _dialog_state = _dialog_options[_selected_option].ends_conversation ? DIALOG_STATE::ENDING : DIALOG_STATE::SHOWING_RESPONSE; _currentLine = _currentChar = 0; _currentChars = ""; _last_char_count = -1; }
     }
 
     // =========================================================================
@@ -161,210 +135,35 @@ namespace fe {
     };
 
     MerchantNPC::MerchantNPC(bn::fixed_point pos, bn::camera_ptr &camera, bn::sprite_text_generator &text_generator)
-        : NPC(pos, camera, NPC_TYPE::MERCHANT, text_generator) {
-        initialize_sprite();
-        initialize_dialogue();
-        initialize_dialog_options(); 
-    }
-
-    void MerchantNPC::initialize_sprite() {
-        bn::sprite_builder builder(bn::sprite_items::merchant);
-        builder.set_position(pos());
-        builder.set_bg_priority(1);
-        builder.set_z_order(100);
-        _sprite = builder.build();
-        if (_sprite.has_value()) { set_camera(_camera); }
-    }
-
+        : NPC(pos, camera, NPC_TYPE::MERCHANT, text_generator) { initialize_sprite(); initialize_dialogue(); initialize_dialog_options(); }
+    void MerchantNPC::initialize_sprite() { bn::sprite_builder b(bn::sprite_items::merchant); b.set_position(pos()); b.set_bg_priority(1); b.set_z_order(100); _sprite = b.build(); if (_sprite) set_camera(_camera); }
     void MerchantNPC::initialize_dialogue() { _lines = bn::span(_dialogue_lines); }
-
-    void MerchantNPC::initialize_dialog_options() {
-        _has_dialog_options = true;
-        DialogOption past_option("Ask about his past", bn::span(_past_response_lines), false);
-        _dialog_options.push_back(past_option);
-        
-        DialogOption directions_option("Ask for directions", bn::span(_directions_response_lines), false);
-        _dialog_options.push_back(directions_option);
-        
-        DialogOption goodbye_option("Goodbye", bn::span(_goodbye_response_lines), true);
-        _dialog_options.push_back(goodbye_option); 
-    }
-
-} // namespace fe
-#include "fe_enemy.h"
-#include "fe_constants.h"
-#include "fe_enemy_states.h"
-#include "fe_enemy_state_machine.h"
-#include "fe_level.h"
-#include "fe_enemy_type.h"
-#include "fe_collision.h"
-
-#include "bn_fixed_point.h"
-#include "bn_sprite_ptr.h"
-#include "bn_sprite_shape_size.h"
-#include "bn_camera_ptr.h"
-#include "bn_regular_bg_ptr.h"
-#include "bn_regular_bg_map_ptr.h"
-#include "bn_optional.h"
-#include "bn_span.h"
-#include "bn_log.h"
-#include "bn_size.h"
-#include "bn_sprite_builder.h"
-#include "bn_memory.h"
-#include "bn_random.h"
-#include "bn_math.h"
-
-#include "bn_sprite_items_healthbar_enemy.h"
-#include "bn_sprite_items_spearguard.h"
-
-namespace fe {
-
-    constexpr int HEALTHBAR_Z_ORDER = -1000;
+    void MerchantNPC::initialize_dialog_options() { _has_dialog_options = 1; _dialog_options.push_back(DialogOption("Ask about his past", bn::span(_past_response_lines), 0)); _dialog_options.push_back(DialogOption("Ask for directions", bn::span(_directions_response_lines), 0)); _dialog_options.push_back(DialogOption("Goodbye", bn::span(_goodbye_response_lines), 1)); }
 
     // =========================================================================
     // Enemy Implementation
     // =========================================================================
 
+    constexpr int HEALTHBAR_Z_ORDER = -1000;
+
     Enemy::Enemy(int x, int y, bn::camera_ptr camera, bn::regular_bg_ptr map, ENEMY_TYPE type, int hp) 
-        : Entity(bn::fixed_point(x, y)),
-          _camera(camera),
-          _type(type),
-          _dir(0),
-          _hp(hp),
-          _max_hp(hp),
-          _map(map),
-          _map_cells(map.map().cells_ref().value()) {
-        
+        : Entity(bn::fixed_point(x, y)), _camera(camera), _type(type), _hp(hp), _max_hp(hp), _map(map), _map_cells(map.map().cells_ref().value()) {
         bn::sprite_builder builder(bn::sprite_items::spearguard);
-        switch (_type) {
-        case ENEMY_TYPE::SPEARGUARD: builder = bn::sprite_builder(bn::sprite_items::spearguard); break;
-        case ENEMY_TYPE::SLIME: builder = bn::sprite_builder(bn::sprite_items::spearguard); break;
-        case ENEMY_TYPE::MUTANT: builder = bn::sprite_builder(bn::sprite_items::spearguard); break;
-        default: builder = bn::sprite_builder(bn::sprite_items::spearguard); break; 
-        }
-        
-        builder.set_position(pos());
-        builder.set_bg_priority(1);
+        builder.set_position(pos()); builder.set_bg_priority(1);
         _sprite = builder.build();
-        if (!_sprite.has_value()) { return; }
-        
+        if (!_sprite) return;
         set_camera(_camera);
         _hitbox = Hitbox(pos().x() - 4, pos().y() - 4, 8, 8);
-        
-        if (_type == ENEMY_TYPE::SPEARGUARD) { _original_position = pos(); }
-        
-        if (_type == ENEMY_TYPE::SPEARGUARD) {
-            _action = bn::create_sprite_animate_action_forever(
-                *_sprite,
-                12,
-                bn::sprite_items::spearguard.tiles_item(),
-                0, 1, 2, 3, 4, 5
-            );
-            _current_animation = AnimationState::IDLE; 
-        } else {
-            _action = bn::create_sprite_animate_action_forever(
-                *_sprite,
-                8,
-                bn::sprite_items::spearguard.tiles_item(),
-                0, 1, 2, 3); 
-        }
-        
-        bn::unique_ptr<IdleState> initial_state = bn::make_unique<IdleState>();
-        _state_machine.initialize(bn::move(initial_state));
-        
+        if (_type == ENEMY_TYPE::SPEARGUARD) _original_position = pos();
+        _action = bn::create_sprite_animate_action_forever(*_sprite, _type == ENEMY_TYPE::SPEARGUARD ? 12 : 8, bn::sprite_items::spearguard.tiles_item(), 0, 1, 2, 3, 4, 5);
+        _state_machine.initialize(bn::make_unique<IdleState>());
         _health_bar_sprite = bn::sprite_items::healthbar_enemy.create_sprite(pos().x(), pos().y() - 20, 0);
-        _health_bar_sprite->set_camera(_camera);
-        _health_bar_sprite->set_bg_priority(3);
-        _health_bar_sprite->set_z_order(HEALTHBAR_Z_ORDER);
+        _health_bar_sprite->set_camera(_camera); _health_bar_sprite->set_bg_priority(3); _health_bar_sprite->set_z_order(HEALTHBAR_Z_ORDER);
         _update_health_bar(); 
     }
 
-    Enemy::Enemy(Enemy &&other) noexcept
-        : Entity(bn::move(other)),
-          _movement(bn::move(other._movement)),
-          _state_machine(bn::move(other._state_machine)),
-          _state_timer(other._state_timer),
-          _state_duration(other._state_duration),
-          _target_dx(other._target_dx),
-          _target_dy(other._target_dy),
-          _dx(other._dx),
-          _dy(other._dy),
-          _camera(other._camera),
-          _type(other._type),
-          _dir(other._dir),
-          _hp(other._hp),
-          _direction_timer(other._direction_timer),
-          _invulnerable(other._invulnerable),
-          _dead(other._dead),
-          _grounded(other._grounded),
-          _inv_timer(other._inv_timer),
-          _stunned(other._stunned),
-          _death_timer(other._death_timer),
-          _knockback_dx(other._knockback_dx),
-          _knockback_dy(other._knockback_dy),
-          _knockback_timer(other._knockback_timer),
-          _sound_timer(other._sound_timer),
-          _spotted_player(other._spotted_player),
-          _action(bn::move(other._action)),
-          _health_bar_sprite(bn::move(other._health_bar_sprite)),
-          _max_hp(other._max_hp),
-          _current_animation(other._current_animation),
-          _attack_timer(other._attack_timer),
-          _original_position(other._original_position),
-          _returning_to_post(other._returning_to_post),
-          _target(other._target),
-          _target_locked(other._target_locked),
-          _map(other._map),
-          _map_cells(other._map_cells),
-          _level(other._level) {
-        other._hp = 0;
-        other._dead = true; 
-    }
-
-    Enemy &Enemy::operator=(Enemy &&other) noexcept {
-        if (this != &other) {
-            Entity::operator=(bn::move(other));
-            _movement = bn::move(other._movement);
-            _state_machine = bn::move(other._state_machine);
-            _state_timer = other._state_timer;
-            _state_duration = other._state_duration;
-            _target_dx = other._target_dx;
-            _target_dy = other._target_dy;
-            _dx = other._dx;
-            _dy = other._dy;
-            _camera = other._camera;
-            _type = other._type;
-            _dir = other._dir;
-            _hp = other._hp;
-            _direction_timer = other._direction_timer;
-            _invulnerable = other._invulnerable;
-            _dead = other._dead;
-            _grounded = other._grounded;
-            _inv_timer = other._inv_timer;
-            _stunned = other._stunned;
-            _death_timer = other._death_timer;
-            _knockback_dx = other._knockback_dx;
-            _knockback_dy = other._knockback_dy;
-            _knockback_timer = other._knockback_timer;
-            _sound_timer = other._sound_timer;
-            _spotted_player = other._spotted_player;
-            _action = bn::move(other._action);
-            _health_bar_sprite = bn::move(other._health_bar_sprite);
-            _max_hp = other._max_hp;
-            _current_animation = other._current_animation;
-            _attack_timer = other._attack_timer;
-            _original_position = other._original_position;
-            _returning_to_post = other._returning_to_post;
-            _target = other._target;
-            _target_locked = other._target_locked;
-            _map = other._map;
-            _map_cells = other._map_cells;
-            _level = other._level;
-            other._hp = 0;
-            other._dead = true; 
-        }
-        return *this; 
-    }
+    Enemy::Enemy(Enemy &&other) noexcept = default;
+    Enemy &Enemy::operator=(Enemy &&other) noexcept = default;
 
     void Enemy::update_hitbox() {
         _hitbox.set_x(pos().x() - 4);
@@ -373,111 +172,36 @@ namespace fe {
 
     void Enemy::update(bn::fixed_point player_pos, const Level &level, bool player_listening) {
         if (_knockback_timer > 0) {
-            _knockback_timer--;
-            set_position(bn::fixed_point(pos().x() + _knockback_dx, pos().y() + _knockback_dy));
-            _knockback_dx *= 0.9;
-            _knockback_dy *= 0.9;
-            if (_knockback_timer == 0) {
-                _knockback_dx = 0;
-                _knockback_dy = 0;
-                _stunned = false;
-                bn::unique_ptr<StunnedState> stunned_state = bn::make_unique<StunnedState>();
-                _state_machine.transition_to(*this, bn::move(stunned_state)); 
-            }
-            update_hitbox();
-            return; 
+            _knockback_timer--; set_position(pos() + bn::fixed_point(_knockback_dx, _knockback_dy));
+            _knockback_dx *= 0.9; _knockback_dy *= 0.9;
+            if (_knockback_timer == 0) { _knockback_dx = _knockback_dy = 0; _stunned = false; _state_machine.transition_to(*this, bn::make_unique<StunnedState>()); }
+            update_hitbox(); return; 
         }
-        
         if (!_dead) {
             _state_machine.update(*this, player_pos, level, player_listening);
-            const bn::fixed lerp = 0.1;
-            _dx += (_target_dx - _dx) * lerp;
-            _dy += (_target_dy - _dy) * lerp;
-            _movement.set_velocity(bn::fixed_point(_dx, _dy));
-            _movement.update();
-            bn::fixed new_x = pos().x() + _dx;
-            bn::fixed new_y = pos().y() + _dy;
-            bn::fixed_point new_pos(new_x, new_y);
-            
-            // Unused currently but calculated
-            /*
-            directions check_direction = directions::down;
-            if (bn::abs(_dx) > bn::abs(_dy)) { check_direction = _dx > 0 ? directions::right : directions::left; }
-            else { check_direction = _dy > 0 ? directions::down : directions::up; }
-            */
-            
-            set_position(new_pos); 
-        } else {
-            _dx = 0;
-            _dy = 0;
-            _target_dx = 0;
-            _target_dy = 0;
-            _movement.set_velocity(bn::fixed_point(0, 0));
-            if (_death_timer > 0) { _death_timer--; }
-        }
-        
-        if (_invulnerable && !_dead) {
-            if (--_inv_timer <= 0) {
-                _invulnerable = false;
-                _inv_timer = 0;
-                if (_sprite.has_value()) { _sprite->set_visible(true); }
-            }
-        } else if (_dead && _sprite.has_value()) { 
-            _sprite->set_visible(true); 
-        }
-        
+            _dx += (_target_dx - _dx) * 0.1; _dy += (_target_dy - _dy) * 0.1;
+            _movement.set_velocity(bn::fixed_point(_dx, _dy)); _movement.update();
+            set_position(pos() + bn::fixed_point(_dx, _dy)); 
+        } else { _dx = _dy = _target_dx = _target_dy = 0; _movement.set_velocity({0, 0}); if (_death_timer > 0) _death_timer--; }
+        if (_invulnerable && !_dead) { if (--_inv_timer <= 0) { _invulnerable = false; _inv_timer = 0; if (_sprite) _sprite->set_visible(true); } }
+        else if (_dead && _sprite) _sprite->set_visible(true); 
         _update_spearguard_animation();
-        
-        if (_sprite.has_value()) {
-            _sprite->set_position(pos());
-            _sprite->set_horizontal_flip(_dx < 0);
-            if (_action.has_value()) {
-                if (!_action->done()) { _action->update(); }
-            }
-        }
-        _update_health_bar_position();
-        update_hitbox(); 
+        if (_sprite) { _sprite->set_position(pos()); _sprite->set_horizontal_flip(_dx < 0); if (_action && !_action->done()) _action->update(); }
+        _update_health_bar_position(); update_hitbox(); 
     }
 
-    void Enemy::set_pos(bn::fixed_point new_pos) { set_position(new_pos); }
-
     bool Enemy::_take_damage(int damage) {
-        if (_invulnerable || _dead) { return false; }
-        _hp -= damage;
-        _invulnerable = true;
-        _inv_timer = 30;
-        _stunned = true;
-        if (_type == ENEMY_TYPE::SPEARGUARD) { _aggroed = true; }
-        _update_health_bar();
-        if (_hp <= 0) {
-            _dead = true;
-            _death_timer = ENEMY_DEATH_ANIMATION_DURATION; 
-        }
+        if (_invulnerable || _dead) return false;
+        _hp -= damage; _invulnerable = true; _inv_timer = 30; _stunned = true;
+        if (_type == ENEMY_TYPE::SPEARGUARD) _aggroed = true;
+        _update_health_bar(); if (_hp <= 0) { _dead = true; _death_timer = ENEMY_DEATH_ANIMATION_DURATION; }
         return true; 
     }
 
-    void Enemy::_apply_knockback(bn::fixed dx, bn::fixed dy) {
-        _knockback_dx = dx * ENEMY_KNOCKBACK_STRENGTH;
-        _knockback_dy = dy * ENEMY_KNOCKBACK_STRENGTH;
-        _knockback_timer = ENEMY_KNOCKBACK_DURATION;
-        _stunned = true; 
-    }
+    void Enemy::_apply_knockback(bn::fixed dx, bn::fixed dy) { _knockback_dx = dx * ENEMY_KNOCKBACK_STRENGTH; _knockback_dy = dy * ENEMY_KNOCKBACK_STRENGTH; _knockback_timer = ENEMY_KNOCKBACK_DURATION; _stunned = true; }
 
-    bool Enemy::damage_from_left(int damage) {
-        if (_take_damage(damage)) {
-            _apply_knockback(1.0, -0.5);
-            return true; 
-        }
-        return false; 
-    }
-
-    bool Enemy::damage_from_right(int damage) {
-        if (_take_damage(damage)) {
-            _apply_knockback(-1.0, -0.5);
-            return true; 
-        }
-        return false; 
-    }
+    bool Enemy::damage_from_left(int damage) { if (_take_damage(damage)) { _apply_knockback(1.0, -0.5); return true; } return false; }
+    bool Enemy::damage_from_right(int damage) { if (_take_damage(damage)) { _apply_knockback(-1.0, -0.5); return true; } return false; }
 
     bool Enemy::is_hit(Hitbox ) { return false; }
     bool Enemy::is_vulnerable() { return !_invulnerable; }
@@ -492,43 +216,18 @@ namespace fe {
     bool Enemy::is_ready_for_removal() { return _dead && _death_timer <= 0; }
 
     void Enemy::_update_spearguard_animation() {
-        if (_type != ENEMY_TYPE::SPEARGUARD || !_sprite.has_value()) { return; }
-        
-        AnimationState desired_animation = AnimationState::IDLE;
-        if (_dead) { desired_animation = AnimationState::DEAD; }
-        else if (_attack_timer > 0) {
-            desired_animation = AnimationState::ATTACK;
-            _attack_timer--; 
-        } else if (_state_machine.get_current_state_id() == EnemyStateId::CHASE ||
-                 _state_machine.get_current_state_id() == EnemyStateId::PATROL ||
-                 _state_machine.get_current_state_id() == EnemyStateId::RETURN_TO_POST) { 
-            desired_animation = AnimationState::RUN; 
-        } else { 
-            desired_animation = AnimationState::IDLE; 
-        }
-        
-        if (desired_animation != _current_animation) {
-            _current_animation = desired_animation;
-            switch (_current_animation) {
-            case AnimationState::IDLE: 
-                _action = bn::create_sprite_animate_action_forever(
-                    *_sprite, 12, bn::sprite_items::spearguard.tiles_item(), 0, 1, 2, 3, 4, 5);
-                break;
-            case AnimationState::RUN: 
-                _action = bn::create_sprite_animate_action_forever(
-                    *_sprite, 8, bn::sprite_items::spearguard.tiles_item(), 6, 7, 8, 9);
-                break;
-            case AnimationState::ATTACK: 
-                _action = bn::create_sprite_animate_action_forever(
-                    *_sprite, 6, bn::sprite_items::spearguard.tiles_item(), 10, 11, 12, 13, 14);
-                break;
-            case AnimationState::DEAD: 
-                _action = bn::create_sprite_animate_action_once(
-                    *_sprite, 8, bn::sprite_items::spearguard.tiles_item(),
-                    15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30);
-                break;
-            default: break; 
-            }
+        if (_type != ENEMY_TYPE::SPEARGUARD || !_sprite) return;
+        AnimationState da = AnimationState::IDLE;
+        if (_dead) da = AnimationState::DEAD;
+        else if (_attack_timer > 0) { da = AnimationState::ATTACK; _attack_timer--; }
+        else { EnemyStateId sid = _state_machine.get_current_state_id(); if (sid == EnemyStateId::CHASE || sid == EnemyStateId::PATROL || sid == EnemyStateId::RETURN_TO_POST) da = AnimationState::RUN; }
+        if (da != _current_animation) {
+            _current_animation = da; auto s = bn::sprite_items::spearguard.tiles_item();
+            auto m = [&](int sp, auto... f) { _action = bn::create_sprite_animate_action_forever(*_sprite, sp, s, f...); };
+            if (da == AnimationState::IDLE) m(12, 0, 1, 2, 3, 4, 5);
+            else if (da == AnimationState::RUN) m(8, 6, 7, 8, 9);
+            else if (da == AnimationState::ATTACK) m(6, 10, 11, 12, 13, 14);
+            else if (da == AnimationState::DEAD) _action = bn::create_sprite_animate_action_once(*_sprite, 8, s, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30);
         }
     }
 
@@ -559,47 +258,21 @@ namespace fe {
     EnemyStateMachine::EnemyStateMachine()
         : _current_state(nullptr), _current_state_id(EnemyStateId::IDLE), _state_timer(0) {}
 
-    EnemyStateMachine::EnemyStateMachine(EnemyStateMachine&& other) noexcept
-        : _current_state(bn::move(other._current_state)),
-          _current_state_id(other._current_state_id),
-          _state_timer(other._state_timer) {
-        other._current_state_id = EnemyStateId::IDLE;
-        other._state_timer = 0; 
-    }
-
-    EnemyStateMachine& EnemyStateMachine::operator=(EnemyStateMachine&& other) noexcept {
-        if (this != &other) {
-            _current_state = bn::move(other._current_state);
-            _current_state_id = other._current_state_id;
-            _state_timer = other._state_timer;
-            other._current_state_id = EnemyStateId::IDLE;
-            other._state_timer = 0; 
-        }
-        return *this; 
-    }
+    EnemyStateMachine::EnemyStateMachine(EnemyStateMachine&& other) noexcept = default;
+    EnemyStateMachine& EnemyStateMachine::operator=(EnemyStateMachine&& other) noexcept = default;
 
     void EnemyStateMachine::initialize(bn::unique_ptr<EnemyState> initial_state) {
-        if (initial_state) {
-            _current_state = bn::move(initial_state);
-            _current_state_id = static_cast<EnemyStateId>(_current_state->get_state_id());
-            _state_timer = 0; 
-        }
+        if (initial_state) { _current_state = bn::move(initial_state); _current_state_id = static_cast<EnemyStateId>(_current_state->get_state_id()); _state_timer = 0; }
     }
 
     void EnemyStateMachine::update(Enemy& enemy, bn::fixed_point player_pos, const Level& level, bool player_listening) {
-        if (_current_state) {
-            _current_state->update(enemy, player_pos, level, player_listening);
-            _state_timer++; 
-        }
+        if (_current_state) { _current_state->update(enemy, player_pos, level, player_listening); _state_timer++; }
     }
 
     void EnemyStateMachine::transition_to(Enemy& enemy, bn::unique_ptr<EnemyState> new_state) {
         if (!new_state) return;
-        if (_current_state) { _current_state->exit(enemy); }
-        _current_state = bn::move(new_state);
-        _current_state_id = static_cast<EnemyStateId>(_current_state->get_state_id());
-        _state_timer = 0;
-        _current_state->enter(enemy); 
+        if (_current_state) _current_state->exit(enemy);
+        _current_state = bn::move(new_state); _current_state_id = static_cast<EnemyStateId>(_current_state->get_state_id()); _state_timer = 0; _current_state->enter(enemy); 
     }
 
     // =========================================================================
@@ -607,252 +280,70 @@ namespace fe {
     // =========================================================================
 
     // --- IdleState ---
-    void IdleState::enter(Enemy &enemy) {
-        enemy._target_dx = 0;
-        enemy._target_dy = 0;
-        enemy._dx = 0;
-        enemy._dy = 0; 
+    void IdleState::enter(Enemy &e) { e._target_dx = e._target_dy = e._dx = e._dy = 0; }
+    void IdleState::update(Enemy &enemy, bn::fixed_point p_pos, const Level &, bool listening) {
+        bn::fixed d_sq = (p_pos - enemy.pos()).x() * (p_pos - enemy.pos()).x() + (p_pos - enemy.pos()).y() * (p_pos - enemy.pos()).y();
+        if (!listening && d_sq <= 48 * 48) { enemy._state_machine.transition_to(enemy, bn::make_unique<ChaseState>()); return; }
+        if (enemy.type() != ENEMY_TYPE::SPEARGUARD && enemy._state_machine.get_state_timer() >= _idle_duration) { enemy._state_machine.transition_to(enemy, bn::make_unique<PatrolState>()); return; }
+        enemy._target_dx = enemy._target_dy = 0; 
     }
-
-    void IdleState::update(Enemy &enemy, bn::fixed_point player_pos, const Level &level, bool player_listening) {
-        (void)level; // Unused
-        bn::fixed dist_x = player_pos.x() - enemy.pos().x();
-        bn::fixed dist_y = player_pos.y() - enemy.pos().y();
-        bn::fixed dist_sq = dist_x * dist_x + dist_y * dist_y;
-        const bn::fixed follow_dist_sq = 48 * 48;
-        
-        if (!player_listening && dist_sq <= follow_dist_sq) {
-            bn::unique_ptr<ChaseState> chase_state = bn::make_unique<ChaseState>();
-            enemy._state_machine.transition_to(enemy, bn::move(chase_state));
-            return; 
-        }
-        
-        if (enemy.type() != ENEMY_TYPE::SPEARGUARD && enemy._state_machine.get_state_timer() >= _idle_duration) {
-            bn::unique_ptr<PatrolState> patrol_state = bn::make_unique<PatrolState>();
-            enemy._state_machine.transition_to(enemy, bn::move(patrol_state));
-            return; 
-        }
-        enemy._target_dx = 0;
-        enemy._target_dy = 0; 
-    }
-
-    void IdleState::exit(Enemy &enemy) { (void)enemy; }
+    void IdleState::exit(Enemy &) {}
 
     // --- PatrolState ---
-    void PatrolState::enter(Enemy &enemy) {
-        (void)enemy;
-        _direction_set = false;
-        _target_dx = 0;
-        _target_dy = 0; 
+    void PatrolState::enter(Enemy &) { _direction_set = 0; _target_dx = _target_dy = 0; }
+    void PatrolState::update(Enemy &enemy, bn::fixed_point p_pos, const Level &, bool listening) {
+        bn::fixed d_sq = (p_pos - enemy.pos()).x() * (p_pos - enemy.pos()).x() + (p_pos - enemy.pos()).y() * (p_pos - enemy.pos()).y();
+        if (!listening && d_sq <= 48 * 48) { enemy._state_machine.transition_to(enemy, bn::make_unique<ChaseState>()); return; }
+        if (!_direction_set) { static bn::random r; int a = r.get() % 360; bn::fixed rad = a * 3.14159 / 180; _target_dx = 0.35 * bn::sin(rad); _target_dy = 0.35 * bn::cos(rad); _direction_set = 1; }
+        enemy._target_dx = _target_dx; enemy._target_dy = _target_dy;
+        if (enemy._state_machine.get_state_timer() >= _patrol_duration) { static bn::random r; enemy._state_machine.transition_to(enemy, bn::make_unique<IdleState>(20 + (r.get() % 40))); }
     }
-
-    void PatrolState::update(Enemy &enemy, bn::fixed_point player_pos, const Level &level, bool player_listening) {
-        (void)level;
-        bn::fixed dist_x = player_pos.x() - enemy.pos().x();
-        bn::fixed dist_y = player_pos.y() - enemy.pos().y();
-        bn::fixed dist_sq = dist_x * dist_x + dist_y * dist_y;
-        const bn::fixed follow_dist_sq = 48 * 48;
-        
-        if (!player_listening && dist_sq <= follow_dist_sq) {
-            bn::unique_ptr<ChaseState> chase_state = bn::make_unique<ChaseState>();
-            enemy._state_machine.transition_to(enemy, bn::move(chase_state));
-            return; 
-        }
-        
-        if (!_direction_set) {
-            static bn::random random;
-            int angle = random.get() % 360;
-            bn::fixed radians = angle * 3.14159 / 180;
-            _target_dx = 0.35 * bn::sin(radians);
-            _target_dy = 0.35 * bn::cos(radians);
-            _direction_set = true; 
-        }
-        enemy._target_dx = _target_dx;
-        enemy._target_dy = _target_dy;
-        
-        if (enemy._state_machine.get_state_timer() >= _patrol_duration) {
-            static bn::random random;
-            int idle_duration = 20 + (random.get() % 40);
-            bn::unique_ptr<IdleState> idle_state = bn::make_unique<IdleState>(idle_duration);
-            enemy._state_machine.transition_to(enemy, bn::move(idle_state));
-            return; 
-        }
-    }
-
-    void PatrolState::exit(Enemy &enemy) {
-        enemy._target_dx = 0;
-        enemy._target_dy = 0; 
-    }
+    void PatrolState::exit(Enemy &e) { e._target_dx = e._target_dy = 0; }
 
     // --- ChaseState ---
-    void ChaseState::enter(Enemy &enemy) { (void)enemy; }
-
-    void ChaseState::update(Enemy &enemy, bn::fixed_point player_pos, const Level &level, bool player_listening) {
-        (void)level;
-        bn::fixed dist_x = player_pos.x() - enemy.pos().x();
-        bn::fixed dist_y = player_pos.y() - enemy.pos().y();
-        bn::fixed dist_sq = dist_x * dist_x + dist_y * dist_y;
-        bn::fixed unfollow_dist_sq;
-        
-        if (enemy.type() == ENEMY_TYPE::SPEARGUARD && enemy._aggroed) { unfollow_dist_sq = 128 * 128; }
-        else { unfollow_dist_sq = 64 * 64; }
-        
-        if (dist_sq > unfollow_dist_sq || player_listening) {
-            if (enemy.type() == ENEMY_TYPE::SPEARGUARD) {
-                bn::unique_ptr<ReturnToPostState> return_state = bn::make_unique<ReturnToPostState>();
-                enemy._state_machine.transition_to(enemy, bn::move(return_state));
-            } else {
-                static bn::random random;
-                int idle_duration = 20 + (random.get() % 40);
-                bn::unique_ptr<IdleState> idle_state = bn::make_unique<IdleState>(idle_duration);
-                enemy._state_machine.transition_to(enemy, bn::move(idle_state));
-            }
-            return; 
-        }
-        
-        if (enemy.type() == ENEMY_TYPE::SPEARGUARD && enemy._attack_timer <= 0) {
-            bn::fixed abs_dist_x = bn::abs(dist_x);
-            bn::fixed abs_dist_y = bn::abs(dist_y);
-            if (abs_dist_x <= ENEMY_ATTACK_DISTANCE && abs_dist_x >= abs_dist_y * 0.5 && abs_dist_y <= 16) {
-                bn::unique_ptr<AttackState> attack_state = bn::make_unique<AttackState>();
-                enemy._state_machine.transition_to(enemy, bn::move(attack_state));
-                return; 
-            }
-        }
-        
-        bn::fixed len = bn::sqrt(dist_sq);
-        if (len > 0.1) {
-            if (enemy.type() == ENEMY_TYPE::SPEARGUARD) {
-                bn::fixed abs_dist_y = bn::abs(dist_y);
-                if (abs_dist_y > 8) {
-                    enemy._target_dx = (dist_x / len) * _chase_speed * 0.3;
-                    enemy._target_dy = (dist_y / len) * _chase_speed; 
-                } else {
-                    enemy._target_dx = (dist_x / len) * _chase_speed;
-                    enemy._target_dy = (dist_y / len) * _chase_speed * 0.3; 
-                }
-            } else {
-                enemy._target_dx = (dist_x / len) * _chase_speed;
-                enemy._target_dy = (dist_y / len) * _chase_speed; 
-            }
-        } else {
-            enemy._target_dx = 0;
-            enemy._target_dy = 0; 
-        }
+    void ChaseState::enter(Enemy &) {}
+    void ChaseState::update(Enemy &enemy, bn::fixed_point p_pos, const Level &, bool listening) {
+        bn::fixed d_sq = (p_pos - enemy.pos()).x() * (p_pos - enemy.pos()).x() + (p_pos - enemy.pos()).y() * (p_pos - enemy.pos()).y(), uf_sq = (enemy.type() == ENEMY_TYPE::SPEARGUARD && enemy._aggroed) ? 128 * 128 : 64 * 64;
+        if (d_sq > uf_sq || listening) { if (enemy.type() == ENEMY_TYPE::SPEARGUARD) enemy._state_machine.transition_to(enemy, bn::make_unique<ReturnToPostState>()); else { static bn::random r; enemy._state_machine.transition_to(enemy, bn::make_unique<IdleState>(20 + (r.get() % 40))); } return; }
+        if (enemy.type() == ENEMY_TYPE::SPEARGUARD && enemy._attack_timer <= 0) { if (bn::abs(p_pos.x() - enemy.pos().x()) <= ENEMY_ATTACK_DISTANCE && bn::abs(p_pos.x() - enemy.pos().x()) >= bn::abs(p_pos.y() - enemy.pos().y()) * 0.5 && bn::abs(p_pos.y() - enemy.pos().y()) <= 16) { enemy._state_machine.transition_to(enemy, bn::make_unique<AttackState>()); return; } }
+        bn::fixed len = bn::sqrt(d_sq);
+        if (len > 0.1) { bn::fixed f = (enemy.type() == ENEMY_TYPE::SPEARGUARD && bn::abs(p_pos.y() - enemy.pos().y()) > 8) ? 1.0 : 0.3; enemy._target_dx = ((p_pos.x() - enemy.pos().x()) / len) * _chase_speed * (f == 1.0 ? 0.3 : 1.0); enemy._target_dy = ((p_pos.y() - enemy.pos().y()) / len) * _chase_speed * f; }
+        else enemy._target_dx = enemy._target_dy = 0;
     }
-
-    void ChaseState::exit(Enemy &enemy) { (void)enemy; }
+    void ChaseState::exit(Enemy &) {}
 
     // --- AttackState ---
-    void AttackState::enter(Enemy &enemy) {
-        enemy._attack_timer = _attack_duration;
-        enemy._target_dx = 0;
-        enemy._target_dy = 0; 
-    }
-
-    void AttackState::update(Enemy &enemy, bn::fixed_point player_pos, const Level &level, bool player_listening) {
-        (void)level;
-        enemy._target_dx = 0;
-        enemy._target_dy = 0;
-        if (enemy._attack_timer > 0) { enemy._attack_timer--; }
-        
+    void AttackState::enter(Enemy &e) { e._attack_timer = _attack_duration; e._target_dx = e._target_dy = 0; }
+    void AttackState::update(Enemy &enemy, bn::fixed_point p_pos, const Level &, bool listening) {
+        enemy._target_dx = enemy._target_dy = 0; if (enemy._attack_timer > 0) enemy._attack_timer--;
         if (enemy._attack_timer <= 0) {
-            bn::fixed dist_x = player_pos.x() - enemy.pos().x();
-            bn::fixed dist_y = player_pos.y() - enemy.pos().y();
-            bn::fixed dist_sq = dist_x * dist_x + dist_y * dist_y;
-            const bn::fixed follow_dist_sq = 48 * 48;
-            
-            if (!player_listening && dist_sq <= follow_dist_sq) {
-                bn::unique_ptr<ChaseState> chase_state = bn::make_unique<ChaseState>();
-                enemy._state_machine.transition_to(enemy, bn::move(chase_state));
-            } else {
-                if (enemy.type() == ENEMY_TYPE::SPEARGUARD) {
-                    bn::unique_ptr<ReturnToPostState> return_state = bn::make_unique<ReturnToPostState>();
-                    enemy._state_machine.transition_to(enemy, bn::move(return_state));
-                } else {
-                    bn::unique_ptr<IdleState> idle_state = bn::make_unique<IdleState>();
-                    enemy._state_machine.transition_to(enemy, bn::move(idle_state));
-                }
-            }
+            bn::fixed d_sq = (p_pos - enemy.pos()).x() * (p_pos - enemy.pos()).x() + (p_pos - enemy.pos()).y() * (p_pos - enemy.pos()).y();
+            if (!listening && d_sq <= 48 * 48) enemy._state_machine.transition_to(enemy, bn::make_unique<ChaseState>());
+            else enemy._state_machine.transition_to(enemy, enemy.type() == ENEMY_TYPE::SPEARGUARD ? (bn::unique_ptr<EnemyState>)bn::make_unique<ReturnToPostState>() : (bn::unique_ptr<EnemyState>)bn::make_unique<IdleState>());
         }
     }
-
-    void AttackState::exit(Enemy &enemy) { enemy._attack_timer = 0; }
+    void AttackState::exit(Enemy &e) { e._attack_timer = 0; }
 
     // --- ReturnToPostState ---
-    void ReturnToPostState::enter(Enemy &enemy) { (void)enemy; }
-
-    void ReturnToPostState::update(Enemy &enemy, bn::fixed_point player_pos, const Level &level, bool player_listening) {
-        (void)level;
-        bn::fixed dist_to_post_x = enemy._original_position.x() - enemy.pos().x();
-        bn::fixed dist_to_post_y = enemy._original_position.y() - enemy.pos().y();
-        bn::fixed dist_to_post_sq = dist_to_post_x * dist_to_post_x + dist_to_post_y * dist_to_post_y;
-        
-        if (dist_to_post_sq <= _threshold * _threshold) {
-            enemy.set_position(enemy._original_position);
-            if (enemy.type() == ENEMY_TYPE::SPEARGUARD) { enemy._aggroed = false; }
-            bn::unique_ptr<IdleState> idle_state = bn::make_unique<IdleState>();
-            enemy._state_machine.transition_to(enemy, bn::move(idle_state));
-            return; 
-        }
-        
-        bn::fixed len = bn::sqrt(dist_to_post_sq);
-        if (len > 0.1) {
-            enemy._target_dx = (dist_to_post_x / len) * _return_speed;
-            enemy._target_dy = (dist_to_post_y / len) * _return_speed; 
-        } else {
-            enemy._target_dx = 0;
-            enemy._target_dy = 0; 
-        }
-        
-        bn::fixed dist_x = player_pos.x() - enemy.pos().x();
-        bn::fixed dist_y = player_pos.y() - enemy.pos().y();
-        bn::fixed dist_sq = dist_x * dist_x + dist_y * dist_y;
-        const bn::fixed follow_dist_sq = 48 * 48;
-        
-        if (!player_listening && dist_sq <= follow_dist_sq) {
-            bn::unique_ptr<ChaseState> chase_state = bn::make_unique<ChaseState>();
-            enemy._state_machine.transition_to(enemy, bn::move(chase_state));
-            return; 
-        }
+    void ReturnToPostState::enter(Enemy &) {}
+    void ReturnToPostState::update(Enemy &enemy, bn::fixed_point p_pos, const Level &, bool listening) {
+        bn::fixed_point off = enemy._original_position - enemy.pos(); bn::fixed d_sq = off.x() * off.x() + off.y() * off.y();
+        if (d_sq <= _threshold * _threshold) { enemy.set_position(enemy._original_position); if (enemy.type() == ENEMY_TYPE::SPEARGUARD) enemy._aggroed = 0; enemy._state_machine.transition_to(enemy, bn::make_unique<IdleState>()); return; }
+        bn::fixed len = bn::sqrt(d_sq); if (len > 0.1) { enemy._target_dx = (off.x() / len) * _return_speed; enemy._target_dy = (off.y() / len) * _return_speed; } else enemy._target_dx = enemy._target_dy = 0;
+        if (!listening && (p_pos - enemy.pos()).x() * (p_pos - enemy.pos()).x() + (p_pos - enemy.pos()).y() * (p_pos - enemy.pos()).y() <= 48 * 48) enemy._state_machine.transition_to(enemy, bn::make_unique<ChaseState>());
     }
-
-    void ReturnToPostState::exit(Enemy &enemy) { (void)enemy; }
+    void ReturnToPostState::exit(Enemy &) {}
 
     // --- StunnedState ---
-    void StunnedState::enter(Enemy &enemy) {
-        enemy._target_dx = 0;
-        enemy._target_dy = 0; 
-    }
-
-    void StunnedState::update(Enemy &enemy, bn::fixed_point player_pos, const Level &level, bool player_listening) {
-        (void)level;
-        enemy._target_dx = 0;
-        enemy._target_dy = 0;
-        
+    void StunnedState::enter(Enemy &e) { e._target_dx = e._target_dy = 0; }
+    void StunnedState::update(Enemy &enemy, bn::fixed_point p_pos, const Level &, bool listening) {
+        enemy._target_dx = enemy._target_dy = 0;
         if (enemy._state_machine.get_state_timer() >= _stun_duration) {
-            if (enemy.type() == ENEMY_TYPE::SPEARGUARD) {
-                bn::unique_ptr<ChaseState> chase_state = bn::make_unique<ChaseState>();
-                enemy._state_machine.transition_to(enemy, bn::move(chase_state));
-                return; 
-            }
-            
-            bn::fixed dist_x = player_pos.x() - enemy.pos().x();
-            bn::fixed dist_y = player_pos.y() - enemy.pos().y();
-            bn::fixed dist_sq = dist_x * dist_x + dist_y * dist_y;
-            const bn::fixed follow_dist_sq = 48 * 48;
-            
-            if (!player_listening && dist_sq <= follow_dist_sq) {
-                bn::unique_ptr<ChaseState> chase_state = bn::make_unique<ChaseState>();
-                enemy._state_machine.transition_to(enemy, bn::move(chase_state));
-            } else {
-                bn::unique_ptr<IdleState> idle_state = bn::make_unique<IdleState>();
-                enemy._state_machine.transition_to(enemy, bn::move(idle_state));
-            }
+            if (enemy.type() == ENEMY_TYPE::SPEARGUARD || (!listening && (p_pos - enemy.pos()).x() * (p_pos - enemy.pos()).x() + (p_pos - enemy.pos()).y() * (p_pos - enemy.pos()).y() <= 48 * 48)) enemy._state_machine.transition_to(enemy, bn::make_unique<ChaseState>());
+            else enemy._state_machine.transition_to(enemy, bn::make_unique<IdleState>());
         }
     }
-
-    void StunnedState::exit(Enemy &enemy) { enemy._stunned = false; }
+    void StunnedState::exit(Enemy &e) { e._stunned = 0; }
 
 
     namespace {
@@ -904,24 +395,8 @@ namespace fe {
     // PlayerAbilities Implementation
     // =========================================================================
 
-    void PlayerAbilities::update_cooldowns() {
-        if (_roll_cooldown > 0) _roll_cooldown--;
-        if (_chop_cooldown > 0) _chop_cooldown--;
-        if (_slash_cooldown > 0) _slash_cooldown--;
-        if (_buff_cooldown > 0) _buff_cooldown--; 
-    }
-
-    void PlayerAbilities::reset() {
-        _running_available = true;
-        _rolling_available = true;
-        _chopping_available = true;
-        _slashing_available = true;
-        _buff_abilities_available = true;
-        _roll_cooldown = 0;
-        _chop_cooldown = 0;
-        _slash_cooldown = 0;
-        _buff_cooldown = 0; 
-    }
+    void PlayerAbilities::update_cooldowns() { if (_roll_cooldown > 0) _roll_cooldown--; if (_chop_cooldown > 0) _chop_cooldown--; if (_slash_cooldown > 0) _slash_cooldown--; if (_buff_cooldown > 0) _buff_cooldown--; }
+    void PlayerAbilities::reset() { _running_available = _rolling_available = _chopping_available = _slashing_available = _buff_abilities_available = 1; _roll_cooldown = _chop_cooldown = _slash_cooldown = _buff_cooldown = 0; }
 
     // =========================================================================
     // PlayerAnimation Implementation
@@ -931,98 +406,24 @@ namespace fe {
         : _sprite(sprite), _last_state(PlayerMovement::State::IDLE), _last_direction(PlayerMovement::Direction::DOWN) {}
 
     void PlayerAnimation::apply_state(PlayerMovement::State state, PlayerMovement::Direction direction) {
-        if (!should_change_animation(state, direction))
-            return;
-        
+        if (!should_change_animation(state, direction)) return;
         _sprite.set_horizontal_flip(direction == PlayerMovement::Direction::LEFT);
-        
-        struct AnimData {
-            int speed;
-            int up_start;
-            int up_count;
-            int down_start;
-            int down_count;
-            int side_start;
-            int side_count;
-        };
-        
-        static const AnimData animations[] = {
-            {12, 384, 12, 0, 12, 240, 12},
-            {5, 408, 8, 120, 8, 264, 8},
-            {8, 432, 8, 144, 8, 288, 8},
-            {8, 504, 8, 216, 8, 312, 6},
-            {8, 480, 7, 192, 7, 336, 4},
-            {8, 480, 7, 192, 7, 360, 5},
-            {10, 456, 4, 168, 4, 336, 4},
-            {4, 24, 24, 24, 24, 24, 24},
-            {4, 48, 24, 48, 24, 48, 24},
-            {4, 72, 24, 72, 24, 72, 24},
-            {4, 96, 24, 96, 24, 96, 24},
-            {6, 0, 13, 0, 13, 0, 13},
-            {15, 528, 13, 528, 13, 528, 13}
-        };
-        
-        int state_idx = static_cast<int>(state);
-        constexpr int NUM_PLAYER_STATES = sizeof(animations) / sizeof(animations[0]);
-        if (state_idx >= NUM_PLAYER_STATES)
-            return;
-            
-        const auto &anim = animations[state_idx];
-        int start_frame, frame_count;
-        
-        if (direction == PlayerMovement::Direction::UP) {
-            start_frame = anim.up_start;
-            frame_count = anim.up_count; 
-        } else if (direction == PlayerMovement::Direction::DOWN) {
-            start_frame = anim.down_start;
-            frame_count = anim.down_count; 
-        } else {
-            start_frame = anim.side_start;
-            frame_count = anim.side_count; 
-        }
-        
-        if (state == PlayerMovement::State::DEAD ||
-            state == PlayerMovement::State::ROLLING ||
-            state == PlayerMovement::State::SLASHING ||
-            state == PlayerMovement::State::ATTACKING ||
-            state == PlayerMovement::State::CHOPPING) { 
-            make_anim_range_once(anim.speed, start_frame, start_frame + frame_count - 1); 
-        } else { 
-            make_anim_range(anim.speed, start_frame, start_frame + frame_count - 1); 
-        }
-        
-        _last_state = state;
-        _last_direction = direction; 
+        struct Anim { int speed, u_s, u_c, d_s, d_c, s_s, s_c; };
+        static const Anim anims[] = { {12, 384, 12, 0, 12, 240, 12}, {5, 408, 8, 120, 8, 264, 8}, {8, 432, 8, 144, 8, 288, 8}, {8, 504, 8, 216, 8, 312, 6}, {8, 480, 7, 192, 7, 336, 4}, {8, 480, 7, 192, 7, 360, 5}, {10, 456, 4, 168, 4, 336, 4}, {4, 24, 24, 24, 24, 24, 24}, {4, 48, 24, 48, 24, 48, 24}, {4, 72, 24, 72, 24, 72, 24}, {4, 96, 24, 96, 24, 96, 24}, {6, 0, 13, 0, 13, 0, 13}, {15, 528, 13, 528, 13, 528, 13} };
+        const auto &a = anims[static_cast<int>(state)];
+        int s = (direction == PlayerMovement::Direction::UP) ? a.u_s : (direction == PlayerMovement::Direction::DOWN ? a.d_s : a.s_s);
+        int c = (direction == PlayerMovement::Direction::UP) ? a.u_c : (direction == PlayerMovement::Direction::DOWN ? a.d_c : a.s_c);
+        bool once = state == PlayerMovement::State::DEAD || state == PlayerMovement::State::ROLLING || state == PlayerMovement::State::SLASHING || state == PlayerMovement::State::ATTACKING || state == PlayerMovement::State::CHOPPING;
+        bn::vector<uint16_t, 32> f; for (int i = 0; i < c; ++i) f.push_back(s + i);
+        _animation = once ? bn::sprite_animate_action<32>::once(_sprite, a.speed, bn::sprite_items::hero_sword.tiles_item(), bn::span<const uint16_t>(f.data(), f.size())) : bn::sprite_animate_action<32>::forever(_sprite, a.speed, bn::sprite_items::hero_sword.tiles_item(), bn::span<const uint16_t>(f.data(), f.size()));
+        _last_state = state; _last_direction = direction; 
     }
 
     bool PlayerAnimation::should_change_animation(PlayerMovement::State state, PlayerMovement::Direction direction) {
-        if (!_animation.has_value())
-            return true;
-        bool flip_changed = _sprite.horizontal_flip() != (direction == PlayerMovement::Direction::LEFT);
-        bool state_changed = (_last_state != state);
-        bool direction_changed = (_last_direction != direction);
-        return flip_changed || state_changed || direction_changed; 
+        return !_animation || _sprite.horizontal_flip() != (direction == PlayerMovement::Direction::LEFT) || _last_state != state || _last_direction != direction;
     }
 
-    void PlayerAnimation::make_anim_range(int speed, int start_frame, int end_frame) {
-        bn::vector<uint16_t, 32> frames;
-        for (int i = start_frame; i <= end_frame; ++i) { frames.push_back(i); }
-        _animation = bn::sprite_animate_action<32>::forever(
-            _sprite, speed, bn::sprite_items::hero_sword.tiles_item(),
-            bn::span<const uint16_t>(frames.data(), frames.size())); 
-    }
-
-    void PlayerAnimation::make_anim_range_once(int speed, int start_frame, int end_frame) {
-        bn::vector<uint16_t, 32> frames;
-        for (int i = start_frame; i <= end_frame; ++i) { frames.push_back(i); }
-        _animation = bn::sprite_animate_action<32>::once(
-            _sprite, speed, bn::sprite_items::hero_sword.tiles_item(),
-            bn::span<const uint16_t>(frames.data(), frames.size())); 
-    }
-
-    void PlayerAnimation::update() {
-        if (_animation.has_value() && !_animation->done()) { _animation->update(); }
-    }
+    void PlayerAnimation::update() { if (_animation && !_animation->done()) _animation->update(); }
 
     // =========================================================================
     // PlayerVFX Implementation
@@ -1034,107 +435,45 @@ namespace fe {
 
     void PlayerVFX::update(bn::fixed_point player_pos, PlayerMovement::State state, PlayerMovement::Direction direction) {
         if (should_show_vfx(state)) {
-            if (!_vfx_sprite.has_value()) {
+            if (!_vfx_sprite) {
                 _vfx_sprite = bn::sprite_items::hero_vfx.create_sprite(0, 0);
-                if (_camera.has_value()) { _vfx_sprite->set_camera(*_camera); }
-                _vfx_sprite->set_bg_priority(0);
-                _vfx_sprite->set_z_order(-32000); 
+                if (_camera) _vfx_sprite->set_camera(*_camera);
+                _vfx_sprite->set_bg_priority(0); _vfx_sprite->set_z_order(-32000); 
             }
-            if (should_change_vfx(state, direction)) { apply_vfx_state(state, direction); }
+            if (should_change_vfx(state, direction)) apply_vfx_state(state, direction);
             _vfx_sprite->set_visible(true);
-            
-            bn::fixed_point vfx_pos = player_pos;
-            bool is_attack = (state == PlayerMovement::State::SLASHING ||
-                              state == PlayerMovement::State::ATTACKING ||
-                              state == PlayerMovement::State::CHOPPING);
-            
-            if (is_attack && (direction == PlayerMovement::Direction::UP ||
-                              direction == PlayerMovement::Direction::DOWN)) { 
-                vfx_pos = bn::fixed_point(player_pos.x() + 8, player_pos.y() + PLAYER_SPRITE_Y_OFFSET); 
-            } else { 
-                vfx_pos = bn::fixed_point(player_pos.x(), player_pos.y() + PLAYER_SPRITE_Y_OFFSET); 
-            }
-            
-            _vfx_sprite->set_position(vfx_pos);
-            if (_vfx_animation.has_value()) {
-                if (_vfx_animation->done()) { hide_vfx(); }
-                else { _vfx_animation->update(); }
-            }
-        } else { 
-            hide_vfx(); 
-        }
-        _last_vfx_state = state;
-        _last_vfx_direction = direction; 
+            bool is_at = state == PlayerMovement::State::SLASHING || state == PlayerMovement::State::ATTACKING || state == PlayerMovement::State::CHOPPING;
+            _vfx_sprite->set_position(player_pos.x() + (is_at && (direction == PlayerMovement::Direction::UP || direction == PlayerMovement::Direction::DOWN) ? 8 : 0), player_pos.y() + PLAYER_SPRITE_Y_OFFSET);
+            if (_vfx_animation) { if (_vfx_animation->done()) hide_vfx(); else _vfx_animation->update(); }
+        } else hide_vfx();
+        _last_vfx_state = state; _last_vfx_direction = direction; 
     }
 
     void PlayerVFX::apply_vfx_state(PlayerMovement::State state, PlayerMovement::Direction direction) {
-        if (!_vfx_sprite.has_value())
-            return;
+        if (!_vfx_sprite) return;
         _vfx_sprite->set_horizontal_flip(direction == PlayerMovement::Direction::LEFT);
+        auto m = [&](int s, int f, int t, bool o) {
+            bn::vector<uint16_t, 32> fr; for (int i = f; i <= t; ++i) fr.push_back(i);
+            _vfx_animation = o ? bn::sprite_animate_action<32>::once(*_vfx_sprite, s, bn::sprite_items::hero_vfx.tiles_item(), bn::span<const uint16_t>(fr.data(), fr.size())) : bn::sprite_animate_action<32>::forever(*_vfx_sprite, s, bn::sprite_items::hero_vfx.tiles_item(), bn::span<const uint16_t>(fr.data(), fr.size()));
+            _vfx_sprite->set_visible(true);
+        };
         switch (state) {
-        case PlayerMovement::State::SLASHING: 
-            if (direction == PlayerMovement::Direction::UP) make_vfx_anim_range_once(4, 480, 486);
-            else if (direction == PlayerMovement::Direction::DOWN) make_vfx_anim_range_once(4, 192, 198);
-            else make_vfx_anim_range_once(4, 336, 339);
-            break;
-        case PlayerMovement::State::ATTACKING: 
-            if (direction == PlayerMovement::Direction::UP) make_vfx_anim_range_once(4, 480, 486);
-            else if (direction == PlayerMovement::Direction::DOWN) make_vfx_anim_range_once(4, 192, 198);
-            else make_vfx_anim_range_once(4, 360, 364);
-            break;
-        case PlayerMovement::State::CHOPPING: 
-            if (direction == PlayerMovement::Direction::UP) make_vfx_anim_range_once(5, 456, 459);
-            else if (direction == PlayerMovement::Direction::DOWN) make_vfx_anim_range_once(5, 168, 171);
-            else make_vfx_anim_range_once(5, 336, 339);
-            break;
-        case PlayerMovement::State::HEAL_BUFF: make_vfx_anim_range(4, 24, 47); break;
-        case PlayerMovement::State::DEFENCE_BUFF: make_vfx_anim_range(4, 48, 71); break;
-        case PlayerMovement::State::POWER_BUFF: make_vfx_anim_range(4, 72, 95); break;
-        case PlayerMovement::State::ENERGY_BUFF: make_vfx_anim_range(4, 96, 119); break;
+        case PlayerMovement::State::SLASHING: direction == PlayerMovement::Direction::UP ? m(4, 480, 486, 1) : (direction == PlayerMovement::Direction::DOWN ? m(4, 192, 198, 1) : m(4, 336, 339, 1)); break;
+        case PlayerMovement::State::ATTACKING: direction == PlayerMovement::Direction::UP ? m(4, 480, 486, 1) : (direction == PlayerMovement::Direction::DOWN ? m(4, 192, 198, 1) : m(4, 360, 364, 1)); break;
+        case PlayerMovement::State::CHOPPING: direction == PlayerMovement::Direction::UP ? m(5, 456, 459, 1) : (direction == PlayerMovement::Direction::DOWN ? m(5, 168, 171, 1) : m(5, 336, 339, 1)); break;
+        case PlayerMovement::State::HEAL_BUFF: m(4, 24, 47, 0); break;
+        case PlayerMovement::State::DEFENCE_BUFF: m(4, 48, 71, 0); break;
+        case PlayerMovement::State::POWER_BUFF: m(4, 72, 95, 0); break;
+        case PlayerMovement::State::ENERGY_BUFF: m(4, 96, 119, 0); break;
         default: hide_vfx(); break; 
         }
     }
 
-    void PlayerVFX::hide_vfx() {
-        if (_vfx_sprite.has_value()) { _vfx_sprite->set_visible(false); }
-        _vfx_animation.reset(); 
-    }
-
-    bool PlayerVFX::should_show_vfx(PlayerMovement::State state) const {
-        return state == PlayerMovement::State::SLASHING ||
-               state == PlayerMovement::State::ATTACKING ||
-               state == PlayerMovement::State::CHOPPING ||
-               state == PlayerMovement::State::POWER_BUFF ||
-               state == PlayerMovement::State::DEFENCE_BUFF ||
-               state == PlayerMovement::State::HEAL_BUFF ||
-               state == PlayerMovement::State::ENERGY_BUFF; 
-    }
-
-    bool PlayerVFX::should_change_vfx(PlayerMovement::State state, PlayerMovement::Direction direction) const { 
-        return state != _last_vfx_state || direction != _last_vfx_direction; 
-    }
-
-    void PlayerVFX::make_vfx_anim_range(int speed, int start_frame, int end_frame) {
-        if (!_vfx_sprite.has_value())
-            return;
-        bn::vector<uint16_t, 32> frames;
-        for (int i = start_frame; i <= end_frame; ++i) { frames.push_back(i); }
-        _vfx_animation = bn::sprite_animate_action<32>::forever(
-            *_vfx_sprite, speed, bn::sprite_items::hero_vfx.tiles_item(),
-            bn::span<const uint16_t>(frames.data(), frames.size()));
-        _vfx_sprite->set_visible(true); 
-    }
-
-    void PlayerVFX::make_vfx_anim_range_once(int speed, int start_frame, int end_frame) {
-        if (!_vfx_sprite.has_value())
-            return;
-        bn::vector<uint16_t, 32> frames;
-        for (int i = start_frame; i <= end_frame; ++i) { frames.push_back(i); }
-        _vfx_animation = bn::sprite_animate_action<32>::once(
-            *_vfx_sprite, speed, bn::sprite_items::hero_vfx.tiles_item(),
-            bn::span<const uint16_t>(frames.data(), frames.size()));
-        _vfx_sprite->set_visible(true); 
-    }
+    void PlayerVFX::hide_vfx() { if (_vfx_sprite) _vfx_sprite->set_visible(false); _vfx_animation.reset(); }
+    bool PlayerVFX::should_show_vfx(PlayerMovement::State s) const { return s == PlayerMovement::State::SLASHING || s == PlayerMovement::State::ATTACKING || s == PlayerMovement::State::CHOPPING || (int)s >= (int)PlayerMovement::State::HEAL_BUFF; }
+    bool PlayerVFX::should_change_vfx(PlayerMovement::State s, PlayerMovement::Direction d) const { return s != _last_vfx_state || d != _last_vfx_direction; }
+    void PlayerVFX::make_vfx_anim_range(int s, int f, int e) { bn::vector<uint16_t, 32> fr; for (int i = f; i <= e; ++i) fr.push_back(i); _vfx_animation = bn::sprite_animate_action<32>::forever(*_vfx_sprite, s, bn::sprite_items::hero_vfx.tiles_item(), bn::span<const uint16_t>(fr.data(), fr.size())); _vfx_sprite->set_visible(true); }
+    void PlayerVFX::make_vfx_anim_range_once(int s, int f, int e) { bn::vector<uint16_t, 32> fr; for (int i = f; i <= e; ++i) fr.push_back(i); _vfx_animation = bn::sprite_animate_action<32>::once(*_vfx_sprite, s, bn::sprite_items::hero_vfx.tiles_item(), bn::span<const uint16_t>(fr.data(), fr.size())); _vfx_sprite->set_visible(true); }
 
     // =========================================================================
     // PlayerCompanion Implementation
@@ -1165,98 +504,40 @@ namespace fe {
     }
 
     void PlayerCompanion::update(bn::fixed_point player_pos, bool player_is_dead) {
-        if (player_is_dead != _is_dead && !_independent_death && !_is_reviving) {
-            _is_dead = player_is_dead;
-            update_animation(); 
-        }
-        
-        if (_is_reviving) {
-            _sprite.set_position(_death_position);
-            if (_animation && _animation->done()) {
-                _is_reviving = false;
-                _is_dead = false;
-                _independent_death = false;
-                _position = _death_position;
-                update_animation(); 
-            }
-        } else if (_independent_death) {
-            _sprite.set_position(_death_position);
+        if (player_is_dead != _is_dead && !_independent_death && !_is_reviving) { _is_dead = player_is_dead; update_animation(); }
+        if (_is_reviving) { _sprite.set_position(_death_position); if (_animation && _animation->done()) { _is_reviving = _is_dead = _independent_death = false; _position = _death_position; update_animation(); } }
+        else if (_independent_death) { _sprite.set_position(_death_position);
             if (_can_be_revived && !_revival_in_progress) {
-                bn::fixed_point diff = player_pos - _death_position;
-                bn::fixed distance_sq = diff.x() * diff.x() + diff.y() * diff.y();
-                bool player_in_range = (distance_sq <= COMPANION_REVIVE_DISTANCE * COMPANION_REVIVE_DISTANCE);
-                if (player_in_range && _text_sprites.empty()) { show_revival_text(); }
-                else if (!player_in_range && !_text_sprites.empty()) { hide_revival_text(); }
-            } else if (_text_sprites.size() > 0) { 
-                hide_revival_text(); 
-            }
-        } else if (!_is_dead) { 
-            update_position(player_pos); 
-        }
-        
-        if (_animation && (!_is_dead || !_animation->done() || _is_reviving)) {
-            _animation->update();
-            if (_is_dead && _independent_death && _animation->done() && !_can_be_revived && !_is_reviving) { _can_be_revived = true; }
-        }
+                bn::fixed d_sq = (player_pos - _death_position).x() * (player_pos - _death_position).x() + (player_pos - _death_position).y() * (player_pos - _death_position).y();
+                if (d_sq <= COMPANION_REVIVE_DISTANCE * COMPANION_REVIVE_DISTANCE ? _text_sprites.empty() : !_text_sprites.empty()) d_sq <= COMPANION_REVIVE_DISTANCE * COMPANION_REVIVE_DISTANCE ? show_revival_text() : hide_revival_text();
+            } else if (!_text_sprites.empty()) hide_revival_text();
+        } else if (!_is_dead) update_position(player_pos); 
+        if (_animation && (!_is_dead || !_animation->done() || _is_reviving)) { _animation->update(); if (_is_dead && _independent_death && _animation->done() && !_is_reviving) _can_be_revived = true; }
     }
 
     void PlayerCompanion::update_position(bn::fixed_point player_pos) {
-        bn::fixed_point companion_to_player = player_pos - _position;
-        bn::fixed player_distance = bn::sqrt(companion_to_player.x() * companion_to_player.x() +
-                                             companion_to_player.y() * companion_to_player.y());
-                                             
-        if (!_player_too_close && player_distance < COMPANION_IDLE_DISTANCE) { _player_too_close = true; }
-        else if (_player_too_close && player_distance > COMPANION_RESUME_DISTANCE) { _player_too_close = false; }
-        
+        bn::fixed p_dist = bn::sqrt((player_pos - _position).x() * (player_pos - _position).x() + (player_pos - _position).y() * (player_pos - _position).y());
+        if (!_player_too_close && p_dist < COMPANION_IDLE_DISTANCE) _player_too_close = true;
+        else if (_player_too_close && p_dist > COMPANION_RESUME_DISTANCE) _player_too_close = false;
         if (!_player_too_close) {
-            bn::fixed_point target_pos = player_pos + _target_offset;
-            bn::fixed_point diff = target_pos - _position;
-            bn::fixed distance = bn::sqrt(diff.x() * diff.x() + diff.y() * diff.y());
-            if (distance > 1) {
-                bn::fixed speed = (distance * 0.08 < 1.2) ? distance * 0.08 : 1.2;
-                speed = (speed > 0.3) ? speed : 0.3;
-                _position += (diff / distance) * speed; 
-            }
+            bn::fixed_point diff = player_pos + _target_offset - _position; bn::fixed dist = bn::sqrt(diff.x() * diff.x() + diff.y() * diff.y());
+            if (dist > 1) _position += (diff / dist) * bn::clamp(dist * 0.08, bn::fixed(0.3), bn::fixed(1.2));
         }
-        
-        if (player_distance > 8) {
-            bn::fixed_point offset = _position - player_pos;
-            Position new_side;
-            if (bn::abs(offset.y()) > bn::abs(offset.x())) {
-                if (offset.y() < 0) { new_side = (offset.x() >= 0) ? Position::RIGHT : Position::LEFT; }
-                else { new_side = Position::BELOW; }
-            } else { 
-                new_side = (offset.x() > 0) ? Position::RIGHT : Position::LEFT; 
-            }
-            set_position_side(new_side); 
+        if (p_dist > 8) {
+            bn::fixed_point off = _position - player_pos;
+            set_position_side(bn::abs(off.y()) > bn::abs(off.x()) ? (off.y() < 0 ? (off.x() >= 0 ? Position::RIGHT : Position::LEFT) : Position::BELOW) : (off.x() > 0 ? Position::RIGHT : Position::LEFT));
         }
         _sprite.set_position(_position); 
     }
 
     bn::fixed_point PlayerCompanion::calculate_companion_offset() const {
-        switch (_position_side) {
-        case Position::RIGHT: return {16, 0};
-        case Position::LEFT: return {-16, 0};
-        case Position::BELOW: return {0, 12};
-        default: return {16, 0}; 
-        }
+        return _position_side == Position::RIGHT ? bn::fixed_point(16, 0) : (_position_side == Position::LEFT ? bn::fixed_point(-16, 0) : bn::fixed_point(0, 12));
     }
 
     void PlayerCompanion::update_animation() {
-        if (_is_reviving) {
-            _animation = bn::create_sprite_animate_action_once(
-                _sprite, 8, bn::sprite_items::companion.tiles_item(),
-                21, 20, 19, 18, 17, 16, 15, 14, 13, 12); 
-        } else if (_is_dead) {
-            _animation = bn::create_sprite_animate_action_once(
-                _sprite, 8, bn::sprite_items::companion.tiles_item(),
-                12, 13, 14, 15, 16, 17, 18, 19, 20, 21); 
-        } else {
-            int start_frame = static_cast<int>(_position_side) * 4;
-            _animation = bn::create_sprite_animate_action_forever(
-                _sprite, 12, bn::sprite_items::companion.tiles_item(),
-                start_frame, start_frame + 1, start_frame + 2, start_frame + 3);
-        }
+        if (_is_reviving) _animation = bn::create_sprite_animate_action_once(_sprite, 8, bn::sprite_items::companion.tiles_item(), 21, 20, 19, 18, 17, 16, 15, 14, 13, 12); 
+        else if (_is_dead) _animation = bn::create_sprite_animate_action_once(_sprite, 8, bn::sprite_items::companion.tiles_item(), 12, 13, 14, 15, 16, 17, 18, 19, 20, 21); 
+        else { int s = static_cast<int>(_position_side) * 4; _animation = bn::create_sprite_animate_action_forever(_sprite, 12, bn::sprite_items::companion.tiles_item(), s, s + 1, s + 2, s + 3); }
     }
 
     void PlayerCompanion::set_flying(bool flying) {
@@ -1293,85 +574,24 @@ namespace fe {
         }
     }
 
-    bool PlayerCompanion::try_revive(bn::fixed_point player_pos, bool a_pressed, bool a_held) {
-        if (!_independent_death || !_can_be_revived) { return false; }
-        bn::fixed_point diff = player_pos - _death_position;
-        bn::fixed distance_sq = diff.x() * diff.x() + diff.y() * diff.y();
-        bool player_in_range = (distance_sq <= COMPANION_REVIVE_DISTANCE * COMPANION_REVIVE_DISTANCE);
-        
-        if (!player_in_range) {
-            if (_revival_in_progress) { cancel_revival(); }
-            return false; 
-        }
-        
-        if (!_revival_in_progress) {
-            if (a_pressed) {
-                _revival_in_progress = true;
-                _revival_timer = 0;
-                _progress_bar_sprite = bn::sprite_items::companion_load.create_sprite(
-                    _death_position.x(), _death_position.y(), 0);
-                if (_sprite.camera().has_value()) { _progress_bar_sprite->set_camera(_sprite.camera().value()); }
-                _progress_bar_sprite->set_z_order(_sprite.z_order() - 1); 
-            }
-        } else {
-            if (a_held) {
-                _revival_timer++;
-                int progress_frame = (_revival_timer * 8) / COMPANION_REVIVAL_DURATION;
-                if (progress_frame > 7) progress_frame = 7;
-                
-                if (_progress_bar_sprite.has_value()) {
-                    _progress_bar_sprite->set_tiles(bn::sprite_items::companion_load.tiles_item(), progress_frame);
-                    _progress_bar_sprite->set_position(_death_position.x() + 12, _death_position.y());
-                }
-                
-                if (_revival_timer >= COMPANION_REVIVAL_DURATION) {
-                    _revival_in_progress = false;
-                    _revival_timer = 0;
-                    _is_reviving = true;
-                    _can_be_revived = false;
-                    _position = _death_position;
-                    _progress_bar_sprite.reset();
-                    update_animation();
-                    return true; 
-                }
-            } else { 
-                cancel_revival(); 
-            }
-        }
-        return false; 
+    bool PlayerCompanion::try_revive(bn::fixed_point p_pos, bool a_p, bool a_h) {
+        if (!_independent_death || !_can_be_revived) return 0;
+        bn::fixed d_sq = (p_pos - _death_position).x() * (p_pos - _death_position).x() + (p_pos - _death_position).y() * (p_pos - _death_position).y();
+        if (d_sq > COMPANION_REVIVE_DISTANCE * COMPANION_REVIVE_DISTANCE) { if (_revival_in_progress) cancel_revival(); return 0; }
+        if (!_revival_in_progress) { if (a_p) { _revival_in_progress = 1; _revival_timer = 0; _progress_bar_sprite = bn::sprite_items::companion_load.create_sprite(_death_position.x(), _death_position.y(), 0); if (_sprite.camera()) _progress_bar_sprite->set_camera(_sprite.camera().value()); _progress_bar_sprite->set_z_order(_sprite.z_order() - 1); } }
+        else if (a_h) { if (++_revival_timer >= COMPANION_REVIVAL_DURATION) { _revival_in_progress = 0; _revival_timer = 0; _is_reviving = 1; _can_be_revived = 0; _position = _death_position; _progress_bar_sprite.reset(); update_animation(); return 1; } if (_progress_bar_sprite) { _progress_bar_sprite->set_tiles(bn::sprite_items::companion_load.tiles_item(), (_revival_timer * 8) / COMPANION_REVIVAL_DURATION); _progress_bar_sprite->set_position(_death_position.x() + 12, _death_position.y()); } }
+        else { cancel_revival(); }
+        return 0; 
     }
 
-    void PlayerCompanion::cancel_revival() {
-        _revival_in_progress = false;
-        _revival_timer = 0;
-        if (_progress_bar_sprite.has_value()) { _progress_bar_sprite.reset(); }
-        hide_revival_text(); 
-    }
-
+    void PlayerCompanion::cancel_revival() { _revival_in_progress = 0; _revival_timer = 0; _progress_bar_sprite.reset(); hide_revival_text(); }
     void PlayerCompanion::show_revival_text() {
         if (!_text_sprites.empty()) return;
-        bn::sprite_text_generator text_generator(common::variable_8x8_sprite_font);
-        text_generator.set_center_alignment();
-        bn::fixed_point text_center = _death_position + bn::fixed_point(0, -20);
-        text_generator.set_bg_priority(0);
-        text_generator.generate(text_center, "Press A to revive", _text_sprites);
-        _text_original_offsets.clear();
-        for (bn::sprite_ptr &text_sprite : _text_sprites) {
-            text_sprite.set_camera(_sprite.camera());
-            text_sprite.set_z_order(-32767);
-            _text_original_offsets.push_back(text_sprite.position() - text_center);
-        }
+        bn::sprite_text_generator tg(common::variable_8x8_sprite_font); tg.set_center_alignment(); bn::fixed_point tc = _death_position + bn::fixed_point(0, -20); tg.set_bg_priority(0); tg.generate(tc, "Press A to revive", _text_sprites); _text_original_offsets.clear();
+        for (auto &s : _text_sprites) { s.set_camera(_sprite.camera()); s.set_z_order(-32767); _text_original_offsets.push_back(s.position() - tc); }
     }
-
     void PlayerCompanion::hide_revival_text() { _text_sprites.clear(); }
-
-    void PlayerCompanion::reset_text_positions() {
-        if (_text_sprites.empty() || _text_original_offsets.empty()) return;
-        bn::fixed_point text_center = _death_position + bn::fixed_point(0, -20);
-        for (int i = 0; i < _text_sprites.size() && i < _text_original_offsets.size(); ++i) { 
-            _text_sprites[i].set_position(text_center + _text_original_offsets[i]); 
-        }
-    }
+    void PlayerCompanion::reset_text_positions() { if (_text_sprites.empty()) return; bn::fixed_point tc = _death_position + bn::fixed_point(0, -20); for (int i = 0; i < _text_sprites.size(); ++i) _text_sprites[i].set_position(tc + _text_original_offsets[i]); }
 
     // =========================================================================
     // PlayerMovement Implementation
@@ -1477,21 +697,9 @@ namespace fe {
     // PlayerState Implementation
     // =========================================================================
 
-    void PlayerState::set_listening(bool listening) {
-        if (_listening && !listening) { _dialog_cooldown = 10; }
-        _listening = listening; 
-    }
-
-    void PlayerState::update_dialog_cooldown() {
-        if (_dialog_cooldown > 0) _dialog_cooldown--; 
-    }
-
-    void PlayerState::reset() {
-        _invulnerable = false;
-        _listening = false;
-        _inv_timer = 0;
-        _dialog_cooldown = 0; 
-    }
+    void PlayerState::set_listening(bool l) { if (_listening && !l) _dialog_cooldown = 10; _listening = l; }
+    void PlayerState::update_dialog_cooldown() { if (_dialog_cooldown > 0) _dialog_cooldown--; }
+    void PlayerState::reset() { _invulnerable = _listening = 0; _inv_timer = _dialog_cooldown = 0; }
 
     // =========================================================================
     // Player Implementation
@@ -1585,155 +793,35 @@ namespace fe {
         update_z_order(); 
     }
 
-    void Player::set_position(bn::fixed_point new_pos) {
-        Entity::set_position(new_pos);
-        bn::fixed_point hitbox_pos = Hitbox::calculate_centered_position(new_pos,
-                                                                         PLAYER_HITBOX_WIDTH, PLAYER_HITBOX_HEIGHT);
-        _hitbox.set_x(hitbox_pos.x());
-        _hitbox.set_y(hitbox_pos.y());
-        update_sprite_position(); 
-    }
-
-    void Player::update_sprite_position() {
-        if (auto sprite = get_sprite()) {
-            bn::fixed_point pos = Entity::pos();
-            sprite->set_position(pos.x(), pos.y() + PLAYER_SPRITE_Y_OFFSET); 
-        }
-    }
-
+    void Player::set_position(bn::fixed_point n) { Entity::set_position(n); bn::fixed_point hp = Hitbox::calculate_centered_position(n, PLAYER_HITBOX_WIDTH, PLAYER_HITBOX_HEIGHT); _hitbox.set_x(hp.x()); _hitbox.set_y(hp.y()); update_sprite_position(); }
+    void Player::update_sprite_position() { if (auto s = get_sprite()) s->set_position(Entity::pos().x(), Entity::pos().y() + PLAYER_SPRITE_Y_OFFSET); }
     void Player::revert_position() { set_position(_previous_pos); }
-
-    void Player::set_sprite_z_order(int z_order) {
-        if (auto sprite = get_sprite()) { sprite->set_z_order(z_order); }
-    }
-
+    void Player::set_sprite_z_order(int z) { if (auto s = get_sprite()) s->set_z_order(z); }
     void Player::update_z_order() {
-        int z_order = -pos().y().integer();
-        set_sprite_z_order(z_order);
-        
-        if (_gun_sprite.has_value()) {
-            PlayerMovement::Direction gun_dir = _is_strafing ? _strafing_direction : _movement.facing_direction();
-            int gun_z_offset = direction_utils::get_gun_z_offset(gun_dir);
-            _gun_sprite->set_z_order(z_order + gun_z_offset); 
-        }
-        
-        if (_companion.has_value()) {
-            bn::fixed_point companion_pos = _companion->pos();
-            bn::fixed player_y = pos().y();
-            bn::fixed companion_y = companion_pos.y();
-            if (player_y >= companion_y + 8) { _companion->set_z_order(z_order + 10); }
-            else { _companion->set_z_order(z_order - 10); }
-        }
+        int z = -pos().y().integer(); set_sprite_z_order(z);
+        if (_gun_sprite) { PlayerMovement::Direction gd = _is_strafing ? _strafing_direction : _movement.facing_direction(); _gun_sprite->set_z_order(z + direction_utils::get_gun_z_offset(gd)); }
+        if (_companion) { bn::fixed py = pos().y(), cy = _companion->pos().y(); _companion->set_z_order(z + (py >= cy + 8 ? 10 : -10)); }
     }
-
-    void Player::update_animation() { _animation.apply_state(_movement.current_state(), _movement.facing_direction()); }
-
-    void Player::take_damage(int damage) {
+    void Player::take_damage(int d) {
         if (!_state.invulnerable() && _hp > 0) {
-            _hp -= damage;
-            if (_hp <= 0) {
-                _hp = 0;
-                _movement.set_state(PlayerMovement::State::DEAD);
-                _movement.stop_movement();
-                _death_timer = PLAYER_DEATH_ANIMATION_DURATION;
-                _death_sound_played = false;
-                _state.set_invulnerable(false);
-                _state.set_inv_timer(0);
-                update_animation(); 
-            } else {
-                _state.set_invulnerable(true);
-                _state.set_inv_timer(60);
-                set_visible(false); 
-            }
+            if ((_hp = bn::max(0, _hp - d)) == 0) { _movement.set_state(PlayerMovement::State::DEAD); _movement.stop_movement(); _death_timer = PLAYER_DEATH_ANIMATION_DURATION; _death_sound_played = 0; _state.set_invulnerable(0); _state.set_inv_timer(0); update_animation(); }
+            else { _state.set_invulnerable(1); _state.set_inv_timer(60); set_visible(0); }
             _hud.set_hp(_hp); 
         }
     }
-
-    void Player::heal(int amount) {
-        if (_hp < 3 && _hp > 0) {
-            _hp = bn::min(_hp + amount, 3);
-            _hud.set_hp(_hp);
-            _hud.update(); 
-        }
-    }
-
-    void Player::reset() {
-        _hp = 3;
-        _reset_required = false;
-        _death_timer = 0;
-        _death_sound_played = false;
-        _state.reset();
-        _movement.reset();
-        _abilities.reset();
-        _hud.set_resetting_health(true);
-        _hud.set_hp(_hp);
-        _hud.set_resetting_health(false);
-        _hud.update();
-        set_visible(true);
-        _bullet_manager.clear_bullets();
-        _ammo_count = MAX_AMMO;
-        _hud.set_ammo(_ammo_count);
-        if (_companion.has_value() && !_companion->is_dead_independently()) { _companion->set_visible(true); }
-    }
-
-    void Player::reset_movement() { _movement.reset(); }
-
-    void Player::add_ammo(int amount) {
-        _ammo_count = bn::min(_ammo_count + amount, MAX_AMMO);
-        _hud.set_ammo(_ammo_count); 
-    }
-
-    void Player::reload_ammo() {
-        _ammo_count = MAX_AMMO;
-        _hud.set_ammo(_ammo_count); 
-    }
-
+    void Player::heal(int a) { if (_hp < 3 && _hp > 0) { _hp = bn::min(_hp + a, 3); _hud.set_hp(_hp); _hud.update(); } }
+    void Player::reset() { _hp = 3; (_reset_required = (_death_timer = (_death_sound_played = 0))); _state.reset(); _movement.reset(); _abilities.reset(); _hud.set_resetting_health(1); _hud.set_hp(_hp); _hud.set_resetting_health(0); _hud.update(); set_visible(1); _bullet_manager.clear_bullets(); _ammo_count = MAX_AMMO; _hud.set_ammo(_ammo_count); if (_companion && !_companion->is_dead_independently()) _companion->set_visible(1); }
+    void Player::add_ammo(int a) { _ammo_count = bn::min(_ammo_count + a, MAX_AMMO); _hud.set_ammo(_ammo_count); }
+    void Player::reload_ammo() { _ammo_count = MAX_AMMO; _hud.set_ammo(_ammo_count); }
     bool Player::has_ammo() const { return _ammo_count > 0; }
-
-    bool Player::is_attacking() const {
-        return _movement.current_state() == PlayerMovement::State::CHOPPING ||
-               _movement.current_state() == PlayerMovement::State::SLASHING ||
-               _movement.current_state() == PlayerMovement::State::ATTACKING; 
-    }
-
+    bool Player::is_attacking() const { return (int)_movement.current_state() >= (int)PlayerMovement::State::CHOPPING && (int)_movement.current_state() <= (int)PlayerMovement::State::ATTACKING; }
     bool Player::can_start_attack() const { return !is_attacking() && !_movement.is_performing_action(); }
-
     Hitbox Player::get_melee_hitbox() const {
-        if (!is_attacking()) { return Hitbox(0, 0, 0, 0); }
-        
-        bn::fixed_point attack_pos = pos();
-        PlayerMovement::Direction dir = _movement.facing_direction();
-        bn::fixed range;
-        
-        if (_movement.is_state(PlayerMovement::State::SLASHING)) { range = 24 * 1.1; }
-        else if (_movement.is_state(PlayerMovement::State::CHOPPING)) { range = 24 * 1.2; }
-        else { range = 24; }
-        
-        bn::fixed width = 32;
-        bn::fixed height = 16;
-        bn::fixed hitbox_x = attack_pos.x();
-        bn::fixed hitbox_y = attack_pos.y() + PLAYER_SPRITE_Y_OFFSET;
-        
-        switch (dir) {
-        case PlayerMovement::Direction::UP: 
-            hitbox_y -= range;
-            hitbox_x -= width / 2;
-            break;
-        case PlayerMovement::Direction::DOWN: 
-            hitbox_y += range;
-            hitbox_x -= width / 2;
-            break;
-        case PlayerMovement::Direction::LEFT: 
-            hitbox_x -= range;
-            hitbox_y -= height / 2;
-            break;
-        case PlayerMovement::Direction::RIGHT: 
-            hitbox_x += range;
-            hitbox_y -= height / 2;
-            break;
-        default: break; 
-        }
-        return Hitbox(hitbox_x, hitbox_y, width, height); 
+        if (!is_attacking()) return {0,0,0,0};
+        bn::fixed r = _movement.is_state(PlayerMovement::State::SLASHING) ? 24*1.1 : (_movement.is_state(PlayerMovement::State::CHOPPING) ? 24*1.2 : 24), w = 32, h = 16, hx = pos().x(), hy = pos().y() + PLAYER_SPRITE_Y_OFFSET;
+        PlayerMovement::Direction d = _movement.facing_direction();
+        if (d == PlayerMovement::Direction::UP) { hy -= r; hx -= w/2; } else if (d == PlayerMovement::Direction::DOWN) { hy += r; hx -= w/2; } else if (d == PlayerMovement::Direction::LEFT) { hx -= r; hy -= h/2; } else if (d == PlayerMovement::Direction::RIGHT) { hx += r; hy -= h/2; }
+        return {hx, hy, w, h};
     }
 
     void Player::update_gun_position(PlayerMovement::Direction direction) {
@@ -1768,7 +856,7 @@ namespace fe {
     }
 
     void Player::update_bullets() { _bullet_manager.update_bullets(); }
-
+    void Player::update_animation() { _animation.apply_state(_movement.current_state(), _movement.facing_direction()); }
     bool Player::is_firing() const { return bn::keypad::a_held() && _gun_active && _state.dialog_cooldown() == 0; }
 
     void Player::initialize_companion(bn::camera_ptr camera) {
@@ -1785,232 +873,42 @@ namespace fe {
     }
 
     void Player::handle_input() {
-        if (_state.listening() || _movement.current_state() == PlayerMovement::State::DEAD) { return; }
-        
-        bool reviving_companion = _companion.has_value() && _companion->is_revival_in_progress();
-        bool performing_action = _movement.is_performing_action();
-        
-        if (bn::keypad::r_held()) {
-            _r_hold_frames++;
-            if (_r_hold_frames > WEAPON_SWITCH_WINDOW && _gun_active && !reviving_companion && !_hud.is_buff_menu_open()) {
-                if (_auto_reload_timer == 0) { _auto_reload_timer = AUTO_RELOAD_INTERVAL; }
-                _auto_reload_timer--;
-                if (_auto_reload_timer <= 0 && _ammo_count < MAX_AMMO) {
-                    _ammo_count++;
-                    _hud.set_ammo(_ammo_count);
-                    _auto_reload_timer = AUTO_RELOAD_INTERVAL; 
-                }
-            }
-        } else {
-            if (_r_hold_frames > 0 && _r_hold_frames <= WEAPON_SWITCH_WINDOW && !performing_action && !reviving_companion) { switch_weapon(); }
-            _r_hold_frames = 0; 
-        }
-        
-        if (bn::keypad::select_held() && bn::keypad::b_pressed() && _gun_active && !reviving_companion) { cycle_gun_sprite(); }
-        if (bn::keypad::select_held() && bn::keypad::b_pressed() && !_gun_active && _hud.get_weapon() == WEAPON_TYPE::SWORD && !reviving_companion) { cycle_sword_sprite(); }
-        
+        if (_state.listening() || _movement.current_state() == PlayerMovement::State::DEAD) return;
+        bool rc = _companion && _companion->is_revival_in_progress(), pa = _movement.is_performing_action();
+        if (bn::keypad::r_held()) { if (++_r_hold_frames > WEAPON_SWITCH_WINDOW && _gun_active && !rc && !_hud.is_buff_menu_open()) { if (_auto_reload_timer == 0) _auto_reload_timer = AUTO_RELOAD_INTERVAL; if (--_auto_reload_timer <= 0 && _ammo_count < MAX_AMMO) { _ammo_count++; _hud.set_ammo(_ammo_count); _auto_reload_timer = AUTO_RELOAD_INTERVAL; } } }
+        else { if (_r_hold_frames > 0 && _r_hold_frames <= WEAPON_SWITCH_WINDOW && !pa && !rc) switch_weapon(); _r_hold_frames = 0; }
+        if (bn::keypad::select_held() && bn::keypad::b_pressed() && !rc) { if (_gun_active) cycle_gun_sprite(); else if (_hud.get_weapon() == WEAPON_TYPE::SWORD) cycle_sword_sprite(); }
         if (_movement.current_state() == PlayerMovement::State::ROLLING) {
-            bool should_cancel = false;
-            PlayerMovement::Direction roll_dir = _movement.facing_direction();
-            switch (roll_dir) {
-            case PlayerMovement::Direction::RIGHT: should_cancel = bn::keypad::left_pressed(); break;
-            case PlayerMovement::Direction::LEFT: should_cancel = bn::keypad::right_pressed(); break;
-            case PlayerMovement::Direction::UP: should_cancel = bn::keypad::down_pressed(); break;
-            case PlayerMovement::Direction::DOWN: should_cancel = bn::keypad::up_pressed(); break;
-            default: break;
-            }
-            if (should_cancel) {
-                _movement.stop_action();
-                _state.set_invulnerable(false); 
-            }
+            PlayerMovement::Direction d = _movement.facing_direction();
+            if ((d == PlayerMovement::Direction::RIGHT && bn::keypad::left_pressed()) || (d == PlayerMovement::Direction::LEFT && bn::keypad::right_pressed()) || (d == PlayerMovement::Direction::UP && bn::keypad::down_pressed()) || (d == PlayerMovement::Direction::DOWN && bn::keypad::up_pressed())) { _movement.stop_action(); _state.set_invulnerable(false); }
         }
-        
-        if (!performing_action && !reviving_companion && !_hud.is_buff_menu_open()) {
-            if (bn::keypad::b_pressed() && !bn::keypad::select_held() && _abilities.rolling_available()) {
-                _movement.start_action(PlayerMovement::State::ROLLING, PLAYER_ROLL_DURATION);
-                _abilities.set_roll_cooldown(90);
-                _state.set_invulnerable(true);
-                _state.set_inv_timer(0);
-                _reload_on_roll_end = _gun_active;
-                bn::sound_items::swipe.play(); 
-            }
-            else if (bn::keypad::a_held() && _state.dialog_cooldown() == 0 && _gun_active && shared_gun_frame == 0) { 
-                fire_bullet(_is_strafing ? _strafing_direction : _movement.facing_direction()); 
-            }
-            else if (bn::keypad::a_pressed() && _state.dialog_cooldown() == 0) {
-                if (_gun_active) {
-                    if (shared_gun_frame != 0) { fire_bullet(_is_strafing ? _strafing_direction : _movement.facing_direction()); }
-                } else if ((_combo_ready && _abilities.chopping_available() && can_start_attack()) || (!_combo_ready && _abilities.slashing_available() && can_start_attack())) {
-                    if (_combo_ready && (_frame_counter - _last_attack_time) <= COMBO_WINDOW) {
-                        _movement.start_action(PlayerMovement::State::CHOPPING, PLAYER_CHOP_DURATION);
-                        _abilities.set_chop_cooldown(30);
-                        _combo_ready = false; 
-                    } else {
-                        _movement.start_action(PlayerMovement::State::SLASHING, PLAYER_SLASH_DURATION);
-                        _abilities.set_slash_cooldown(30);
-                        _last_attack_time = _frame_counter;
-                        _combo_ready = true; 
-                    }
-                }
-            }
-            else if (bn::keypad::select_held() && _abilities.buff_abilities_available()) {
-                PlayerMovement::State buff_state = PlayerMovement::State::IDLE;
-                if (bn::keypad::up_pressed()) buff_state = PlayerMovement::State::HEAL_BUFF;
-                else if (bn::keypad::down_pressed()) buff_state = PlayerMovement::State::DEFENCE_BUFF;
-                else if (bn::keypad::left_pressed()) buff_state = PlayerMovement::State::POWER_BUFF;
-                else if (bn::keypad::right_pressed()) buff_state = PlayerMovement::State::ENERGY_BUFF;
-                
-                if (buff_state != PlayerMovement::State::IDLE) { activate_buff(buff_state); }
-            }
+        if (!pa && !rc && !_hud.is_buff_menu_open()) {
+            if (bn::keypad::b_pressed() && !bn::keypad::select_held() && _abilities.rolling_available()) { _movement.start_action(PlayerMovement::State::ROLLING, PLAYER_ROLL_DURATION); _abilities.set_roll_cooldown(90); _state.set_invulnerable(true); _state.set_inv_timer(0); _reload_on_roll_end = _gun_active; bn::sound_items::swipe.play(); }
+            else if (bn::keypad::a_held() && _state.dialog_cooldown() == 0 && _gun_active && shared_gun_frame == 0) fire_bullet(_is_strafing ? _strafing_direction : _movement.facing_direction());
+            else if (bn::keypad::a_pressed() && _state.dialog_cooldown() == 0) { if (_gun_active) { if (shared_gun_frame != 0) fire_bullet(_is_strafing ? _strafing_direction : _movement.facing_direction()); } else if (can_start_attack()) { if (_combo_ready && (_frame_counter - _last_attack_time) <= COMBO_WINDOW) { _movement.start_action(PlayerMovement::State::CHOPPING, PLAYER_CHOP_DURATION); _abilities.set_chop_cooldown(30); _combo_ready = false; } else { _movement.start_action(PlayerMovement::State::SLASHING, PLAYER_SLASH_DURATION); _abilities.set_slash_cooldown(30); _last_attack_time = _frame_counter; _combo_ready = true; } } }
+            else if (bn::keypad::select_held() && _abilities.buff_abilities_available()) { PlayerMovement::State b = PlayerMovement::State::IDLE; if (bn::keypad::up_pressed()) b = PlayerMovement::State::HEAL_BUFF; else if (bn::keypad::down_pressed()) b = PlayerMovement::State::DEFENCE_BUFF; else if (bn::keypad::left_pressed()) b = PlayerMovement::State::POWER_BUFF; else if (bn::keypad::right_pressed()) b = PlayerMovement::State::ENERGY_BUFF; if (b != PlayerMovement::State::IDLE) activate_buff(b); }
         }
-        
         _hud.update_buff_menu_cooldown();
-        
-        if (!performing_action && !reviving_companion && _abilities.buff_abilities_available() && !_hud.is_buff_menu_on_cooldown()) {
+        if (!pa && !rc && _abilities.buff_abilities_available() && !_hud.is_buff_menu_on_cooldown()) {
             if (!bn::keypad::select_held()) {
-                if (!_hud.is_buff_menu_open()) {
-                    if (bn::keypad::l_pressed()) { _hud.start_buff_menu_hold(); }
-                    else if (bn::keypad::l_held() && _hud.is_buff_menu_holding()) {
-                        _hud.update_buff_menu_hold();
-                        if (_hud.is_buff_menu_hold_complete()) {
-                            _hud.cancel_buff_menu_hold();
-                            _hud.toggle_buff_menu(); 
-                        }
-                    }
-                    else if (!bn::keypad::l_held() && _hud.is_buff_menu_holding()) { _hud.cancel_buff_menu_hold(); }
-                } else {
-                    if (bn::keypad::a_pressed() || bn::keypad::l_pressed()) {
-                        int selected = _hud.get_selected_buff();
-                        PlayerMovement::State buff_state = PlayerMovement::State::IDLE;
-                        switch (selected) {
-                        case 0: buff_state = PlayerMovement::State::HEAL_BUFF; break;
-                        case 1: buff_state = PlayerMovement::State::ENERGY_BUFF; break;
-                        case 2: buff_state = PlayerMovement::State::POWER_BUFF; break;
-                        default: break; 
-                        }
-                        activate_buff(buff_state);
-                        _hud.toggle_buff_menu();
-                        _hud.start_buff_menu_cooldown(); 
-                    }
-                    else if (bn::keypad::b_pressed()) { _hud.toggle_buff_menu(); }
-                }
+                if (!_hud.is_buff_menu_open()) { if (bn::keypad::l_pressed()) _hud.start_buff_menu_hold(); else if (bn::keypad::l_held() && _hud.is_buff_menu_holding()) { _hud.update_buff_menu_hold(); if (_hud.is_buff_menu_hold_complete()) { _hud.cancel_buff_menu_hold(); _hud.toggle_buff_menu(); } } else if (!bn::keypad::l_held() && _hud.is_buff_menu_holding()) _hud.cancel_buff_menu_hold(); }
+                else { if (bn::keypad::a_pressed() || bn::keypad::l_pressed()) { int s = _hud.get_selected_buff(); activate_buff(s == 0 ? PlayerMovement::State::HEAL_BUFF : (s == 1 ? PlayerMovement::State::ENERGY_BUFF : PlayerMovement::State::POWER_BUFF)); _hud.toggle_buff_menu(); _hud.start_buff_menu_cooldown(); } else if (bn::keypad::b_pressed()) _hud.toggle_buff_menu(); }
             }
-            
-            if (_hud.is_buff_menu_open() && !bn::keypad::select_held()) {
-                if (bn::keypad::up_pressed()) { _hud.navigate_buff_menu_up(); }
-                else if (bn::keypad::down_pressed()) { _hud.navigate_buff_menu_down(); }
-                else if (bn::keypad::left_pressed()) { _hud.navigate_buff_menu_left(); }
-                else if (bn::keypad::right_pressed()) { _hud.navigate_buff_menu_right(); }
-            }
-        } else if (_hud.is_buff_menu_holding()) { _hud.cancel_buff_menu_hold(); }
-        
-        if (bn::keypad::select_held() && bn::keypad::start_held()) {
-            // Debug commands
-            if (bn::keypad::up_pressed()) {
-                if (get_hp() > 0) take_damage(get_hp());
-                heal(1); 
-            }
-            else if (bn::keypad::right_pressed()) {
-                if (get_hp() > 1) take_damage(get_hp() - 1);
-                heal(1); 
-            }
-            else if (bn::keypad::down_pressed()) {
-                if (get_hp() < 2) heal(2 - get_hp());
-                take_damage(1); 
-            }
-            else if (bn::keypad::left_pressed()) {
-                if (get_hp() < 1) heal(1 - get_hp());
-                take_damage(1); 
-            }
+            if (_hud.is_buff_menu_open() && !bn::keypad::select_held()) { if (bn::keypad::up_pressed()) _hud.navigate_buff_menu_up(); else if (bn::keypad::down_pressed()) _hud.navigate_buff_menu_down(); else if (bn::keypad::left_pressed()) _hud.navigate_buff_menu_left(); else if (bn::keypad::right_pressed()) _hud.navigate_buff_menu_right(); }
+        } else if (_hud.is_buff_menu_holding()) _hud.cancel_buff_menu_hold();
+        if (bn::keypad::select_held() && bn::keypad::start_held()) { if (bn::keypad::up_pressed()) { if (get_hp() > 0) take_damage(get_hp()); heal(1); } else if (bn::keypad::right_pressed()) { if (get_hp() > 1) take_damage(get_hp() - 1); heal(1); } else if (bn::keypad::down_pressed()) { if (get_hp() < 2) heal(2 - get_hp()); take_damage(1); } else if (bn::keypad::left_pressed()) { if (get_hp() < 1) heal(1 - get_hp()); take_damage(1); } }
+        if (!pa && !rc && !_hud.is_buff_menu_open()) {
+            bn::fixed dx = _movement.dx(), dy = _movement.dy(), d_c = PlayerMovement::acc_const; bool h = 0, v = 0; PlayerMovement::Direction dir = _movement.facing_direction();
+            if (bn::keypad::right_held()) { dx += d_c; h = 1; dir = PlayerMovement::Direction::RIGHT; } else if (bn::keypad::left_held()) { dx -= d_c; h = 1; dir = PlayerMovement::Direction::LEFT; }
+            if (bn::keypad::up_held()) { dy -= d_c; v = 1; dir = PlayerMovement::Direction::UP; } else if (bn::keypad::down_held()) { dy += d_c; v = 1; dir = PlayerMovement::Direction::DOWN; }
+            if (h && v) { dx = _movement.dx() + (dx - _movement.dx()) * PlayerMovement::diagonal_factor; dy = _movement.dy() + (dy - _movement.dy()) * PlayerMovement::diagonal_factor; }
+            _movement.set_dx(bn::clamp(dx, -PlayerMovement::max_speed, PlayerMovement::max_speed)); _movement.set_dy(bn::clamp(dy, -PlayerMovement::max_speed, PlayerMovement::max_speed));
+            if (!_is_strafing && (h || v)) _movement.set_facing_direction(dir);
+            _movement.update_movement_state();
+            if (!_is_strafing && _abilities.running_available() && _movement.is_moving()) { if (_movement.is_state(PlayerMovement::State::WALKING)) _movement.start_action(PlayerMovement::State::RUNNING, 0); }
+            else if (_movement.is_state(PlayerMovement::State::RUNNING)) _movement.start_action(PlayerMovement::State::WALKING, 0);
         }
-        
-        if (!performing_action && !reviving_companion && !_hud.is_buff_menu_open()) {
-            bool should_run = !_is_strafing && _abilities.running_available();
-            if (_is_strafing) {
-                bn::fixed dx = _movement.dx();
-                bn::fixed dy = _movement.dy();
-                bool horizontal_input = false;
-                bool vertical_input = false;
-                bn::fixed dx_delta = 0;
-                bn::fixed dy_delta = 0;
-                
-                if (bn::keypad::right_held()) {
-                    dx_delta = PlayerMovement::acc_const;
-                    horizontal_input = true; 
-                } else if (bn::keypad::left_held()) {
-                    dx_delta = -PlayerMovement::acc_const;
-                    horizontal_input = true; 
-                }
-                
-                if (bn::keypad::up_held()) {
-                    dy_delta = -PlayerMovement::acc_const;
-                    vertical_input = true; 
-                } else if (bn::keypad::down_held()) {
-                    dy_delta = PlayerMovement::acc_const;
-                    vertical_input = true; 
-                }
-                
-                if (horizontal_input && vertical_input) {
-                    dx_delta *= PlayerMovement::diagonal_factor;
-                    dy_delta *= PlayerMovement::diagonal_factor; 
-                }
-                
-                dx = bn::clamp(dx + dx_delta, -PlayerMovement::max_speed, PlayerMovement::max_speed);
-                dy = bn::clamp(dy + dy_delta, -PlayerMovement::max_speed, PlayerMovement::max_speed);
-                _movement.set_dx(dx);
-                _movement.set_dy(dy);
-                _movement.update_movement_state(); 
-            } else {
-                bn::fixed dx = _movement.dx();
-                bn::fixed dy = _movement.dy();
-                bool horizontal_input = false;
-                bool vertical_input = false;
-                bn::fixed dx_delta = 0;
-                bn::fixed dy_delta = 0;
-                PlayerMovement::Direction last_direction = _movement.facing_direction();
-                
-                if (bn::keypad::right_held()) {
-                    dx_delta = PlayerMovement::acc_const;
-                    horizontal_input = true;
-                    last_direction = PlayerMovement::Direction::RIGHT; 
-                } else if (bn::keypad::left_held()) {
-                    dx_delta = -PlayerMovement::acc_const;
-                    horizontal_input = true;
-                    last_direction = PlayerMovement::Direction::LEFT; 
-                }
-                
-                if (bn::keypad::up_held()) {
-                    dy_delta = -PlayerMovement::acc_const;
-                    vertical_input = true;
-                    last_direction = PlayerMovement::Direction::UP; 
-                } else if (bn::keypad::down_held()) {
-                    dy_delta = PlayerMovement::acc_const;
-                    vertical_input = true;
-                    last_direction = PlayerMovement::Direction::DOWN; 
-                }
-                
-                if (horizontal_input && vertical_input) {
-                    dx_delta *= PlayerMovement::diagonal_factor;
-                    dy_delta *= PlayerMovement::diagonal_factor; 
-                }
-                
-                dx = bn::clamp(dx + dx_delta, -PlayerMovement::max_speed, PlayerMovement::max_speed);
-                dy = bn::clamp(dy + dy_delta, -PlayerMovement::max_speed, PlayerMovement::max_speed);
-                _movement.set_dx(dx);
-                _movement.set_dy(dy);
-                if (horizontal_input || vertical_input) { _movement.set_facing_direction(last_direction); }
-                _movement.update_movement_state(); 
-            }
-            
-            if (should_run && _movement.is_moving()) {
-                if (_movement.is_state(PlayerMovement::State::WALKING)) { _movement.start_action(PlayerMovement::State::RUNNING, 0); }
-            } else if (!should_run && _movement.is_state(PlayerMovement::State::RUNNING)) { 
-                _movement.start_action(PlayerMovement::State::WALKING, 0); 
-            }
-        }
-        
-        update_gun_if_active();
-        _movement.apply_friction(); 
+        update_gun_if_active(); _movement.apply_friction(); 
     }
 
     void Player::toggle_gun() {

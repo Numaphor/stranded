@@ -164,35 +164,19 @@ namespace fe {
     int HUD::hp() const { return _hp; }
 
     void HUD::set_hp(int hp) {
-        int old_hp = _hp;
-        _hp = bn::max(0, bn::min(HUD_MAX_HP, hp));
-
-        if (_health_bg.has_value()) {
-            _health_bg->set_map(bn::regular_bg_items::healthbar.map_item(), _hp);
-        }
-
+        int old_hp = _hp; _hp = bn::clamp(hp, 0, HUD_MAX_HP);
+        if (_health_bg) _health_bg->set_map(bn::regular_bg_items::healthbar.map_item(), _hp);
         if (_hp > old_hp) {
-            if (old_hp == 0 && _hp == 1) { play_health_gain_0_to_1(); }
-            else if (old_hp == 1 && _hp == 2) { play_health_gain_1_to_2(); }
-            else if (old_hp == 2 && _hp == 3) { play_health_gain_2_to_3(); }
-            else if (old_hp < 3 && _hp == 3) {
-                // Bulk heal to full
-                if (!_resetting_health) {
-                    play_health_gain_2_to_3(); // Animate final step
-                } else {
-                    // Reset case
-                    set_soul_sprite_and_frame(_soul_sprite, bn::sprite_items::heart_normal_full, 0);
-                    _soul_action.reset();
-                    _defense_buff_active = false; // Reset buffs on full reset
-                    _silver_soul_active = false;
-                }
+            if (_resetting_health && _hp == 3) { set_soul_sprite_and_frame(_soul_sprite, bn::sprite_items::heart_normal_full, 0); _soul_action.reset(); _defense_buff_active = _silver_soul_active = false; }
+            else { static const int f[] = {0,1,2,3,4,5,6,7,8,9}; 
+                if (old_hp == 0 && _hp == 1) _play_health_transition_anim(bn::sprite_items::heart_empty_spawn, f, 10, 1);
+                else if (old_hp == 1 && _hp == 2) _play_health_transition_anim(bn::sprite_items::heart_normal_spawn_half, f, 10, 1);
+                else if (_hp == 3) _play_health_transition_anim(bn::sprite_items::heart_normal_spawn_full, f, 10, 1);
             }
-        }
-        else if (_hp < old_hp) {
-            if (old_hp == 3 && _hp == 2) { play_health_loss_3_to_2(); }
-            else if (old_hp == 2 && _hp == 1) { play_health_loss_2_to_1(); }
-            else if (old_hp == 1 && _hp == 0) { play_health_loss_1_to_0(); }
-            else { play_health_loss_animation(); }
+        } else if (_hp < old_hp) {
+            if (old_hp == 3 && _hp == 2) { static const int f[] = {10,11,12,13}; _play_health_transition_anim(bn::sprite_items::heart_normal_spawn_full, f, 4, 0); }
+            else if (old_hp == 1 && _hp == 0) { static const int f[] = {10,11,12,13}; _play_health_transition_anim(bn::sprite_items::heart_empty_spawn, f, 4, 0); }
+            else play_soul_damage_animation();
         }
     }
 
@@ -447,79 +431,16 @@ namespace fe {
         }
     }
 
-    void HUD::_play_health_transition_anim(const bn::sprite_item& sprite_item, const int* frames, int frame_count, bool is_gain) {
-        _health_gain_anim_active = is_gain;
-        _health_loss_anim_active = !is_gain;
-        _soul_sprite.set_item(sprite_item);
-        
-        // Create animation based on frame count
-        if (frame_count == 14) {
-             _soul_action = bn::create_sprite_animate_action_once(
-                _soul_sprite, HUD_SOUL_ANIM_SPEED, sprite_item.tiles_item(),
-                frames[0], frames[1], frames[2], frames[3], frames[4], frames[5], 
-                frames[6], frames[7], frames[8], frames[9], frames[10], frames[11], frames[12], frames[13]);
-        } else if (frame_count == 10) {
-             _soul_action = bn::create_sprite_animate_action_once(
-                _soul_sprite, HUD_SOUL_ANIM_SPEED, sprite_item.tiles_item(),
-                frames[0], frames[1], frames[2], frames[3], frames[4], frames[5], 
-                frames[6], frames[7], frames[8], frames[9]);
-        } else if (frame_count == 9) {
-             _soul_action = bn::create_sprite_animate_action_once(
-                _soul_sprite, HUD_SOUL_ANIM_SPEED, sprite_item.tiles_item(),
-                frames[0], frames[1], frames[2], frames[3], frames[4], frames[5], frames[6], frames[7], frames[8]);
-        } else if (frame_count == 7) {
-             _soul_action = bn::create_sprite_animate_action_once(
-                _soul_sprite, HUD_SOUL_ANIM_SPEED, sprite_item.tiles_item(),
-                frames[0], frames[1], frames[2], frames[3], frames[4], frames[5], frames[6]);
-        } else if (frame_count == 5) {
-             _soul_action = bn::create_sprite_animate_action_once(
-                _soul_sprite, HUD_SOUL_ANIM_SPEED, sprite_item.tiles_item(),
-                frames[0], frames[1], frames[2], frames[3], frames[4]);
-        } else if (frame_count == 4) {
-             _soul_action = bn::create_sprite_animate_action_once(
-                _soul_sprite, HUD_SOUL_ANIM_SPEED, sprite_item.tiles_item(),
-                frames[0], frames[1], frames[2], frames[3]);
-        } else {
-             // Fallback for custom lengths, assumes 6 for now
-             _soul_action = bn::create_sprite_animate_action_once(
-                _soul_sprite, HUD_SOUL_ANIM_SPEED, sprite_item.tiles_item(),
-                frames[0], frames[1], frames[2], frames[3], frames[4], frames[5]);
-        }
-    }
-
-    void HUD::play_health_gain_0_to_1() {
-        // Spawn Empty (0->1 HP)
-        static constexpr int frames[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-        _play_health_transition_anim(bn::sprite_items::heart_empty_spawn, frames, 10, true);
-    }
-
-    void HUD::play_health_gain_1_to_2() {
-        // Spawn Half (1->2 HP)
-        static constexpr int frames[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-        _play_health_transition_anim(bn::sprite_items::heart_normal_spawn_half, frames, 10, true);
-    }
-    
-    void HUD::play_health_gain_2_to_3() {
-        // Spawn Full (2->3 HP)
-        static constexpr int frames[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
-        _play_health_transition_anim(bn::sprite_items::heart_normal_spawn_full, frames, 10, true);
-    }
-
-    void HUD::play_health_loss_3_to_2() {
-        // Full -> Half (3->2 HP)
-        static constexpr int frames[] = {10, 11, 12, 13};
-        _play_health_transition_anim(bn::sprite_items::heart_normal_spawn_full, frames, 4, false);
-    }
-
-    void HUD::play_health_loss_2_to_1() {
-        // Half -> Empty (2->1 HP) - Use blink animation
-        play_health_loss_animation();
-    }
-
-    void HUD::play_health_loss_1_to_0() {
-        // Empty -> Nothing (1->0 HP)
-        static constexpr int frames[] = {10, 11, 12, 13};
-        _play_health_transition_anim(bn::sprite_items::heart_empty_spawn, frames, 4, false);
+    void HUD::_play_health_transition_anim(const bn::sprite_item& it, const int* f, int c, bool g) {
+        _health_gain_anim_active = g; _health_loss_anim_active = !g; _soul_sprite.set_item(it);
+        auto s = [&](auto... args) { _soul_action = bn::create_sprite_animate_action_once(_soul_sprite, HUD_SOUL_ANIM_SPEED, it.tiles_item(), args...); };
+        if (c == 14) s(f[0],f[1],f[2],f[3],f[4],f[5],f[6],f[7],f[8],f[9],f[10],f[11],f[12],f[13]);
+        else if (c == 10) s(f[0],f[1],f[2],f[3],f[4],f[5],f[6],f[7],f[8],f[9]);
+        else if (c == 9) s(f[0],f[1],f[2],f[3],f[4],f[5],f[6],f[7],f[8]);
+        else if (c == 7) s(f[0],f[1],f[2],f[3],f[4],f[5],f[6]);
+        else if (c == 5) s(f[0],f[1],f[2],f[3],f[4]);
+        else if (c == 4) s(f[0],f[1],f[2],f[3]);
+        else s(f[0],f[1],f[2],f[3],f[4],f[5]);
     }
 
     bool HUD::is_buff_menu_on_cooldown() const { return _buff_menu_cooldown_timer > 0; }
@@ -825,46 +746,18 @@ namespace fe {
     void Level::clear_merchant_zone() { _merchant_zone_center.reset(); }
     void Level::set_merchant_zone_enabled(bool enabled) { _merchant_zone_enabled = enabled; }
 
-    bool Level::is_position_valid(const bn::fixed_point &position) const {
-        if (!_bg_map_ptr.has_value()) { return true; }
-        bn::span<const bn::regular_bg_map_cell> cells = _bg_map_ptr.value().cells_ref().value();
-        int map_width = _bg_map_ptr.value().dimensions().width();
-        int map_height = _bg_map_ptr.value().dimensions().height();
-        
-        bn::fixed_point top_left(position.x() - PLAYER_HITBOX_REDUCED_WIDTH / 2, position.y() - PLAYER_HITBOX_HEIGHT / 2 + PLAYER_HITBOX_VERTICAL_OFFSET);
-        bn::fixed_point top_right(position.x() + PLAYER_HITBOX_REDUCED_WIDTH / 2 - 1, position.y() - PLAYER_HITBOX_HEIGHT / 2 + PLAYER_HITBOX_VERTICAL_OFFSET);
-        bn::fixed_point bottom_left(position.x() - PLAYER_HITBOX_REDUCED_WIDTH / 2, position.y() + PLAYER_HITBOX_HEIGHT / 2 + PLAYER_HITBOX_VERTICAL_OFFSET - 1);
-        bn::fixed_point bottom_right(position.x() + PLAYER_HITBOX_REDUCED_WIDTH / 2 - 1, position.y() + PLAYER_HITBOX_HEIGHT / 2 + PLAYER_HITBOX_VERTICAL_OFFSET - 1);
-        bn::fixed_point middle_top(position.x(), position.y() - PLAYER_HITBOX_HEIGHT / 2 + PLAYER_HITBOX_VERTICAL_OFFSET);
-        bn::fixed_point quarter_top_left(position.x() - PLAYER_HITBOX_WIDTH / 4, position.y() - PLAYER_HITBOX_HEIGHT / 2 + PLAYER_HITBOX_VERTICAL_OFFSET);
-        bn::fixed_point quarter_top_right(position.x() + PLAYER_HITBOX_WIDTH / 4, position.y() - PLAYER_HITBOX_HEIGHT / 2 + PLAYER_HITBOX_VERTICAL_OFFSET);
-        
-        bn::fixed_point check_points[] = {
-            top_left, top_right, bottom_left, bottom_right,
-            middle_top, quarter_top_left, quarter_top_right
-        };
-        
-        if (is_in_merchant_collision_zone(position)) { return false; }
-        
-        const int map_offset_x = (map_width * 4);
-        const int map_offset_y = (map_height * 4);
-        
-        for (const auto &point : check_points) {
-            int cell_x = ((point.x() + map_offset_x) / 8).integer();
-            int cell_y = ((point.y() + map_offset_y) / 8).integer();
-            
-            if (cell_x < 0 || cell_x >= map_width || cell_y < 0 || cell_y >= map_height) { return false; }
-            int cell_index = cell_y * map_width + cell_x;
-            if (cell_index < 0 || cell_index >= cells.size()) { return false; }
-            
-            bn::regular_bg_map_cell cell = cells.at(cell_index);
-            int tile_index = bn::regular_bg_map_cell_info(cell).tile_index();
-            
-            for (int zone_tile : _zone_tiles) {
-                if (tile_index == zone_tile && zone_tile != 3 && zone_tile != 4) { return false; }
-            }
+    bool Level::is_position_valid(const bn::fixed_point &p) const {
+        if (!_bg_map_ptr || is_in_merchant_collision_zone(p)) return 0;
+        auto c = _bg_map_ptr->cells_ref().value(); int w = _bg_map_ptr->dimensions().width(), h = _bg_map_ptr->dimensions().height();
+        bn::fixed_point pts[] = { {p.x() - PLAYER_HITBOX_REDUCED_WIDTH/2, p.y() - PLAYER_HITBOX_HEIGHT/2 + PLAYER_HITBOX_VERTICAL_OFFSET}, {p.x() + PLAYER_HITBOX_REDUCED_WIDTH/2 - 1, p.y() - PLAYER_HITBOX_HEIGHT/2 + PLAYER_HITBOX_VERTICAL_OFFSET}, {p.x() - PLAYER_HITBOX_REDUCED_WIDTH/2, p.y() + PLAYER_HITBOX_HEIGHT/2 + PLAYER_HITBOX_VERTICAL_OFFSET - 1}, {p.x() + PLAYER_HITBOX_REDUCED_WIDTH/2 - 1, p.y() + PLAYER_HITBOX_HEIGHT/2 + PLAYER_HITBOX_VERTICAL_OFFSET - 1}, {p.x(), p.y() - PLAYER_HITBOX_HEIGHT/2 + PLAYER_HITBOX_VERTICAL_OFFSET}, {p.x() - PLAYER_HITBOX_WIDTH/4, p.y() - PLAYER_HITBOX_HEIGHT/2 + PLAYER_HITBOX_VERTICAL_OFFSET}, {p.x() + PLAYER_HITBOX_WIDTH/4, p.y() - PLAYER_HITBOX_HEIGHT/2 + PLAYER_HITBOX_VERTICAL_OFFSET} };
+        for (auto &pt : pts) {
+            int cx = ((pt.x() + w*4) / 8).integer(), cy = ((pt.y() + h*4) / 8).integer();
+            if (cx < 0 || cx >= w || cy < 0 || cy >= h) return 0;
+            int idx = cy * w + cx; if (idx < 0 || idx >= c.size()) return 0;
+            int tidx = bn::regular_bg_map_cell_info(c.at(idx)).tile_index();
+            for (int z : _zone_tiles) if (tidx == z && z != 3 && z != 4) return 0;
         }
-        return true; 
+        return 1; 
     }
 
     // =========================================================================
@@ -882,230 +775,71 @@ namespace fe {
         (void)camera; 
     }
 
-    void Minimap::update(bn::fixed_point player_pos, bn::fixed_point map_center, const bn::vector<Enemy, 16> &enemies) {
-        bn::fixed rel_x = (player_pos.x() - map_center.x()) * MINIMAP_POSITION_SCALE;
-        bn::fixed rel_y = (player_pos.y() - map_center.y()) * MINIMAP_POSITION_SCALE;
-        _player_dot.set_position(_position.x() + rel_x, _position.y() + rel_y);
-        
+    void Minimap::update(bn::fixed_point p_pos, bn::fixed_point m_center, const bn::vector<Enemy, 16> &enemies) {
+        bn::fixed rx = (p_pos.x() - m_center.x()) * MINIMAP_POSITION_SCALE, ry = (p_pos.y() - m_center.y()) * MINIMAP_POSITION_SCALE;
+        _player_dot.set_position(_position.x() + rx, _position.y() + ry);
         for (int i = 0; i < enemies.size(); ++i) {
-            const Enemy &enemy = enemies[i];
-            bn::fixed_point enemy_pos = enemy.pos();
-            
-            if (i >= _enemy_dots.size()) {
-                auto sprite = bn::sprite_items::minimap_enemy.create_sprite(0, 0);
-                sprite.set_bg_priority(0);
-                sprite.set_z_order(Z_ORDER_MINIMAP_ENEMY);
-                sprite.set_visible(true);
-                sprite.set_blending_enabled(true);
-                bn::blending::set_transparency_alpha(0.5);
-                _enemy_dots.push_back(EnemyDot(std::move(sprite), &enemy)); 
-            }
-            
-            _enemy_dots[i].enemy = &enemy;
-            bn::fixed enemy_rel_x = (enemy_pos.x() - map_center.x()) * MINIMAP_POSITION_SCALE;
-            bn::fixed enemy_rel_y = (enemy_pos.y() - map_center.y()) * MINIMAP_POSITION_SCALE;
-            _enemy_dots[i].sprite.set_position(
-                _position.x() + enemy_rel_x,
-                _position.y() + enemy_rel_y); 
+            bn::fixed_point ep = enemies[i].pos();
+            if (i >= _enemy_dots.size()) { auto s = bn::sprite_items::minimap_enemy.create_sprite(0, 0); s.set_bg_priority(0); s.set_z_order(Z_ORDER_MINIMAP_ENEMY); s.set_visible(1); s.set_blending_enabled(1); bn::blending::set_transparency_alpha(0.5); _enemy_dots.push_back(EnemyDot(std::move(s), &enemies[i])); }
+            _enemy_dots[i].enemy = &enemies[i];
+            _enemy_dots[i].sprite.set_position(_position.x() + (ep.x() - m_center.x()) * MINIMAP_POSITION_SCALE, _position.y() + (ep.y() - m_center.y()) * MINIMAP_POSITION_SCALE);
         }
-        
-        while (_enemy_dots.size() > enemies.size()) { _enemy_dots.pop_back(); }
+        while (_enemy_dots.size() > enemies.size()) _enemy_dots.pop_back();
     }
 
-    void Minimap::set_visible(bool visible) {
-        _player_dot.set_visible(visible);
-        for (EnemyDot &enemy_dot : _enemy_dots) { enemy_dot.sprite.set_visible(visible); }
-    }
+    void Minimap::set_visible(bool visible) { _player_dot.set_visible(visible); for (auto &ed : _enemy_dots) ed.sprite.set_visible(visible); }
 
     // =========================================================================
     // Bullet Implementation
     // =========================================================================
 
-    Bullet::Bullet(bn::fixed_point pos, bn::fixed_point velocity, bn::camera_ptr camera, Direction direction)
-        : _pos(pos), _velocity(velocity), _active(true), _hitbox(pos.x(), pos.y(), 2, 2), _lifetime(BULLET_LIFETIME) {
-        
-        _sprite = bn::sprite_items::hero_sword.create_sprite(_pos.x(), _pos.y(), 0);
-        _sprite->set_camera(camera);
-        _sprite->set_z_order(Z_ORDER_BULLET);
-        _sprite->set_scale(BULLET_SCALE, BULLET_SCALE);
-        _sprite->set_bg_priority(0);
-        
-        switch (direction) {
-            case Direction::UP: _sprite->set_rotation_angle(0); break;
-            case Direction::RIGHT: _sprite->set_rotation_angle(270); break;
-            case Direction::DOWN: _sprite->set_rotation_angle(180); break;
-            case Direction::LEFT: _sprite->set_rotation_angle(90); break;
-            default: _sprite->set_rotation_angle(270); break; 
-        }
+    Bullet::Bullet(bn::fixed_point p, bn::fixed_point v, bn::camera_ptr c, Direction d) : _pos(p), _velocity(v), _active(1), _hitbox(p.x(), p.y(), 2, 2), _lifetime(BULLET_LIFETIME) {
+        _sprite = bn::sprite_items::hero_sword.create_sprite(p.x(), p.y(), 0); _sprite->set_camera(c); _sprite->set_z_order(Z_ORDER_BULLET); _sprite->set_scale(BULLET_SCALE); _sprite->set_bg_priority(0);
+        _sprite->set_rotation_angle(d == Direction::UP ? 0 : (d == Direction::RIGHT ? 270 : (d == Direction::DOWN ? 180 : 90)));
     }
 
-    void Bullet::update() {
-        if (!_active) return;
-        _pos += _velocity;
-        if (_sprite) { _sprite->set_position(_pos); }
-        _hitbox.set_x(_pos.x());
-        _hitbox.set_y(_pos.y());
-        _lifetime--;
-        if (_lifetime <= 0) { deactivate(); }
-    }
-
-    bool Bullet::check_enemy_collision(Enemy &enemy) {
-        if (!_active) return false;
-        Hitbox enemy_hitbox = enemy.get_hitbox();
-        return _hitbox.collides_with(enemy_hitbox); 
-    }
-
+    void Bullet::update() { if (!_active) return; _pos += _velocity; if (_sprite) _sprite->set_position(_pos); _hitbox.set_x(_pos.x()); _hitbox.set_y(_pos.y()); if (--_lifetime <= 0) deactivate(); }
+    bool Bullet::check_enemy_collision(Enemy &e) { return _active && _hitbox.collides_with(e.get_hitbox()); }
     BulletManager::BulletManager() {}
-
-    void BulletManager::fire_bullet(bn::fixed_point pos, Direction direction) {
-        if (_shoot_cooldown > 0 || !_camera) return;
-        bn::fixed_point velocity = calculate_bullet_velocity(direction);
-        _bullets.push_back(Bullet(pos, velocity, *_camera, direction));
-        _shoot_cooldown = SHOOT_COOLDOWN_TIME; 
-    }
-
-    void BulletManager::update_bullets() {
-        if (_shoot_cooldown > 0) { _shoot_cooldown--; }
-        for (int i = 0; i < _bullets.size();) {
-            _bullets[i].update();
-            if (!_bullets[i].is_active()) { _bullets.erase(_bullets.begin() + i); }
-            else { i++; }
-        }
-    }
-
-    void BulletManager::clear_bullets() {
-        _bullets.clear();
-        _shoot_cooldown = 0; 
-    }
-
+    void BulletManager::fire_bullet(bn::fixed_point p, Direction d) { if (_shoot_cooldown > 0 || !_camera) return; _bullets.push_back(Bullet(p, calculate_bullet_velocity(d), *_camera, d)); _shoot_cooldown = SHOOT_COOLDOWN_TIME; }
+    void BulletManager::update_bullets() { if (_shoot_cooldown > 0) _shoot_cooldown--; for (int i = 0; i < _bullets.size();) { _bullets[i].update(); if (!_bullets[i].is_active()) _bullets.erase(_bullets.begin() + i); else i++; } }
+    void BulletManager::clear_bullets() { _bullets.clear(); _shoot_cooldown = 0; }
     void BulletManager::set_camera(bn::camera_ptr camera) { _camera = camera; }
-
-    bn::fixed_point BulletManager::calculate_bullet_velocity(Direction direction) const {
-        switch (direction) {
-            case Direction::UP: return bn::fixed_point(0, -BULLET_SPEED);
-            case Direction::DOWN: return bn::fixed_point(0, BULLET_SPEED);
-            case Direction::LEFT: return bn::fixed_point(-BULLET_SPEED, 0);
-            case Direction::RIGHT: return bn::fixed_point(BULLET_SPEED, 0);
-            default: return bn::fixed_point(0, -BULLET_SPEED); 
-        }
-    }
+    bn::fixed_point BulletManager::calculate_bullet_velocity(Direction d) const { return d == Direction::UP ? bn::fixed_point(0, -BULLET_SPEED) : (d == Direction::DOWN ? bn::fixed_point(0, BULLET_SPEED) : (d == Direction::LEFT ? bn::fixed_point(-BULLET_SPEED, 0) : bn::fixed_point(BULLET_SPEED, 0))); }
 
     // =========================================================================
     // Entity Implementation
     // =========================================================================
 
     Entity::Entity() : _pos(0, 0), _previous_pos(0, 0), _hitbox(0, 0, DEFAULT_ENTITY_WIDTH, DEFAULT_ENTITY_HEIGHT) {}
-
-    Entity::Entity(bn::fixed_point pos) : _pos(pos), _previous_pos(pos), _hitbox(pos.x(), pos.y(), DEFAULT_ENTITY_WIDTH, DEFAULT_ENTITY_HEIGHT) {}
-
-    Entity::Entity(bn::sprite_ptr sprite) : _pos(sprite.x(), sprite.y()), _previous_pos(_pos), _sprite(sprite), _hitbox(_pos.x(), _pos.y(), DEFAULT_ENTITY_WIDTH, DEFAULT_ENTITY_HEIGHT) {}
-
+    Entity::Entity(bn::fixed_point p) : _pos(p), _previous_pos(p), _hitbox(p.x(), p.y(), DEFAULT_ENTITY_WIDTH, DEFAULT_ENTITY_HEIGHT) {}
+    Entity::Entity(bn::sprite_ptr s) : _pos(s.x(), s.y()), _previous_pos(_pos), _sprite(s), _hitbox(_pos.x(), _pos.y(), DEFAULT_ENTITY_WIDTH, DEFAULT_ENTITY_HEIGHT) {}
     bn::fixed_point Entity::pos() const { return _pos; }
     bn::fixed_point Entity::previous_pos() const { return _previous_pos; }
     Hitbox Entity::get_hitbox() const { return _hitbox; }
     bool Entity::has_sprite() const { return _sprite.has_value(); }
-
-    void Entity::set_position(bn::fixed_point new_pos) {
-        _previous_pos = _pos;
-        _pos = new_pos;
-        update_hitbox();
-        update_sprite_position(); 
-    }
-
-    void Entity::revert_position() {
-        _pos = _previous_pos;
-        update_hitbox();
-        update_sprite_position(); 
-    }
-
-    void Entity::set_sprite_z_order(int z_order) {
-        if (_sprite) { _sprite->set_z_order(z_order); }
-    }
-
-    void Entity::set_visible(bool visible) {
-        if (_sprite) { _sprite->set_visible(visible); }
-    }
-
-    void Entity::set_camera(bn::camera_ptr camera) {
-        if (_sprite) { _sprite->set_camera(camera); }
-    }
-
-    void Entity::update_hitbox() {
-        _hitbox.set_x(_pos.x());
-        _hitbox.set_y(_pos.y()); 
-    }
-
-    void Entity::update_sprite_position() {
-        if (_sprite) { _sprite->set_position(_pos); }
-    }
+    void Entity::set_position(bn::fixed_point n) { _previous_pos = _pos; _pos = n; update_hitbox(); update_sprite_position(); }
+    void Entity::revert_position() { _pos = _previous_pos; update_hitbox(); update_sprite_position(); }
+    void Entity::set_sprite_z_order(int z) { if (_sprite) _sprite->set_z_order(z); }
+    void Entity::set_visible(bool v) { if (_sprite) _sprite->set_visible(v); }
+    void Entity::set_camera(bn::camera_ptr c) { if (_sprite) _sprite->set_camera(c); }
+    void Entity::update_hitbox() { _hitbox.set_x(_pos.x()); _hitbox.set_y(_pos.y()); }
+    void Entity::update_sprite_position() { if (_sprite) _sprite->set_position(_pos); }
 
     // =========================================================================
     // Movement Implementation
     // =========================================================================
 
     Movement::Movement() : _dx(0), _dy(0), _current_state(State::IDLE), _facing_direction(Direction::DOWN) {}
-
-    void Movement::move_right() {
-        _dx += get_acc_const();
-        _facing_direction = Direction::RIGHT;
-        clamp_velocity();
-        update_state(); 
-    }
-
-    void Movement::move_left() {
-        _dx -= get_acc_const();
-        _facing_direction = Direction::LEFT;
-        clamp_velocity();
-        update_state(); 
-    }
-
-    void Movement::move_up() {
-        _dy -= get_acc_const();
-        _facing_direction = Direction::UP;
-        clamp_velocity();
-        update_state(); 
-    }
-
-    void Movement::move_down() {
-        _dy += get_acc_const();
-        _facing_direction = Direction::DOWN;
-        clamp_velocity();
-        update_state(); 
-    }
-
-    void Movement::apply_friction() {
-        _dx *= get_friction_const();
-        _dy *= get_friction_const();
-        if (bn::abs(_dx) < get_movement_threshold()) { _dx = 0; }
-        if (bn::abs(_dy) < get_movement_threshold()) { _dy = 0; }
-        update_state(); 
-    }
-
-    void Movement::reset() {
-        _dx = 0;
-        _dy = 0;
-        _current_state = State::IDLE;
-        _facing_direction = Direction::DOWN; 
-    }
-
-    void Movement::stop_movement() {
-        _dx = 0;
-        _dy = 0;
-        update_state(); 
-    }
-
-    void Movement::update_state() {
-        if (_dx == 0 && _dy == 0) { _current_state = State::IDLE; }
-        else { _current_state = State::WALKING; }
-    }
-
-    void Movement::clamp_velocity() {
-        bn::fixed max_speed = get_max_speed();
-        if (_dx > max_speed) { _dx = max_speed; }
-        else if (_dx < -max_speed) { _dx = -max_speed; }
-        if (_dy > max_speed) { _dy = max_speed; }
-        else if (_dy < -max_speed) { _dy = -max_speed; }
-    }
+    void Movement::move_right() { _dx += get_acc_const(); _facing_direction = Direction::RIGHT; clamp_velocity(); update_state(); }
+    void Movement::move_left() { _dx -= get_acc_const(); _facing_direction = Direction::LEFT; clamp_velocity(); update_state(); }
+    void Movement::move_up() { _dy -= get_acc_const(); _facing_direction = Direction::UP; clamp_velocity(); update_state(); }
+    void Movement::move_down() { _dy += get_acc_const(); _facing_direction = Direction::DOWN; clamp_velocity(); update_state(); }
+    void Movement::apply_friction() { _dx *= get_friction_const(); _dy *= get_friction_const(); if (bn::abs(_dx) < get_movement_threshold()) _dx = 0; if (bn::abs(_dy) < get_movement_threshold()) _dy = 0; update_state(); }
+    void Movement::reset() { _dx = _dy = 0; _current_state = State::IDLE; _facing_direction = Direction::DOWN; }
+    void Movement::stop_movement() { _dx = _dy = 0; update_state(); }
+    void Movement::update_state() { _current_state = (_dx == 0 && _dy == 0) ? State::IDLE : State::WALKING; }
+    void Movement::clamp_velocity() { bn::fixed m = get_max_speed(); _dx = bn::clamp(_dx, -m, m); _dy = bn::clamp(_dy, -m, m); }
 
     EnemyMovement::EnemyMovement() : Movement() { }
 
@@ -1245,365 +979,69 @@ namespace fe {
         
         while (true) {
             bn::core::update();
-            
-            if (bn::keypad::select_held() && bn::keypad::a_pressed()) {
-                if (_merchant) { _merchant->set_is_hidden(true); }
-                _save_current_state();
-                return fe::Scene::MENU; 
-            }
-            
-            if (bn::keypad::select_pressed() &&
-                !bn::keypad::a_held() && !bn::keypad::b_held() &&
-                !bn::keypad::l_held() && !bn::keypad::r_held()) { _zoomed_out = !_zoomed_out; }
-            
-            bn::fixed target_scale = _zoomed_out ? ZOOM_OUT_SCALE : ZOOM_NORMAL_SCALE;
-            if (_current_zoom_scale != target_scale) {
-                bn::fixed diff = target_scale - _current_zoom_scale;
-                if (bn::abs(diff) < ZOOM_TRANSITION_SPEED) { _current_zoom_scale = target_scale; }
-                else { _current_zoom_scale += diff * ZOOM_TRANSITION_SPEED * 2; }
-            }
-            
+            if (bn::keypad::select_held() && bn::keypad::a_pressed()) { if (_merchant) _merchant->set_is_hidden(true); _save_current_state(); return fe::Scene::MENU; }
+            if (bn::keypad::select_pressed() && !bn::keypad::a_held() && !bn::keypad::b_held() && !bn::keypad::l_held() && !bn::keypad::r_held()) _zoomed_out = !_zoomed_out;
+            bn::fixed t_sc = _zoomed_out ? ZOOM_OUT_SCALE : ZOOM_NORMAL_SCALE;
+            if (_current_zoom_scale != t_sc) { bn::fixed d = t_sc - _current_zoom_scale; if (bn::abs(d) < ZOOM_TRANSITION_SPEED) _current_zoom_scale = t_sc; else _current_zoom_scale += d * ZOOM_TRANSITION_SPEED * 2; }
             if (_current_zoom_scale != ZOOM_NORMAL_SCALE) {
-                if (!_zoom_affine_mat.has_value()) { _zoom_affine_mat = bn::sprite_affine_mat_ptr::create(); }
+                if (!_zoom_affine_mat) _zoom_affine_mat = bn::sprite_affine_mat_ptr::create();
                 _zoom_affine_mat->set_scale(_current_zoom_scale);
-                if (!_gun_affine_mat.has_value()) { _gun_affine_mat = bn::sprite_affine_mat_ptr::create(); }
+                if (!_gun_affine_mat) _gun_affine_mat = bn::sprite_affine_mat_ptr::create();
                 _gun_affine_mat->set_scale(_current_zoom_scale);
-                if (!_player_affine_mat.has_value()) { _player_affine_mat = bn::sprite_affine_mat_ptr::create(); }
+                if (!_player_affine_mat) _player_affine_mat = bn::sprite_affine_mat_ptr::create();
                 _player_affine_mat->set_scale(_current_zoom_scale);
-                if (!_vfx_affine_mat.has_value()) { _vfx_affine_mat = bn::sprite_affine_mat_ptr::create(); }
+                if (!_vfx_affine_mat) _vfx_affine_mat = bn::sprite_affine_mat_ptr::create();
                 _vfx_affine_mat->set_scale(_current_zoom_scale); 
-            } else {
-                _zoom_affine_mat.reset();
-                _gun_affine_mat.reset();
-                _player_affine_mat.reset();
-                _vfx_affine_mat.reset(); 
-            }
-            
-            bool merchant_was_talking = false;
+            } else { _zoom_affine_mat.reset(); _gun_affine_mat.reset(); _player_affine_mat.reset(); _vfx_affine_mat.reset(); }
             if (_merchant) {
-                merchant_was_talking = _merchant->is_talking();
-                _merchant->update();
-                fe::ZoneManager::set_merchant_zone_center(_merchant->pos());
-                bool conversation_active = _merchant->is_talking() || _player->listening();
-                fe::ZoneManager::set_merchant_zone_enabled(!conversation_active);
-                int merchant_z = -_merchant->pos().y().integer();
-                _merchant->set_sprite_z_order(merchant_z); 
+                bool mwt = _merchant->is_talking(); _merchant->update(); fe::ZoneManager::set_merchant_zone_center(_merchant->pos()); fe::ZoneManager::set_merchant_zone_enabled(!(_merchant->is_talking() || _player->listening())); _merchant->set_sprite_z_order(-_merchant->pos().y().integer());
+                if (!_merchant->is_talking() && mwt) _player->set_listening(0);
+                if (fe::Hitbox::is_in_merchant_interaction_zone(_player->pos(), _merchant->pos())) { _merchant->set_near_player(1); if (bn::keypad::a_pressed() && !mwt && !_player->listening()) { _player->set_listening(1); _merchant->talk(); } } else _merchant->set_near_player(0);
             }
-            
-            if (_merchant && !_merchant->is_talking() && merchant_was_talking) { _player->set_listening(false); }
-            
-            if (_merchant && fe::Hitbox::is_in_merchant_interaction_zone(_player->pos(), _merchant->pos())) {
-                _merchant->set_near_player(true);
-                if (bn::keypad::a_pressed() && !merchant_was_talking && !_player->listening()) {
-                    _player->set_listening(true);
-                    _merchant->talk(); 
-                }
-            } else {
-                if (_merchant) { _merchant->set_near_player(false); }
-            }
-            
-            _player->update();
-            _player->update_gun_position(_player->facing_direction());
-            
-            if (_player->is_firing()) {
-                _continuous_fire_frames++;
-                if (_player->bullet_just_fired()) { _player->clear_bullet_fired_flag(); }
-            } else { 
-                _continuous_fire_frames = 0; 
-            }
-            
-            _player->update_z_order();
-            bn::fixed_point new_pos = _player->pos();
-            if (!fe::ZoneManager::is_position_valid(new_pos)) { _player->revert_position(); }
-            if (_minimap) { _minimap->update(_player->pos(), bn::fixed_point(0, 0), _enemies); }
-            
-            bn::fixed_point player_pos = _player->pos();
-            PlayerMovement::Direction facing_dir = _player->facing_direction();
-            bn::fixed_point desired_lookahead(0, 0);
-            
-            switch (facing_dir) {
-                case PlayerMovement::Direction::RIGHT: desired_lookahead = bn::fixed_point(CAMERA_LOOKAHEAD_X, 0); break;
-                case PlayerMovement::Direction::LEFT: desired_lookahead = bn::fixed_point(-CAMERA_LOOKAHEAD_X, 0); break;
-                case PlayerMovement::Direction::UP: desired_lookahead = bn::fixed_point(0, -CAMERA_LOOKAHEAD_Y); break;
-                case PlayerMovement::Direction::DOWN: desired_lookahead = bn::fixed_point(0, CAMERA_LOOKAHEAD_Y); break;
-                default: break; 
-            }
-            
-            _lookahead_current = _lookahead_current + (desired_lookahead - _lookahead_current) * CAMERA_LOOKAHEAD_SMOOTHING;
-            bn::fixed_point camera_target = player_pos + _lookahead_current;
-            bn::fixed_point current_camera_pos = _camera.has_value() ? bn::fixed_point(_camera->x(), _camera->y()) : bn::fixed_point(0, 0);
-            bn::fixed_point camera_to_target = camera_target - current_camera_pos;
-            bn::fixed new_camera_x = current_camera_pos.x();
-            bn::fixed new_camera_y = current_camera_pos.y();
-            
-            if (bn::abs(camera_to_target.x()) > CAMERA_DEADZONE_X) { new_camera_x = camera_target.x() - (camera_to_target.x() > 0 ? CAMERA_DEADZONE_X : -CAMERA_DEADZONE_X); }
-            if (bn::abs(camera_to_target.y()) > CAMERA_DEADZONE_Y) { new_camera_y = camera_target.y() - (camera_to_target.y() > 0 ? CAMERA_DEADZONE_Y : -CAMERA_DEADZONE_Y); }
-            
-            constexpr bn::fixed half_screen_x = 120;
-            constexpr bn::fixed half_screen_y = 80;
-            constexpr bn::fixed map_min_x = -MAP_OFFSET_X + half_screen_x;
-            constexpr bn::fixed map_max_x = MAP_OFFSET_X - half_screen_x;
-            constexpr bn::fixed map_min_y = -MAP_OFFSET_Y + half_screen_y;
-            constexpr bn::fixed map_max_y = MAP_OFFSET_Y - half_screen_y;
-            
-            bn::fixed_point new_camera_pos(
-                bn::clamp(new_camera_x, map_min_x, map_max_x),
-                bn::clamp(new_camera_y, map_min_y, map_max_y));
-            
-            if (_camera.has_value()) {
-                _camera->set_x(bn::fixed(new_camera_pos.x().integer()));
-                _camera->set_y(bn::fixed(new_camera_pos.y().integer())); 
-            }
-            
+            _player->update(); _player->update_gun_position(_player->facing_direction());
+            if (_player->is_firing()) { _continuous_fire_frames++; if (_player->bullet_just_fired()) _player->clear_bullet_fired_flag(); } else _continuous_fire_frames = 0;
+            _player->update_z_order(); if (!fe::ZoneManager::is_position_valid(_player->pos())) _player->revert_position();
+            if (_minimap) _minimap->update(_player->pos(), {0, 0}, _enemies);
+            PlayerMovement::Direction fdir = _player->facing_direction(); bn::fixed_point dl = {0, 0};
+            if (fdir == PlayerMovement::Direction::RIGHT) dl = {CAMERA_LOOKAHEAD_X, 0}; else if (fdir == PlayerMovement::Direction::LEFT) dl = {-CAMERA_LOOKAHEAD_X, 0}; else if (fdir == PlayerMovement::Direction::UP) dl = {0, -CAMERA_LOOKAHEAD_Y}; else if (fdir == PlayerMovement::Direction::DOWN) dl = {0, CAMERA_LOOKAHEAD_Y};
+            _lookahead_current += (dl - _lookahead_current) * CAMERA_LOOKAHEAD_SMOOTHING;
+            bn::fixed_point cp = _camera ? bn::fixed_point(_camera->x(), _camera->y()) : bn::fixed_point(0, 0), ct = _player->pos() + _lookahead_current, ctt = ct - cp;
+            bn::fixed nx = cp.x(), ny = cp.y();
+            if (bn::abs(ctt.x()) > CAMERA_DEADZONE_X) nx = ct.x() - (ctt.x() > 0 ? CAMERA_DEADZONE_X : -CAMERA_DEADZONE_X);
+            if (bn::abs(ctt.y()) > CAMERA_DEADZONE_Y) ny = ct.y() - (ctt.y() > 0 ? CAMERA_DEADZONE_Y : -CAMERA_DEADZONE_Y);
+            if (_camera) _camera->set_position(bn::clamp(nx, bn::fixed(-MAP_OFFSET_X + 120), bn::fixed(MAP_OFFSET_X - 120)).integer(), bn::clamp(ny, bn::fixed(-MAP_OFFSET_Y + 80), bn::fixed(MAP_OFFSET_Y - 80)).integer());
             if (_sword_bg) {
-                constexpr bn::fixed sword_sprite_x = 0;
-                constexpr bn::fixed sword_sprite_y = 0;
-                bn::rect_window &window_ref = internal_window;
-                bn::fixed_point camera_pos(camera.x(), camera.y());
-                bn::fixed_point sword_screen_pos = bn::fixed_point(sword_sprite_x, sword_sprite_y) - camera_pos;
-                window_ref.set_boundaries(
-                    sword_screen_pos.y() - SWORD_HALF_HEIGHT,
-                    sword_screen_pos.x() - SWORD_HALF_WIDTH,
-                    sword_screen_pos.y() + SWORD_HALF_HEIGHT,
-                    sword_screen_pos.x() + SWORD_HALF_WIDTH
-                );
-                const int sword_priority = (player_pos.y() > sword_sprite_y + 8) ? 2 : 0;
-                _sword_bg->set_priority(sword_priority); 
+                bn::fixed_point sp = {0, 0}, cp2(camera.x(), camera.y()), scp = sp - cp2;
+                internal_window.set_boundaries(scp.y() - SWORD_HALF_HEIGHT, scp.x() - SWORD_HALF_WIDTH, scp.y() + SWORD_HALF_HEIGHT, scp.x() + SWORD_HALF_WIDTH);
+                _sword_bg->set_priority(_player->pos().y() > sp.y() + 8 ? 2 : 0); 
             }
-            
             for (int i = 0; i < _enemies.size();) {
-                Enemy &enemy = _enemies[i];
-                bool player_should_be_ignored = _player->listening() || _player->get_hp() <= 0;
-                enemy.update(_player->pos(), *_level, player_should_be_ignored);
-                
-                if (_player->get_hp() > 0 && !_player->listening()) {
-                    Hitbox collision_hitbox = enemy.get_hitbox();
-                    Hitbox player_hitbox = _player->get_hitbox();
-                    if (fe::Collision::check_bb(player_hitbox, collision_hitbox)) {
-                        if (!_player->is_state(PlayerMovement::State::ROLLING)) {
-                            _player->take_damage(1);
-                            bn::fixed_point knockback_vector = _player->pos() - enemy.get_position();
-                            bn::fixed knockback_x = (knockback_vector.x() > 0) ? 10 : -10;
-                            bn::fixed_point knockback(knockback_x, 0);
-                            _player->set_position(_player->pos() + knockback); 
-                        }
-                    }
-                }
-                
-                if (_player->has_companion() && !_player->get_companion()->is_dead_independently()) {
-                    constexpr int COMPANION_HITBOX_HALF_SIZE = COMPANION_HITBOX_SIZE / 2;
-                    PlayerCompanion *companion = _player->get_companion();
-                    Hitbox enemy_hitbox = enemy.get_hitbox();
-                    bn::fixed_point companion_pos = companion->pos();
-                    Hitbox companion_hitbox(companion_pos.x() - COMPANION_HITBOX_HALF_SIZE, companion_pos.y() - COMPANION_HITBOX_HALF_SIZE, COMPANION_HITBOX_SIZE, COMPANION_HITBOX_SIZE);
-                    if (fe::Collision::check_bb(companion_hitbox, enemy_hitbox)) { _player->kill_companion(); }
-                }
-                
-                if (_player->bullets().size() > 0) {
-                    const auto &bullets = _player->bullets();
-                    Hitbox enemy_hitbox = enemy.get_hitbox();
-                    for (const auto &bullet : bullets) {
-                        if (bullet.is_active()) {
-                            Hitbox bullet_hitbox = bullet.get_hitbox();
-                            if (bullet_hitbox.collides_with(enemy_hitbox)) {
-                                bool damage_from_left = bullet.position().x() < enemy.get_position().x();
-                                if (damage_from_left) { enemy.damage_from_left(1); }
-                                else { enemy.damage_from_right(1); }
-                                const_cast<Bullet &>(bullet).deactivate();
-                                break; 
-                            }
-                        }
-                    }
-                }
-                
-                if (_player->is_attacking()) {
-                    Hitbox melee_hitbox = _player->get_melee_hitbox();
-                    Hitbox enemy_hitbox = enemy.get_hitbox();
-                    if (melee_hitbox.collides_with(enemy_hitbox)) {
-                        bool damage_from_left = melee_hitbox.x() < enemy.get_position().x();
-                        if (damage_from_left) { enemy.damage_from_left(1); }
-                        else { enemy.damage_from_right(1); }
-                    }
-                }
-                
-                if (enemy.is_ready_for_removal()) { _enemies.erase(_enemies.begin() + i); }
-                else { i++; }
+                Enemy &e = _enemies[i]; bool ignore = _player->listening() || _player->get_hp() <= 0; e.update(_player->pos(), *_level, ignore);
+                if (!ignore && fe::Collision::check_bb(_player->get_hitbox(), e.get_hitbox()) && !_player->is_state(PlayerMovement::State::ROLLING)) { _player->take_damage(1); bn::fixed kx = (_player->pos().x() - e.get_position().x() > 0) ? 10 : -10; _player->set_position(_player->pos() + bn::fixed_point(kx, 0)); }
+                if (_player->has_companion() && !_player->get_companion()->is_dead_independently() && fe::Collision::check_bb({_player->get_companion()->pos().x()-COMPANION_HITBOX_SIZE/2, _player->get_companion()->pos().y()-COMPANION_HITBOX_SIZE/2, COMPANION_HITBOX_SIZE, COMPANION_HITBOX_SIZE}, e.get_hitbox())) _player->kill_companion();
+                for (const auto &b : _player->bullets()) if (b.is_active() && b.get_hitbox().collides_with(e.get_hitbox())) { if (b.position().x() < e.get_position().x()) e.damage_from_left(1); else e.damage_from_right(1); const_cast<Bullet &>(b).deactivate(); break; }
+                if (_player->is_attacking() && _player->get_melee_hitbox().collides_with(e.get_hitbox())) { if (_player->get_melee_hitbox().x() < e.get_position().x()) e.damage_from_left(1); else e.damage_from_right(1); }
+                if (e.is_ready_for_removal()) _enemies.erase(_enemies.begin() + i); else i++;
             }
-            
-            if (_player->is_reset_required()) {
-                _player->reset();
-                _level->reset();
-                _enemies.clear();
-                delete _minimap;
-                _minimap = new Minimap(bn::fixed_point(100, -80), bg_map_ptr, camera);
-                _player->spawn(spawn_location, camera);
-                _enemies.push_back(Enemy(0, -100, camera, bg, ENEMY_TYPE::SPEARGUARD, 3));
-                _enemies.push_back(Enemy(50, -80, camera, bg, ENEMY_TYPE::SPEARGUARD, 3));
-                _enemies.push_back(Enemy(-50, -120, camera, bg, ENEMY_TYPE::SPEARGUARD, 3));
-                camera.set_position(0, 0);
-                continue; 
-            }
-            
-            if (_sword_bg && _current_zoom_scale != ZOOM_NORMAL_SCALE) {
-                _sword_bg->set_scale(_current_zoom_scale);
-                bn::fixed_point cam_pos = bn::fixed_point(camera.x(), camera.y());
-                bn::fixed_point sword_world_pos = bn::fixed_point(0, 0);
-                bn::fixed_point offset = sword_world_pos - cam_pos;
-                bn::fixed_point scaled_pos = cam_pos + bn::fixed_point(offset.x() * _current_zoom_scale, offset.y() * _current_zoom_scale);
-                _sword_bg->set_position(scaled_pos.x(), scaled_pos.y()); 
-            } else if (_sword_bg) {
-                _sword_bg->set_scale(1);
-                _sword_bg->set_position(0, 0); 
-            }
-            
-            if (_zoom_affine_mat.has_value()) {
-                bn::fixed_point cam_pos = bn::fixed_point(camera.x(), camera.y());
-                if (_player->sprite() && _player_affine_mat.has_value()) {
-                    bool facing_left = _player->facing_direction() == PlayerMovement::Direction::LEFT;
-                    _player_affine_mat->set_horizontal_flip(facing_left);
-                    _player->sprite()->set_affine_mat(_player_affine_mat.value());
-                    _player->sprite()->set_double_size_mode(bn::sprite_double_size_mode::ENABLED);
-                    bn::fixed_point player_world_pos = _player->pos() + bn::fixed_point(0, PLAYER_SPRITE_Y_OFFSET);
-                    bn::fixed_point offset = player_world_pos - cam_pos;
-                    bn::fixed_point scaled_pos = cam_pos + bn::fixed_point(offset.x() * _current_zoom_scale, offset.y() * _current_zoom_scale);
-                    _player->sprite()->set_position(scaled_pos); 
-                }
-                
-                if (_player->vfx_sprite() && _vfx_affine_mat.has_value()) {
-                    bool facing_left = _player->facing_direction() == PlayerMovement::Direction::LEFT;
-                    _vfx_affine_mat->set_horizontal_flip(facing_left);
-                    _player->vfx_sprite()->set_affine_mat(_vfx_affine_mat.value());
-                    _player->vfx_sprite()->set_double_size_mode(bn::sprite_double_size_mode::ENABLED);
-                    bn::fixed_point vfx_world_pos = _player->vfx_sprite()->position();
-                    bn::fixed_point offset = vfx_world_pos - cam_pos;
-                    bn::fixed_point scaled_pos = cam_pos + bn::fixed_point(offset.x() * _current_zoom_scale, offset.y() * _current_zoom_scale);
-                    _player->vfx_sprite()->set_position(scaled_pos); 
-                }
-                
-                if (_player->gun_sprite() && _gun_affine_mat.has_value()) {
-                    int dir_idx = int(_player->facing_direction());
-                    bn::fixed gun_rotation = player_constants::GUN_ANGLES[dir_idx];
-                    _gun_affine_mat->set_rotation_angle(gun_rotation);
-                    _player->gun_sprite()->set_affine_mat(_gun_affine_mat.value());
-                    _player->gun_sprite()->set_double_size_mode(bn::sprite_double_size_mode::ENABLED);
-                    bn::fixed_point player_world_pos = _player->pos();
-                    bn::fixed_point gun_screen_pos = _player->gun_sprite()->position();
-                    bn::fixed_point gun_offset_from_player = gun_screen_pos - player_world_pos;
-                    bn::fixed_point gun_world_pos = player_world_pos + gun_offset_from_player;
-                    bn::fixed_point offset = gun_world_pos - cam_pos;
-                    bn::fixed_point scaled_pos = cam_pos + bn::fixed_point(offset.x() * _current_zoom_scale, offset.y() * _current_zoom_scale);
-                    _player->gun_sprite()->set_position(scaled_pos); 
-                }
-                
-                if (_player->has_companion() && _player->get_companion()) {
-                    PlayerCompanion *companion = _player->get_companion();
-                    bn::sprite_ptr companion_sprite = companion->get_sprite();
-                    companion_sprite.set_affine_mat(_zoom_affine_mat.value());
-                    companion_sprite.set_double_size_mode(bn::sprite_double_size_mode::ENABLED);
-                    bn::fixed_point comp_world_pos = companion->pos();
-                    bn::fixed_point offset = comp_world_pos - cam_pos;
-                    bn::fixed_point scaled_pos = cam_pos + bn::fixed_point(offset.x() * _current_zoom_scale, offset.y() * _current_zoom_scale);
-                    companion_sprite.set_position(scaled_pos);
-                    
-                    bn::sprite_ptr *progress_bar = companion->get_progress_bar_sprite();
-                    if (progress_bar) {
-                        progress_bar->set_affine_mat(_zoom_affine_mat.value());
-                        progress_bar->set_double_size_mode(bn::sprite_double_size_mode::ENABLED);
-                        bn::fixed_point pb_offset_from_companion = bn::fixed_point(0, -16);
-                        bn::fixed_point scaled_pb_offset = bn::fixed_point(pb_offset_from_companion.x() * _current_zoom_scale, pb_offset_from_companion.y() * _current_zoom_scale);
-                        progress_bar->set_position(scaled_pos + scaled_pb_offset);
-                    }
-                    
-                    bn::vector<bn::sprite_ptr, 16> &text_sprites = companion->get_text_sprites();
-                    const bn::vector<bn::fixed_point, 16> &original_offsets = companion->get_text_original_offsets();
-                    if (!text_sprites.empty() && !original_offsets.empty()) {
-                        bn::fixed_point text_center_world = companion->get_text_center();
-                        bn::fixed_point text_center_offset = text_center_world - cam_pos;
-                        bn::fixed_point scaled_text_center = cam_pos + bn::fixed_point(text_center_offset.x() * _current_zoom_scale, text_center_offset.y() * _current_zoom_scale);
-                        for (int i = 0; i < text_sprites.size() && i < original_offsets.size(); ++i) {
-                            text_sprites[i].set_affine_mat(_zoom_affine_mat.value());
-                            text_sprites[i].set_double_size_mode(bn::sprite_double_size_mode::ENABLED);
-                            bn::fixed_point scaled_offset = bn::fixed_point(original_offsets[i].x() * _current_zoom_scale, original_offsets[i].y() * _current_zoom_scale);
-                            text_sprites[i].set_position(scaled_text_center + scaled_offset);
-                        }
-                    }
-                }
-                
-                for (Bullet &bullet : _player->bullets_mutable()) {
-                    if (bullet.is_active() && bullet.get_sprite()) {
-                        bn::fixed_point bullet_world_pos = bullet.position();
-                        bn::fixed_point offset = bullet_world_pos - cam_pos;
-                        bn::fixed_point scaled_pos = cam_pos + bn::fixed_point(offset.x() * _current_zoom_scale, offset.y() * _current_zoom_scale);
-                        bullet.get_sprite()->set_position(scaled_pos); 
-                    }
-                }
-                
-                for (Enemy &enemy : _enemies) {
-                    if (enemy.has_sprite()) {
-                        bn::sprite_ptr *enemy_sprite = enemy.get_sprite();
-                        if (enemy_sprite) {
-                            enemy_sprite->set_affine_mat(_zoom_affine_mat.value());
-                            enemy_sprite->set_double_size_mode(bn::sprite_double_size_mode::ENABLED);
-                            bn::fixed_point enemy_world_pos = enemy.get_position();
-                            bn::fixed_point offset = enemy_world_pos - cam_pos;
-                            bn::fixed_point scaled_pos = cam_pos + bn::fixed_point(offset.x() * _current_zoom_scale, offset.y() * _current_zoom_scale);
-                            enemy_sprite->set_position(scaled_pos); 
-                        }
-                    }
-                    bn::sprite_ptr *health_bar = enemy.get_health_bar_sprite();
-                    if (health_bar) {
-                        bn::fixed_point enemy_world_pos = enemy.get_position();
-                        bn::fixed_point hb_world_pos = enemy_world_pos + bn::fixed_point(0, -12);
-                        bn::fixed_point offset = hb_world_pos - cam_pos;
-                        bn::fixed_point scaled_pos = cam_pos + bn::fixed_point(offset.x() * _current_zoom_scale, offset.y() * _current_zoom_scale);
-                        health_bar->set_position(scaled_pos); 
-                    }
-                }
-                
-                if (_merchant && _merchant->has_sprite()) {
-                    bn::sprite_ptr *merchant_sprite = _merchant->get_sprite();
-                    if (merchant_sprite) {
-                        merchant_sprite->set_affine_mat(_zoom_affine_mat.value());
-                        merchant_sprite->set_double_size_mode(bn::sprite_double_size_mode::ENABLED);
-                        bn::fixed_point merchant_world_pos = _merchant->pos();
-                        bn::fixed_point offset = merchant_world_pos - cam_pos;
-                        bn::fixed_point scaled_pos = cam_pos + bn::fixed_point(offset.x() * _current_zoom_scale, offset.y() * _current_zoom_scale);
-                        merchant_sprite->set_position(scaled_pos); 
-                    }
-                }
+            if (_player->is_reset_required()) { _player->reset(); _level->reset(); _enemies.clear(); delete _minimap; _minimap = new Minimap({100, -80}, bg_map_ptr, camera); _player->spawn(spawn_location, camera); _init_world_specific_content(_current_world_id, camera, bg, text_generator); camera.set_position(0, 0); continue; }
+            if (_sword_bg) { if (_current_zoom_scale != ZOOM_NORMAL_SCALE) { _sword_bg->set_scale(_current_zoom_scale); bn::fixed_point cp3(camera.x(), camera.y()), off = bn::fixed_point(0, 0) - cp3; _sword_bg->set_position(cp3 + off * _current_zoom_scale); } else { _sword_bg->set_scale(1); _sword_bg->set_position(0, 0); } }
+            if (_zoom_affine_mat) {
+                bn::fixed_point cp4(camera.x(), camera.y());
+                auto sc = [&](auto* s, bn::fixed_point wp, bool f=0) { if (!s) return; if (f) _player_affine_mat->set_horizontal_flip(_player->facing_direction() == PlayerMovement::Direction::LEFT); s->set_affine_mat(f ? *_player_affine_mat : *_zoom_affine_mat); s->set_double_size_mode(bn::sprite_double_size_mode::ENABLED); s->set_position(cp4 + (wp - cp4) * _current_zoom_scale); };
+                sc(_player->sprite(), _player->pos() + bn::fixed_point(0, PLAYER_SPRITE_Y_OFFSET), 1); sc(_player->vfx_sprite(), _player->vfx_sprite() ? _player->vfx_sprite()->position() : bn::fixed_point(0,0));
+                if (_player->gun_sprite() && _gun_affine_mat) { _gun_affine_mat->set_rotation_angle(player_constants::GUN_ANGLES[int(_player->facing_direction())]); _player->gun_sprite()->set_affine_mat(*_gun_affine_mat); _player->gun_sprite()->set_double_size_mode(bn::sprite_double_size_mode::ENABLED); _player->gun_sprite()->set_position(cp4 + (_player->pos() + (_player->gun_sprite()->position() - _player->pos()) - cp4) * _current_zoom_scale); }
+                if (_player->has_companion() && _player->get_companion()) { auto* c = _player->get_companion(); auto s = c->get_sprite(); s.set_affine_mat(*_zoom_affine_mat); s.set_double_size_mode(bn::sprite_double_size_mode::ENABLED); s.set_position(cp4 + (c->pos() - cp4) * _current_zoom_scale); if (auto* pb = c->get_progress_bar_sprite()) { pb->set_affine_mat(*_zoom_affine_mat); pb->set_double_size_mode(bn::sprite_double_size_mode::ENABLED); pb->set_position(s.position() + bn::fixed_point(0, -16) * _current_zoom_scale); } }
+                for (Bullet &b : _player->bullets_mutable()) if (b.is_active() && b.get_sprite()) sc(b.get_sprite(), b.position());
+                for (Enemy &e : _enemies) { sc(e.get_sprite(), e.get_position()); sc(e.get_health_bar_sprite(), e.get_position() + bn::fixed_point(0, -12)); }
+                if (_merchant) sc(_merchant->get_sprite(), _merchant->pos());
             } else {
-                if (_player->sprite() && _player->sprite()->affine_mat().has_value()) { _player->sprite()->remove_affine_mat(); }
-                if (_player->vfx_sprite() && _player->vfx_sprite()->affine_mat().has_value()) { _player->vfx_sprite()->remove_affine_mat(); }
-                if (_player->gun_sprite() && _player->gun_sprite()->affine_mat().has_value()) {
-                    _player->gun_sprite()->remove_affine_mat();
-                    _player->update_gun_position(_player->facing_direction()); 
-                }
-                
-                if (_player->has_companion() && _player->get_companion()) {
-                    PlayerCompanion *companion = _player->get_companion();
-                    bn::sprite_ptr companion_sprite = companion->get_sprite();
-                    if (companion_sprite.affine_mat().has_value()) { companion_sprite.remove_affine_mat(); }
-                    bn::sprite_ptr *progress_bar = companion->get_progress_bar_sprite();
-                    if (progress_bar && progress_bar->affine_mat().has_value()) { progress_bar->remove_affine_mat(); }
-                    for (bn::sprite_ptr &text_sprite : companion->get_text_sprites()) {
-                        if (text_sprite.affine_mat().has_value()) { text_sprite.remove_affine_mat(); }
-                    }
-                    companion->reset_text_positions(); 
-                }
-                
-                for (Enemy &enemy : _enemies) {
-                    if (enemy.has_sprite()) {
-                        bn::sprite_ptr *enemy_sprite = enemy.get_sprite();
-                        if (enemy_sprite && enemy_sprite->affine_mat().has_value()) { enemy_sprite->remove_affine_mat(); }
-                    }
-                }
-                
-                if (_merchant && _merchant->has_sprite()) {
-                    bn::sprite_ptr *merchant_sprite = _merchant->get_sprite();
-                    if (merchant_sprite && merchant_sprite->affine_mat().has_value()) { merchant_sprite->remove_affine_mat(); }
-                }
+                if (_player->sprite()) _player->sprite()->remove_affine_mat();
+                if (_player->vfx_sprite()) _player->vfx_sprite()->remove_affine_mat();
+                if (_player->gun_sprite()) { _player->gun_sprite()->remove_affine_mat(); _player->update_gun_position(_player->facing_direction()); }
+                if (_player->has_companion() && _player->get_companion()) { auto* c = _player->get_companion(); c->get_sprite().remove_affine_mat(); if (auto* pb = c->get_progress_bar_sprite()) pb->remove_affine_mat(); for (auto &ts : c->get_text_sprites()) ts.remove_affine_mat(); c->reset_text_positions(); }
+                for (Enemy &e : _enemies) if (auto* s = e.get_sprite()) s->remove_affine_mat();
+                if (_merchant && _merchant->get_sprite()) _merchant->get_sprite()->remove_affine_mat();
             }
-            if (_enemies.empty()) { } 
         }
     }
 
@@ -1682,74 +1120,24 @@ namespace fe {
     }
 
     void Menu::_update_display() {
-        _text_sprites.clear();
-        bn::sprite_text_generator text_generator(common::variable_8x8_sprite_font);
-        text_generator.set_center_alignment();
-        text_generator.set_bg_priority(0);
-        text_generator.generate(0, MENU_TITLE_Y_POSITION, "WORLD SELECTION", _text_sprites);
-        text_generator.generate(0, MENU_INSTRUCTIONS_Y_POSITION, "UP/DOWN: Select  A: Enter  B: Exit", _text_sprites);
+        _text_sprites.clear(); bn::sprite_text_generator tg(common::variable_8x8_sprite_font); tg.set_center_alignment(); tg.set_bg_priority(0);
+        tg.generate(0, MENU_TITLE_Y_POSITION, "WORLD SELECTION", _text_sprites); tg.generate(0, MENU_INSTRUCTIONS_Y_POSITION, "UP/DOWN: Select  A: Enter  B: Exit", _text_sprites);
         for (int i = 0; i < _worlds.size(); ++i) {
-            int y_pos = MENU_WORLD_LIST_START_Y + (i * MENU_WORLD_LIST_SPACING);
-            if (!_worlds[i].is_unlocked) { text_generator.generate(0, y_pos, "??? LOCKED ???", _text_sprites); }
-            else {
-                bn::string<64> line;
-                if (i == _selected_index) {
-                    line = "> ";
-                    line += _worlds[i].world_name;
-                    line += " <"; }
-                else {
-                    line = "  ";
-                    line += _worlds[i].world_name; }
-                text_generator.generate(0, y_pos, line, _text_sprites); }
+            int y = MENU_WORLD_LIST_START_Y + (i * MENU_WORLD_LIST_SPACING);
+            if (!_worlds[i].is_unlocked) tg.generate(0, y, "??? LOCKED ???", _text_sprites);
+            else { bn::string<64> l = (i == _selected_index ? "> " : "  "); l += _worlds[i].world_name; if (i == _selected_index) l += " <"; tg.generate(0, y, l, _text_sprites); }
         }
     }
 
     void Menu::_handle_input() {
-        if (bn::keypad::up_pressed()) {
-            if (_selected_index > 0) {
-                _selected_index--;
-                while (_selected_index >= 0 && !_worlds[_selected_index].is_unlocked) { _selected_index--; }
-                if (_selected_index < 0) {
-                    _selected_index = _worlds.size() - 1;
-                    while (_selected_index >= 0 && !_worlds[_selected_index].is_unlocked) { _selected_index--; }
-                }
-            }
-            else {
-                _selected_index = _worlds.size() - 1;
-                while (_selected_index >= 0 && !_worlds[_selected_index].is_unlocked) { _selected_index--; }
-            }
-        }
-        if (bn::keypad::down_pressed()) {
-            if (_selected_index < _worlds.size() - 1) {
-                _selected_index++;
-                while (_selected_index < _worlds.size() && !_worlds[_selected_index].is_unlocked) { _selected_index++; }
-                if (_selected_index >= _worlds.size()) {
-                    _selected_index = 0;
-                    while (_selected_index < _worlds.size() && !_worlds[_selected_index].is_unlocked) { _selected_index++; }
-                }
-            }
-            else {
-                _selected_index = 0;
-                while (_selected_index < _worlds.size() && !_worlds[_selected_index].is_unlocked) { _selected_index++; }
-            }
-        }
+        auto move = [&](int d) { _selected_index = (_selected_index + d + _worlds.size()) % _worlds.size(); while (!_worlds[_selected_index].is_unlocked) _selected_index = (_selected_index + d + _worlds.size()) % _worlds.size(); };
+        if (bn::keypad::up_pressed()) move(-1);
+        if (bn::keypad::down_pressed()) move(1);
     }
 
-    fe::Scene Menu::execute(int &selected_world_id, bn::fixed_point &spawn_location) {
+    fe::Scene Menu::execute(int &wid, bn::fixed_point &sl) {
         bn::bg_palettes::set_transparent_color(bn::color(MENU_BG_COLOR_R, MENU_BG_COLOR_G, MENU_BG_COLOR_B));
-        while (true) {
-            bn::core::update();
-            _handle_input();
-            _update_display();
-            if (bn::keypad::a_pressed()) {
-                if (_selected_index >= 0 && _selected_index < _worlds.size() &&
-                    _worlds[_selected_index].is_unlocked) {
-                    selected_world_id = _worlds[_selected_index].world_id;
-                    spawn_location = _worlds[_selected_index].spawn_location;
-                    return fe::Scene::WORLD; }
-            }
-            if (bn::keypad::b_pressed()) { return fe::Scene::START; }
-        }
+        while (1) { bn::core::update(); _handle_input(); _update_display(); if (bn::keypad::a_pressed() && _worlds[_selected_index].is_unlocked) { wid = _worlds[_selected_index].world_id; sl = _worlds[_selected_index].spawn_location; return fe::Scene::WORLD; } if (bn::keypad::b_pressed()) return fe::Scene::START; }
     }
 
     // =========================================================================
@@ -1760,43 +1148,16 @@ namespace fe {
     Start::~Start() {}
 
     void Start::_update_display() {
-        _text_sprites.clear();
-        bn::sprite_text_generator text_generator(common::variable_8x8_sprite_font);
-        text_generator.set_center_alignment();
-        text_generator.set_bg_priority(0);
-        text_generator.generate(0, START_TITLE_Y_POSITION, "STRANDED", _text_sprites);
-        const char* options[] = {"Play Game", "Controls"};
-        for (int i = 0; i < 2; ++i) {
-            int y_pos = START_OPTIONS_START_Y + (i * START_OPTIONS_SPACING);
-            bn::string<64> line;
-            if (i == _selected_index) {
-                line = "> ";
-                line += options[i];
-                line += " <"; }
-            else {
-                line = "  ";
-                line += options[i]; }
-            text_generator.generate(0, y_pos, line, _text_sprites); 
-        }
-        text_generator.generate(0, START_INSTRUCTIONS_Y_POSITION, "UP/DOWN: Select  A: Confirm", _text_sprites);
-    }
-
-    void Start::_handle_input() {
-        if (bn::keypad::up_pressed()) { _selected_index = (_selected_index > 0) ? _selected_index - 1 : 1; }
-        if (bn::keypad::down_pressed()) { _selected_index = (_selected_index < 1) ? _selected_index + 1 : 0; }
+        _text_sprites.clear(); bn::sprite_text_generator tg(common::variable_8x8_sprite_font); tg.set_center_alignment(); tg.set_bg_priority(0);
+        tg.generate(0, START_TITLE_Y_POSITION, "STRANDED", _text_sprites);
+        const char* opts[] = {"Play Game", "Controls"};
+        for (int i = 0; i < 2; ++i) { bn::string<64> l = (i == _selected_index ? "> " : "  "); l += opts[i]; if (i == _selected_index) l += " <"; tg.generate(0, START_OPTIONS_START_Y + i * START_OPTIONS_SPACING, l, _text_sprites); }
+        tg.generate(0, START_INSTRUCTIONS_Y_POSITION, "UP/DOWN: Select  A: Confirm", _text_sprites);
     }
 
     fe::Scene Start::execute() {
         bn::bg_palettes::set_transparent_color(bn::color(MENU_BG_COLOR_R, MENU_BG_COLOR_G, MENU_BG_COLOR_B));
-        while (true) {
-            bn::core::update();
-            _handle_input();
-            _update_display();
-            if (bn::keypad::a_pressed()) {
-                if (_selected_index == 0) { return fe::Scene::MENU; }
-                else if (_selected_index == 1) { return fe::Scene::CONTROLS; }
-            }
-        }
+        while (1) { bn::core::update(); if (bn::keypad::up_pressed()) _selected_index = !_selected_index; if (bn::keypad::down_pressed()) _selected_index = !_selected_index; _update_display(); if (bn::keypad::a_pressed()) return _selected_index ? fe::Scene::CONTROLS : fe::Scene::MENU; }
     }
 
     // =========================================================================
@@ -1807,35 +1168,16 @@ namespace fe {
     Controls::~Controls() {}
 
     void Controls::_update_display() {
-        _text_sprites.clear();
-        bn::sprite_text_generator text_generator(common::variable_8x8_sprite_font);
-        text_generator.set_center_alignment();
-        text_generator.set_bg_priority(0);
-        text_generator.generate(0, CONTROLS_TITLE_Y_POSITION, "CONTROLS", _text_sprites);
-        const char* controls[] = {
-            "D-PAD: Move",
-            "A: Interact/Confirm",
-            "B: Attack/Back",
-            "L: Switch Weapon",
-            "R: Roll/Dodge",
-            "SELECT+START: Debug",
-            "SELECT+A: Level Select"
-        };
-        int y_pos = CONTROLS_LIST_START_Y;
-        for (const char* control : controls) {
-            text_generator.generate(0, y_pos, control, _text_sprites);
-            y_pos += CONTROLS_LIST_SPACING; 
-        }
-        text_generator.generate(0, CONTROLS_INSTRUCTIONS_Y_POSITION, "Press B to return", _text_sprites);
+        _text_sprites.clear(); bn::sprite_text_generator tg(common::variable_8x8_sprite_font); tg.set_center_alignment(); tg.set_bg_priority(0);
+        tg.generate(0, CONTROLS_TITLE_Y_POSITION, "CONTROLS", _text_sprites);
+        const char* c[] = {"D-PAD: Move", "A: Interact/Confirm", "B: Attack/Back", "L: Switch Weapon", "R: Roll/Dodge", "SELECT+START: Debug", "SELECT+A: Level Select"};
+        for (int i = 0; i < 7; ++i) tg.generate(0, CONTROLS_LIST_START_Y + i * CONTROLS_LIST_SPACING, c[i], _text_sprites);
+        tg.generate(0, CONTROLS_INSTRUCTIONS_Y_POSITION, "Press B to return", _text_sprites);
     }
 
     fe::Scene Controls::execute() {
-        bn::bg_palettes::set_transparent_color(bn::color(MENU_BG_COLOR_R, MENU_BG_COLOR_G, MENU_BG_COLOR_B));
-        _update_display();
-        while (true) {
-            bn::core::update();
-            if (bn::keypad::b_pressed()) { return fe::Scene::START; }
-        }
+        bn::bg_palettes::set_transparent_color(bn::color(MENU_BG_COLOR_R, MENU_BG_COLOR_G, MENU_BG_COLOR_B)); _update_display();
+        while (1) { bn::core::update(); if (bn::keypad::b_pressed()) return fe::Scene::START; }
     }
 
     // =========================================================================
