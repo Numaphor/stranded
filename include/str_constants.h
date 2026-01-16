@@ -37,7 +37,7 @@ namespace str
     constexpr bn::fixed PLAYER_HITBOX_HEIGHT = 16;
     constexpr int PLAYER_HITBOX_VERTICAL_OFFSET = 8;
     constexpr int PLAYER_HITBOX_REDUCED_WIDTH = 16;
-    constexpr int PLAYER_SPRITE_Y_OFFSET = 12; // Offset to align 32x32 sprite with 16px hitbox
+    constexpr int PLAYER_SPRITE_Y_OFFSET = 0; // Offset removed as sprites are now centered
 
     constexpr int DEFAULT_ENTITY_WIDTH = 32;
     constexpr int DEFAULT_ENTITY_HEIGHT = 32;
@@ -79,7 +79,7 @@ namespace str
     constexpr int Z_ORDER_MINIMAP_PLAYER = 11;
     constexpr int Z_ORDER_MINIMAP_ENEMY = 10;
 
-    constexpr bn::fixed BULLET_SCALE = 0.15;
+    constexpr bn::fixed BULLET_SCALE = 0.075;
 
     constexpr int MENU_BG_COLOR_R = 0;
     constexpr int MENU_BG_COLOR_G = 0;
