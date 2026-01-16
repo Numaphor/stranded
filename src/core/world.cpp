@@ -7,6 +7,7 @@
 #include "str_collision.h"
 #include "str_world_state.h"
 #include "str_constants.h"
+#include "str_direction_utils.h"
 
 #include "bn_fixed.h"
 #include "bn_fixed_point.h"

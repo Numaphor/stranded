@@ -4,6 +4,7 @@
 #include "str_constants.h"
 #include "str_collision.h"
 
+#include "bn_math.h"
 #include "bn_optional.h"
 #include "bn_keypad.h"
 #include "bn_sprite_text_generator.h"

@@ -3,6 +3,7 @@
 
 #include "bn_regular_bg_map_ptr.h"
 #include "bn_regular_bg_map_cell.h"
+#include "bn_regular_bg_map_cell_info.h"
 #include "bn_span.h"
 #include "bn_fixed_point.h"
 
