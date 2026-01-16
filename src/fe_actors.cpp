@@ -179,7 +179,8 @@ namespace fe {
         }
         if (!_dead) {
             _state_machine.update(*this, player_pos, level, player_listening);
-            _dx += (_target_dx - _dx) * 0.1; _dy += (_target_dy - _dy) * 0.1;
+            _dx = _target_dx;
+            _dy = _target_dy;
             _movement.set_velocity(bn::fixed_point(_dx, _dy)); _movement.update();
             set_position(pos() + bn::fixed_point(_dx, _dy)); 
         } else { _dx = _dy = _target_dx = _target_dy = 0; _movement.set_velocity({0, 0}); if (_death_timer > 0) _death_timer--; }
@@ -303,12 +304,42 @@ namespace fe {
     // --- ChaseState ---
     void ChaseState::enter(Enemy &) {}
     void ChaseState::update(Enemy &enemy, bn::fixed_point p_pos, const Level &, bool listening) {
-        bn::fixed d_sq = (p_pos - enemy.pos()).x() * (p_pos - enemy.pos()).x() + (p_pos - enemy.pos()).y() * (p_pos - enemy.pos()).y(), uf_sq = (enemy.type() == ENEMY_TYPE::SPEARGUARD && enemy._aggroed) ? 128 * 128 : 64 * 64;
-        if (d_sq > uf_sq || listening) { if (enemy.type() == ENEMY_TYPE::SPEARGUARD) enemy._state_machine.transition_to(enemy, bn::make_unique<ReturnToPostState>()); else { static bn::random r; enemy._state_machine.transition_to(enemy, bn::make_unique<IdleState>(20 + (r.get() % 40))); } return; }
-        if (enemy.type() == ENEMY_TYPE::SPEARGUARD && enemy._attack_timer <= 0) { if (bn::abs(p_pos.x() - enemy.pos().x()) <= ENEMY_ATTACK_DISTANCE && bn::abs(p_pos.x() - enemy.pos().x()) >= bn::abs(p_pos.y() - enemy.pos().y()) * 0.5 && bn::abs(p_pos.y() - enemy.pos().y()) <= 16) { enemy._state_machine.transition_to(enemy, bn::make_unique<AttackState>()); return; } }
+        bn::fixed dx_to_player = p_pos.x() - enemy.pos().x();
+        bn::fixed dy_to_player = p_pos.y() - enemy.pos().y();
+        bn::fixed d_sq = dx_to_player * dx_to_player + dy_to_player * dy_to_player;
+        bn::fixed uf_sq = (enemy.type() == ENEMY_TYPE::SPEARGUARD && enemy._aggroed) ? 128 * 128 : 64 * 64;
+        
+        if (d_sq > uf_sq || listening) { 
+            if (enemy.type() == ENEMY_TYPE::SPEARGUARD) 
+                enemy._state_machine.transition_to(enemy, bn::make_unique<ReturnToPostState>()); 
+            else { 
+                static bn::random r; 
+                enemy._state_machine.transition_to(enemy, bn::make_unique<IdleState>(20 + (r.get() % 40))); 
+            } 
+            return; 
+        }
+        
+        if (enemy.type() == ENEMY_TYPE::SPEARGUARD && enemy._attack_timer <= 0) { 
+            if (bn::abs(dx_to_player) <= ENEMY_ATTACK_DISTANCE && 
+                bn::abs(dx_to_player) >= bn::abs(dy_to_player) * 0.5 && 
+                bn::abs(dy_to_player) <= 16) { 
+                enemy._state_machine.transition_to(enemy, bn::make_unique<AttackState>()); 
+                return; 
+            } 
+        }
+        
         bn::fixed len = bn::sqrt(d_sq);
-        if (len > 0.1) { bn::fixed f = (enemy.type() == ENEMY_TYPE::SPEARGUARD && bn::abs(p_pos.y() - enemy.pos().y()) > 8) ? 1.0 : 0.3; enemy._target_dx = ((p_pos.x() - enemy.pos().x()) / len) * _chase_speed * (f == 1.0 ? 0.3 : 1.0); enemy._target_dy = ((p_pos.y() - enemy.pos().y()) / len) * _chase_speed * f; }
-        else enemy._target_dx = enemy._target_dy = 0;
+        if (len > 0.1) { 
+            bn::fixed dir_x = dx_to_player / len;
+            bn::fixed dir_y = dy_to_player / len;
+            bn::fixed f = (enemy.type() == ENEMY_TYPE::SPEARGUARD && bn::abs(dy_to_player) > 8) ? bn::fixed(1.0) : bn::fixed(0.3);
+            bn::fixed x_mult = (f == bn::fixed(1.0)) ? bn::fixed(0.3) : bn::fixed(1.0);
+            enemy._target_dx = dir_x * _chase_speed * x_mult;
+            enemy._target_dy = dir_y * _chase_speed * f;
+        }
+        else {
+            enemy._target_dx = enemy._target_dy = 0;
+        }
     }
     void ChaseState::exit(Enemy &) {}
 
