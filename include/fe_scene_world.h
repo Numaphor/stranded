@@ -72,6 +72,12 @@ namespace fe
         void _save_current_state();
         void _update_camera_shake();                                // Update screen shake effect
         void trigger_screen_shake(int frames, bn::fixed intensity); // Trigger screen shake
+        
+        void _handle_zoom();
+        void _update_camera(bn::camera_ptr& camera);
+        void _update_enemies(bn::camera_ptr& camera, bn::regular_bg_ptr& bg);
+        void _update_sword_bg(bn::camera_ptr& camera, bn::rect_window& internal_window);
+        void _apply_zoom_to_sprites(bn::camera_ptr& camera);
     };
 }
 
