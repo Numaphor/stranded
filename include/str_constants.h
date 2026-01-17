@@ -131,6 +131,9 @@ namespace str
     constexpr int HUD_SOUL_OFFSET_X = 161; // Soul X offset from healthbar X position
     constexpr int HUD_SOUL_OFFSET_Y = 148; // Soul Y offset from healthbar Y position
 
+    constexpr int HUD_ENERGY_OFFSET_X = 201; // Energy X offset from healthbar X position
+    constexpr int HUD_ENERGY_OFFSET_Y = 160; // Energy Y offset from healthbar Y position
+
     constexpr int HUD_WEAPON_ICON_X = 100;
     constexpr int HUD_WEAPON_ICON_Y = 66;
 
@@ -153,6 +156,9 @@ namespace str
 
     constexpr int HUD_MAX_HP = 3;
     constexpr int HUD_MAX_AMMO = 10;
+    constexpr int HUD_MAX_ENERGY = 3;
+
+    constexpr int PLAYER_ENERGY_REGEN_FRAMES = 360; // 6 seconds at 60fps
 
     // Buff menu constants
     // Base temptest position (bottom-left, opposite to gun icon at 100, 66)

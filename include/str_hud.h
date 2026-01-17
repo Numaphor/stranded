@@ -7,6 +7,8 @@
 #include "bn_regular_bg_ptr.h"
 #include "bn_regular_bg_map_ptr.h"
 
+#include "str_constants.h"
+
 namespace str
 {
     /**
@@ -99,6 +101,9 @@ namespace str
         void navigate_buff_menu_right();
         [[nodiscard]] bool is_buff_menu_open() const;
         [[nodiscard]] int get_selected_buff() const;
+        
+        // Energy display
+        void set_energy(int energy);
 
         // Buff menu hold activation
         void start_buff_menu_hold();                           // Start hold animation
@@ -126,6 +131,7 @@ namespace str
 
         // Soul indicator
         bn::sprite_ptr _soul_sprite;
+        bn::optional<bn::sprite_ptr> _energy_sprite;
         bn::optional<bn::sprite_animate_action<16>> _soul_action;
         bool _soul_positioned;
 
@@ -152,6 +158,8 @@ namespace str
         int _selected_buff_option;                                 // 0-2 for the three options
         int _buff_menu_hold_timer;                                 // Hold timer for L button activation
         int _buff_menu_cooldown_timer;                             // Cooldown timer after buff activation
+        
+        int _energy = HUD_MAX_ENERGY;
 
         // Private helper methods
         void _configure_hud_sprite(bn::sprite_ptr &sprite);

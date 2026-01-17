@@ -646,12 +646,14 @@ namespace str
         _hitbox = Hitbox(0, 0, PLAYER_HITBOX_WIDTH, PLAYER_HITBOX_HEIGHT);
         _hud.set_hp(_hp);
         _hud.set_ammo(_ammo_count);
+        _hud.set_energy(_energy);
     }
 
     void Player::spawn(bn::fixed_point pos, bn::camera_ptr camera)
     {
         _hud.set_hp(_hp);
         _hud.set_ammo(_ammo_count);
+        _hud.set_energy(_energy);
         set_position(pos);
         set_camera(camera);
         initialize_companion(camera);
@@ -668,6 +670,17 @@ namespace str
         _abilities.update_cooldowns();
         _state.update_dialog_cooldown();
         _movement.update_action_timer();
+
+        // Energy Regeneration
+        if (_energy < HUD_MAX_ENERGY)
+        {
+            _energy_regen_timer++;
+            if (_energy_regen_timer >= PLAYER_ENERGY_REGEN_FRAMES)
+            {
+                restore_energy(1);
+                _energy_regen_timer = 0;
+            }
+        }
 
         if (!_state.listening())
         {
@@ -838,6 +851,8 @@ namespace str
         _bullet_manager.clear_bullets();
         _ammo_count = MAX_AMMO;
         _hud.set_ammo(_ammo_count);
+        _energy = HUD_MAX_ENERGY;
+        _hud.set_energy(_energy);
         if (_companion && !_companion->is_dead_independently())
             _companion->set_visible(1);
     }
@@ -973,10 +988,11 @@ namespace str
         }
         if (!pa && !rc && !_hud.is_buff_menu_open())
         {
-            if (bn::keypad::b_pressed() && !bn::keypad::select_held() && _abilities.rolling_available())
+            if (bn::keypad::b_pressed() && !bn::keypad::select_held() && _abilities.rolling_available() && _energy >= 1)
             {
                 _movement.start_action(PlayerMovement::State::ROLLING, PLAYER_ROLL_DURATION);
                 _abilities.set_roll_cooldown(90);
+                consume_energy(1);
                 _state.set_invulnerable(true);
                 _state.set_inv_timer(0);
                 _reload_on_roll_end = _gun_active;
@@ -1251,6 +1267,19 @@ namespace str
         {
             heal(1);
         }
+    }
+
+    void Player::consume_energy(int amount)
+    {
+        _energy = bn::max(0, _energy - amount);
+        _hud.set_energy(_energy);
+        _energy_regen_timer = 0; // Reset regen timer on consumption
+    }
+
+    void Player::restore_energy(int amount)
+    {
+        _energy = bn::min(HUD_MAX_ENERGY, _energy + amount);
+        _hud.set_energy(_energy);
     }
 
 } // namespace str

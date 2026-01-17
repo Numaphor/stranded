@@ -309,6 +309,11 @@ namespace str
         void add_ammo(int amount);
         void reload_ammo();
         [[nodiscard]] bool has_ammo() const;
+        
+        // Energy management
+        [[nodiscard]] int get_energy() const { return _energy; }
+        void consume_energy(int amount);
+        void restore_energy(int amount);
 
         void update_gun_position(PlayerMovement::Direction direction);
         [[nodiscard]] bn::sprite_ptr *vfx_sprite() { return _vfx.vfx_sprite(); }
@@ -343,6 +348,10 @@ namespace str
         static constexpr int AUTO_RELOAD_INTERVAL = 30; // Reload every 0.5 seconds (30 frames at 60fps)
         int _r_hold_frames = 0;                         // Track R button hold duration for weapon switch vs reload
         static constexpr int WEAPON_SWITCH_WINDOW = 12; // Frames to distinguish tap (switch) from hold (reload)
+
+        // Energy system
+        int _energy = HUD_MAX_ENERGY;
+        int _energy_regen_timer = 0;
 
         // Strafing state
         bool _is_strafing = false;

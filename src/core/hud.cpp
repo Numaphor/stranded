@@ -32,6 +32,7 @@
 #include "bn_sprite_items_ammo.h"
 #include "bn_sprite_items_temptest.h"
 #include "bn_sprite_items_hud_icons.h"
+#include "bn_sprite_items_energy.h"
 
 namespace str
 {
@@ -95,6 +96,9 @@ namespace str
 
         _configure_hud_sprite(_weapon_sprite);
         _configure_hud_sprite(_soul_sprite);
+
+        _energy_sprite = bn::sprite_items::energy.create_sprite(HUD_SOUL_INITIAL_X, HUD_SOUL_INITIAL_Y);
+        _configure_hud_sprite(_energy_sprite.value());
 
         // Initial animation (Spawn Full)
         _soul_sprite.set_item(bn::sprite_items::heart_normal_spawn_full);
@@ -178,6 +182,13 @@ namespace str
             int soul_x = x + HUD_SOUL_OFFSET_X;
             int soul_y = y + HUD_SOUL_OFFSET_Y;
             _soul_sprite.set_position(soul_x, soul_y);
+            
+            if (_energy_sprite.has_value())
+            {
+                int energy_x = x + HUD_ENERGY_OFFSET_X;
+                int energy_y = y + HUD_ENERGY_OFFSET_Y;
+                _energy_sprite->set_position(energy_x, energy_y);
+            }
         }
     }
 
@@ -190,6 +201,8 @@ namespace str
         }
         _weapon_sprite.set_visible(is_visible);
         _soul_sprite.set_visible(is_visible);
+        if (_energy_sprite.has_value())
+            _energy_sprite->set_visible(is_visible);
         _buff_menu_base.set_visible(is_visible);
 
         if (_ammo_sprite.has_value())
@@ -350,11 +363,25 @@ namespace str
         {
             bn::fixed_point bg_pos = _health_bg->position();
             _soul_sprite.set_position(bg_pos.x() + HUD_SOUL_OFFSET_X, bg_pos.y() + HUD_SOUL_OFFSET_Y);
+            if (_energy_sprite.has_value())
+                _energy_sprite->set_position(bg_pos.x() + HUD_ENERGY_OFFSET_X, bg_pos.y() + HUD_ENERGY_OFFSET_Y);
         }
     }
 
     void HUD::_update_soul_animations()
     {
+        if (_energy_sprite.has_value())
+        {
+            // Energy has 4 frames (0-3).
+            // Max Energy is 3.
+            // Energy 0 -> Frame 0
+            // Energy 1 -> Frame 1
+            // Energy 2 -> Frame 2
+            // Energy 3 -> Frame 3
+            
+             _energy_sprite->set_tiles(bn::sprite_items::energy.tiles_item(), _energy);
+        }
+
         if (!_soul_action.has_value())
             return;
 
@@ -635,6 +662,11 @@ namespace str
     bool HUD::is_buff_menu_open() const { return _buff_menu_state == BUFF_MENU_STATE::OPEN; }
 
     int HUD::get_selected_buff() const { return _selected_buff_option; }
+
+    void HUD::set_energy(int energy)
+    {
+        _energy = bn::clamp(energy, 0, HUD_MAX_ENERGY);
+    }
 
     void HUD::start_buff_menu_hold()
     {
