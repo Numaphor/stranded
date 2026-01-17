@@ -32,6 +32,7 @@
 #include "bn_sprite_builder.h"
 #include "bn_sprite_double_size_mode.h"
 #include "bn_sprite_text_generator.h"
+#include "bn_random.h"
 
 #include "bn_regular_bg_tiles_items_tiles.h"
 #include "bn_bg_palette_items_palette.h"
@@ -56,14 +57,125 @@ namespace str
             BN_DATA_EWRAM static bn::regular_bg_map_cell cells[cells_count];
             bn::regular_bg_map_item map_item;
             int _background_tile;
+            int _patch_tile;
+
+            // Generate irregular patches on the background to make it feel more natural
+            void _generate_patches(bn::random &rng)
+            {
+                // Patch group spacing: 64-128 tiles apart
+                constexpr int min_group_spacing = 64;
+                constexpr int max_group_spacing = 128;
+
+                // Patch size: 1-16 tiles per patch
+                constexpr int min_patch_size = 1;
+                constexpr int max_patch_size = 16;
+
+                // Start generating patch groups across the map
+                int current_x = rng.get_int(min_group_spacing, max_group_spacing);
+
+                while (current_x < columns)
+                {
+                    int current_y = rng.get_int(min_group_spacing, max_group_spacing);
+
+                    while (current_y < rows)
+                    {
+                        // Create a patch at this location
+                        int patch_size = min_patch_size + rng.get_int(max_patch_size - min_patch_size + 1);
+                        _create_irregular_patch(rng, current_x, current_y, patch_size);
+
+                        // Move to next potential patch location vertically
+                        current_y += min_group_spacing + rng.get_int(max_group_spacing - min_group_spacing + 1);
+                    }
+
+                    // Move to next potential patch location horizontally
+                    current_x += min_group_spacing + rng.get_int(max_group_spacing - min_group_spacing + 1);
+                }
+            }
+
+            // Create an irregular patch starting from a seed position
+            void _create_irregular_patch(bn::random &rng, int seed_x, int seed_y, int target_size)
+            {
+                // Use a simple flood-fill style approach with randomness for irregular shapes
+                // Store positions to process
+                constexpr int max_queue = 64;
+                int queue_x[max_queue];
+                int queue_y[max_queue];
+                int queue_start = 0;
+                int queue_end = 0;
+                int tiles_placed = 0;
+
+                // Add seed position to queue
+                queue_x[queue_end] = seed_x;
+                queue_y[queue_end] = seed_y;
+                queue_end++;
+
+                // Direction offsets for 4-way adjacency
+                constexpr int dx[] = {0, 1, 0, -1};
+                constexpr int dy[] = {-1, 0, 1, 0};
+
+                while (queue_start != queue_end && tiles_placed < target_size)
+                {
+                    // Get current position
+                    int x = queue_x[queue_start];
+                    int y = queue_y[queue_start];
+                    queue_start = (queue_start + 1) % max_queue;
+
+                    // Check bounds
+                    if (x < 0 || x >= columns || y < 0 || y >= rows)
+                        continue;
+
+                    int cell_index = x + y * columns;
+
+                    // Skip if already a patch tile
+                    if (cells[cell_index] == bn::regular_bg_map_cell(_patch_tile))
+                        continue;
+
+                    // Place patch tile
+                    cells[cell_index] = bn::regular_bg_map_cell(_patch_tile);
+                    tiles_placed++;
+
+                    // Try to add adjacent cells to queue with random chance
+                    // This creates irregular shapes
+                    for (int i = 0; i < 4; i++)
+                    {
+                        // Random chance to expand in each direction (60-80% chance)
+                        if (rng.get_int(100) < 70)
+                        {
+                            int next_x = x + dx[i];
+                            int next_y = y + dy[i];
+
+                            // Add some extra randomness to offset for more organic feel
+                            if (rng.get_int(100) < 20)
+                            {
+                                next_x += rng.get_int(3) - 1; // -1, 0, or 1
+                                next_y += rng.get_int(3) - 1;
+                            }
+
+                            // Add to queue if within bounds and queue not full
+                            if (next_x >= 0 && next_x < columns &&
+                                next_y >= 0 && next_y < rows &&
+                                (queue_end + 1) % max_queue != queue_start)
+                            {
+                                queue_x[queue_end] = next_x;
+                                queue_y[queue_end] = next_y;
+                                queue_end = (queue_end + 1) % max_queue;
+                            }
+                        }
+                    }
+                }
+            }
 
             bg_map(int world_id = 0) : map_item(cells[0], bn::size(columns, rows))
             {
                 _background_tile = 1;
+                _patch_tile = 2;
                 if (world_id == 1)
                 {
                     _background_tile = 2;
+                    _patch_tile = 1;
                 }
+
+                // Fill with base tile
                 for (int x = 0; x < columns; x++)
                 {
                     for (int y = 0; y < rows; y++)
@@ -72,6 +184,10 @@ namespace str
                         cells[cell_index] = bn::regular_bg_map_cell(_background_tile);
                     }
                 }
+
+                // Generate natural-looking patches
+                bn::random rng;
+                _generate_patches(rng);
             }
         };
         BN_DATA_EWRAM bn::regular_bg_map_cell bg_map::cells[bg_map::cells_count];
