@@ -37,6 +37,7 @@
 #include "bn_bg_palette_items_palette.h"
 #include "bn_affine_bg_items_sword.h"
 #include "bn_sprite_items_hero.h"
+#include "bn_random.h"
 #include "common_variable_8x8_sprite_font.h"
 
 namespace str
@@ -53,6 +54,7 @@ namespace str
             static const int columns = MAP_COLUMNS;
             static const int rows = MAP_ROWS;
             static const int cells_count = MAP_CELLS_COUNT;
+            static const int patch_tile = 2;
             BN_DATA_EWRAM static bn::regular_bg_map_cell cells[cells_count];
             bn::regular_bg_map_item map_item;
             int _background_tile;
@@ -71,6 +73,152 @@ namespace str
                         int cell_index = x + y * columns;
                         cells[cell_index] = bn::regular_bg_map_cell(_background_tile);
                     }
+                }
+                if (_background_tile != patch_tile)
+                {
+                    _apply_patch_tiles(_background_tile);
+                }
+            }
+
+        private:
+            static int _clamp_int(int value, int min_value, int max_value)
+            {
+                return value < min_value ? min_value : (value > max_value ? max_value : value);
+            }
+
+            static void _set_patch_tile(int x, int y, int base_tile)
+            {
+                if (x < 0 || x >= columns || y < 0 || y >= rows)
+                {
+                    return;
+                }
+                int cell_index = x + y * columns;
+                if (bn::regular_bg_map_cell_info(cells[cell_index]).tile_index() == base_tile)
+                {
+                    cells[cell_index] = bn::regular_bg_map_cell(patch_tile);
+                }
+            }
+
+            static void _paint_irregular_patch(int start_x, int start_y, int base_tile, bn::random &rng)
+            {
+                constexpr int min_steps = 10;
+                constexpr int max_steps = 26;
+                int steps = min_steps + (rng.get() % (max_steps - min_steps + 1));
+                int x = start_x;
+                int y = start_y;
+
+                for (int i = 0; i < steps; ++i)
+                {
+                    _set_patch_tile(x, y, base_tile);
+                    int spread = rng.get() % 3;
+                    if (spread >= 1)
+                    {
+                        _set_patch_tile(x + 1, y, base_tile);
+                        _set_patch_tile(x - 1, y, base_tile);
+                        _set_patch_tile(x, y + 1, base_tile);
+                        _set_patch_tile(x, y - 1, base_tile);
+                    }
+                    if (spread == 2)
+                    {
+                        _set_patch_tile(x + 1, y + 1, base_tile);
+                        _set_patch_tile(x + 1, y - 1, base_tile);
+                        _set_patch_tile(x - 1, y + 1, base_tile);
+                        _set_patch_tile(x - 1, y - 1, base_tile);
+                    }
+
+                    int step = 1 + (rng.get() % 2);
+                    switch (rng.get() % 4)
+                    {
+                    case 0:
+                        x += step;
+                        break;
+                    case 1:
+                        x -= step;
+                        break;
+                    case 2:
+                        y += step;
+                        break;
+                    default:
+                        y -= step;
+                        break;
+                    }
+
+                    x = _clamp_int(x, 0, columns - 1);
+                    y = _clamp_int(y, 0, rows - 1);
+                }
+            }
+
+            static void _apply_patch_tiles(int base_tile)
+            {
+                static bn::random rng;
+                constexpr int cluster_spacing_min = 64;
+                constexpr int cluster_spacing_max = 128;
+                constexpr int patch_spacing_min = 1;
+                constexpr int patch_spacing_max = 16;
+                constexpr int jitter_range = 9;
+
+                int y = rng.get() % cluster_spacing_max;
+                while (y < rows)
+                {
+                    int x = rng.get() % cluster_spacing_max;
+                    while (x < columns)
+                    {
+                        int cluster_x = _clamp_int(x + (rng.get() % jitter_range) - (jitter_range / 2), 0, columns - 1);
+                        int cluster_y = _clamp_int(y + (rng.get() % jitter_range) - (jitter_range / 2), 0, rows - 1);
+                        int patch_count = 2 + (rng.get() % 4);
+
+                        int patch_x = cluster_x;
+                        int patch_y = cluster_y;
+                        _paint_irregular_patch(patch_x, patch_y, base_tile, rng);
+
+                        for (int p = 1; p < patch_count; ++p)
+                        {
+                            int spacing = patch_spacing_min + (rng.get() % (patch_spacing_max - patch_spacing_min + 1));
+                            int dx = 0;
+                            int dy = 0;
+                            switch (rng.get() % 8)
+                            {
+                            case 0:
+                                dx = spacing;
+                                break;
+                            case 1:
+                                dx = -spacing;
+                                break;
+                            case 2:
+                                dy = spacing;
+                                break;
+                            case 3:
+                                dy = -spacing;
+                                break;
+                            case 4:
+                                dx = spacing;
+                                dy = spacing;
+                                break;
+                            case 5:
+                                dx = spacing;
+                                dy = -spacing;
+                                break;
+                            case 6:
+                                dx = -spacing;
+                                dy = spacing;
+                                break;
+                            default:
+                                dx = -spacing;
+                                dy = -spacing;
+                                break;
+                            }
+
+                            patch_x = _clamp_int(patch_x + dx, 0, columns - 1);
+                            patch_y = _clamp_int(patch_y + dy, 0, rows - 1);
+                            _paint_irregular_patch(patch_x, patch_y, base_tile, rng);
+                        }
+
+                        int x_step = cluster_spacing_min + (rng.get() % (cluster_spacing_max - cluster_spacing_min + 1));
+                        x += x_step;
+                    }
+
+                    int y_step = cluster_spacing_min + (rng.get() % (cluster_spacing_max - cluster_spacing_min + 1));
+                    y += y_step;
                 }
             }
         };
