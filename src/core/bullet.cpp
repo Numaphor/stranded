@@ -7,7 +7,7 @@
 #include "bn_camera_ptr.h"
 #include "bn_sprite_builder.h"
 
-#include "bn_sprite_items_hero_sword.h"
+#include "bn_sprite_items_hero.h"
 
 namespace str
 {
@@ -18,7 +18,7 @@ namespace str
 
     Bullet::Bullet(bn::fixed_point p, bn::fixed_point v, bn::camera_ptr c, Direction d) : _pos(p), _velocity(v), _active(1), _hitbox(p.x(), p.y(), 2, 2), _lifetime(BULLET_LIFETIME)
     {
-        _sprite = bn::sprite_items::hero_sword.create_sprite(p.x(), p.y(), 0);
+        _sprite = bn::sprite_items::hero.create_sprite(p.x(), p.y(), 0);
         _sprite->set_camera(c);
         _sprite->set_z_order(Z_ORDER_BULLET);
         _sprite->set_scale(BULLET_SCALE);

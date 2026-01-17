@@ -36,7 +36,7 @@
 #include "bn_regular_bg_tiles_items_tiles.h"
 #include "bn_bg_palette_items_palette.h"
 #include "bn_affine_bg_items_sword.h"
-#include "bn_sprite_items_hero_sword.h"
+#include "bn_sprite_items_hero.h"
 #include "common_variable_8x8_sprite_font.h"
 
 namespace str
@@ -101,7 +101,7 @@ namespace str
                      _player_affine_mat(bn::nullopt),
                      _vfx_affine_mat(bn::nullopt)
     {
-        bn::sprite_builder builder(bn::sprite_items::hero_sword);
+        bn::sprite_builder builder(bn::sprite_items::hero);
         builder.set_bg_priority(1);
         _player = new Player(builder.release_build());
         _lookahead_current = bn::fixed_point(0, 0);

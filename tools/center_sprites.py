@@ -117,7 +117,7 @@ def process_sprite_sheet(output_filename, source_files, ref_image_index=0, is_it
 
 def process_combined_hero_sheet(output_filename, all_mappings, ref_image_index=0):
     """
-    Combines all hero sprites into a single grid-based sprite sheet (like hero_sword).
+    Combines all hero sprites into a single grid-based sprite sheet (like hero).
     Arranges frames in a grid layout (rows and columns) instead of a vertical strip.
     """
     
@@ -146,7 +146,7 @@ def process_combined_hero_sheet(output_filename, all_mappings, ref_image_index=0
         print(f"    Reference: {ref_file_info['file'] if mapping['sources'] else 'None'}")
         print(f"    Shift: ({offset_x}, {offset_y})")
 
-        set_name = mapping['output'].replace('.bmp', '').replace('hero_', '')
+        set_name = mapping['output'].replace('.bmp', '').replace('player_', '')
         start_frame = current_frame
         
         for src in mapping['sources']:
@@ -165,7 +165,7 @@ def process_combined_hero_sheet(output_filename, all_mappings, ref_image_index=0
 
     # 3. Arrange frames in a grid layout
     # Use 16 columns (1024 pixels wide for 64x64 sprites)
-    # This creates a more square-like layout similar to hero_sword
+    # This creates a more square-like layout similar to hero
     cols = 16
     rows = (len(all_frames) + cols - 1) // cols  # Ceiling division
     
