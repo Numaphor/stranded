@@ -18,6 +18,7 @@
 #include "bn_regular_bg_map_ptr.h"
 #include "bn_regular_bg_map_cell.h"
 #include "bn_regular_bg_map_cell_info.h"
+#include "bn_random.h"
 #include "bn_camera_ptr.h"
 #include "bn_core.h"
 #include "bn_keypad.h"
@@ -64,13 +65,47 @@ namespace str
                 {
                     _background_tile = 2;
                 }
-                for (int x = 0; x < columns; x++)
+                
+                for (int i = 0; i < cells_count; ++i)
                 {
-                    for (int y = 0; y < rows; y++)
+                    cells[i] = bn::regular_bg_map_cell(_background_tile);
+                }
+
+                bn::random random;
+                int current_index = 0;
+                while (current_index < cells_count)
+                {
+                    int patch_width = random.get_int(2, 6);
+                    int patch_height = random.get_int(2, 6);
+                    int base_x = current_index % columns;
+                    int base_y = current_index / columns;
+
+                    for (int py = 0; py < patch_height; ++py)
                     {
-                        int cell_index = x + y * columns;
-                        cells[cell_index] = bn::regular_bg_map_cell(_background_tile);
+                        for (int px = 0; px < patch_width; ++px)
+                        {
+                            if (random.get_int(100) < 70)
+                            {
+                                int x = base_x + px;
+                                int y = base_y + py;
+                                if (x < columns && y < rows)
+                                {
+                                    cells[y * columns + x] = bn::regular_bg_map_cell(2);
+                                }
+                            }
+                        }
                     }
+
+                    int gap;
+                    if (random.get_int(100) < 50)
+                    {
+                        gap = random.get_int(1, 17);
+                    }
+                    else
+                    {
+                        gap = random.get_int(64, 129);
+                    }
+                    current_index += gap + (patch_width * patch_height) / 2;
                 }
             }
         };

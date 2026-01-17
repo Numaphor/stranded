@@ -538,6 +538,50 @@ namespace str
         update_state();
     }
 
+    void PlayerMovement::move_direction_normalized(bn::fixed input_x, bn::fixed input_y)
+    {
+        // Calculate input vector magnitude
+        bn::fixed input_magnitude = bn::sqrt(input_x * input_x + input_y * input_y);
+        
+        if (input_magnitude == 0)
+        {
+            // No input, no movement
+            return;
+        }
+        
+        // Normalize input vector to unit vector
+        bn::fixed normalized_x = input_x / input_magnitude;
+        bn::fixed normalized_y = input_y / input_magnitude;
+        
+        // Apply acceleration in normalized direction
+        bn::fixed new_dx = _dx + normalized_x * acc_const;
+        bn::fixed new_dy = _dy + normalized_y * acc_const;
+        
+        // Clamp to max speed (maintaining normalized direction)
+        bn::fixed current_speed = bn::sqrt(new_dx * new_dx + new_dy * new_dy);
+        if (current_speed > max_speed)
+        {
+            // Normalize velocity to max speed
+            new_dx = (new_dx / current_speed) * max_speed;
+            new_dy = (new_dy / current_speed) * max_speed;
+        }
+        
+        _dx = new_dx;
+        _dy = new_dy;
+        
+        // Update facing direction based on input
+        if (bn::abs(input_x) > bn::abs(input_y))
+        {
+            _facing_direction = (input_x > 0) ? Direction::RIGHT : Direction::LEFT;
+        }
+        else if (input_y != 0)
+        {
+            _facing_direction = (input_y > 0) ? Direction::DOWN : Direction::UP;
+        }
+        
+        update_state();
+    }
+
     void PlayerMovement::apply_friction()
     {
         _dx *= friction_const;
@@ -1137,45 +1181,52 @@ namespace str
                 take_damage(1);
             }
         }
+        // Vector-based locomotion with proper diagonal normalization
         if (!pa && !rc && !_hud.is_buff_menu_open())
         {
-            bn::fixed dx = _movement.dx(), dy = _movement.dy(), d_c = PlayerMovement::acc_const;
-            bool h = 0, v = 0;
+            // Collect input vectors
+            bn::fixed input_x = 0;
+            bn::fixed input_y = 0;
+            bool has_input = false;
             PlayerMovement::Direction dir = _movement.facing_direction();
+            
             if (bn::keypad::right_held())
             {
-                dx += d_c;
-                h = 1;
+                input_x += PlayerMovement::INPUT_MAGNITUDE_CARDINAL;
+                has_input = true;
                 dir = PlayerMovement::Direction::RIGHT;
             }
             else if (bn::keypad::left_held())
             {
-                dx -= d_c;
-                h = 1;
+                input_x -= PlayerMovement::INPUT_MAGNITUDE_CARDINAL;
+                has_input = true;
                 dir = PlayerMovement::Direction::LEFT;
             }
+            
             if (bn::keypad::up_held())
             {
-                dy -= d_c;
-                v = 1;
+                input_y -= PlayerMovement::INPUT_MAGNITUDE_CARDINAL;
+                has_input = true;
                 dir = PlayerMovement::Direction::UP;
             }
             else if (bn::keypad::down_held())
             {
-                dy += d_c;
-                v = 1;
+                input_y += PlayerMovement::INPUT_MAGNITUDE_CARDINAL;
+                has_input = true;
                 dir = PlayerMovement::Direction::DOWN;
             }
-            if (h && v)
+            
+            // Apply vector-based movement normalization
+            if (has_input)
             {
-                dx = _movement.dx() + (dx - _movement.dx()) * PlayerMovement::diagonal_factor;
-                dy = _movement.dy() + (dy - _movement.dy()) * PlayerMovement::diagonal_factor;
+                _movement.move_direction_normalized(input_x, input_y);
+                if (!_is_strafing)
+                    _movement.set_facing_direction(dir);
             }
-            _movement.set_dx(bn::clamp(dx, -PlayerMovement::max_speed, PlayerMovement::max_speed));
-            _movement.set_dy(bn::clamp(dy, -PlayerMovement::max_speed, PlayerMovement::max_speed));
-            if (!_is_strafing && (h || v))
-                _movement.set_facing_direction(dir);
+            
             _movement.update_movement_state();
+            
+            // Handle running state
             if (!_is_strafing && _abilities.running_available() && _movement.is_moving())
             {
                 if (_movement.is_state(PlayerMovement::State::WALKING))

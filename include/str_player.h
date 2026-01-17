@@ -53,6 +53,11 @@ namespace str
         static constexpr bn::fixed movement_threshold = 0.1; // minimal velocity considered moving
         static constexpr bn::fixed max_speed = 1;            // max velocity per axis (halved)
         static constexpr bn::fixed diagonal_factor = 0.707;  // 1/√2 for diagonal movement normalization
+        
+        // Vector-based locomotion constants
+        static constexpr bn::fixed INPUT_MAGNITUDE_CARDINAL = 1.0;     // Magnitude for cardinal input
+        static constexpr bn::fixed INPUT_MAGNITUDE_DIAGONAL = 1.414;   // √2 for diagonal input (1,1)
+        static constexpr bn::fixed NORMALIZED_DIAGONAL = 0.707;         // 1/√2 for normalized diagonal
 
         PlayerMovement();
 
@@ -61,6 +66,7 @@ namespace str
         void move_up();
         void move_down();
         void move_direction(Direction dir);
+        void move_direction_normalized(bn::fixed input_x, bn::fixed input_y);
         void apply_friction();
         void reset();
         void stop_movement();
