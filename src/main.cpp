@@ -48,7 +48,7 @@ int main()
             case str::Scene::WORLD:
             {
                 str::World world(selected_character);
-                next = world.execute(spawn_location, selected_world_id, selected_character);
+                next = world.execute(spawn_location, selected_world_id);
                 break;
             }
             default:

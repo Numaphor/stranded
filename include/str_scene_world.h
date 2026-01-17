@@ -36,7 +36,7 @@ namespace str
         World(CharacterType character_type = CharacterType::HERO);
         ~World();
 
-        str::Scene execute(bn::fixed_point spawn_location, int world_id = 0, CharacterType character_type = CharacterType::HERO);
+        str::Scene execute(bn::fixed_point spawn_location, int world_id = 0);
 
     private:
         Player *_player;

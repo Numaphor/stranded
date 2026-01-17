@@ -21,7 +21,6 @@ namespace str
         bn::vector<bn::sprite_ptr, 32> _text_sprites;
 
         void _update_display();
-        void _handle_input();
     };
 }
 

@@ -126,10 +126,9 @@ namespace str
         delete _merchant;
     }
 
-    str::Scene str::World::execute(bn::fixed_point spawn_location, int world_id, CharacterType character_type)
+    str::Scene str::World::execute(bn::fixed_point spawn_location, int world_id)
     {
         _current_world_id = world_id;
-        _character_type = character_type;
         WorldStateManager &state_manager = WorldStateManager::instance();
         if (state_manager.has_saved_state(world_id))
         {
