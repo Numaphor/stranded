@@ -138,8 +138,20 @@ namespace str
         tg.set_center_alignment();
         tg.set_bg_priority(0);
         tg.generate(0, CONTROLS_TITLE_Y_POSITION, "CONTROLS", _text_sprites);
-        const char *c[] = {"D-PAD: Move", "A: Interact/Confirm", "B: Attack/Back", "L: Switch Weapon", "R: Roll/Dodge", "SELECT+START: Debug", "SELECT+A: Level Select"};
-        for (int i = 0; i < 7; ++i)
+        const char *c[] = {
+            "D-PAD: Move",
+            "A: Attack/Interact",
+            "B: Roll (uses energy)",
+            "R: Switch to Sword/Gun",
+            "R hold: Reload",
+            "L: Buff Menu",
+            "L hold: Gun Select",
+            "SELECT: Toggle Zoom",
+            "SEL+A: Level Select",
+            "SEL+Dir: Quick Buff",
+            "A+Move: Strafe (Gun)"
+        };
+        for (int i = 0; i < 11; ++i)
             tg.generate(0, CONTROLS_LIST_START_Y + i * CONTROLS_LIST_SPACING, c[i], _text_sprites);
         tg.generate(0, CONTROLS_INSTRUCTIONS_Y_POSITION, "Press B to return", _text_sprites);
     }

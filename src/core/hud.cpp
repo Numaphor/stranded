@@ -771,4 +771,91 @@ namespace str
         }
     }
 
+    // =========================================================================
+    // Gun Selection Menu
+    // =========================================================================
+
+    void HUD::toggle_gun_menu()
+    {
+        if (_gun_menu_open)
+        {
+            // Close menu
+            _gun_menu_open = false;
+            for (int i = 0; i < 6; ++i)
+            {
+                _gun_menu_sprites[i].reset();
+            }
+            _gun_menu_cursor.reset();
+        }
+        else
+        {
+            // Open menu - create 2x3 grid of gun icons centered on screen
+            _gun_menu_open = true;
+            constexpr int GRID_COLS = 3;
+            constexpr int GRID_SPACING = 20;
+            constexpr int BASE_X = -GRID_SPACING; // Center the 3-column grid
+            constexpr int BASE_Y = -10;           // Slightly above center
+
+            for (int i = 0; i < 6; ++i)
+            {
+                int col = i % GRID_COLS;
+                int row = i / GRID_COLS;
+                int x = BASE_X + col * GRID_SPACING;
+                int y = BASE_Y + row * GRID_SPACING;
+                _gun_menu_sprites[i] = bn::sprite_items::icon_gun.create_sprite(x, y, i);
+                _configure_hud_sprite(_gun_menu_sprites[i].value());
+                // Dim non-selected options
+                if (i != _selected_gun)
+                {
+                    _gun_menu_sprites[i]->set_blending_enabled(true);
+                }
+            }
+        }
+    }
+
+    void HUD::navigate_gun_menu(int delta)
+    {
+        if (!_gun_menu_open)
+            return;
+
+        int old_selection = _selected_gun;
+        int new_selection = _selected_gun + delta;
+
+        // Wrap around in grid (3 columns, 2 rows)
+        if (delta == 1 || delta == -1)
+        {
+            // Left/right navigation - wrap within row
+            int row = _selected_gun / 3;
+            int col = (_selected_gun % 3) + delta;
+            if (col < 0)
+                col = 2;
+            else if (col > 2)
+                col = 0;
+            new_selection = row * 3 + col;
+        }
+        else
+        {
+            // Up/down navigation - wrap between rows
+            new_selection = (_selected_gun + delta + 6) % 6;
+        }
+
+        if (new_selection != old_selection && new_selection >= 0 && new_selection < 6)
+        {
+            // Update visual selection
+            if (_gun_menu_sprites[old_selection].has_value())
+            {
+                _gun_menu_sprites[old_selection]->set_blending_enabled(true);
+            }
+            _selected_gun = new_selection;
+            if (_gun_menu_sprites[_selected_gun].has_value())
+            {
+                _gun_menu_sprites[_selected_gun]->set_blending_enabled(false);
+            }
+        }
+    }
+
+    bool HUD::is_gun_menu_open() const { return _gun_menu_open; }
+
+    int HUD::get_selected_gun() const { return _selected_gun; }
+
 } // namespace str

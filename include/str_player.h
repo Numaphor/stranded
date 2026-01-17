@@ -347,6 +347,7 @@ namespace str
         int _auto_reload_timer = 0;                     // Timer for automatic reload when holding R
         static constexpr int AUTO_RELOAD_INTERVAL = 30; // Reload every 0.5 seconds (30 frames at 60fps)
         int _r_hold_frames = 0;                         // Track R button hold duration for weapon switch vs reload
+        int _l_hold_frames = 0;                         // Track L button hold duration for buff menu vs gun menu
         static constexpr int WEAPON_SWITCH_WINDOW = 12; // Frames to distinguish tap (switch) from hold (reload)
 
         // Energy system

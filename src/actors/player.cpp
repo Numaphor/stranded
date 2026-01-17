@@ -986,6 +986,16 @@ namespace str
                 _state.set_invulnerable(false);
             }
         }
+        // Strafing: lock aim direction when A pressed with gun, release when A released
+        if (_gun_active && bn::keypad::a_pressed() && _state.dialog_cooldown() == 0)
+        {
+            _is_strafing = true;
+            _strafing_direction = _movement.facing_direction();
+        }
+        if (!bn::keypad::a_held())
+        {
+            _is_strafing = false;
+        }
         if (!pa && !rc && !_hud.is_buff_menu_open())
         {
             if (bn::keypad::b_pressed() && !bn::keypad::select_held() && _abilities.rolling_available() && _energy >= 1)
@@ -1040,53 +1050,70 @@ namespace str
             }
         }
         _hud.update_buff_menu_cooldown();
-        if (!pa && !rc && _abilities.buff_abilities_available() && !_hud.is_buff_menu_on_cooldown())
+        if (_hud.is_buff_menu_open() && !bn::keypad::select_held())
         {
-            if (!bn::keypad::select_held())
+            if (bn::keypad::a_pressed() || bn::keypad::l_pressed())
             {
-                if (!_hud.is_buff_menu_open())
-                {
-                    if (bn::keypad::l_pressed())
-                        _hud.start_buff_menu_hold();
-                    else if (bn::keypad::l_held() && _hud.is_buff_menu_holding())
-                    {
-                        _hud.update_buff_menu_hold();
-                        if (_hud.is_buff_menu_hold_complete())
-                        {
-                            _hud.cancel_buff_menu_hold();
-                            _hud.toggle_buff_menu();
-                        }
-                    }
-                    else if (!bn::keypad::l_held() && _hud.is_buff_menu_holding())
-                        _hud.cancel_buff_menu_hold();
-                }
-                else
-                {
-                    if (bn::keypad::a_pressed() || bn::keypad::l_pressed())
-                    {
-                        int s = _hud.get_selected_buff();
-                        activate_buff(s == 0 ? PlayerMovement::State::HEAL_BUFF : (s == 1 ? PlayerMovement::State::ENERGY_BUFF : PlayerMovement::State::POWER_BUFF));
-                        _hud.toggle_buff_menu();
-                        _hud.start_buff_menu_cooldown();
-                    }
-                    else if (bn::keypad::b_pressed())
-                        _hud.toggle_buff_menu();
-                }
+                int s = _hud.get_selected_buff();
+                activate_buff(s == 0 ? PlayerMovement::State::HEAL_BUFF : (s == 1 ? PlayerMovement::State::ENERGY_BUFF : PlayerMovement::State::POWER_BUFF));
+                _hud.toggle_buff_menu();
+                _hud.start_buff_menu_cooldown();
             }
-            if (_hud.is_buff_menu_open() && !bn::keypad::select_held())
-            {
-                if (bn::keypad::up_pressed())
-                    _hud.navigate_buff_menu_up();
-                else if (bn::keypad::down_pressed())
-                    _hud.navigate_buff_menu_down();
-                else if (bn::keypad::left_pressed())
-                    _hud.navigate_buff_menu_left();
-                else if (bn::keypad::right_pressed())
-                    _hud.navigate_buff_menu_right();
-            }
+            else if (bn::keypad::b_pressed())
+                _hud.toggle_buff_menu();
+            else if (bn::keypad::up_pressed())
+                _hud.navigate_buff_menu_up();
+            else if (bn::keypad::down_pressed())
+                _hud.navigate_buff_menu_down();
+            else if (bn::keypad::left_pressed())
+                _hud.navigate_buff_menu_left();
+            else if (bn::keypad::right_pressed())
+                _hud.navigate_buff_menu_right();
         }
-        else if (_hud.is_buff_menu_holding())
-            _hud.cancel_buff_menu_hold();
+        // Gun selection menu (L hold to toggle when gun is active)
+        if (_hud.is_gun_menu_open())
+        {
+            // Navigate gun menu with D-pad
+            if (bn::keypad::up_pressed())
+                _hud.navigate_gun_menu(-3);
+            else if (bn::keypad::down_pressed())
+                _hud.navigate_gun_menu(3);
+            else if (bn::keypad::left_pressed())
+                _hud.navigate_gun_menu(-1);
+            else if (bn::keypad::right_pressed())
+                _hud.navigate_gun_menu(1);
+            // Select gun with A
+            if (bn::keypad::a_pressed())
+            {
+                shared_gun_frame = _hud.get_selected_gun();
+                if (_gun_sprite.has_value())
+                    _gun_sprite->set_tiles(bn::sprite_items::gun.tiles_item(), shared_gun_frame);
+                _hud.set_weapon_frame(shared_gun_frame);
+                _hud.toggle_gun_menu();
+            }
+            // Cancel with B or L release
+            if (bn::keypad::b_pressed() || !bn::keypad::l_held())
+                _hud.toggle_gun_menu();
+        }
+        else if (bn::keypad::l_held() && !pa && !rc && !_hud.is_buff_menu_open() && !_hud.is_gun_menu_open() && !bn::keypad::select_held())
+        {
+            _l_hold_frames++;
+            // If gun is active and hold time exceeds threshold, open gun menu
+            if (_gun_active && _l_hold_frames > WEAPON_SWITCH_WINDOW)
+                _hud.toggle_gun_menu();
+        }
+        else
+        {
+            // L was just released
+            if (_l_hold_frames > 0 && !pa && !rc && !_hud.is_buff_menu_open() && !_hud.is_buff_menu_on_cooldown())
+            {
+                // Short press: open buff menu
+                if (_l_hold_frames <= WEAPON_SWITCH_WINDOW && _abilities.buff_abilities_available())
+                    _hud.toggle_buff_menu();
+                // Long press with gun: gun menu already opened above, do nothing
+            }
+            _l_hold_frames = 0;
+        }
         if (bn::keypad::select_held() && bn::keypad::start_held())
         {
             if (bn::keypad::up_pressed())

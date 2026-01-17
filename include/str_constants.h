@@ -66,8 +66,8 @@ namespace str
     constexpr int START_INSTRUCTIONS_Y_POSITION = 60;
 
     constexpr int CONTROLS_TITLE_Y_POSITION = -70;
-    constexpr int CONTROLS_LIST_START_Y = -45;
-    constexpr int CONTROLS_LIST_SPACING = 12;
+    constexpr int CONTROLS_LIST_START_Y = -50;
+    constexpr int CONTROLS_LIST_SPACING = 9;
     constexpr int CONTROLS_INSTRUCTIONS_Y_POSITION = 70;
 
     constexpr bn::fixed MAIN_WORLD_SPAWN_X = 50;

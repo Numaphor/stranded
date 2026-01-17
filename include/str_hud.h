@@ -120,6 +120,12 @@ namespace str
         void update_buff_menu_cooldown();                    // Update cooldown animation (call in update())
         [[nodiscard]] bool is_buff_menu_on_cooldown() const; // Check if menu is on cooldown
 
+        // Gun selection menu (opened with START)
+        void toggle_gun_menu();
+        void navigate_gun_menu(int delta);                 // Navigate selection (+1/-1 for left/right, +3/-3 for down/up in 2x3 grid)
+        [[nodiscard]] bool is_gun_menu_open() const;
+        [[nodiscard]] int get_selected_gun() const;
+
     private:
         // Healthbar display
         bn::optional<bn::regular_bg_ptr> _health_bg;
@@ -163,6 +169,12 @@ namespace str
         int _selected_buff_option;                                 // 0-2 for the three options
         int _buff_menu_hold_timer;                                 // Hold timer for L button activation
         int _buff_menu_cooldown_timer;                             // Cooldown timer after buff activation
+
+        // Gun selection menu (2x3 grid of 6 guns)
+        bool _gun_menu_open = false;
+        int _selected_gun = 0;                                     // 0-5 for the six guns
+        bn::optional<bn::sprite_ptr> _gun_menu_sprites[6];         // Gun option sprites
+        bn::optional<bn::sprite_ptr> _gun_menu_cursor;             // Selection cursor
         
         int _energy = HUD_MAX_ENERGY;
         bool _alert_active = false;
