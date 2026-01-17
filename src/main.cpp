@@ -3,6 +3,7 @@
 
 #include "str_scene.h"
 #include "str_scene_start.h"
+#include "str_scene_character_select.h"
 #include "str_scene_menu.h"
 #include "str_scene_controls.h"
 #include "str_scene_world.h"
@@ -14,6 +15,7 @@ int main()
     str::Scene next = str::Scene::START;  // Start with the start screen
     bn::fixed_point spawn_location(50, 100);
     int selected_world_id = 0;
+    str::CharacterType selected_character = str::CharacterType::HERO;
 
     while(true)
     {
@@ -23,6 +25,12 @@ int main()
             {
                 str::Start start;
                 next = start.execute();
+                break;
+            }
+            case str::Scene::CHARACTER_SELECT:
+            {
+                str::CharacterSelect character_select;
+                next = character_select.execute(selected_character);
                 break;
             }
             case str::Scene::CONTROLS:
@@ -39,8 +47,8 @@ int main()
             }
             case str::Scene::WORLD:
             {
-                str::World world;
-                next = world.execute(spawn_location, selected_world_id);
+                str::World world(selected_character);
+                next = world.execute(spawn_location, selected_world_id, selected_character);
                 break;
             }
             default:

@@ -37,6 +37,7 @@
 #include "bn_bg_palette_items_palette.h"
 #include "bn_affine_bg_items_sword.h"
 #include "bn_sprite_items_hero.h"
+#include "bn_sprite_items_soldier.h"
 #include "common_variable_8x8_sprite_font.h"
 
 namespace str
@@ -81,7 +82,7 @@ namespace str
     // World Implementation
     // =========================================================================
 
-    World::World() : _player(nullptr),
+    World::World(CharacterType character_type) : _player(nullptr),
                      _level(nullptr),
                      _minimap(nullptr),
                      _sword_bg(bn::nullopt),
@@ -91,6 +92,7 @@ namespace str
                      _last_camera_direction(PlayerMovement::Direction::DOWN),
                      _direction_change_frames(0),
                      _current_world_id(0),
+                     _character_type(character_type),
                      _shake_frames(0),
                      _shake_intensity(0),
                      _continuous_fire_frames(0),
@@ -101,9 +103,18 @@ namespace str
                      _player_affine_mat(bn::nullopt),
                      _vfx_affine_mat(bn::nullopt)
     {
-        bn::sprite_builder builder(bn::sprite_items::hero);
-        builder.set_bg_priority(1);
-        _player = new Player(builder.release_build());
+        if (character_type == CharacterType::SOLDIER)
+        {
+            bn::sprite_builder builder(bn::sprite_items::soldier);
+            builder.set_bg_priority(1);
+            _player = new Player(builder.release_build());
+        }
+        else
+        {
+            bn::sprite_builder builder(bn::sprite_items::hero);
+            builder.set_bg_priority(1);
+            _player = new Player(builder.release_build());
+        }
         _lookahead_current = bn::fixed_point(0, 0);
     }
 
@@ -115,9 +126,10 @@ namespace str
         delete _merchant;
     }
 
-    str::Scene str::World::execute(bn::fixed_point spawn_location, int world_id)
+    str::Scene str::World::execute(bn::fixed_point spawn_location, int world_id, CharacterType character_type)
     {
         _current_world_id = world_id;
+        _character_type = character_type;
         WorldStateManager &state_manager = WorldStateManager::instance();
         if (state_manager.has_saved_state(world_id))
         {

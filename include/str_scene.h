@@ -6,9 +6,16 @@ namespace str
     enum class Scene
     {
         START,
+        CHARACTER_SELECT,
         MENU,
         CONTROLS,
         WORLD
+    };
+
+    enum class CharacterType
+    {
+        HERO,
+        SOLDIER
     };
 }
 

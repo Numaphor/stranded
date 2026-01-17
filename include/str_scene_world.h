@@ -33,10 +33,10 @@ namespace str
     class World
     {
     public:
-        World();
+        World(CharacterType character_type = CharacterType::HERO);
         ~World();
 
-        str::Scene execute(bn::fixed_point spawn_location, int world_id = 0);
+        str::Scene execute(bn::fixed_point spawn_location, int world_id = 0, CharacterType character_type = CharacterType::HERO);
 
     private:
         Player *_player;
@@ -50,6 +50,7 @@ namespace str
         PlayerMovement::Direction _last_camera_direction; // Track last direction for smooth direction changes
         int _direction_change_frames;                     // Counter for how many frames we've been changing direction
         int _current_world_id;                            // Track current world
+        CharacterType _character_type;                    // Track selected character type
 
         // Camera deadzone system
         bn::fixed_point _camera_target_pos; // Where the camera wants to be
