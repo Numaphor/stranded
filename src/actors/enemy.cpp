@@ -175,6 +175,7 @@ namespace str
     int Enemy::hp() { return _hp; }
     ENEMY_TYPE Enemy::type() { return _type; }
     bool Enemy::is_ready_for_removal() { return _dead && _death_timer <= 0; }
+    bool Enemy::is_chasing() const { return _state_machine.get_current_state_id() == EnemyStateId::CHASE; }
 
     void Enemy::_update_spearguard_animation()
     {

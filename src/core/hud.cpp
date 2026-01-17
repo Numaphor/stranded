@@ -33,6 +33,8 @@
 #include "bn_sprite_items_temptest.h"
 #include "bn_sprite_items_hud_icons.h"
 #include "bn_sprite_items_energy.h"
+#include "bn_sprite_items_health_slot_3.h"
+#include "bn_sprite_items_alert.h"
 
 namespace str
 {
@@ -99,6 +101,12 @@ namespace str
 
         _energy_sprite = bn::sprite_items::energy.create_sprite(HUD_SOUL_INITIAL_X, HUD_SOUL_INITIAL_Y);
         _configure_hud_sprite(_energy_sprite.value());
+
+        _health_slot_3_sprite = bn::sprite_items::health_slot_3.create_sprite(HUD_SOUL_INITIAL_X, HUD_SOUL_INITIAL_Y);
+        _configure_hud_sprite(_health_slot_3_sprite.value());
+
+        _alert_sprite = bn::sprite_items::alert.create_sprite(HUD_SOUL_INITIAL_X, HUD_SOUL_INITIAL_Y);
+        _configure_hud_sprite(_alert_sprite.value());
 
         // Initial animation (Spawn Full)
         _soul_sprite.set_item(bn::sprite_items::heart_normal_spawn_full);
@@ -189,6 +197,20 @@ namespace str
                 int energy_y = y + HUD_ENERGY_OFFSET_Y;
                 _energy_sprite->set_position(energy_x, energy_y);
             }
+
+            if (_health_slot_3_sprite.has_value())
+            {
+                int hs3_x = x + HUD_HEALTH_SLOT_3_OFFSET_X;
+                int hs3_y = y + HUD_HEALTH_SLOT_3_OFFSET_Y;
+                _health_slot_3_sprite->set_position(hs3_x, hs3_y);
+            }
+
+            if (_alert_sprite.has_value())
+            {
+                int alert_x = x + HUD_ALERT_OFFSET_X;
+                int alert_y = y + HUD_ALERT_OFFSET_Y;
+                _alert_sprite->set_position(alert_x, alert_y);
+            }
         }
     }
 
@@ -203,6 +225,8 @@ namespace str
         _soul_sprite.set_visible(is_visible);
         if (_energy_sprite.has_value())
             _energy_sprite->set_visible(is_visible);
+        if (_health_slot_3_sprite.has_value())
+            _health_slot_3_sprite->set_visible(is_visible);
         _buff_menu_base.set_visible(is_visible);
 
         if (_ammo_sprite.has_value())
@@ -365,6 +389,10 @@ namespace str
             _soul_sprite.set_position(bg_pos.x() + HUD_SOUL_OFFSET_X, bg_pos.y() + HUD_SOUL_OFFSET_Y);
             if (_energy_sprite.has_value())
                 _energy_sprite->set_position(bg_pos.x() + HUD_ENERGY_OFFSET_X, bg_pos.y() + HUD_ENERGY_OFFSET_Y);
+            if (_health_slot_3_sprite.has_value())
+                _health_slot_3_sprite->set_position(bg_pos.x() + HUD_HEALTH_SLOT_3_OFFSET_X, bg_pos.y() + HUD_HEALTH_SLOT_3_OFFSET_Y);
+            if (_alert_sprite.has_value())
+                _alert_sprite->set_position(bg_pos.x() + HUD_ALERT_OFFSET_X, bg_pos.y() + HUD_ALERT_OFFSET_Y);
         }
     }
 
@@ -374,12 +402,24 @@ namespace str
         {
             // Energy has 4 frames (0-3).
             // Max Energy is 3.
-            // Energy 0 -> Frame 0
-            // Energy 1 -> Frame 1
-            // Energy 2 -> Frame 2
-            // Energy 3 -> Frame 3
-            
-             _energy_sprite->set_tiles(bn::sprite_items::energy.tiles_item(), _energy);
+            _energy_sprite->set_tiles(bn::sprite_items::energy.tiles_item(), _energy);
+        }
+
+        if (_health_slot_3_sprite.has_value())
+        {
+            // Health Slot 3 has 2 frames.
+            // Frame 0: Empty
+            // Frame 1: Active (Full) - when HP >= 3
+            int frame = (_hp >= 3) ? 1 : 0;
+            _health_slot_3_sprite->set_tiles(bn::sprite_items::health_slot_3.tiles_item(), frame);
+        }
+
+        if (_alert_sprite.has_value())
+        {
+             // Alert has 2 frames.
+             // Frame 0: Empty
+             // Frame 1: Active
+             _alert_sprite->set_tiles(bn::sprite_items::alert.tiles_item(), _alert_active ? 1 : 0);
         }
 
         if (!_soul_action.has_value())
@@ -666,6 +706,11 @@ namespace str
     void HUD::set_energy(int energy)
     {
         _energy = bn::clamp(energy, 0, HUD_MAX_ENERGY);
+    }
+
+    void HUD::set_alert(bool active)
+    {
+        _alert_active = active;
     }
 
     void HUD::start_buff_menu_hold()

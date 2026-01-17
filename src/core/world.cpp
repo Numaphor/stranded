@@ -201,6 +201,8 @@ namespace str
                 _player_affine_mat.reset();
                 _vfx_affine_mat.reset();
             }
+            
+            bool alert_active = false;
             if (_merchant)
             {
                 bool mwt = _merchant->is_talking();
@@ -213,6 +215,9 @@ namespace str
                 if (str::Hitbox::is_in_merchant_interaction_zone(_player->pos(), _merchant->pos()))
                 {
                     _merchant->set_near_player(1);
+                    if (!_merchant->is_talking() && !_player->listening())
+                        alert_active = true;
+
                     if (bn::keypad::a_pressed() && !mwt && !_player->listening())
                     {
                         _player->set_listening(1);
@@ -265,6 +270,8 @@ namespace str
             for (int i = 0; i < _enemies.size();)
             {
                 Enemy &e = _enemies[i];
+                if (e.is_chasing())
+                    alert_active = true;
                 bool ignore = _player->listening() || _player->get_hp() <= 0;
                 e.update(_player->pos(), *_level, ignore);
                 if (!ignore && str::Collision::check_bb(_player->get_hitbox(), e.get_hitbox()) && !_player->is_state(PlayerMovement::State::ROLLING))
@@ -297,6 +304,9 @@ namespace str
                 else
                     i++;
             }
+            
+            _player->get_hud().set_alert(alert_active);
+
             if (_player->is_reset_required())
             {
                 _player->reset();

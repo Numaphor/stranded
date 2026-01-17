@@ -134,6 +134,12 @@ namespace str
     constexpr int HUD_ENERGY_OFFSET_X = 201; // Energy X offset from healthbar X position
     constexpr int HUD_ENERGY_OFFSET_Y = 160; // Energy Y offset from healthbar Y position
 
+    constexpr int HUD_HEALTH_SLOT_3_OFFSET_X = 241; // Health Slot 3 X offset from healthbar X position (161 + 80)
+    constexpr int HUD_HEALTH_SLOT_3_OFFSET_Y = 160; // Health Slot 3 Y offset from healthbar Y position
+
+    constexpr int HUD_ALERT_OFFSET_X = 161; // Alert X offset from healthbar X position (161 + 120)
+    constexpr int HUD_ALERT_OFFSET_Y = 160; // Alert Y offset from healthbar Y position
+
     constexpr int HUD_WEAPON_ICON_X = 100;
     constexpr int HUD_WEAPON_ICON_Y = 66;
 

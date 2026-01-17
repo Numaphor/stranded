@@ -105,6 +105,9 @@ namespace str
         // Energy display
         void set_energy(int energy);
 
+        // Alert display
+        void set_alert(bool active);
+
         // Buff menu hold activation
         void start_buff_menu_hold();                           // Start hold animation
         void update_buff_menu_hold();                          // Update hold progress and animation
@@ -132,6 +135,8 @@ namespace str
         // Soul indicator
         bn::sprite_ptr _soul_sprite;
         bn::optional<bn::sprite_ptr> _energy_sprite;
+        bn::optional<bn::sprite_ptr> _health_slot_3_sprite;
+        bn::optional<bn::sprite_ptr> _alert_sprite;
         bn::optional<bn::sprite_animate_action<16>> _soul_action;
         bool _soul_positioned;
 
@@ -160,6 +165,7 @@ namespace str
         int _buff_menu_cooldown_timer;                             // Cooldown timer after buff activation
         
         int _energy = HUD_MAX_ENERGY;
+        bool _alert_active = false;
 
         // Private helper methods
         void _configure_hud_sprite(bn::sprite_ptr &sprite);
