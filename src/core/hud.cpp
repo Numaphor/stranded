@@ -663,9 +663,8 @@ namespace str
     {
         if (_buff_menu_state == BUFF_MENU_STATE::OPEN)
         {
-            int new_sel = buff_menu_nav[_selected_buff_option][NAV_UP];
-            if (new_sel != -1)
-                _update_selection(new_sel);
+            int new_sel = (_selected_buff_option - 1 + BUFF_MENU_OPTION_COUNT) % BUFF_MENU_OPTION_COUNT; // Wrap around
+            _update_selection(new_sel);
         }
     }
 
@@ -673,30 +672,19 @@ namespace str
     {
         if (_buff_menu_state == BUFF_MENU_STATE::OPEN)
         {
-            int new_sel = buff_menu_nav[_selected_buff_option][NAV_DOWN];
-            if (new_sel != -1)
-                _update_selection(new_sel);
+            int new_sel = (_selected_buff_option + 1) % BUFF_MENU_OPTION_COUNT; // Wrap around
+            _update_selection(new_sel);
         }
     }
 
     void HUD::navigate_buff_menu_left()
     {
-        if (_buff_menu_state == BUFF_MENU_STATE::OPEN)
-        {
-            int new_sel = buff_menu_nav[_selected_buff_option][NAV_LEFT];
-            if (new_sel != -1)
-                _update_selection(new_sel);
-        }
+        // No left/right navigation in vertical layout
     }
 
     void HUD::navigate_buff_menu_right()
     {
-        if (_buff_menu_state == BUFF_MENU_STATE::OPEN)
-        {
-            int new_sel = buff_menu_nav[_selected_buff_option][NAV_RIGHT];
-            if (new_sel != -1)
-                _update_selection(new_sel);
-        }
+        // No left/right navigation in vertical layout
     }
 
     bool HUD::is_buff_menu_open() const { return _buff_menu_state == BUFF_MENU_STATE::OPEN; }
@@ -789,19 +777,19 @@ namespace str
         }
         else
         {
-            // Open menu - create 2x3 grid of gun icons centered on screen
+            // Open menu - create 2x3 grid above the base icon (like buff menu)
             _gun_menu_open = true;
-            constexpr int GRID_COLS = 3;
-            constexpr int GRID_SPACING = 20;
-            constexpr int BASE_X = -GRID_SPACING; // Center the 3-column grid
-            constexpr int BASE_Y = -10;           // Slightly above center
+            constexpr int HORIZONTAL_SPACING = 20;
+            constexpr int VERTICAL_SPACING = 20;
+            constexpr int BASE_X = -100;           // Same X as buff menu base
+            constexpr int BASE_Y = 66 - VERTICAL_SPACING; // Above buff menu base
 
             for (int i = 0; i < 6; ++i)
             {
-                int col = i % GRID_COLS;
-                int row = i / GRID_COLS;
-                int x = BASE_X + col * GRID_SPACING;
-                int y = BASE_Y + row * GRID_SPACING;
+                int col = i % 2;  // 2 columns
+                int row = i / 2;  // 3 rows
+                int x = BASE_X + col * HORIZONTAL_SPACING;
+                int y = BASE_Y - row * VERTICAL_SPACING; // Stack upward
                 _gun_menu_sprites[i] = bn::sprite_items::icon_gun.create_sprite(x, y, i);
                 _configure_hud_sprite(_gun_menu_sprites[i].value());
                 // Dim non-selected options
@@ -819,25 +807,20 @@ namespace str
             return;
 
         int old_selection = _selected_gun;
-        int new_selection = _selected_gun + delta;
+        int new_selection = _selected_gun;
 
-        // Wrap around in grid (3 columns, 2 rows)
-        if (delta == 1 || delta == -1)
-        {
-            // Left/right navigation - wrap within row
-            int row = _selected_gun / 3;
-            int col = (_selected_gun % 3) + delta;
-            if (col < 0)
-                col = 2;
-            else if (col > 2)
-                col = 0;
-            new_selection = row * 3 + col;
-        }
-        else
-        {
-            // Up/down navigation - wrap between rows
-            new_selection = (_selected_gun + delta + 6) % 6;
-        }
+        // 2x3 grid navigation (2 columns, 3 rows) - free movement
+        int row = _selected_gun / 2;
+        int col = _selected_gun % 2;
+
+        if (delta == 1 && col < 1) // Right within row
+            new_selection = _selected_gun + 1;
+        else if (delta == -1 && col > 0) // Left within row
+            new_selection = _selected_gun - 1;
+        else if (delta == 2 && row < 2) // Down within column
+            new_selection = _selected_gun + 2;
+        else if (delta == -2 && row > 0) // Up within column
+            new_selection = _selected_gun - 2;
 
         if (new_selection != old_selection && new_selection >= 0 && new_selection < 6)
         {

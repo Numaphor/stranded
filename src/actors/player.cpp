@@ -1065,23 +1065,19 @@ namespace str
                 _hud.navigate_buff_menu_up();
             else if (bn::keypad::down_pressed())
                 _hud.navigate_buff_menu_down();
-            else if (bn::keypad::left_pressed())
-                _hud.navigate_buff_menu_left();
-            else if (bn::keypad::right_pressed())
-                _hud.navigate_buff_menu_right();
         }
         // Gun selection menu (L hold to toggle when gun is active)
         if (_hud.is_gun_menu_open())
         {
-            // Navigate gun menu with D-pad
+            // Navigate gun menu with D-pad (2x3 grid)
             if (bn::keypad::up_pressed())
-                _hud.navigate_gun_menu(-3);
+                _hud.navigate_gun_menu(2);     // Up (next row visually)
             else if (bn::keypad::down_pressed())
-                _hud.navigate_gun_menu(3);
+                _hud.navigate_gun_menu(-2);    // Down (previous row visually)
             else if (bn::keypad::left_pressed())
-                _hud.navigate_gun_menu(-1);
+                _hud.navigate_gun_menu(-1);    // Left (previous column)
             else if (bn::keypad::right_pressed())
-                _hud.navigate_gun_menu(1);
+                _hud.navigate_gun_menu(1);     // Right (next column)
             // Select gun with A
             if (bn::keypad::a_pressed())
             {
