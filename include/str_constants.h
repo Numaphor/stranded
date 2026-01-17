@@ -178,12 +178,12 @@ namespace str
     constexpr int HUD_BUFF_MENU_ANIM_FRAMES = 9; // Animation has 9 frames
 
     // 3 options: Heal, Energy, and Power - positioned vertically from bottom to top
-    constexpr int HUD_BUFF_MENU_VERTICAL_SPACING = 24;                      // Vertical spacing between options
-    constexpr int HUD_BUFF_MENU_OPTION_HEAL_X = 0;                          // Heal: top (above Energy)
+    constexpr int HUD_BUFF_MENU_VERTICAL_SPACING = 24; // Vertical spacing between options
+    constexpr int HUD_BUFF_MENU_OPTION_HEAL_X = 0;     // Heal: top (above Energy)
     constexpr int HUD_BUFF_MENU_OPTION_HEAL_Y = -HUD_BUFF_MENU_VERTICAL_SPACING * 3;
-    constexpr int HUD_BUFF_MENU_OPTION_ENERGY_X = 0;                        // Energy: middle (above Power)
+    constexpr int HUD_BUFF_MENU_OPTION_ENERGY_X = 0; // Energy: middle (above Power)
     constexpr int HUD_BUFF_MENU_OPTION_ENERGY_Y = -HUD_BUFF_MENU_VERTICAL_SPACING * 2;
-    constexpr int HUD_BUFF_MENU_OPTION_POWER_X = 0;                         // Power: bottom (above base)
+    constexpr int HUD_BUFF_MENU_OPTION_POWER_X = 0; // Power: bottom (above base)
     constexpr int HUD_BUFF_MENU_OPTION_POWER_Y = -HUD_BUFF_MENU_VERTICAL_SPACING;
 
     // Zoom constants
