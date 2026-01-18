@@ -30,6 +30,16 @@
 
 namespace str
 {
+    /**
+     * ACTOR_PATTERN: Enemy Entity
+     * - MUST inherit from Entity base class
+     * - MUST use State Machine pattern for behavior (EnemyStateMachine)
+     * - MUST use bn::fixed_point for positions
+     * - MUST use Hitbox class for collision detection
+     * - NO direct input handling (AI-driven behavior)
+     * - ALL state changes through EnemyStateMachine
+     * - MANAGES: AI behavior, combat, patrol, health
+     */
     // Forward declarations
     class Player;
     class IdleState;

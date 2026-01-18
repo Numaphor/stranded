@@ -12,6 +12,14 @@
 namespace str
 {
     /**
+     * MANAGER_PATTERN: HUD System
+     * - MUST provide update() method for frame loop
+     * - MUST handle resource cleanup automatically
+     * - NO direct game logic (coordinate between entities)
+     * - MUST use singleton or centralized instance
+     * - MANAGES: Health display, soul animations, buff menu, UI elements
+     */
+    /**
      * @brief Weapon types available to the player
      */
     enum class WEAPON_TYPE

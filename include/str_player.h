@@ -17,6 +17,16 @@
 
 namespace str
 {
+    /**
+     * ACTOR_PATTERN: Player Entity
+     * - MUST inherit from Entity base class
+     * - MUST use State Machine pattern for behavior (PlayerMovement::State)
+     * - MUST use bn::fixed_point for positions
+     * - MUST use Hitbox class for collision detection
+     * - NO direct input handling (use input processors)
+     * - ALL state changes through PlayerMovement state machine
+     * - MANAGES: Health, ammo, combat, movement, companion
+     */
     // PlayerMovement class (moved from fe_player_movement.h)
     class PlayerMovement
     {

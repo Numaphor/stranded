@@ -11,6 +11,14 @@
 
 namespace str
 {
+    /**
+     * MANAGER_PATTERN: Bullet System
+     * - MUST provide update() method for frame loop
+     * - MUST handle resource cleanup automatically
+     * - NO direct game logic (coordinate between entities)
+     * - MUST use singleton or centralized instance
+     * - MANAGES: Bullet spawning, movement, collision, lifecycle
+     */
     // Forward declaration of Enemy class
     class Enemy;
 
