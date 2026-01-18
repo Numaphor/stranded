@@ -70,6 +70,11 @@ namespace str
     constexpr int CONTROLS_LIST_SPACING = 9;
     constexpr int CONTROLS_INSTRUCTIONS_Y_POSITION = 70;
 
+    constexpr int CHARACTER_SELECT_TITLE_Y_POSITION = -60;
+    constexpr int CHARACTER_SELECT_OPTIONS_START_Y = -10;
+    constexpr int CHARACTER_SELECT_OPTIONS_SPACING = 20;
+    constexpr int CHARACTER_SELECT_INSTRUCTIONS_Y_POSITION = 60;
+
     constexpr bn::fixed MAIN_WORLD_SPAWN_X = 50;
     constexpr bn::fixed MAIN_WORLD_SPAWN_Y = 100;
     constexpr bn::fixed FOREST_WORLD_SPAWN_X = 100;
