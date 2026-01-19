@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python scripts/dashboard.py:*)",
+      "Bash(python:*)",
+      "Bash(where:*)",
+      "Bash(claude -p:*)",
+      "Bash(opencode run:*)",
+      "Bash(opencode models:*)"
+    ]
+  }
+}
