@@ -1,6 +1,7 @@
 #include "str_scene_menu.h"
 #include "str_scene_start.h"
 #include "str_scene_controls.h"
+#include "str_scene_character_select.h"
 #include "str_constants.h"
 
 #include "bn_core.h"
@@ -14,6 +15,53 @@
 
 namespace str
 {
+
+    // =========================================================================
+    // CharacterSelect Implementation
+    // =========================================================================
+
+    CharacterSelect::CharacterSelect() : _selected_index(0) {}
+    CharacterSelect::~CharacterSelect() {}
+
+    void CharacterSelect::_update_display()
+    {
+        _text_sprites.clear();
+        bn::sprite_text_generator tg(common::variable_8x8_sprite_font);
+        tg.set_center_alignment();
+        tg.set_bg_priority(0);
+        tg.generate(0, CHARACTER_SELECT_TITLE_Y_POSITION, "SELECT CHARACTER", _text_sprites);
+        const char *opts[] = {"Hero", "Soldier"};
+        for (int i = 0; i < 2; ++i)
+        {
+            bn::string<64> l = (i == _selected_index ? "> " : "  ");
+            l += opts[i];
+            if (i == _selected_index)
+                l += " <";
+            tg.generate(0, CHARACTER_SELECT_OPTIONS_START_Y + i * CHARACTER_SELECT_OPTIONS_SPACING, l, _text_sprites);
+        }
+        tg.generate(0, CHARACTER_SELECT_INSTRUCTIONS_Y_POSITION, "UP/DOWN: Select  A: Confirm  B: Back", _text_sprites);
+    }
+
+    str::Scene CharacterSelect::execute(CharacterType &selected_character)
+    {
+        bn::bg_palettes::set_transparent_color(bn::color(MENU_BG_COLOR_R, MENU_BG_COLOR_G, MENU_BG_COLOR_B));
+        while (1)
+        {
+            bn::core::update();
+            if (bn::keypad::up_pressed())
+                _selected_index = !_selected_index;
+            if (bn::keypad::down_pressed())
+                _selected_index = !_selected_index;
+            _update_display();
+            if (bn::keypad::a_pressed())
+            {
+                selected_character = _selected_index == 0 ? CharacterType::HERO : CharacterType::SOLDIER;
+                return str::Scene::MENU;
+            }
+            if (bn::keypad::b_pressed())
+                return str::Scene::START;
+        }
+    }
 
     // =========================================================================
     // Menu Implementation
@@ -120,7 +168,7 @@ namespace str
                 _selected_index = !_selected_index;
             _update_display();
             if (bn::keypad::a_pressed())
-                return _selected_index ? str::Scene::CONTROLS : str::Scene::MENU;
+                return _selected_index ? str::Scene::CONTROLS : str::Scene::CHARACTER_SELECT;
         }
     }
 
