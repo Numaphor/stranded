@@ -6,12 +6,10 @@
 #include "bn_camera_ptr.h"
 #include "bn_optional.h"
 #include "bn_vector.h"
-#include "bn_regular_bg_ptr.h"
-#include "bn_regular_bg_map_ptr.h"
-#include "bn_regular_bg_tiles_ptr.h"
-#include "bn_bg_palette_ptr.h"
 #include "bn_affine_bg_ptr.h"
-#include "bn_affine_bg_items_sword.h"
+#include "bn_affine_bg_map_ptr.h"
+#include "bn_affine_bg_tiles_ptr.h"
+#include "bn_bg_palette_ptr.h"
 #include "bn_rect_window.h"
 #include "bn_sprite_affine_mat_ptr.h"
 #include "str_constants.h"
@@ -43,7 +41,7 @@ namespace str
         Level *_level;
         bn::vector<Enemy, 16> _enemies;
         Minimap *_minimap;
-        bn::optional<bn::affine_bg_ptr> _sword_bg;
+        // bn::optional<bn::affine_bg_ptr> _sword_bg; // Temporarily disabled for affine main bg
         NPC *_merchant;                                   // Changed to base NPC pointer to allow different types
         PlayerStatusDisplay *_player_status_display;      // Future: Player status display (will be converted to unique_ptr)
         bn::optional<bn::camera_ptr> _camera;             // Camera for positioning
@@ -68,15 +66,15 @@ namespace str
         bn::optional<bn::sprite_affine_mat_ptr> _player_affine_mat; // Separate affine matrix for player (needs its own flip)
         bn::optional<bn::sprite_affine_mat_ptr> _vfx_affine_mat;    // Separate affine matrix for VFX (needs its own flip)
 
-        void _init_world_specific_content(int world_id, bn::camera_ptr &camera, bn::regular_bg_ptr &bg, bn::sprite_text_generator &text_generator);
+        void _init_world_specific_content(int world_id, bn::camera_ptr &camera, bn::affine_bg_ptr &bg, bn::sprite_text_generator &text_generator);
         void _save_current_state();
         void _update_camera_shake();                                // Update screen shake effect
         void trigger_screen_shake(int frames, bn::fixed intensity); // Trigger screen shake
         
         void _handle_zoom();
         void _update_camera(bn::camera_ptr& camera);
-        void _update_enemies(bn::camera_ptr& camera, bn::regular_bg_ptr& bg);
-        void _update_sword_bg(bn::camera_ptr& camera, bn::rect_window& internal_window);
+        void _update_enemies(bn::camera_ptr& camera, bn::affine_bg_ptr& bg);
+        // void _update_sword_bg(bn::camera_ptr& camera, bn::rect_window& internal_window); // Temporarily disabled
         void _apply_zoom_to_sprites(bn::camera_ptr& camera);
     };
 }

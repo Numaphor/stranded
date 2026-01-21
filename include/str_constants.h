@@ -7,8 +7,10 @@
 namespace str
 {
     constexpr int TILE_SIZE = 8;
-    constexpr int MAP_COLUMNS = 320;
-    constexpr int MAP_ROWS = 320;
+    // Max non-big affine map size is 128x128 tiles (1024x1024 pixels)
+    // Big maps don't support scaling properly
+    constexpr int MAP_COLUMNS = 128;
+    constexpr int MAP_ROWS = 128;
     constexpr int MAP_CELLS_COUNT = MAP_COLUMNS * MAP_ROWS;
 
     constexpr int MAP_OFFSET_X = MAP_COLUMNS * 4;

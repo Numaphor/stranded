@@ -6,7 +6,10 @@
       "Bash(where:*)",
       "Bash(claude -p:*)",
       "Bash(opencode run:*)",
-      "Bash(opencode models:*)"
+      "Bash(opencode models:*)",
+      "Bash(make)",
+      "Bash(git stash show:*)",
+      "Bash(git checkout:*)"
     ]
   }
 }

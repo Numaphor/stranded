@@ -1,9 +1,9 @@
 #include "str_level.h"
 #include "str_constants.h"
 
-#include "bn_regular_bg_map_ptr.h"
-#include "bn_regular_bg_map_cell.h"
-#include "bn_regular_bg_map_cell_info.h"
+#include "bn_affine_bg_map_ptr.h"
+#include "bn_affine_bg_map_cell.h"
+#include "bn_affine_bg_map_cell_info.h"
 #include "bn_span.h"
 #include "bn_fixed_point.h"
 
@@ -14,14 +14,14 @@ namespace str
     // Level Implementation
     // =========================================================================
 
-    Level::Level(bn::regular_bg_map_ptr bg)
+    Level::Level(bn::affine_bg_map_ptr bg)
     {
         _bg_map_ptr = bg;
         _floor_tiles = {};
         _zone_tiles.clear();
         _zone_tiles.push_back(COLLISION_ZONE_TILE_INDEX);
         _zone_tiles.push_back(INTERACTION_ZONE_TILE_INDEX);
-        bn::span<const bn::regular_bg_map_cell> cells = bg.cells_ref().value();
+        bn::span<const bn::affine_bg_map_cell> cells = bg.cells_ref().value();
         for (int i = 0; i < 32 && i < cells.size(); ++i)
         {
             if (cells.at(i) != 0)
@@ -49,7 +49,7 @@ namespace str
         _floor_tiles.clear();
         if (_bg_map_ptr.has_value())
         {
-            bn::span<const bn::regular_bg_map_cell> cells = _bg_map_ptr->cells_ref().value();
+            bn::span<const bn::affine_bg_map_cell> cells = _bg_map_ptr->cells_ref().value();
             for (int i = 0; i < 32 && i < cells.size(); ++i)
             {
                 if (cells.at(i) != 0)
@@ -121,7 +121,7 @@ namespace str
             int idx = cy * w + cx;
             if (idx < 0 || idx >= c.size())
                 return 0;
-            int tidx = bn::regular_bg_map_cell_info(c.at(idx)).tile_index();
+            int tidx = bn::affine_bg_map_cell_info(c.at(idx)).tile_index();
             for (int z : _zone_tiles)
                 if (tidx == z && z != 3 && z != 4)
                     return 0;

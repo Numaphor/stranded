@@ -10,9 +10,9 @@
 #include "bn_random.h"
 #include "bn_string_view.h"
 #include "bn_sprite_animate_actions.h"
-#include "bn_regular_bg_ptr.h"
+#include "bn_affine_bg_ptr.h"
 #include "bn_span.h"
-#include "bn_regular_bg_map_cell.h"
+#include "bn_affine_bg_map_cell.h"
 #include "str_constants.h"
 
 #include "str_enemy_type.h"
@@ -121,8 +121,8 @@ namespace str
         bn::fixed_point _target = bn::fixed_point(0, 0);
         bool _target_locked = false;
 
-        bn::regular_bg_ptr _map;
-        bn::span<const bn::regular_bg_map_cell> _map_cells;
+        bn::affine_bg_ptr _map;
+        bn::span<const bn::affine_bg_map_cell> _map_cells;
         Level _level;
 
         bool _will_hit_wall();
@@ -136,7 +136,7 @@ namespace str
         void _update_health_bar_position();
 
     public:
-        Enemy(int x, int y, bn::camera_ptr camera, bn::regular_bg_ptr map, ENEMY_TYPE type, int hp);
+        Enemy(int x, int y, bn::camera_ptr camera, bn::affine_bg_ptr map, ENEMY_TYPE type, int hp);
 
         // Move constructor and assignment operator (needed for EnemyStateMachine)
         Enemy(Enemy &&other) noexcept;

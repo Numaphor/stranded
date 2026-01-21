@@ -4,7 +4,7 @@
 
 #include "bn_fixed_point.h"
 #include "bn_camera_ptr.h"
-#include "bn_regular_bg_map_ptr.h"
+#include "bn_affine_bg_map_ptr.h"
 #include "bn_sprite_builder.h"
 #include "bn_blending.h"
 
@@ -18,7 +18,7 @@ namespace str
     // Minimap Implementation
     // =========================================================================
 
-    Minimap::Minimap(bn::fixed_point pos, bn::regular_bg_map_ptr map, bn::camera_ptr &camera)
+    Minimap::Minimap(bn::fixed_point pos, bn::affine_bg_map_ptr map, bn::camera_ptr &camera)
         : _player_dot(bn::sprite_items::minimap_player.create_sprite(pos.x(), pos.y() + MINIMAP_VERTICAL_OFFSET)),
           _position(bn::fixed_point(pos.x(), pos.y() + MINIMAP_VERTICAL_OFFSET))
     {

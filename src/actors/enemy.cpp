@@ -10,8 +10,8 @@
 #include "bn_sprite_animate_actions.h"
 #include "bn_fixed_point.h"
 #include "bn_camera_ptr.h"
-#include "bn_regular_bg_ptr.h"
-#include "bn_regular_bg_map_ptr.h"
+#include "bn_affine_bg_ptr.h"
+#include "bn_affine_bg_map_ptr.h"
 #include "bn_random.h"
 
 #include "bn_sprite_items_healthbar_enemy.h"
@@ -26,7 +26,7 @@ namespace str
 
     constexpr int HEALTHBAR_Z_ORDER = -1000;
 
-    Enemy::Enemy(int x, int y, bn::camera_ptr camera, bn::regular_bg_ptr map, ENEMY_TYPE type, int hp)
+    Enemy::Enemy(int x, int y, bn::camera_ptr camera, bn::affine_bg_ptr map, ENEMY_TYPE type, int hp)
         : Entity(bn::fixed_point(x, y)), _camera(camera), _type(type), _hp(hp), _max_hp(hp), _map(map), _map_cells(map.map().cells_ref().value())
     {
         bn::sprite_builder builder(bn::sprite_items::spearguard);

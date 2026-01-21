@@ -2,7 +2,7 @@
 
 #include "bn_camera_ptr.h"
 #include "bn_fixed_point.h"
-#include "bn_regular_bg_map_ptr.h"
+#include "bn_affine_bg_map_ptr.h"
 #include "bn_sprite_ptr.h"
 #include "bn_sprite_tiles_ptr.h"
 #include "bn_sprite_palette_ptr.h"
@@ -39,7 +39,7 @@ namespace str {
         bn::vector<EnemyDot, 16> _enemy_dots;
         
     public:
-        Minimap(bn::fixed_point pos, bn::regular_bg_map_ptr map, bn::camera_ptr& camera);
+        Minimap(bn::fixed_point pos, bn::affine_bg_map_ptr map, bn::camera_ptr& camera);
         void update(bn::fixed_point player_pos, bn::fixed_point map_center, const bn::vector<Enemy, 16>& enemies);
         void set_visible(bool visible);
     };

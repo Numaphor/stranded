@@ -14,10 +14,10 @@
 #include "bn_sprite_ptr.h"
 #include "bn_optional.h"
 #include "bn_span.h"
-#include "bn_regular_bg_ptr.h"
-#include "bn_regular_bg_map_ptr.h"
-#include "bn_regular_bg_map_cell.h"
-#include "bn_regular_bg_map_cell_info.h"
+#include "bn_affine_bg_ptr.h"
+#include "bn_affine_bg_map_ptr.h"
+#include "bn_affine_bg_map_cell.h"
+#include "bn_affine_bg_map_cell_info.h"
 #include "bn_random.h"
 #include "bn_camera_ptr.h"
 #include "bn_core.h"
@@ -28,15 +28,14 @@
 #include "bn_bg_palettes.h"
 #include "bn_bg_tiles.h"
 #include "bn_bg_palette_ptr.h"
-#include "bn_regular_bg_map_item.h"
-#include "bn_regular_bg_tiles_ptr.h"
+#include "bn_affine_bg_map_item.h"
+#include "bn_affine_bg_tiles_ptr.h"
 #include "bn_sprite_builder.h"
 #include "bn_sprite_double_size_mode.h"
 #include "bn_sprite_text_generator.h"
 
-#include "bn_regular_bg_tiles_items_tiles.h"
+#include "bn_affine_bg_tiles_items_tiles_affine.h"
 #include "bn_bg_palette_items_palette.h"
-#include "bn_affine_bg_items_sword.h"
 #include "bn_sprite_items_hero.h"
 #include "common_variable_8x8_sprite_font.h"
 
@@ -54,8 +53,8 @@ namespace str
             static const int columns = MAP_COLUMNS;
             static const int rows = MAP_ROWS;
             static const int cells_count = MAP_CELLS_COUNT;
-            BN_DATA_EWRAM static bn::regular_bg_map_cell cells[cells_count];
-            bn::regular_bg_map_item map_item;
+            BN_DATA_EWRAM static bn::affine_bg_map_cell cells[cells_count];
+            bn::affine_bg_map_item map_item;
             int _background_tile;
 
             bg_map(int world_id = 0) : map_item(cells[0], bn::size(columns, rows))
@@ -68,7 +67,7 @@ namespace str
                 
                 for (int i = 0; i < cells_count; ++i)
                 {
-                    cells[i] = bn::regular_bg_map_cell(_background_tile);
+                    cells[i] = bn::affine_bg_map_cell(_background_tile);
                 }
 
                 bn::random random;
@@ -90,7 +89,7 @@ namespace str
                                 int y = base_y + py;
                                 if (x < columns && y < rows)
                                 {
-                                    cells[y * columns + x] = bn::regular_bg_map_cell(2);
+                                    cells[y * columns + x] = bn::affine_bg_map_cell(2);
                                 }
                             }
                         }
@@ -109,7 +108,7 @@ namespace str
                 }
             }
         };
-        BN_DATA_EWRAM bn::regular_bg_map_cell bg_map::cells[bg_map::cells_count];
+        BN_DATA_EWRAM bn::affine_bg_map_cell bg_map::cells[bg_map::cells_count];
     }
 
     // =========================================================================
@@ -119,7 +118,7 @@ namespace str
     World::World() : _player(nullptr),
                      _level(nullptr),
                      _minimap(nullptr),
-                     _sword_bg(bn::nullopt),
+                     // _sword_bg(bn::nullopt), // Temporarily disabled
                      _merchant(nullptr),
                      _player_status_display(nullptr),
                      _camera(bn::nullopt),
@@ -164,10 +163,10 @@ namespace str
         _camera = camera;
 
         bg_map bg_map_obj(world_id);
-        bn::regular_bg_tiles_ptr tiles = bn::regular_bg_tiles_items::tiles.create_tiles();
+        bn::affine_bg_tiles_ptr tiles = bn::affine_bg_tiles_items::tiles_affine.create_tiles();
         bn::bg_palette_ptr palette = bn::bg_palette_items::palette.create_palette();
-        bn::regular_bg_map_ptr bg_map_ptr = bg_map_obj.map_item.create_map(tiles, palette);
-        bn::regular_bg_ptr bg = bn::regular_bg_ptr::create(bg_map_ptr);
+        bn::affine_bg_map_ptr bg_map_ptr = bg_map_obj.map_item.create_map(tiles, palette);
+        bn::affine_bg_ptr bg = bn::affine_bg_ptr::create(bg_map_ptr);
         bg.set_camera(camera);
 
         _level = new Level(bg_map_ptr);
@@ -176,16 +175,17 @@ namespace str
         camera.set_position(spawn_location.x(), spawn_location.y());
         _lookahead_current = bn::fixed_point(0, 0);
 
-        _sword_bg = bn::affine_bg_items::sword.create_bg(0, 0);
-        _sword_bg->set_visible(true);
-        _sword_bg->set_wrapping_enabled(false);
-        _sword_bg->set_camera(camera);
+        // Sword bg temporarily disabled for affine main bg
+        // _sword_bg = bn::affine_bg_items::sword.create_bg(0, 0);
+        // _sword_bg->set_visible(true);
+        // _sword_bg->set_wrapping_enabled(false);
+        // _sword_bg->set_camera(camera);
 
-        bn::window outside_window = bn::window::outside();
-        outside_window.set_show_bg(*_sword_bg, false);
-        bn::rect_window internal_window = bn::rect_window::internal();
-        internal_window.set_show_bg(*_sword_bg, true);
-        internal_window.set_boundaries(-SWORD_HALF_WIDTH, -SWORD_HALF_HEIGHT, SWORD_HALF_WIDTH, SWORD_HALF_HEIGHT);
+        // bn::window outside_window = bn::window::outside();
+        // outside_window.set_show_bg(*_sword_bg, false);
+        // bn::rect_window internal_window = bn::rect_window::internal();
+        // internal_window.set_show_bg(*_sword_bg, true);
+        // internal_window.set_boundaries(-SWORD_HALF_WIDTH, -SWORD_HALF_HEIGHT, SWORD_HALF_WIDTH, SWORD_HALF_HEIGHT);
 
         _minimap = new Minimap(bn::fixed_point(100, -80), bg_map_ptr, camera);
         _player->set_camera(camera);
@@ -296,11 +296,42 @@ namespace str
                 ny = ct.y() - (ctt.y() > 0 ? CAMERA_DEADZONE_Y : -CAMERA_DEADZONE_Y);
             if (_camera)
                 _camera->set_position(bn::clamp(nx, bn::fixed(-MAP_OFFSET_X + 120), bn::fixed(MAP_OFFSET_X - 120)).integer(), bn::clamp(ny, bn::fixed(-MAP_OFFSET_Y + 80), bn::fixed(MAP_OFFSET_Y - 80)).integer());
-            if (_sword_bg)
+            // Sword bg temporarily disabled
+            // if (_sword_bg)
+            // {
+            //     bn::fixed_point sp = {0, 0}, cp2(camera.x(), camera.y()), scp = sp - cp2;
+            //     internal_window.set_boundaries(scp.y() - SWORD_HALF_HEIGHT, scp.x() - SWORD_HALF_WIDTH, scp.y() + SWORD_HALF_HEIGHT, scp.x() + SWORD_HALF_WIDTH);
+            //     _sword_bg->set_priority(_player->pos().y() > sp.y() + 8 ? 2 : 0);
+            // }
+            
+            // Apply zoom to affine background
+            // When zoomed, we need to handle camera and pivot carefully.
+            // The BG position (with camera) and pivot interact during scaling.
+            if (_current_zoom_scale != ZOOM_NORMAL_SCALE)
             {
-                bn::fixed_point sp = {0, 0}, cp2(camera.x(), camera.y()), scp = sp - cp2;
-                internal_window.set_boundaries(scp.y() - SWORD_HALF_HEIGHT, scp.x() - SWORD_HALF_WIDTH, scp.y() + SWORD_HALF_HEIGHT, scp.x() + SWORD_HALF_WIDTH);
-                _sword_bg->set_priority(_player->pos().y() > sp.y() + 8 ? 2 : 0);
+                // Remove camera from BG and manually position it
+                bg.remove_camera();
+                bg.set_pivot_position(0, 0);
+                // Position BG so camera position appears at screen center, scaled
+                if (_camera)
+                {
+                    bn::fixed scaled_camera_x = _camera->x() * _current_zoom_scale;
+                    bn::fixed scaled_camera_y = _camera->y() * _current_zoom_scale;
+                    bg.set_position(-scaled_camera_x.integer(), -scaled_camera_y.integer());
+                }
+                else
+                {
+                    bg.set_position(0, 0);
+                }
+                bg.set_scale(_current_zoom_scale);
+            }
+            else
+            {
+                // Normal view - use camera
+                bg.set_camera(camera);
+                bg.set_pivot_position(0, 0);
+                bg.set_position(0, 0);
+                bg.set_scale(1);
             }
             for (int i = 0; i < _enemies.size();)
             {
@@ -354,20 +385,21 @@ namespace str
                 camera.set_position(0, 0);
                 continue;
             }
-            if (_sword_bg)
-            {
-                if (_current_zoom_scale != ZOOM_NORMAL_SCALE)
-                {
-                    _sword_bg->set_scale(_current_zoom_scale);
-                    bn::fixed_point cp3(camera.x(), camera.y()), off = bn::fixed_point(0, 0) - cp3;
-                    _sword_bg->set_position(cp3 + off * _current_zoom_scale);
-                }
-                else
-                {
-                    _sword_bg->set_scale(1);
-                    _sword_bg->set_position(0, 0);
-                }
-            }
+            // Sword bg zoom temporarily disabled
+            // if (_sword_bg)
+            // {
+            //     if (_current_zoom_scale != ZOOM_NORMAL_SCALE)
+            //     {
+            //         _sword_bg->set_scale(_current_zoom_scale);
+            //         bn::fixed_point cp3(camera.x(), camera.y()), off = bn::fixed_point(0, 0) - cp3;
+            //         _sword_bg->set_position(cp3 + off * _current_zoom_scale);
+            //     }
+            //     else
+            //     {
+            //         _sword_bg->set_scale(1);
+            //         _sword_bg->set_position(0, 0);
+            //     }
+            // }
             if (_zoom_affine_mat)
             {
                 bn::fixed_point cp4(camera.x(), camera.y());
@@ -437,7 +469,7 @@ namespace str
         }
     }
 
-    void World::_init_world_specific_content(int world_id, bn::camera_ptr &camera, bn::regular_bg_ptr &bg, bn::sprite_text_generator &text_generator)
+    void World::_init_world_specific_content(int world_id, bn::camera_ptr &camera, bn::affine_bg_ptr &bg, bn::sprite_text_generator &text_generator)
     {
         _enemies.clear();
         if (_merchant)
