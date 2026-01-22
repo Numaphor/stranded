@@ -6,28 +6,50 @@
 #include "bn_vector.h"
 #include "bn_fixed_point.h"
 #include "bn_optional.h"
-#include "bn_size.h" // Add the size header
+#include "bn_size.h"
 #include "str_constants.h"
 
 namespace str
 {
+    // Forward declaration
+    class ChunkManager;
+    class WorldObject;
+
     class Level
     {
     private:
         bn::vector<int, 32> _floor_tiles;
-        bn::vector<int, 8> _zone_tiles;                   // New vector to store zone tile indices
-        bn::optional<bn::affine_bg_map_ptr> _bg_map_ptr; // Make it optional to allow default construction
+        bn::vector<int, 8> _zone_tiles;                   // Zone tile indices for collision
+        bn::optional<bn::affine_bg_map_ptr> _bg_map_ptr;  // For non-chunked mode
+
+        // Chunk-based collision (for large worlds)
+        const ChunkManager* _chunk_manager;
+        bn::vector<WorldObject*, 8> _world_objects;  // Active world objects (small for now to save IWRAM)
 
         // Hardcoded sword zone area for collision (independent of visual tiles)
         bool is_in_sword_zone(const bn::fixed_point &position) const;
 
         // Merchant zones (independent of visual tiles)
         bn::optional<bn::fixed_point> _merchant_zone_center;
-        bool _merchant_zone_enabled = true; // Allow disabling during conversations
+        bool _merchant_zone_enabled = true;
+
+        // Internal collision check using world coordinates (for chunked mode)
+        [[nodiscard]] bool _is_position_valid_chunked(const bn::fixed_point &position) const;
+
+        // Check collision with world objects
+        [[nodiscard]] bool _collides_with_world_objects(const bn::fixed_point &position) const;
 
     public:
-        Level() = default; // Now this is valid since _bg_map_ptr is optional
+        Level();
         Level(bn::affine_bg_map_ptr bg);
+
+        // Set chunk manager for large world collision
+        void set_chunk_manager(const ChunkManager* chunk_manager);
+
+        // World object collision management
+        void add_world_object(WorldObject* obj);
+        void remove_world_object(WorldObject* obj);
+        void clear_world_objects();
 
         [[nodiscard]] bn::vector<int, 32> floor_tiles();
 

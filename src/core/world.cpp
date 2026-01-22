@@ -8,6 +8,9 @@
 #include "str_world_state.h"
 #include "str_constants.h"
 #include "str_direction_utils.h"
+#include "str_chunk_manager.h"
+#include "str_world_object.h"
+#include "str_world_map_data.h"
 
 #include "bn_fixed.h"
 #include "bn_fixed_point.h"
@@ -48,67 +51,91 @@ namespace str
 
     namespace
     {
-        struct bg_map
+        // View buffer for chunk streaming (128x128 tiles, same as before)
+        struct view_buffer
         {
-            static const int columns = MAP_COLUMNS;
-            static const int rows = MAP_ROWS;
-            static const int cells_count = MAP_CELLS_COUNT;
+            static const int columns = VIEW_BUFFER_TILES;  // 128
+            static const int rows = VIEW_BUFFER_TILES;     // 128
+            static const int cells_count = columns * rows; // 16384
             BN_DATA_EWRAM static bn::affine_bg_map_cell cells[cells_count];
             bn::affine_bg_map_item map_item;
-            int _background_tile;
 
-            bg_map(int world_id = 0) : map_item(cells[0], bn::size(columns, rows))
+            view_buffer() : map_item(cells[0], bn::size(columns, rows))
             {
-                _background_tile = 1;
-                if (world_id == 1)
-                {
-                    _background_tile = 2;
-                }
-                
+                // Initialize with empty tiles - ChunkManager will fill it
                 for (int i = 0; i < cells_count; ++i)
                 {
-                    cells[i] = bn::affine_bg_map_cell(_background_tile);
-                }
-
-                bn::random random;
-                int current_index = 0;
-                while (current_index < cells_count)
-                {
-                    int patch_width = random.get_int(2, 6);
-                    int patch_height = random.get_int(2, 6);
-                    int base_x = current_index % columns;
-                    int base_y = current_index / columns;
-
-                    for (int py = 0; py < patch_height; ++py)
-                    {
-                        for (int px = 0; px < patch_width; ++px)
-                        {
-                            if (random.get_int(100) < 70)
-                            {
-                                int x = base_x + px;
-                                int y = base_y + py;
-                                if (x < columns && y < rows)
-                                {
-                                    cells[y * columns + x] = bn::affine_bg_map_cell(2);
-                                }
-                            }
-                        }
-                    }
-
-                    int gap;
-                    if (random.get_int(100) < 50)
-                    {
-                        gap = random.get_int(1, 17);
-                    }
-                    else
-                    {
-                        gap = random.get_int(64, 129);
-                    }
-                    current_index += gap + (patch_width * patch_height) / 2;
+                    cells[i] = bn::affine_bg_map_cell(1);
                 }
             }
         };
-        BN_DATA_EWRAM bn::affine_bg_map_cell bg_map::cells[bg_map::cells_count];
+        BN_DATA_EWRAM bn::affine_bg_map_cell view_buffer::cells[view_buffer::cells_count];
+
+        // Large world map data stored in EWRAM (256x256 tiles for now - can scale up)
+        constexpr int LARGE_WORLD_SIZE = 256;  // 256x256 tiles = 2048x2048 pixels
+        BN_DATA_EWRAM bn::affine_bg_map_cell large_world_cells[LARGE_WORLD_SIZE * LARGE_WORLD_SIZE];
+
+        // Generate procedural world map
+        void generate_world_map(int world_id)
+        {
+            int background_tile = (world_id == 1) ? 2 : 1;
+
+            // Fill with background
+            for (int i = 0; i < LARGE_WORLD_SIZE * LARGE_WORLD_SIZE; ++i)
+            {
+                large_world_cells[i] = bn::affine_bg_map_cell(background_tile);
+            }
+
+            // Add patches of variation using simple procedural generation
+            bn::random random;
+            random.update();  // Seed with frame count
+
+            int current_index = 0;
+            while (current_index < LARGE_WORLD_SIZE * LARGE_WORLD_SIZE)
+            {
+                int patch_width = random.get_int(2, 8);
+                int patch_height = random.get_int(2, 8);
+                int base_x = current_index % LARGE_WORLD_SIZE;
+                int base_y = current_index / LARGE_WORLD_SIZE;
+
+                for (int py = 0; py < patch_height; ++py)
+                {
+                    for (int px = 0; px < patch_width; ++px)
+                    {
+                        if (random.get_int(100) < 70)
+                        {
+                            int x = base_x + px;
+                            int y = base_y + py;
+                            if (x < LARGE_WORLD_SIZE && y < LARGE_WORLD_SIZE)
+                            {
+                                large_world_cells[y * LARGE_WORLD_SIZE + x] = bn::affine_bg_map_cell(2);
+                            }
+                        }
+                    }
+                }
+
+                int gap;
+                if (random.get_int(100) < 50)
+                {
+                    gap = random.get_int(1, 17);
+                }
+                else
+                {
+                    gap = random.get_int(64, 200);
+                }
+                current_index += gap + (patch_width * patch_height) / 2;
+            }
+        }
+
+        // World map data structure pointing to the large world
+        WorldMapData create_world_map_data()
+        {
+            WorldMapData data;
+            data.cells = large_world_cells;
+            data.width_tiles = LARGE_WORLD_SIZE;
+            data.height_tiles = LARGE_WORLD_SIZE;
+            return data;
+        }
     }
 
     // =========================================================================
@@ -118,13 +145,15 @@ namespace str
     World::World() : _player(nullptr),
                      _level(nullptr),
                      _minimap(nullptr),
-                     // _sword_bg(bn::nullopt), // Temporarily disabled
                      _merchant(nullptr),
                      _player_status_display(nullptr),
                      _camera(bn::nullopt),
                      _last_camera_direction(PlayerMovement::Direction::DOWN),
                      _direction_change_frames(0),
                      _current_world_id(0),
+                     _use_chunked_world(false),
+                     _chunk_manager(nullptr),
+                     _player_world_position(0, 0),
                      _shake_frames(0),
                      _shake_intensity(0),
                      _continuous_fire_frames(0),
@@ -143,6 +172,7 @@ namespace str
 
     World::~World()
     {
+        delete _chunk_manager;
         delete _player;
         delete _level;
         delete _minimap;
@@ -152,6 +182,8 @@ namespace str
     str::Scene str::World::execute(bn::fixed_point spawn_location, int world_id)
     {
         _current_world_id = world_id;
+        _use_chunked_world = true;  // Enable chunk system
+
         WorldStateManager &state_manager = WorldStateManager::instance();
         if (state_manager.has_saved_state(world_id))
         {
@@ -159,21 +191,51 @@ namespace str
             spawn_location = saved_state.player_position;
         }
 
-        bn::camera_ptr camera = bn::camera_ptr::create(0, 0);
-        _camera = camera;
+        // Generate the large world map
+        generate_world_map(world_id);
+        WorldMapData world_map_data = create_world_map_data();
 
-        bg_map bg_map_obj(world_id);
+        // Create view buffer and background
+        view_buffer vb;
         bn::affine_bg_tiles_ptr tiles = bn::affine_bg_tiles_items::tiles_affine.create_tiles();
         bn::bg_palette_ptr palette = bn::bg_palette_items::palette.create_palette();
-        bn::affine_bg_map_ptr bg_map_ptr = bg_map_obj.map_item.create_map(tiles, palette);
+        bn::affine_bg_map_ptr bg_map_ptr = vb.map_item.create_map(tiles, palette);
         bn::affine_bg_ptr bg = bn::affine_bg_ptr::create(bg_map_ptr);
+
+        // Initialize chunk manager
+        if (_chunk_manager)
+        {
+            delete _chunk_manager;
+        }
+        _chunk_manager = new ChunkManager();
+        _chunk_manager->init(world_map_data, view_buffer::cells);
+
+        // Start with simple approach: player and camera in buffer coordinates
+        // World position = player_screen_pos + camera_pos + buffer_offset
+        // Initial: player at (0,0), camera at (0,0), offset = 512
+        constexpr int BUFFER_HALF_SIZE = VIEW_BUFFER_TILES * TILE_SIZE / 2;  // 512 pixels
+        _player_world_position = bn::fixed_point(BUFFER_HALF_SIZE, BUFFER_HALF_SIZE);
+
+        bn::camera_ptr camera = bn::camera_ptr::create(0, 0);
+        _camera = camera;
         bg.set_camera(camera);
 
-        _level = new Level(bg_map_ptr);
-        _player->spawn(spawn_location, camera);
-        _camera_target_pos = spawn_location;
-        camera.set_position(spawn_location.x(), spawn_location.y());
+        // Create level for collision (uses chunk manager)
+        _level = new Level();
+        _level->set_chunk_manager(_chunk_manager);
+
+        // Player spawns at origin
+        _player->spawn(bn::fixed_point(0, 0), camera);
+        _camera_target_pos = bn::fixed_point(0, 0);
         _lookahead_current = bn::fixed_point(0, 0);
+
+        // Force initial chunk loading - run multiple updates to fill visible area
+        // With LOAD_RANGE=5 (11x11=121 chunks) and 8 chunks/frame, need ~15 iterations
+        for (int i = 0; i < 20; ++i)
+        {
+            _chunk_manager->update(_player_world_position);
+        }
+        _chunk_manager->commit_to_vram(bg_map_ptr);
 
         // Sword bg temporarily disabled for affine main bg
         // _sword_bg = bn::affine_bg_items::sword.create_bg(0, 0);
@@ -195,6 +257,13 @@ namespace str
 
         while (true)
         {
+            // Update chunk streaming
+            if (_chunk_manager)
+            {
+                _chunk_manager->update(_player_world_position);
+                _chunk_manager->commit_to_vram(bg_map_ptr);
+            }
+
             bn::core::update();
             if (bn::keypad::select_held() && bn::keypad::a_pressed())
             {
@@ -273,10 +342,21 @@ namespace str
             else
                 _continuous_fire_frames = 0;
             _player->update_z_order();
+
+            // Track player world position for chunk streaming
+            // Player pos() returns position relative to camera (screen position)
+            // So we need: player_screen_pos + camera_pos + buffer_offset
+            constexpr int BUFFER_HALF_SIZE = VIEW_BUFFER_TILES * TILE_SIZE / 2;  // 512 pixels
+            bn::fixed cam_x = _camera ? _camera->x() : bn::fixed(0);
+            bn::fixed cam_y = _camera ? _camera->y() : bn::fixed(0);
+            _player_world_position.set_x(_player->pos().x() + cam_x + BUFFER_HALF_SIZE);
+            _player_world_position.set_y(_player->pos().y() + cam_y + BUFFER_HALF_SIZE);
+
             if (!str::ZoneManager::is_position_valid(_player->pos()))
                 _player->revert_position();
             if (_minimap)
                 _minimap->update(_player->pos(), {0, 0}, _enemies);
+            // Camera follows player (original logic)
             PlayerMovement::Direction fdir = _player->facing_direction();
             bn::fixed_point dl = {0, 0};
             if (fdir == PlayerMovement::Direction::RIGHT)
@@ -288,14 +368,19 @@ namespace str
             else if (fdir == PlayerMovement::Direction::DOWN)
                 dl = {0, CAMERA_LOOKAHEAD_Y};
             _lookahead_current += (dl - _lookahead_current) * CAMERA_LOOKAHEAD_SMOOTHING;
-            bn::fixed_point cp = _camera ? bn::fixed_point(_camera->x(), _camera->y()) : bn::fixed_point(0, 0), ct = _player->pos() + _lookahead_current, ctt = ct - cp;
+            bn::fixed_point cp = _camera ? bn::fixed_point(_camera->x(), _camera->y()) : bn::fixed_point(0, 0);
+            bn::fixed_point ct = _player->pos() + _lookahead_current;
+            bn::fixed_point ctt = ct - cp;
             bn::fixed nx = cp.x(), ny = cp.y();
             if (bn::abs(ctt.x()) > CAMERA_DEADZONE_X)
                 nx = ct.x() - (ctt.x() > 0 ? CAMERA_DEADZONE_X : -CAMERA_DEADZONE_X);
             if (bn::abs(ctt.y()) > CAMERA_DEADZONE_Y)
                 ny = ct.y() - (ctt.y() > 0 ? CAMERA_DEADZONE_Y : -CAMERA_DEADZONE_Y);
             if (_camera)
-                _camera->set_position(bn::clamp(nx, bn::fixed(-MAP_OFFSET_X + 120), bn::fixed(MAP_OFFSET_X - 120)).integer(), bn::clamp(ny, bn::fixed(-MAP_OFFSET_Y + 80), bn::fixed(MAP_OFFSET_Y - 80)).integer());
+                _camera->set_position(
+                    bn::clamp(nx, bn::fixed(-MAP_OFFSET_X + 120), bn::fixed(MAP_OFFSET_X - 120)).integer(),
+                    bn::clamp(ny, bn::fixed(-MAP_OFFSET_Y + 80), bn::fixed(MAP_OFFSET_Y - 80)).integer()
+                );
             // Sword bg temporarily disabled
             // if (_sword_bg)
             // {

@@ -19,14 +19,16 @@
 #include "str_enemy.h"
 #include "str_level.h"
 #include "str_minimap.h"
-#include "str_npc_derived.h" // Include NPC derived classes
+#include "str_npc_derived.h"
 #include "str_hitbox.h"
 #include "str_world_state.h"
 
 namespace str
 {
-    // Forward declaration for future feature
+    // Forward declarations
     class PlayerStatusDisplay;
+    class WorldObject;
+    class ChunkManager;
 
     class World
     {
@@ -41,13 +43,17 @@ namespace str
         Level *_level;
         bn::vector<Enemy, 16> _enemies;
         Minimap *_minimap;
-        // bn::optional<bn::affine_bg_ptr> _sword_bg; // Temporarily disabled for affine main bg
-        NPC *_merchant;                                   // Changed to base NPC pointer to allow different types
-        PlayerStatusDisplay *_player_status_display;      // Future: Player status display (will be converted to unique_ptr)
-        bn::optional<bn::camera_ptr> _camera;             // Camera for positioning
-        PlayerMovement::Direction _last_camera_direction; // Track last direction for smooth direction changes
-        int _direction_change_frames;                     // Counter for how many frames we've been changing direction
-        int _current_world_id;                            // Track current world
+        NPC *_merchant;
+        PlayerStatusDisplay *_player_status_display;
+        bn::optional<bn::camera_ptr> _camera;
+        PlayerMovement::Direction _last_camera_direction;
+        int _direction_change_frames;
+        int _current_world_id;
+
+        // Chunk loading system for large worlds (allocated on demand)
+        bool _use_chunked_world;
+        ChunkManager* _chunk_manager;  // Pointer - only allocated when chunked mode is enabled
+        bn::fixed_point _player_world_position;  // Player position in world coordinates
 
         // Camera deadzone system
         bn::fixed_point _camera_target_pos; // Where the camera wants to be
