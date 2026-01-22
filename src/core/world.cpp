@@ -213,7 +213,6 @@ namespace str
         // Start with simple approach: player and camera in buffer coordinates
         // World position = player_screen_pos + camera_pos + buffer_offset
         // Initial: player at (0,0), camera at (0,0), offset = 512
-        constexpr int BUFFER_HALF_SIZE = VIEW_BUFFER_TILES * TILE_SIZE / 2;  // 512 pixels
         _player_world_position = bn::fixed_point(BUFFER_HALF_SIZE, BUFFER_HALF_SIZE);
 
         bn::camera_ptr camera = bn::camera_ptr::create(0, 0);
@@ -230,8 +229,11 @@ namespace str
         _lookahead_current = bn::fixed_point(0, 0);
 
         // Force initial chunk loading - run multiple updates to fill visible area
-        // With LOAD_RANGE=5 (11x11=121 chunks) and 8 chunks/frame, need ~15 iterations
-        for (int i = 0; i < 20; ++i)
+        // With LOAD_RANGE=2 (5x5=25 chunks) and 25 chunks/frame max, we need 1 frame
+        // But we use 20 iterations to ensure all chunks are loaded and committed
+        // 25 chunks / 25 chunks per frame = 1 frame minimum; 20 provides safety margin
+        constexpr int INITIAL_CHUNK_LOAD_ITERATIONS = 20;
+        for (int i = 0; i < INITIAL_CHUNK_LOAD_ITERATIONS; ++i)
         {
             _chunk_manager->update(_player_world_position);
         }
@@ -346,7 +348,6 @@ namespace str
             // Track player world position for chunk streaming
             // Player pos() returns position relative to camera (screen position)
             // So we need: player_screen_pos + camera_pos + buffer_offset
-            constexpr int BUFFER_HALF_SIZE = VIEW_BUFFER_TILES * TILE_SIZE / 2;  // 512 pixels
             bn::fixed cam_x = _camera ? _camera->x() : bn::fixed(0);
             bn::fixed cam_y = _camera ? _camera->y() : bn::fixed(0);
             _player_world_position.set_x(_player->pos().x() + cam_x + BUFFER_HALF_SIZE);

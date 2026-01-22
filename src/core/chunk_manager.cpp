@@ -125,7 +125,8 @@ namespace str
     void ChunkManager::_determine_needed_chunks(const bn::fixed_point& player_world_pos)
     {
         (void)player_world_pos;
-        // Maintain a 5x5 chunk grid centered on the player (2 chunks in every direction)
+        // Maintain a square chunk grid centered on the player:
+        // LOAD_GRID_SIZE = 2 * LOAD_RANGE + 1, so with LOAD_RANGE = 2 this is a 5x5 grid.
         constexpr int LOAD_RANGE = 2;
         constexpr int LOAD_GRID_SIZE = LOAD_RANGE * 2 + 1;
         constexpr int MAX_CHUNKS_PER_FRAME = LOAD_GRID_SIZE * LOAD_GRID_SIZE;
