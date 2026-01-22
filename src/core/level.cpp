@@ -151,6 +151,8 @@ namespace str
     {
         // TODO: Enable when world objects are properly initialized
         // For now, always return false to avoid potential issues
+        // NOTE: Once enabled, this function should have test coverage to ensure
+        // world object collision detection works correctly with the chunk system
         return false;
 
         /*
