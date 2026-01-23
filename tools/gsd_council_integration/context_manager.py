@@ -21,6 +21,11 @@ from datetime import datetime
 from . import GSD_PATH
 
 
+# Context management constants
+DEFAULT_MAX_CONTEXT_FILES = 5  # Maximum files to include in minimal context
+DEFAULT_MAX_FILE_SIZE = 10000  # Maximum characters per file before truncation
+
+
 @dataclass
 class ProjectState:
     """Represents the current state of a GSD-managed project.
@@ -173,13 +178,17 @@ class GSDContextManager:
     def create_minimal_context(
         self,
         task_description: str,
-        relevant_files: Optional[List[str]] = None
+        relevant_files: Optional[List[str]] = None,
+        max_files: int = DEFAULT_MAX_CONTEXT_FILES,
+        max_file_size: int = DEFAULT_MAX_FILE_SIZE
     ) -> Dict[str, Any]:
         """Create minimal context for a task to optimize quality.
         
         Args:
             task_description: Description of the current task
             relevant_files: List of files relevant to this task
+            max_files: Maximum number of files to include
+            max_file_size: Maximum characters per file before truncation
             
         Returns:
             Minimal context dictionary
@@ -195,14 +204,14 @@ class GSDContextManager:
         
         # Load only relevant file contents
         if relevant_files:
-            for file_path in relevant_files[:5]:  # Limit to 5 files
+            for file_path in relevant_files[:max_files]:
                 full_path = self.project_root / file_path
                 if full_path.exists() and full_path.is_file():
                     try:
                         content = full_path.read_text()
                         # Truncate large files
-                        if len(content) > 10000:
-                            content = content[:10000] + "\n... [truncated]"
+                        if len(content) > max_file_size:
+                            content = content[:max_file_size] + "\n... [truncated]"
                         context["files"][file_path] = content
                     except Exception:
                         pass

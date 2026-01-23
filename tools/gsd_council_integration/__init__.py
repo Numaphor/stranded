@@ -14,8 +14,10 @@ See: https://github.com/glittercowboy/get-shit-done
 
 from pathlib import Path
 
-# Paths to the submodules (relative to tools directory)
-TOOLS_DIR = Path(__file__).parent
+# Paths to the submodules
+# tools/gsd_council_integration/__init__.py -> tools -> repo_root
+INTEGRATION_DIR = Path(__file__).parent
+TOOLS_DIR = INTEGRATION_DIR.parent
 REPO_ROOT = TOOLS_DIR.parent
 GSD_PATH = REPO_ROOT / "get-shit-done"
 LLM_COUNCIL_PATH = REPO_ROOT / "llm_council_skill"

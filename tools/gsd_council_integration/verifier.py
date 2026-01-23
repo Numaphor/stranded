@@ -19,6 +19,18 @@ from . import GSD_PATH
 from .plan_adapter import GSDPlan, GSDTask
 
 
+# Verification constants
+MIN_RESPONSE_LENGTH = 50  # Minimum characters for a valid response
+KEYWORD_MATCH_THRESHOLD = 0.3  # 30% of keywords must match
+STRONG_CONSENSUS_THRESHOLD = 0.6  # 60%+ agreement for strong consensus
+MODERATE_CONSENSUS_THRESHOLD = 0.4  # 40-60% agreement for moderate consensus
+
+
+def _format_ratio(ratio: float) -> str:
+    """Format a ratio as a percentage string."""
+    return f"{ratio:.0%}"
+
+
 class VerificationStatus(Enum):
     """Status of a verification check."""
     PASSED = "passed"
@@ -255,7 +267,7 @@ class GSDVerifier:
             Verification result
         """
         # Check if response addresses the task
-        if not response or len(response.strip()) < 50:
+        if not response or len(response.strip()) < MIN_RESPONSE_LENGTH:
             return VerificationResult(
                 name=f"Task Execution: {task.name}",
                 status=VerificationStatus.FAILED,
@@ -270,19 +282,19 @@ class GSDVerifier:
             matches = sum(1 for kw in done_keywords if kw in response_lower)
             match_ratio = matches / len(done_keywords) if done_keywords else 0
             
-            if match_ratio >= 0.3:  # At least 30% of keywords found
+            if match_ratio >= KEYWORD_MATCH_THRESHOLD:
                 return VerificationResult(
                     name=f"Task Execution: {task.name}",
                     status=VerificationStatus.PASSED,
                     message="Response addresses success criteria",
-                    details={"keyword_match_ratio": f"{match_ratio:.0%}"}
+                    details={"keyword_match_ratio": _format_ratio(match_ratio)}
                 )
             else:
                 return VerificationResult(
                     name=f"Task Execution: {task.name}",
                     status=VerificationStatus.PARTIAL,
                     message="Response may not fully address success criteria",
-                    details={"keyword_match_ratio": f"{match_ratio:.0%}"}
+                    details={"keyword_match_ratio": _format_ratio(match_ratio)}
                 )
         
         return VerificationResult(
@@ -347,35 +359,35 @@ class GSDVerifier:
         agreement_count = first_choices.count(most_common)
         agreement_ratio = agreement_count / len(first_choices)
         
-        if agreement_ratio >= 0.6:  # 60%+ agreement
+        if agreement_ratio >= STRONG_CONSENSUS_THRESHOLD:
             return VerificationResult(
                 name="Council Consensus",
                 status=VerificationStatus.PASSED,
-                message=f"Strong consensus: {agreement_ratio:.0%} agreement on {most_common}",
+                message=f"Strong consensus: {_format_ratio(agreement_ratio)} agreement on {most_common}",
                 details={
                     "top_choice": most_common,
-                    "agreement_ratio": f"{agreement_ratio:.0%}",
+                    "agreement_ratio": _format_ratio(agreement_ratio),
                     "total_votes": len(first_choices)
                 }
             )
-        elif agreement_ratio >= 0.4:  # 40-60% agreement
+        elif agreement_ratio >= MODERATE_CONSENSUS_THRESHOLD:
             return VerificationResult(
                 name="Council Consensus",
                 status=VerificationStatus.PARTIAL,
-                message=f"Moderate consensus: {agreement_ratio:.0%} agreement",
+                message=f"Moderate consensus: {_format_ratio(agreement_ratio)} agreement",
                 details={
                     "top_choice": most_common,
-                    "agreement_ratio": f"{agreement_ratio:.0%}"
+                    "agreement_ratio": _format_ratio(agreement_ratio)
                 }
             )
         else:
             return VerificationResult(
                 name="Council Consensus",
                 status=VerificationStatus.FAILED,
-                message=f"Weak consensus: {agreement_ratio:.0%} agreement",
+                message=f"Weak consensus: {_format_ratio(agreement_ratio)} agreement",
                 details={
                     "top_choice": most_common,
-                    "agreement_ratio": f"{agreement_ratio:.0%}"
+                    "agreement_ratio": _format_ratio(agreement_ratio)
                 }
             )
     
