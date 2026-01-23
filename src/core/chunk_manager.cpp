@@ -436,13 +436,32 @@ namespace str
 
     bn::fixed_point ChunkManager::world_to_buffer(const bn::fixed_point& world_pos) const
     {
-        // Convert world position to buffer position using wrapping
-        bn::fixed buffer_x = bn::fixed(world_pos.x().integer() % (VIEW_BUFFER_TILES * TILE_SIZE));
-        bn::fixed buffer_y = bn::fixed(world_pos.y().integer() % (VIEW_BUFFER_TILES * TILE_SIZE));
+        const bn::fixed buffer_span = bn::fixed(VIEW_BUFFER_TILES * TILE_SIZE);
+        const bn::fixed half_span = buffer_span / 2;
 
-        // Center the buffer coordinates (buffer center is at 0,0)
-        buffer_x -= bn::fixed(VIEW_BUFFER_TILES * TILE_SIZE / 2);
-        buffer_y -= bn::fixed(VIEW_BUFFER_TILES * TILE_SIZE / 2);
+        bn::fixed buffer_x = world_pos.x() - bn::fixed(_buffer_origin_tile_x * TILE_SIZE);
+        bn::fixed buffer_y = world_pos.y() - bn::fixed(_buffer_origin_tile_y * TILE_SIZE);
+
+        while (buffer_x < 0)
+        {
+            buffer_x += buffer_span;
+        }
+        while (buffer_x >= buffer_span)
+        {
+            buffer_x -= buffer_span;
+        }
+
+        while (buffer_y < 0)
+        {
+            buffer_y += buffer_span;
+        }
+        while (buffer_y >= buffer_span)
+        {
+            buffer_y -= buffer_span;
+        }
+
+        buffer_x -= half_span;
+        buffer_y -= half_span;
 
         return bn::fixed_point(buffer_x, buffer_y);
     }

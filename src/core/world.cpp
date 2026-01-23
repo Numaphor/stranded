@@ -168,6 +168,8 @@ namespace str
         builder.set_bg_priority(1);
         _player = new Player(builder.release_build());
         _lookahead_current = bn::fixed_point(0, 0);
+        _skip_camera_update = false;
+        _lookahead_paused = false;
     }
 
     World::~World()
@@ -275,7 +277,10 @@ namespace str
                 return str::Scene::MENU;
             }
             if (bn::keypad::select_pressed() && !bn::keypad::a_held() && !bn::keypad::b_held() && !bn::keypad::l_held() && !bn::keypad::r_held())
+            {
+                _recenter_camera();
                 _zoomed_out = !_zoomed_out;
+            }
             bn::fixed t_sc = _zoomed_out ? ZOOM_OUT_SCALE : ZOOM_NORMAL_SCALE;
             if (_current_zoom_scale != t_sc)
             {
@@ -358,30 +363,54 @@ namespace str
             if (_minimap)
                 _minimap->update(_player->pos(), {0, 0}, _enemies);
             // Camera follows player (original logic)
-            PlayerMovement::Direction fdir = _player->facing_direction();
-            bn::fixed_point dl = {0, 0};
-            if (fdir == PlayerMovement::Direction::RIGHT)
-                dl = {CAMERA_LOOKAHEAD_X, 0};
-            else if (fdir == PlayerMovement::Direction::LEFT)
-                dl = {-CAMERA_LOOKAHEAD_X, 0};
-            else if (fdir == PlayerMovement::Direction::UP)
-                dl = {0, -CAMERA_LOOKAHEAD_Y};
-            else if (fdir == PlayerMovement::Direction::DOWN)
-                dl = {0, CAMERA_LOOKAHEAD_Y};
-            _lookahead_current += (dl - _lookahead_current) * CAMERA_LOOKAHEAD_SMOOTHING;
-            bn::fixed_point cp = _camera ? bn::fixed_point(_camera->x(), _camera->y()) : bn::fixed_point(0, 0);
-            bn::fixed_point ct = _player->pos() + _lookahead_current;
-            bn::fixed_point ctt = ct - cp;
-            bn::fixed nx = cp.x(), ny = cp.y();
-            if (bn::abs(ctt.x()) > CAMERA_DEADZONE_X)
-                nx = ct.x() - (ctt.x() > 0 ? CAMERA_DEADZONE_X : -CAMERA_DEADZONE_X);
-            if (bn::abs(ctt.y()) > CAMERA_DEADZONE_Y)
-                ny = ct.y() - (ctt.y() > 0 ? CAMERA_DEADZONE_Y : -CAMERA_DEADZONE_Y);
-            if (_camera)
-                _camera->set_position(
-                    bn::clamp(nx, bn::fixed(-MAP_OFFSET_X + 120), bn::fixed(MAP_OFFSET_X - 120)).integer(),
-                    bn::clamp(ny, bn::fixed(-MAP_OFFSET_Y + 80), bn::fixed(MAP_OFFSET_Y - 80)).integer()
-                );
+            if (_skip_camera_update)
+            {
+                _skip_camera_update = false;
+            }
+            else
+            {
+                bool player_is_moving = _player && _player->is_moving();
+                if (_lookahead_paused)
+                {
+                    if (player_is_moving)
+                    {
+                        _lookahead_paused = false;
+                    }
+                    else
+                    {
+                        _lookahead_current = bn::fixed_point(0, 0);
+                    }
+                }
+
+                bn::fixed_point dl = {0, 0};
+                if (!_lookahead_paused)
+                {
+                    PlayerMovement::Direction fdir = _player->facing_direction();
+                    if (fdir == PlayerMovement::Direction::RIGHT)
+                        dl = {CAMERA_LOOKAHEAD_X, 0};
+                    else if (fdir == PlayerMovement::Direction::LEFT)
+                        dl = {-CAMERA_LOOKAHEAD_X, 0};
+                    else if (fdir == PlayerMovement::Direction::UP)
+                        dl = {0, -CAMERA_LOOKAHEAD_Y};
+                    else if (fdir == PlayerMovement::Direction::DOWN)
+                        dl = {0, CAMERA_LOOKAHEAD_Y};
+                }
+
+                _lookahead_current += (dl - _lookahead_current) * CAMERA_LOOKAHEAD_SMOOTHING;
+                bn::fixed_point cp = _camera ? bn::fixed_point(_camera->x(), _camera->y()) : bn::fixed_point(0, 0);
+                bn::fixed_point ct = _player->pos() + _lookahead_current;
+                bn::fixed_point ctt = ct - cp;
+                bn::fixed nx = cp.x(), ny = cp.y();
+                if (bn::abs(ctt.x()) > CAMERA_DEADZONE_X)
+                    nx = ct.x() - (ctt.x() > 0 ? CAMERA_DEADZONE_X : -CAMERA_DEADZONE_X);
+                if (bn::abs(ctt.y()) > CAMERA_DEADZONE_Y)
+                    ny = ct.y() - (ctt.y() > 0 ? CAMERA_DEADZONE_Y : -CAMERA_DEADZONE_Y);
+                if (_camera)
+                    _camera->set_position(
+                        bn::clamp(nx, bn::fixed(-MAP_OFFSET_X + 120), bn::fixed(MAP_OFFSET_X - 120)).integer(),
+                        bn::clamp(ny, bn::fixed(-MAP_OFFSET_Y + 80), bn::fixed(MAP_OFFSET_Y - 80)).integer()
+                    );
+            }
             // Sword bg temporarily disabled
             // if (_sword_bg)
             // {
@@ -553,6 +582,25 @@ namespace str
                     _merchant->get_sprite()->remove_affine_mat();
             }
         }
+    }
+
+    void World::_recenter_camera()
+    {
+        if (!_camera)
+        {
+            return;
+        }
+
+        _lookahead_current = bn::fixed_point(0, 0);
+        _skip_camera_update = true;
+        _lookahead_paused = true;
+
+        bn::fixed_point player_pos = _player ? _player->pos() : bn::fixed_point(0, 0);
+        _camera_target_pos = player_pos;
+
+        bn::fixed clamped_x = bn::clamp(player_pos.x(), bn::fixed(-MAP_OFFSET_X + 120), bn::fixed(MAP_OFFSET_X - 120));
+        bn::fixed clamped_y = bn::clamp(player_pos.y(), bn::fixed(-MAP_OFFSET_Y + 80), bn::fixed(MAP_OFFSET_Y - 80));
+        _camera->set_position(clamped_x, clamped_y);
     }
 
     void World::_init_world_specific_content(int world_id, bn::camera_ptr &camera, bn::affine_bg_ptr &bg, bn::sprite_text_generator &text_generator)

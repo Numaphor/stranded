@@ -201,9 +201,12 @@ namespace str
 
         for (auto &pt : pts)
         {
+            // Convert camera-relative point to world coordinates before sampling tiles
+            bn::fixed_point world_pt = _chunk_manager->buffer_to_world(pt);
+
             // Convert world position to tile coordinates
-            int tile_x = pt.x().integer() / TILE_SIZE;
-            int tile_y = pt.y().integer() / TILE_SIZE;
+            int tile_x = world_pt.x().integer() / TILE_SIZE;
+            int tile_y = world_pt.y().integer() / TILE_SIZE;
 
             // Check bounds
             if (tile_x < 0 || tile_x >= WORLD_WIDTH_TILES ||

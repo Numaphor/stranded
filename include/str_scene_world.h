@@ -58,6 +58,8 @@ namespace str
         // Camera deadzone system
         bn::fixed_point _camera_target_pos; // Where the camera wants to be
         bn::fixed_point _lookahead_current; // Smoothed lookahead vector
+        bool _skip_camera_update;           // Skip camera follow for next frame (e.g., after recenter)
+        bool _lookahead_paused;             // Prevent lookahead drift until player moves again
 
         // Screen shake system
         int _shake_frames;           // Number of frames left to shake
@@ -79,6 +81,7 @@ namespace str
         
         void _handle_zoom();
         void _update_camera(bn::camera_ptr& camera);
+        void _recenter_camera();
         void _update_enemies(bn::camera_ptr& camera, bn::affine_bg_ptr& bg);
         // void _update_sword_bg(bn::camera_ptr& camera, bn::rect_window& internal_window); // Temporarily disabled
         void _apply_zoom_to_sprites(bn::camera_ptr& camera);
