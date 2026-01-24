@@ -12,6 +12,7 @@
 #include "str_world_object.h"
 #include "str_world_map_data.h"
 #include "../validation/background/bg_validation.h"
+#include "../validation/integration/system_validation.h"
 
 #include "bn_fixed.h"
 #include "bn_fixed_point.h"
@@ -218,6 +219,9 @@ namespace str
         
         // Initialize background validation
         str::BgValidation::init();
+        
+        // Initialize system integration validation
+        str::SystemValidation::init();
 
         // Start with simple approach: player and camera in buffer coordinates
         // World position = player_screen_pos + camera_pos + buffer_offset
@@ -310,6 +314,15 @@ namespace str
                 int chunks_processed = _chunk_manager->get_chunks_processed_this_frame();
                 int tiles_transferred = _chunk_manager->get_tiles_transferred_this_frame();
                 str::BgValidation::measure_performance_impact(estimated_frame_time_us, chunks_processed, tiles_transferred);
+                
+                // Run system integration validation periodically
+                static int integration_validation_counter = 0;
+                integration_validation_counter++;
+                if (integration_validation_counter >= 300) // Every 5 seconds at 60 FPS
+                {
+                    str::SystemValidation::run_category_tests(str::IntegrationTestCategory::PERFORMANCE);
+                    integration_validation_counter = 0;
+                }
             }
 
             bn::core::update();
@@ -317,6 +330,7 @@ namespace str
             {
                 // End validation session before exiting
                 str::BgValidation::end_validation_session();
+                str::SystemValidation::shutdown();
                 
                 if (_merchant)
                     _merchant->set_is_hidden(true);
@@ -334,6 +348,27 @@ namespace str
             {
                 // Run combined stress test for 5 seconds
                 str::BgValidation::run_stress_test(bg, 3, STRESS_TEST_DURATION_FRAMES);
+            }
+            
+            // System integration validation trigger
+            if (bn::keypad::start_pressed() && bn::keypad::a_held())
+            {
+                // Run comprehensive integration validation
+                str::SystemValidation::run_all_integration_tests();
+            }
+            
+            // Collision system validation trigger
+            if (bn::keypad::start_pressed() && bn::keypad::select_held())
+            {
+                // Run collision compatibility tests
+                str::SystemValidation::run_category_tests(str::IntegrationTestCategory::COLLISION);
+            }
+            
+            // Entity positioning validation trigger
+            if (bn::keypad::start_pressed() && bn::keypad::r_held())
+            {
+                // Run entity positioning tests
+                str::SystemValidation::run_category_tests(str::IntegrationTestCategory::ENTITIES);
             }
             bn::fixed t_sc = _zoomed_out ? ZOOM_OUT_SCALE : ZOOM_NORMAL_SCALE;
             if (_current_zoom_scale != t_sc)
