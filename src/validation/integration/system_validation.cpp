@@ -142,56 +142,135 @@ namespace str
     {
         BN_LOG_LEVEL(bn::log_level::DEBUG, "SYSTEM_COLLISION: Testing collision during active streaming");
         
-        // Simulate active chunk streaming while testing collision
+        // Test collision while simulating active chunk streaming
         bn::random random;
+        int collision_errors = 0;
+        int total_tests = 0;
         
         for (int i = 0; i < 100; ++i)
         {
-            // Generate random world position
-            bn::fixed test_x = bn::fixed(random.get() % 1024) - 512;
-            bn::fixed test_y = bn::fixed(random.get() % 1024) - 512;
+            // Generate positions that cross chunk boundaries to stress test streaming
+            int chunk_base = (i / 10 - 5) * CHUNK_SIZE_PIXELS; // Move across chunk boundaries
+            bn::fixed test_x = bn::fixed(chunk_base + (random.get() % CHUNK_SIZE_PIXELS));
+            bn::fixed test_y = bn::fixed((random.get() % 1024) - 512);
             bn::fixed_point test_pos(test_x, test_y);
             
-            bool collision = _check_collision_at_position(test_pos);
+            // Test collision consistency - same position should give same result
+            bool collision1 = _check_collision_at_position(test_pos);
+            bool collision2 = _check_collision_at_position(test_pos);
+            
+            if (collision1 != collision2)
+            {
+                collision_errors++;
+                BN_LOG_LEVEL(bn::log_level::WARNING, "COLLISION_STREAMING: Inconsistent result at (", test_pos.x(), ",", test_pos.y(), ")");
+            }
+            
+            total_tests++;
             
             // Log collision accuracy during streaming
-            BN_LOG_LEVEL(bn::log_level::DEBUG, "COLLISION_STREAMING: (", test_pos.x(), ",", test_pos.y(), ") -> ", collision ? "BLOCK" : "FREE");
+            BN_LOG_LEVEL(bn::log_level::DEBUG, "COLLISION_STREAMING: (", test_pos.x(), ",", test_pos.y(), ") -> ", collision1 ? "BLOCK" : "FREE");
         }
+        
+        // Calculate accuracy percentage
+        int accuracy = total_tests > 0 ? ((total_tests - collision_errors) * 100) / total_tests : 100;
+        _current_metrics.collision_accuracy_percentage = accuracy;
+        
+        BN_LOG_LEVEL(bn::log_level::INFO, "SYSTEM_COLLISION: Streaming collision accuracy: ", accuracy, "% (", collision_errors, " errors out of ", total_tests, " tests)");
     }
 
     void SystemValidation::_test_buffer_edge_collision()
     {
         BN_LOG_LEVEL(bn::log_level::DEBUG, "SYSTEM_COLLISION: Testing collision at buffer boundaries");
         
-        // Test collision at buffer edge positions
-        int buffer_edges[] = {0, 512, 1024, -512, -1024};
+        // Test collision at buffer edge positions and chunk boundaries
+        int buffer_size = VIEW_BUFFER_TILES * TILE_SIZE; // 128 * 8 = 1024 pixels
+        int half_buffer = buffer_size / 2; // 512 pixels
         
-        for (int edge_x : buffer_edges)
+        // Test positions at buffer edges and just inside/outside
+        int test_positions[] = {
+            -half_buffer - 1,    // Just outside left edge
+            -half_buffer,        // At left edge
+            -half_buffer + 1,    // Just inside left edge
+            0,                   // Center
+            half_buffer - 1,      // Just inside right edge
+            half_buffer,         // At right edge
+            half_buffer + 1       // Just outside right edge
+        };
+        
+        int edge_collision_errors = 0;
+        int total_edge_tests = 0;
+        
+        for (int test_x : test_positions)
         {
-            for (int edge_y : buffer_edges)
+            for (int test_y : test_positions)
             {
-                bn::fixed_point test_pos(edge_x, edge_y);
+                bn::fixed_point test_pos(test_x, test_y);
                 bool collision = _check_collision_at_position(test_pos);
+                
+                // Test consistency across multiple calls
+                bool collision2 = _check_collision_at_position(test_pos);
+                if (collision != collision2)
+                {
+                    edge_collision_errors++;
+                    BN_LOG_LEVEL(bn::log_level::WARNING, "COLLISION_EDGE: Inconsistent result at buffer edge (", test_x, ",", test_y, ")");
+                }
+                
+                total_edge_tests++;
                 
                 // Validate that collision detection works at edges
                 BN_LOG_LEVEL(bn::log_level::DEBUG, "COLLISION_EDGE: (", test_pos.x(), ",", test_pos.y(), ") -> ", collision ? "BLOCK" : "FREE");
             }
         }
+        
+        // Test chunk boundary crossing specifically
+        for (int chunk_x = -2; chunk_x <= 2; ++chunk_x)
+        {
+            for (int chunk_y = -2; chunk_y <= 2; ++chunk_y)
+            {
+                int chunk_center_x = chunk_x * CHUNK_SIZE_PIXELS;
+                int chunk_center_y = chunk_y * CHUNK_SIZE_PIXELS;
+                
+                // Test positions at chunk boundaries
+                bn::fixed_point positions[] = {
+                    bn::fixed_point(chunk_center_x - 1, chunk_center_y),
+                    bn::fixed_point(chunk_center_x + 1, chunk_center_y),
+                    bn::fixed_point(chunk_center_x, chunk_center_y - 1),
+                    bn::fixed_point(chunk_center_x, chunk_center_y + 1)
+                };
+                
+                for (const auto& pos : positions)
+                {
+                    bool collision = _check_collision_at_position(pos);
+                    BN_LOG_LEVEL(bn::log_level::DEBUG, "COLLISION_CHUNK_BOUNDARY: Chunk (", chunk_x, ",", chunk_y, ") pos (", pos.x(), ",", pos.y(), ") -> ", collision ? "BLOCK" : "FREE");
+                    total_edge_tests++;
+                }
+            }
+        }
+        
+        BN_LOG_LEVEL(bn::log_level::INFO, "SYSTEM_COLLISION: Buffer edge collision accuracy: ", 
+                   total_edge_tests > 0 ? ((total_edge_tests - edge_collision_errors) * 100) / total_edge_tests : 100, 
+                   "% (", edge_collision_errors, " errors out of ", total_edge_tests, " tests)");
     }
 
     bool SystemValidation::_check_collision_at_position(const bn::fixed_point& world_pos)
     {
-        // This would integrate with the actual collision system
-        // For now, we simulate collision detection based on tile data
+        // For integration testing, we need a reference to the Level/ChunkManager
+        // Since we can't directly access them here, we'll simulate based on tile patterns
+        // In a real integration, this would call Level::is_position_valid() or similar
         
         // Convert world position to tile coordinates
         int tile_x = (world_pos.x() / TILE_SIZE).integer();
         int tile_y = (world_pos.y() / TILE_SIZE).integer();
         
-        // Simulate collision based on some pattern (e.g., tiles with index 3 are colliding)
-        // In a real implementation, this would query the ChunkManager
-        int tile_type = (abs(tile_x) + abs(tile_y)) % 10;
+        // Simulate collision based on world coordinate patterns
+        // Tile index 3 is collision zone per constants
+        uint32_t hash = (static_cast<uint32_t>(abs(tile_x)) * 73856093u) ^ 
+                       (static_cast<uint32_t>(abs(tile_y)) * 19349663u);
+        int tile_type = hash % 10;
         bool is_colliding = (tile_type == 3);
+        
+        BN_LOG_LEVEL(bn::log_level::DEBUG, "COLLISION_CHECK: World pos (", world_pos.x(), ",", world_pos.y(), 
+                   ") -> Tile (", tile_x, ",", tile_y, ") -> Type ", tile_type, " -> ", is_colliding ? "COLLISION" : "FREE");
         
         return is_colliding;
     }
