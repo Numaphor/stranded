@@ -67,6 +67,11 @@ namespace str
 
         // Check if currently streaming
         [[nodiscard]] bool is_streaming() const { return _is_streaming; }
+        
+        // Get performance data for validation
+        [[nodiscard]] int get_chunks_processed_this_frame() const { return _chunks_processed_this_frame; }
+        [[nodiscard]] int get_tiles_transferred_this_frame() const { return _tiles_transferred_this_frame; }
+        [[nodiscard]] bool was_buffer_recentered_this_frame() const { return _buffer_recentered_this_frame; }
 
     private:
         const WorldMapData* _world_map;
@@ -89,6 +94,11 @@ namespace str
         int _pending_chunk_y;
         int _stream_progress;
         bool _needs_vram_update;
+        
+        // Performance tracking for validation
+        int _chunks_processed_this_frame;
+        int _tiles_transferred_this_frame;
+        bool _buffer_recentered_this_frame;
 
         // Internal methods
         void _determine_needed_chunks(const bn::fixed_point& player_world_pos);

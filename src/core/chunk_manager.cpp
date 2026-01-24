@@ -67,7 +67,10 @@ namespace str
         _pending_chunk_x(0),
         _pending_chunk_y(0),
         _stream_progress(0),
-        _needs_vram_update(false)
+        _needs_vram_update(false),
+        _chunks_processed_this_frame(0),
+        _tiles_transferred_this_frame(0),
+        _buffer_recentered_this_frame(false)
     {
     }
 
@@ -117,6 +120,11 @@ namespace str
         {
             return false;
         }
+
+        // Reset performance tracking for this frame
+        _chunks_processed_this_frame = 0;
+        _tiles_transferred_this_frame = 0;
+        _buffer_recentered_this_frame = false;
 
         // Store old player chunk for tracking
         int old_player_chunk_x = _player_chunk_x;
@@ -197,6 +205,10 @@ namespace str
             // This internally uses DMA transfers aligned with VBlank periods
             bg_map.reload_cells_ref();
             
+            // Estimate tiles transferred based on chunks processed this frame
+            // Each chunk is 8x8 tiles = 64 tiles, but we only transfer modified cells
+            _tiles_transferred_this_frame = _chunks_processed_this_frame * 64; // Estimated
+            
             // Log successful completion
             BN_LOG_LEVEL(bn::log_level::INFO, "CHUNK_DMA: VRAM update completed successfully");
             
@@ -235,6 +247,7 @@ namespace str
 
         bool slot_claimed[VIEW_BUFFER_CHUNKS][VIEW_BUFFER_CHUNKS] = {};
         int chunks_loaded_this_frame = 0;
+        _chunks_processed_this_frame = 0; // Reset counter for this frame
 
         // Process chunks within load range with distance-validated logic
         for (int dy = -LOAD_RANGE; dy <= LOAD_RANGE && chunks_loaded_this_frame < MAX_CHUNKS_PER_FRAME; ++dy)
@@ -289,6 +302,7 @@ namespace str
                     // Log loading with distance information
                     log_load_radius(center_chunk_x, center_chunk_y, chunk_x, chunk_y, distance);
                     _load_chunk_immediately(chunk_x, chunk_y);
+                    _chunks_processed_this_frame++; // Track chunk processing
                     ++chunks_loaded_this_frame;
                 }
                 else if (chunk_loaded && !should_load)
@@ -457,6 +471,9 @@ namespace str
         
         _buffer_origin_tile_x = new_origin_chunk_x * CHUNK_SIZE_TILES;
         _buffer_origin_tile_y = new_origin_chunk_y * CHUNK_SIZE_TILES;
+        
+        // Mark buffer as recentered for validation
+        _buffer_recentered_this_frame = true;
         
         // Log buffer recentering for validation
         log_buffer_recenter(old_origin_x, old_origin_y, _buffer_origin_tile_x, _buffer_origin_tile_y);

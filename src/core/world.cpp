@@ -11,6 +11,7 @@
 #include "str_chunk_manager.h"
 #include "str_world_object.h"
 #include "str_world_map_data.h"
+#include "bg_validation.h"
 
 #include "bn_fixed.h"
 #include "bn_fixed_point.h"
@@ -214,6 +215,9 @@ namespace str
         }
         _chunk_manager = new ChunkManager();
         _chunk_manager->init(world_map_data, view_buffer::cells);
+        
+        // Initialize background validation
+        str::BgValidation::init();
 
         // Start with simple approach: player and camera in buffer coordinates
         // World position = player_screen_pos + camera_pos + buffer_offset
@@ -243,6 +247,9 @@ namespace str
             _chunk_manager->update(_player_world_position);
         }
         _chunk_manager->commit_to_vram(bg_map_ptr);
+        
+        // Start background validation session after initial setup
+        str::BgValidation::start_validation_session();
 
         // Sword bg temporarily disabled for affine main bg
         // _sword_bg = bn::affine_bg_items::sword.create_bg(0, 0);
@@ -267,13 +274,49 @@ namespace str
             // Update chunk streaming
             if (_chunk_manager)
             {
+                // Store previous background position for artifact detection
+                bn::fixed_point previous_bg_pos(bg.x(), bg.y());
+                
                 _chunk_manager->update(_player_world_position);
                 _chunk_manager->commit_to_vram(bg_map_ptr);
+                
+                // Get current camera position for validation
+                bn::fixed_point camera_pos = _camera ? bn::fixed_point(_camera->x(), _camera->y()) : bn::fixed_point(0, 0);
+                bn::fixed_point expected_bg_pos = bn::fixed_point(-camera_pos.x(), -camera_pos.y());
+                
+                // Validate BG register synchronization
+                str::BgValidation::test_bg_register_sync(bg, camera_pos, expected_bg_pos);
+                
+                // Validate affine background compatibility
+                str::BgValidation::validate_affine_compatibility(bg, bg_map_ptr, camera_pos, 
+                                                               bg.scale(), bg.rotation_angle());
+                
+                // Check rendering pipeline compatibility
+                bool dma_in_progress = _chunk_manager->is_streaming();
+                bool vblank_active = false; // We're in main loop, not VBlank
+                str::BgValidation::check_rendering_pipeline(bg, 1, dma_in_progress, vblank_active);
+                
+                // Detect visual artifacts
+                bool buffer_recentered = _chunk_manager->was_buffer_recentered_this_frame();
+                bn::fixed_point current_bg_pos(bg.x(), bg.y());
+                str::BgValidation::detect_visual_artifacts(current_bg_pos, previous_bg_pos, buffer_recentered);
+                
+                // Measure performance impact
+                // Note: In a real implementation, you'd measure actual frame time here
+                // For now, we'll use a reasonable estimate
+                int estimated_frame_time_us = dma_in_progress ? 12000 : 8000; // μs
+                int chunks_processed = _chunk_manager->get_chunks_processed_this_frame();
+                int tiles_transferred = _chunk_manager->get_tiles_transferred_this_frame();
+                bool buffer_recentered = _chunk_manager->was_buffer_recentered_this_frame();
+                str::BgValidation::measure_performance_impact(estimated_frame_time_us, chunks_processed, tiles_transferred);
             }
 
             bn::core::update();
             if (bn::keypad::select_held() && bn::keypad::a_pressed())
             {
+                // End validation session before exiting
+                str::BgValidation::end_validation_session();
+                
                 if (_merchant)
                     _merchant->set_is_hidden(true);
                 _save_current_state();
@@ -283,6 +326,13 @@ namespace str
             {
                 _recenter_camera();
                 _zoomed_out = !_zoomed_out;
+            }
+            
+            // Background validation stress test trigger
+            if (bn::keypad::start_pressed() && bn::keypad::b_held())
+            {
+                // Run combined stress test for 5 seconds
+                str::BgValidation::run_stress_test(bg, 3, STRESS_TEST_DURATION_FRAMES);
             }
             bn::fixed t_sc = _zoomed_out ? ZOOM_OUT_SCALE : ZOOM_NORMAL_SCALE;
             if (_current_zoom_scale != t_sc)
