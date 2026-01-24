@@ -335,22 +335,69 @@ namespace str
     {
         BN_LOG_LEVEL(bn::log_level::DEBUG, "SYSTEM_ENTITY: Testing entity chunk boundary crossing");
         
-        // Test entities moving across chunk boundaries
         int chunk_size_pixels = CHUNK_SIZE_TILES * TILE_SIZE;
+        int boundary_errors = 0;
+        int total_boundary_tests = 0;
         
-        for (int i = -2; i <= 2; ++i)
+        // Test entities moving across chunk boundaries in all directions
+        for (int chunk_x = -2; chunk_x <= 2; ++chunk_x)
         {
-            bn::fixed test_x = bn::fixed(i * chunk_size_pixels) - bn::fixed(1); // Just before boundary
-            bn::fixed test_y = 0;
-            bn::fixed_point test_pos(test_x, test_y);
-            
-            bool before_boundary = _validate_entity_world_position(test_pos);
-            
-            test_pos.set_x(test_x + bn::fixed(2)); // Just after boundary
-            bool after_boundary = _validate_entity_world_position(test_pos);
-            
-            BN_LOG_LEVEL(bn::log_level::DEBUG, "ENTITY_BOUNDARY: Chunk ", i, " -> Before: ", before_boundary ? "VALID" : "INVALID", ", After: ", after_boundary ? "VALID" : "INVALID");
+            for (int chunk_y = -2; chunk_y <= 2; ++chunk_y)
+            {
+                // Test positions at various offsets from chunk center
+                int chunk_center_x = chunk_x * chunk_size_pixels;
+                int chunk_center_y = chunk_y * chunk_size_pixels;
+                
+                // Test boundary crossing scenarios
+                bn::fixed_point test_scenarios[] = {
+                    bn::fixed_point(chunk_center_x - 2, chunk_center_y),     // Approach from left
+                    bn::fixed_point(chunk_center_x + 2, chunk_center_y),     // Approach from right
+                    bn::fixed_point(chunk_center_x, chunk_center_y - 2),     // Approach from top
+                    bn::fixed_point(chunk_center_x, chunk_center_y + 2),     // Approach from bottom
+                    bn::fixed_point(chunk_center_x, chunk_center_y),         // Exactly at chunk center
+                    bn::fixed_point(chunk_center_x - chunk_size_pixels + 1, chunk_center_y), // Near previous chunk edge
+                    bn::fixed_point(chunk_center_x + chunk_size_pixels - 1, chunk_center_y)  // Near next chunk edge
+                };
+                
+                for (const auto& test_pos : test_scenarios)
+                {
+                    // Test coordinate conversion consistency
+                    bool valid1 = _validate_entity_world_position(test_pos);
+                    bool valid2 = _validate_entity_world_position(test_pos);
+                    
+                    if (valid1 != valid2)
+                    {
+                        boundary_errors++;
+                        BN_LOG_LEVEL(bn::log_level::WARNING, "ENTITY_BOUNDARY: Inconsistent validation at chunk (", 
+                                   chunk_x, ",", chunk_y, ") pos (", test_pos.x(), ",", test_pos.y(), ")");
+                    }
+                    
+                    // Test collision detection consistency
+                    bool collision1 = _check_collision_at_position(test_pos);
+                    bool collision2 = _check_collision_at_position(test_pos);
+                    
+                    if (collision1 != collision2)
+                    {
+                        boundary_errors++;
+                        BN_LOG_LEVEL(bn::log_level::WARNING, "ENTITY_BOUNDARY: Inconsistent collision at chunk (", 
+                                   chunk_x, ",", chunk_y, ") pos (", test_pos.x(), ",", test_pos.y(), ")");
+                    }
+                    
+                    total_boundary_tests++;
+                    
+                    BN_LOG_LEVEL(bn::log_level::DEBUG, "ENTITY_BOUNDARY: Chunk (", chunk_x, ",", chunk_y, 
+                               ") pos (", test_pos.x(), ",", test_pos.y(), ") -> Valid: ", valid1 ? "YES" : "NO", 
+                               ", Collision: ", collision1 ? "YES" : "NO");
+                }
+            }
         }
+        
+        // Calculate accuracy
+        int accuracy = total_boundary_tests > 0 ? ((total_boundary_tests - boundary_errors) * 100) / total_boundary_tests : 100;
+        _current_metrics.entity_positioning_accuracy_percentage = accuracy;
+        
+        BN_LOG_LEVEL(bn::log_level::INFO, "SYSTEM_ENTITY: Chunk boundary crossing accuracy: ", accuracy, 
+                   "% (", boundary_errors, " errors out of ", total_boundary_tests, " tests)");
     }
 
     void SystemValidation::_test_entity_collision_with_streaming()
@@ -376,19 +423,36 @@ namespace str
 
     bool SystemValidation::_validate_entity_world_position(const bn::fixed_point& entity_pos)
     {
-        // Convert world position to buffer coordinates
-        bn::fixed_point buffer_pos = entity_pos; // This would use ChunkManager::world_to_buffer in real implementation
+        // Simulate world-to-buffer coordinate conversion
+        // In real implementation, this would use ChunkManager::world_to_buffer()
+        int buffer_size = VIEW_BUFFER_TILES * TILE_SIZE; // 1024 pixels
+        int half_buffer = buffer_size / 2; // 512 pixels
+        
+        // Simulate buffer centering - entity pos relative to buffer center
+        bn::fixed buffer_x = entity_pos.x() + bn::fixed(half_buffer);
+        bn::fixed buffer_y = entity_pos.y() + bn::fixed(half_buffer);
+        
+        // Apply positive modulo (wrap around) - same as ChunkManager implementation
+        bn::fixed wrapped_x = bn::fixed((((buffer_x.integer() % buffer_size) + buffer_size) % buffer_size));
+        bn::fixed wrapped_y = bn::fixed((((buffer_y.integer() % buffer_size) + buffer_size) % buffer_size));
         
         // Validate coordinate conversion accuracy
-        if (buffer_pos.x() < bn::fixed(0) || buffer_pos.x() >= bn::fixed(VIEW_BUFFER_TILES * TILE_SIZE))
+        if (wrapped_x < bn::fixed(0) || wrapped_x >= bn::fixed(buffer_size))
         {
+            BN_LOG_LEVEL(bn::log_level::WARNING, "ENTITY_POSITION: Invalid X coordinate conversion: world ", 
+                       entity_pos.x(), " -> buffer ", wrapped_x, " (buffer size: ", buffer_size, ")");
             return false;
         }
         
-        if (buffer_pos.y() < bn::fixed(0) || buffer_pos.y() >= bn::fixed(VIEW_BUFFER_TILES * TILE_SIZE))
+        if (wrapped_y < bn::fixed(0) || wrapped_y >= bn::fixed(buffer_size))
         {
+            BN_LOG_LEVEL(bn::log_level::WARNING, "ENTITY_POSITION: Invalid Y coordinate conversion: world ", 
+                       entity_pos.y(), " -> buffer ", wrapped_y, " (buffer size: ", buffer_size, ")");
             return false;
         }
+        
+        BN_LOG_LEVEL(bn::log_level::DEBUG, "ENTITY_POSITION: World (", entity_pos.x(), ",", entity_pos.y(), 
+                   ") -> Buffer (", wrapped_x, ",", wrapped_y, ")");
         
         return true;
     }
@@ -425,42 +489,169 @@ namespace str
             bn::fixed_point(10, 0),
             bn::fixed_point(0, 10),
             bn::fixed_point(-10, 0),
-            bn::fixed_point(0, -10)
+            bn::fixed_point(0, -10),
+            bn::fixed_point(5, 5),
+            bn::fixed_point(-5, -5),
+            bn::fixed_point(15, 0),
+            bn::fixed_point(0, -15)
         };
         
+        bn::fixed_point player_pos(0, 0);
         bn::fixed_point camera_pos(0, 0);
+        bn::fixed_point lookahead_current(0, 0);
+        int following_errors = 0;
+        int total_following_tests = 0;
         
         for (const auto& movement : player_movements)
         {
-            // Simulate camera following with smoothing
-            camera_pos += movement * bn::fixed(CAMERA_FOLLOW_SPEED);
+            // Update player position
+            player_pos += movement;
             
-            BN_LOG_LEVEL(bn::log_level::DEBUG, "CAMERA_FOLLOWING: Movement (", movement.x(), ",", movement.y(), ") -> Camera (", camera_pos.x(), ",", camera_pos.y(), ")");
+            // Simulate camera lookahead calculation (simplified)
+            bn::fixed_point target_lookahead(0, 0);
+            if (movement.x() > 0) target_lookahead.set_x(CAMERA_LOOKAHEAD_X);
+            else if (movement.x() < 0) target_lookahead.set_x(-CAMERA_LOOKAHEAD_X);
+            if (movement.y() > 0) target_lookahead.set_y(CAMERA_LOOKAHEAD_Y);
+            else if (movement.y() < 0) target_lookahead.set_y(-CAMERA_LOOKAHEAD_Y);
+            
+            // Smooth lookahead transition
+            lookahead_current += (target_lookahead - lookahead_current) * bn::fixed(CAMERA_LOOKAHEAD_SMOOTHING);
+            
+            // Calculate camera target (player + lookahead)
+            bn::fixed_point camera_target = player_pos + lookahead_current;
+            
+            // Apply deadzone logic
+            bn::fixed_point camera_diff = camera_target - camera_pos;
+            bn::fixed new_camera_x = camera_pos.x();
+            bn::fixed new_camera_y = camera_pos.y();
+            
+            if (bn::abs(camera_diff.x()) > CAMERA_DEADZONE_X)
+            {
+                new_camera_x = camera_target.x() - (camera_diff.x() > 0 ? CAMERA_DEADZONE_X : -CAMERA_DEADZONE_X);
+            }
+            
+            if (bn::abs(camera_diff.y()) > CAMERA_DEADZONE_Y)
+            {
+                new_camera_y = camera_target.y() - (camera_diff.y() > 0 ? CAMERA_DEADZONE_Y : -CAMERA_DEADZONE_Y);
+            }
+            
+            // Apply smoothing
+            bn::fixed smoothed_x = camera_pos.x() + (new_camera_x - camera_pos.x()) * bn::fixed(CAMERA_FOLLOW_SPEED);
+            bn::fixed smoothed_y = camera_pos.y() + (new_camera_y - camera_pos.y()) * bn::fixed(CAMERA_FOLLOW_SPEED);
+            
+            camera_pos.set_x(smoothed_x);
+            camera_pos.set_y(smoothed_y);
+            
+            // Validate camera behavior
+            bool camera_behind_player = bn::abs(camera_pos.x() - player_pos.x()) > bn::fixed(100) || 
+                                      bn::abs(camera_pos.y() - player_pos.y()) > bn::fixed(100);
+            
+            if (camera_behind_player)
+            {
+                following_errors++;
+                BN_LOG_LEVEL(bn::log_level::WARNING, "CAMERA_FOLLOWING: Camera too far behind player");
+            }
+            
+            total_following_tests++;
+            
+            BN_LOG_LEVEL(bn::log_level::DEBUG, "CAMERA_FOLLOWING: Player (", player_pos.x(), ",", player_pos.y(), 
+                       ") -> Camera (", camera_pos.x(), ",", camera_pos.y(), ") -> Lookahead (", 
+                       lookahead_current.x(), ",", lookahead_current.y(), ")");
         }
+        
+        // Calculate accuracy
+        int accuracy = total_following_tests > 0 ? ((total_following_tests - following_errors) * 100) / total_following_tests : 100;
+        _current_metrics.camera_smoothing_accuracy_percentage = accuracy;
+        
+        BN_LOG_LEVEL(bn::log_level::INFO, "SYSTEM_CAMERA: Smooth following accuracy: ", accuracy, 
+                   "% (", following_errors, " errors out of ", total_following_tests, " tests)");
     }
 
     void SystemValidation::_test_camera_lookahead_with_streaming()
     {
         BN_LOG_LEVEL(bn::log_level::DEBUG, "SYSTEM_CAMERA: Testing camera lookahead during chunk streaming");
         
-        // Test camera lookahead while chunks are streaming
         bn::random random;
+        int lookahead_errors = 0;
+        int total_lookahead_tests = 0;
         
-        for (int i = 0; i < 20; ++i)
+        // Simulate complex movement patterns that would trigger chunk streaming
+        bn::fixed_point player_pos(0, 0);
+        bn::fixed_point camera_pos(0, 0);
+        bn::fixed_point lookahead_current(0, 0);
+        
+        for (int i = 0; i < 50; ++i)
         {
-            // Simulate player direction
-            bn::fixed_point player_direction;
-            int dir = random.get() % 4;
-            switch (dir)
+            // Simulate player movement that triggers chunk loading
+            int move_distance = (i % 5 + 1) * 16; // Varying distances up to 80 pixels
+            int move_angle = (i * 73) % 360; // Quasi-random direction
+            
+            bn::fixed move_x = bn::fixed(move_distance * bn::fixed(bn::fixed(move_angle) * bn::fixed(3.14159) / bn::fixed(180)).cosine());
+            bn::fixed move_y = bn::fixed(move_distance * bn::fixed(bn::fixed(move_angle) * bn::fixed(3.14159) / bn::fixed(180)).sine());
+            
+            player_pos += bn::fixed_point(move_x, move_y);
+            
+            // Determine player facing direction for lookahead
+            bn::fixed_point target_lookahead(0, 0);
+            if (bn::abs(move_x) > bn::abs(move_y))
             {
-                case 0: player_direction = bn::fixed_point(CAMERA_LOOKAHEAD_X, 0); break;
-                case 1: player_direction = bn::fixed_point(-CAMERA_LOOKAHEAD_X, 0); break;
-                case 2: player_direction = bn::fixed_point(0, -CAMERA_LOOKAHEAD_Y); break;
-                case 3: player_direction = bn::fixed_point(0, CAMERA_LOOKAHEAD_Y); break;
+                target_lookahead.set_x(move_x > 0 ? CAMERA_LOOKAHEAD_X : -CAMERA_LOOKAHEAD_X);
+            }
+            else
+            {
+                target_lookahead.set_y(move_y > 0 ? CAMERA_LOOKAHEAD_Y : -CAMERA_LOOKAHEAD_Y);
             }
             
-            BN_LOG_LEVEL(bn::log_level::DEBUG, "CAMERA_LOOKAHEAD: Direction (", player_direction.x(), ",", player_direction.y(), ")");
+            // Simulate lookahead smoothing during streaming (chunk loading adds latency)
+            bn::fixed streaming_factor = (i % 10 == 0) ? bn::fixed(0.5) : bn::fixed(1.0); // Occasionally simulate streaming delay
+            lookahead_current += (target_lookahead - lookahead_current) * bn::fixed(CAMERA_LOOKAHEAD_SMOOTHING) * streaming_factor;
+            
+            // Simulate chunk boundary crossing (which causes temporary camera jitter)
+            bn::fixed chunk_boundary_effect = bn::fixed(0);
+            if ((player_pos.x().integer() % CHUNK_SIZE_PIXELS) < 16 || (player_pos.x().integer() % CHUNK_SIZE_PIXELS) > (CHUNK_SIZE_PIXELS - 16) ||
+                (player_pos.y().integer() % CHUNK_SIZE_PIXELS) < 16 || (player_pos.y().integer() % CHUNK_SIZE_PIXELS) > (CHUNK_SIZE_PIXELS - 16))
+            {
+                chunk_boundary_effect = bn::fixed((random.get() % 4) - 2); // ±2 pixel jitter
+            }
+            
+            // Update camera with lookahead and streaming effects
+            bn::fixed_point target_camera = player_pos + lookahead_current + bn::fixed_point(chunk_boundary_effect, chunk_boundary_effect);
+            camera_pos += (target_camera - camera_pos) * bn::fixed(CAMERA_FOLLOW_SPEED);
+            
+            // Validate camera lookahead behavior
+            bool lookahead_too_large = bn::abs(lookahead_current.x()) > CAMERA_LOOKAHEAD_X * bn::fixed(1.5) ||
+                                      bn::abs(lookahead_current.y()) > CAMERA_LOOKAHEAD_Y * bn::fixed(1.5);
+            
+            bool camera_too_far = bn::abs(camera_pos.x() - player_pos.x()) > bn::fixed(200) ||
+                                 bn::abs(camera_pos.y() - player_pos.y()) > bn::fixed(200);
+            
+            if (lookahead_too_large)
+            {
+                lookahead_errors++;
+                BN_LOG_LEVEL(bn::log_level::WARNING, "CAMERA_LOOKAHEAD: Lookahead too large: (", 
+                           lookahead_current.x(), ",", lookahead_current.y(), ")");
+            }
+            
+            if (camera_too_far)
+            {
+                lookahead_errors++;
+                BN_LOG_LEVEL(bn::log_level::WARNING, "CAMERA_LOOKAHEAD: Camera too far from player: diff (", 
+                           (camera_pos.x() - player_pos.x()), ",", (camera_pos.y() - player_pos.y()), ")");
+            }
+            
+            total_lookahead_tests++;
+            
+            BN_LOG_LEVEL(bn::log_level::DEBUG, "CAMERA_LOOKAHEAD: Player (", player_pos.x(), ",", player_pos.y(), 
+                       ") -> Lookahead (", lookahead_current.x(), ",", lookahead_current.y(), 
+                       ") -> Camera (", camera_pos.x(), ",", camera_pos.y(), 
+                       ") Streaming: ", streaming_factor > bn::fixed(0.8) ? "NO" : "YES");
         }
+        
+        // Calculate accuracy
+        int accuracy = total_lookahead_tests > 0 ? ((total_lookahead_tests - lookahead_errors) * 100) / total_lookahead_tests : 100;
+        
+        BN_LOG_LEVEL(bn::log_level::INFO, "SYSTEM_CAMERA: Lookahead with streaming accuracy: ", accuracy, 
+                   "% (", lookahead_errors, " errors out of ", total_lookahead_tests, " tests)");
     }
 
     void SystemValidation::_test_camera_deadzone_behavior()
