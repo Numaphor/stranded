@@ -6,6 +6,7 @@
 #include "../validation/logging/chunk_validation.h"
 #include "../validation/logging/distance_validation.h"
 #include "../validation/dma/dma_validation.h"
+#include "../validation/coords/coord_validation.h"
 #include <climits>
 
 namespace
@@ -97,6 +98,12 @@ namespace str
         
         // Run comprehensive performance testing
         run_comprehensive_performance_tests();
+        
+        // Initialize coordinate validation system
+        str::g_chunk_manager = this;
+        str::validate_coordinate_transformations();
+        str::test_buffer_boundaries();
+        str::test_world_boundaries();
     }
 
     bool ChunkManager::update(const bn::fixed_point& player_world_pos)
@@ -299,6 +306,22 @@ namespace str
         // Log distance-based loading efficiency
         LoadRadiusMetrics metrics = calculate_load_radius_metrics(center_chunk_x, center_chunk_y, LOAD_RANGE);
         log_load_radius_efficiency(metrics);
+        
+        // Run coordinate validation testing periodically
+        static int coord_frame_counter = 0;
+        coord_frame_counter++;
+        if (coord_frame_counter % 600 == 0) // Every 10 seconds at 60 FPS
+        {
+            str::track_origin_consistency();
+            str::validate_precision_consistency();
+            
+            // Test player position conversion
+            bn::fixed_point player_world(player_world_pos);
+            if (!str::test_bidirectional_conversion(player_world))
+            {
+                BN_LOG_LEVEL(bn::log_level::WARN, "COORD_CONV_WARN:", "Player position conversion inconsistency detected");
+            }
+        }
     }
 
     void ChunkManager::_stream_pending_chunk()
@@ -589,6 +612,19 @@ namespace str
 
     bn::fixed_point ChunkManager::world_to_buffer(const bn::fixed_point& world_pos) const
     {
+        // Validate world coordinates are within reasonable bounds
+        int world_x_int = world_pos.x().integer();
+        int world_y_int = world_pos.y().integer();
+        
+        // Enhanced bounds checking with safety margins
+        if (world_x_int < -1000 || world_x_int > str::WORLD_WIDTH_PIXELS + 1000 ||
+            world_y_int < -1000 || world_y_int > str::WORLD_HEIGHT_PIXELS + 1000)
+        {
+            BN_LOG_LEVEL(bn::log_level::ERROR, "COORD_CONV_ERROR:", "World coordinates out of bounds:",
+                         world_x_int, ",", world_y_int, "expected [0,", str::WORLD_WIDTH_PIXELS, 
+                         "] x [0,", str::WORLD_HEIGHT_PIXELS, "]");
+        }
+
         // Convert world position to buffer-relative position
         bn::fixed buffer_x = world_pos.x() - bn::fixed(_buffer_origin_tile_x * TILE_SIZE);
         bn::fixed buffer_y = world_pos.y() - bn::fixed(_buffer_origin_tile_y * TILE_SIZE);
@@ -596,7 +632,15 @@ namespace str
         // Handle wrapping within the buffer (buffer is 0 to VIEW_BUFFER_TILES * TILE_SIZE)
         const bn::fixed buffer_size = bn::fixed(VIEW_BUFFER_TILES * TILE_SIZE);
         
-        // Normalize to [0, buffer_size) range
+        // Validate buffer size calculation
+        if (buffer_size <= bn::fixed(0))
+        {
+            BN_LOG_LEVEL(bn::log_level::ERROR, "COORD_CONV_ERROR:", "Invalid buffer size:", buffer_size);
+            return bn::fixed_point(0, 0);
+        }
+        
+        // Normalize to [0, buffer_size) range using optimized integer arithmetic
+        // Using positive_mod-style logic for bn::fixed
         while (buffer_x < 0)
         {
             buffer_x += buffer_size;
@@ -620,19 +664,62 @@ namespace str
         buffer_x -= half_size;
         buffer_y -= half_size;
 
+        // Final validation that result is within expected buffer range
+        bn::fixed final_abs_x = buffer_x >= bn::fixed(0) ? buffer_x : -buffer_x;
+        bn::fixed final_abs_y = buffer_y >= bn::fixed(0) ? buffer_y : -buffer_y;
+        
+        if (final_abs_x > half_size || final_abs_y > half_size)
+        {
+            BN_LOG_LEVEL(bn::log_level::ERROR, "COORD_CONV_ERROR:", "Buffer coordinates out of range:",
+                         buffer_x, ",", buffer_y, "expected [-", half_size, ",", half_size, "]");
+        }
+
         return bn::fixed_point(buffer_x, buffer_y);
     }
 
     bn::fixed_point ChunkManager::buffer_to_world(const bn::fixed_point& buffer_pos) const
     {
+        // Validate buffer coordinates are within reasonable bounds
+        const bn::fixed max_buffer_coord = bn::fixed(VIEW_BUFFER_TILES * TILE_SIZE / 2);
+        bn::fixed buffer_abs_x = buffer_pos.x() >= bn::fixed(0) ? buffer_pos.x() : -buffer_pos.x();
+        bn::fixed buffer_abs_y = buffer_pos.y() >= bn::fixed(0) ? buffer_pos.y() : -buffer_pos.y();
+        
+        if (buffer_abs_x > max_buffer_coord || buffer_abs_y > max_buffer_coord)
+        {
+            BN_LOG_LEVEL(bn::log_level::WARN, "COORD_CONV_WARN:", "Buffer coordinates near bounds:",
+                         buffer_pos.x(), ",", buffer_pos.y(), "range [-", max_buffer_coord, ",", max_buffer_coord, "]");
+        }
+
         // Convert from centered buffer coordinates to buffer-relative coordinates
         const bn::fixed half_size = bn::fixed(VIEW_BUFFER_TILES * TILE_SIZE / 2);
         bn::fixed buffer_relative_x = buffer_pos.x() + half_size;
         bn::fixed buffer_relative_y = buffer_pos.y() + half_size;
 
+        // Validate buffer-relative coordinates are positive
+        if (buffer_relative_x < bn::fixed(0) || buffer_relative_y < bn::fixed(0) ||
+            buffer_relative_x >= bn::fixed(VIEW_BUFFER_TILES * TILE_SIZE) ||
+            buffer_relative_y >= bn::fixed(VIEW_BUFFER_TILES * TILE_SIZE))
+        {
+            BN_LOG_LEVEL(bn::log_level::ERROR, "COORD_CONV_ERROR:", "Invalid buffer-relative coordinates:",
+                         buffer_relative_x, ",", buffer_relative_y, "expected [0,", 
+                         VIEW_BUFFER_TILES * TILE_SIZE, ")");
+        }
+
         // Add the current buffer origin in world space
         bn::fixed world_x = buffer_relative_x + bn::fixed(_buffer_origin_tile_x * TILE_SIZE);
         bn::fixed world_y = buffer_relative_y + bn::fixed(_buffer_origin_tile_y * TILE_SIZE);
+
+        // Validate final world coordinates are within reasonable range
+        int world_x_int = world_x.integer();
+        int world_y_int = world_y.integer();
+        
+        if (world_x_int < -1000 || world_x_int > str::WORLD_WIDTH_PIXELS + 1000 ||
+            world_y_int < -1000 || world_y_int > str::WORLD_HEIGHT_PIXELS + 1000)
+        {
+            BN_LOG_LEVEL(bn::log_level::ERROR, "COORD_CONV_ERROR:", "Resulting world coordinates out of bounds:",
+                         world_x_int, ",", world_y_int, "expected [0,", str::WORLD_WIDTH_PIXELS, 
+                         "] x [0,", str::WORLD_HEIGHT_PIXELS, "]");
+        }
 
         return bn::fixed_point(world_x, world_y);
     }
