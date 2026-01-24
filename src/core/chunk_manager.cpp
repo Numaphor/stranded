@@ -104,6 +104,11 @@ namespace str
         str::validate_coordinate_transformations();
         str::test_buffer_boundaries();
         str::test_world_boundaries();
+        
+        // Run comprehensive coordinate validation tests
+        str::test_coordinate_wrapping();
+        str::validate_edge_cases();
+        str::stress_test_coordinate_calculations();
     }
 
     bool ChunkManager::update(const bn::fixed_point& player_world_pos)
