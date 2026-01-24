@@ -4,6 +4,7 @@
 #include "bn_log.h"
 #include "bn_log_level.h"
 #include "../validation/logging/chunk_validation.h"
+#include "../validation/logging/distance_validation.h"
 #include <climits>
 
 namespace
@@ -87,6 +88,11 @@ namespace str
         // Run initial performance tests
         run_buffer_edge_case_tests();
         test_wrapping_at_boundaries();
+        
+        // Initialize distance validation testing
+        validate_world_boundary_distances();
+        validate_manhattan_distance_calculations();
+        benchmark_distance_calculations();
     }
 
     bool ChunkManager::update(const bn::fixed_point& player_world_pos)
@@ -95,6 +101,10 @@ namespace str
         {
             return false;
         }
+
+        // Store old player chunk for tracking
+        int old_player_chunk_x = _player_chunk_x;
+        int old_player_chunk_y = _player_chunk_y;
 
         // Calculate player's current chunk
         _player_chunk_x = player_world_pos.x().integer() / CHUNK_SIZE_PIXELS;
@@ -105,6 +115,9 @@ namespace str
         if (_player_chunk_y < 0) _player_chunk_y = 0;
         if (_player_chunk_x >= WORLD_WIDTH_CHUNKS) _player_chunk_x = WORLD_WIDTH_CHUNKS - 1;
         if (_player_chunk_y >= WORLD_HEIGHT_CHUNKS) _player_chunk_y = WORLD_HEIGHT_CHUNKS - 1;
+
+        // Track player chunk changes for distance validation
+        track_player_chunk(old_player_chunk_x, old_player_chunk_y, _player_chunk_x, _player_chunk_y);
 
         // If currently streaming, continue that
         if (_is_streaming)
@@ -151,21 +164,22 @@ namespace str
         const int center_chunk_x = _player_chunk_x;
         const int center_chunk_y = _player_chunk_y;
 
-        const int origin_chunk_x = center_chunk_x - LOAD_RANGE;
-        const int origin_chunk_y = center_chunk_y - LOAD_RANGE;
-        const int max_chunk_x = center_chunk_x + LOAD_RANGE;
-        const int max_chunk_y = center_chunk_y + LOAD_RANGE;
+        // Use distance validation constants for consistency
+        static_assert(LOAD_RANGE == CHUNK_LOAD_DISTANCE, "Load range must match CHUNK_LOAD_DISTANCE");
 
-        // First, clean up chunks that are too far away from the current 9x9 window
+        // First, clean up chunks that are outside the 4-chunk radius using distance validation
         for (int i = _loaded_chunks.size() - 1; i >= 0; --i)
         {
             const int chunk_x = _loaded_chunks[i].chunk_x;
             const int chunk_y = _loaded_chunks[i].chunk_y;
-            if (chunk_x < origin_chunk_x || chunk_x > max_chunk_x ||
-                chunk_y < origin_chunk_y || chunk_y > max_chunk_y)
+            
+            // Use distance validation for precise boundary detection
+            if (!is_chunk_within_load_distance(center_chunk_x, center_chunk_y, chunk_x, chunk_y))
             {
-                // Log chunk unloading
-                log_chunk_state(chunk_x, chunk_y, ChunkState::UNLOADED, "_determine_needed_chunks cleanup");
+                // Log chunk unloading with distance information
+                int distance = calculate_manhattan_distance(center_chunk_x, center_chunk_y, chunk_x, chunk_y);
+                log_load_radius(center_chunk_x, center_chunk_y, chunk_x, chunk_y, distance);
+                log_chunk_state(chunk_x, chunk_y, ChunkState::UNLOADED, "_determine_needed_chunks distance cleanup");
                 _loaded_chunks.erase(_loaded_chunks.begin() + i);
             }
         }
@@ -173,12 +187,24 @@ namespace str
         bool slot_claimed[VIEW_BUFFER_CHUNKS][VIEW_BUFFER_CHUNKS] = {};
         int chunks_loaded_this_frame = 0;
 
+        // Process chunks within load range with distance-validated logic
         for (int dy = -LOAD_RANGE; dy <= LOAD_RANGE && chunks_loaded_this_frame < MAX_CHUNKS_PER_FRAME; ++dy)
         {
             for (int dx = -LOAD_RANGE; dx <= LOAD_RANGE && chunks_loaded_this_frame < MAX_CHUNKS_PER_FRAME; ++dx)
             {
                 int chunk_x = center_chunk_x + dx;
                 int chunk_y = center_chunk_y + dy;
+
+                // Ensure chunk coordinates are within world bounds
+                chunk_x = bn::clamp(chunk_x, 0, WORLD_WIDTH_CHUNKS - 1);
+                chunk_y = bn::clamp(chunk_y, 0, WORLD_HEIGHT_CHUNKS - 1);
+
+                // Calculate distance and validate loading logic
+                int distance = calculate_manhattan_distance(center_chunk_x, center_chunk_y, chunk_x, chunk_y);
+                bool should_load = is_chunk_within_load_distance(center_chunk_x, center_chunk_y, chunk_x, chunk_y);
+                
+                // Validate distance logic consistency
+                validate_distance_logic(center_chunk_x, center_chunk_y, chunk_x, chunk_y);
 
                 const int buffer_slot_x = chunk_to_buffer_slot(chunk_x);
                 const int buffer_slot_y = chunk_to_buffer_slot(chunk_y);
@@ -200,7 +226,8 @@ namespace str
                                     loaded_chunk.buffer_slot_y == buffer_slot_y);
                 }
 
-                if (!chunk_loaded || !slot_matches)
+                // Only load chunks that should be loaded according to distance validation
+                if (should_load && (!chunk_loaded || !slot_matches))
                 {
                     // Validate buffer slot before loading
                     if (!validate_buffer_bounds(buffer_slot_x, buffer_slot_y))
@@ -210,8 +237,18 @@ namespace str
                         continue;
                     }
                     
+                    // Log loading with distance information
+                    log_load_radius(center_chunk_x, center_chunk_y, chunk_x, chunk_y, distance);
                     _load_chunk_immediately(chunk_x, chunk_y);
                     ++chunks_loaded_this_frame;
+                }
+                else if (chunk_loaded && !should_load)
+                {
+                    // This shouldn't happen due to cleanup above, but add safety check
+                    BN_LOG_LEVEL(bn::log_level::WARN, "DISTANCE_CALC:", "Loaded chunk outside radius:",
+                                 chunk_x, ",", chunk_y, "dist:", distance);
+                    log_chunk_state(chunk_x, chunk_y, ChunkState::UNLOADED, "_determine_needed_chunks radius violation");
+                    _loaded_chunks.erase(_loaded_chunks.begin() + loaded_index);
                 }
 
                 slot_claimed[buffer_slot_y][buffer_slot_x] = true;
@@ -222,25 +259,9 @@ namespace str
         // NOTE: Temporarily disabled to verify whether buffer recentering causes visible wave updates.
         // _recenter_buffer_if_needed(center_chunk_x, center_chunk_y, LOAD_RANGE);
 
-        // Assertion disabled - chunk loading is asynchronous and not all chunks may be loaded at once
-        // This is especially true with larger LOAD_RANGE values
-        #if BN_CFG_ASSERT_ENABLED && 0
-        for (int dy = -LOAD_RANGE; dy <= LOAD_RANGE; ++dy)
-        {
-            for (int dx = -LOAD_RANGE; dx <= LOAD_RANGE; ++dx)
-            {
-                int chunk_x = center_chunk_x + dx;
-                int chunk_y = center_chunk_y + dy;
-
-                // Only assert for chunks within the intended load range
-                if (chunk_x >= origin_chunk_x && chunk_x <= max_chunk_x &&
-                    chunk_y >= origin_chunk_y && chunk_y <= max_chunk_y)
-                {
-                    BN_ASSERT(_is_chunk_loaded(chunk_x, chunk_y), "Chunk mask missing entry");
-                }
-            }
-        }
-        #endif
+        // Log distance-based loading efficiency
+        LoadRadiusMetrics metrics = calculate_load_radius_metrics(center_chunk_x, center_chunk_y, LOAD_RANGE);
+        log_load_radius_efficiency(metrics);
     }
 
     void ChunkManager::_stream_pending_chunk()
@@ -384,7 +405,11 @@ namespace str
 
     void ChunkManager::_load_chunk_immediately(int chunk_x, int chunk_y)
     {
-        // Log chunk state transition
+        // Calculate distance for logging and validation
+        int distance = calculate_manhattan_distance(_player_chunk_x, _player_chunk_y, chunk_x, chunk_y);
+        
+        // Log chunk state transition with distance information
+        log_load_radius(_player_chunk_x, _player_chunk_y, chunk_x, chunk_y, distance);
         log_chunk_state(chunk_x, chunk_y, ChunkState::LOADING, "_load_chunk_immediately");
         
         // Load all tiles of this chunk immediately (8x8 = 64 tiles)
