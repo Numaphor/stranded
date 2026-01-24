@@ -3,6 +3,7 @@
 #include "bn_log.h"
 #include "bn_log_level.h"
 #include "bn_fixed.h"
+#include "bn_core.h"
 #include <cmath>
 
 namespace str
@@ -120,6 +121,50 @@ namespace str
             
             if (!validate_buffer_bounds(buffer_tile_x, buffer_tile_y)) {
                 COORD_CONV_WARN("NEGATIVE_WARN: Negative coordinates resulted in out-of-bounds buffer position");
+            }
+        }
+        
+        // Test large coordinate values near maximum
+        COORD_CONV_INFO("Testing large coordinate values near maximum");
+        const bn::fixed_point large_positions[] = {
+            bn::fixed_point(WORLD_WIDTH_PIXELS - 1, WORLD_HEIGHT_PIXELS - 1),
+            bn::fixed_point(WORLD_WIDTH_PIXELS - 100, WORLD_HEIGHT_PIXELS - 100),
+            bn::fixed_point(WORLD_WIDTH_PIXELS - 1000, WORLD_HEIGHT_PIXELS - 1000),
+            bn::fixed_point(WORLD_WIDTH_PIXELS / 2, WORLD_HEIGHT_PIXELS / 2)
+        };
+        
+        for (const auto& pos : large_positions) {
+            if (test_bidirectional_conversion(pos)) {
+                COORD_CONV_DEBUG("LARGE_POS_OK:", pos.x(), ",", pos.y());
+            } else {
+                COORD_CONV_ERROR("LARGE_POS_FAIL:", pos.x(), ",", pos.y());
+            }
+        }
+        
+        // Test coordinate precision for bn::fixed vs integer calculations
+        COORD_CONV_INFO("Testing coordinate precision consistency");
+        const bn::fixed_point precision_tests[] = {
+            bn::fixed_point(100.5, 200.75),
+            bn::fixed_point(1024.25, 2048.5),
+            bn::fixed_point(4096.125, 4096.875),
+            bn::fixed_point(8191.999, 8191.999)
+        };
+        
+        for (const auto& pos : precision_tests) {
+            if (g_chunk_manager) {
+                bn::fixed_point buffer_pos = g_chunk_manager->world_to_buffer(pos);
+                bn::fixed_point back_to_world = g_chunk_manager->buffer_to_world(buffer_pos);
+                
+                bn::fixed diff_x = back_to_world.x() - pos.x();
+                bn::fixed diff_y = back_to_world.y() - pos.y();
+                
+                COORD_CONV_DEBUG("PRECISION_TEST:", pos.x(), ",", pos.y(),
+                              "-> diff:", diff_x, ",", diff_y);
+                
+                // Check for excessive precision loss
+                if (std::abs(diff_x.data()) > 50 || std::abs(diff_y.data()) > 50) {
+                    COORD_CONV_WARN("PRECISION_LOSS: Significant precision loss detected");
+                }
             }
         }
     }
@@ -275,7 +320,7 @@ namespace str
         
         // Rapid movement across buffer boundaries simulation
         int stress_errors = 0;
-        int stress_tests = 100;
+        int stress_tests = 500; // Increased test count
         
         for (int i = 0; i < stress_tests; ++i) {
             // Generate pseudo-random test position
@@ -303,13 +348,91 @@ namespace str
         
         // Continuous operation at world edges
         COORD_CONV_INFO("Testing continuous operation at world edges");
-        for (int edge_test = 0; edge_test < 10; ++edge_test) {
+        for (int edge_test = 0; edge_test < 20; ++edge_test) {
             bn::fixed_point edge_pos(WORLD_WIDTH_PIXELS - 1 - edge_test, WORLD_HEIGHT_PIXELS - 1 - edge_test);
             
             if (g_chunk_manager && test_bidirectional_conversion(edge_pos)) {
                 COORD_CONV_DEBUG("EDGE_CONTINUOUS: Position", edge_pos.x(), ",", edge_pos.y(), "stable");
+            } else {
+                COORD_CONV_ERROR("EDGE_CONTINUOUS: Position", edge_pos.x(), ",", edge_pos.y(), "unstable");
             }
         }
+        
+        // Performance impact measurement of coordinate overhead
+        COORD_CONV_INFO("Measuring coordinate calculation overhead");
+        int performance_test_count = 1000;
+        int start_time = bn::core::current_frame(); // Use frame counter for timing
+        
+        for (int i = 0; i < performance_test_count; ++i) {
+            int test_x = (i * 31) % WORLD_WIDTH_PIXELS;
+            int test_y = (i * 47) % WORLD_HEIGHT_PIXELS;
+            bn::fixed_point test_pos(test_x, test_y);
+            
+            if (g_chunk_manager) {
+                bn::fixed_point buffer_pos = g_chunk_manager->world_to_buffer(test_pos);
+                bn::fixed_point back_to_world = g_chunk_manager->buffer_to_world(buffer_pos);
+                // Force calculation to not be optimized away
+                volatile int dummy = buffer_pos.x().integer() + buffer_pos.y().integer();
+                (void)dummy;
+            }
+        }
+        
+        int end_time = bn::core::current_frame();
+        int frames_elapsed = end_time - start_time;
+        
+        COORD_CONV_INFO("PERF_OVERHEAD:", performance_test_count, "conversions took", 
+                     frames_elapsed, "frames (~", frames_elapsed * 16.67, "ms at 60fps)");
+        
+        // Test systematic edge case matrix
+        COORD_CONV_INFO("Running systematic edge case matrix");
+        int edge_matrix_size = 32;
+        int matrix_errors = 0;
+        
+        for (int x = 0; x < edge_matrix_size; ++x) {
+            for (int y = 0; y < edge_matrix_size; ++y) {
+                // Test positions at key boundaries
+                int test_x = (x * WORLD_WIDTH_PIXELS) / edge_matrix_size;
+                int test_y = (y * WORLD_HEIGHT_PIXELS) / edge_matrix_size;
+                
+                // Add some offset to test edge conditions
+                test_x = (test_x + x) % WORLD_WIDTH_PIXELS;
+                test_y = (test_y + y) % WORLD_HEIGHT_PIXELS;
+                
+                bn::fixed_point test_pos(test_x, test_y);
+                
+                if (!test_bidirectional_conversion(test_pos)) {
+                    matrix_errors++;
+                }
+            }
+        }
+        
+        COORD_CONV_INFO("EDGE_MATRIX:", (edge_matrix_size * edge_matrix_size - matrix_errors), "/", 
+                     (edge_matrix_size * edge_matrix_size), "edge cases passed");
+        
+        // Rapid movement pattern simulation
+        COORD_CONV_INFO("Simulating rapid movement patterns");
+        const bn::fixed_point movement_patterns[] = {
+            bn::fixed_point(100, 100),    // Start position
+            bn::fixed_point(500, 100),    // Horizontal movement
+            bn::fixed_point(500, 500),    // Vertical movement
+            bn::fixed_point(100, 500),    // Diagonal movement
+            bn::fixed_point(100, 100),    // Return to start
+            bn::fixed_point(8000, 8000),  // Far corner
+            bn::fixed_point(100, 8000),   // Edge to edge
+            bn::fixed_point(8000, 100),   // Opposite edge
+            bn::fixed_point(4000, 4000)   // Center position
+        };
+        
+        int movement_errors = 0;
+        for (int i = 0; i < 9; ++i) {
+            if (!test_bidirectional_conversion(movement_patterns[i])) {
+                movement_errors++;
+                COORD_CONV_ERROR("MOVEMENT_FAIL: Pattern", i, "at", 
+                              movement_patterns[i].x(), ",", movement_patterns[i].y());
+            }
+        }
+        
+        COORD_CONV_INFO("MOVEMENT_PATTERNS:", (9 - movement_errors), "/9 passed");
         
         COORD_CONV_INFO("Stress testing completed");
     }
