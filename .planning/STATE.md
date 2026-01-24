@@ -16,7 +16,7 @@ Validate and instrument the existing chunk streaming foundation to ensure stable
 ## Current Position
 
 **Active Phase:** Phase 1 - Foundation Validation  
-**Plan:** 01-04 (Coordinate Conversion Validation)  
+**Plan:** 01-06 (System Integration Validation)  
 **Status:** Plan Complete  
 
 **Progress Bar:** `[██████████] 100%`
@@ -26,6 +26,7 @@ Validate and instrument the existing chunk streaming foundation to ensure stable
 2. ✅ DMA transfers reliably update VRAM during VBlank with 64 tiles/frame bandwidth limit  
 3. ✅ World-to-buffer coordinate conversion accurately handles wrapping for all player positions
 4. ✅ Background scrolling integrates smoothly with Butano affine background system
+5. ✅ Comprehensive background validation framework implemented with real-time monitoring
 5. ✅ All existing collision detection and entity positioning remain fully functional
 6. ✅ Distance-based loading validated with 4-chunk radius optimization
 7. ✅ Performance testing confirms <5% frame time impact with integer arithmetic
@@ -66,6 +67,11 @@ Validate and instrument the existing chunk streaming foundation to ensure stable
 - **Buffer wrapping arithmetic:** Robust positive_mod implementation with overflow protection
 - **Coordinate precision validation:** bn::fixed vs integer consistency with tolerance checking
 - **Performance impact measurement:** Frame-based timing for GBA-appropriate overhead analysis
+- **Integration testing framework:** System-wide validation with baseline performance metrics for regression testing
+- **Collision system compatibility:** 100% accuracy validation during active chunk streaming with boundary testing
+- **Entity positioning validation:** Coordinate accuracy testing across chunk boundaries with buffer conversion
+- **Camera system integration:** Smooth following validation with lookahead and deadzone behavior testing
+- **Automated validation triggers:** User-triggered testing via controller combinations for manual validation
 
 ### Technical Architecture
 - **Framework:** Butano C++ Framework 21.0.0
@@ -91,13 +97,18 @@ Phase 1 Foundation Validation complete with comprehensive distance-based loading
 ### Blockers
 None identified. Foundation validation system with distance tracking and DMA monitoring provides comprehensive monitoring for next phase.
 
+### Recent Completions
+**System Integration Validation (01-06):** Comprehensive integration validation framework with collision compatibility testing, entity positioning accuracy validation, camera system integration testing, and baseline performance metrics for regression detection. All validation integrated into world main loop with user-triggerable testing capabilities. Foundation validation complete with all systems verified for chunk streaming compatibility.
+
+**Background Validation (01-05):** Complete validation framework with real-time BG register sync, affine compatibility testing, rendering pipeline validation, visual artifact detection, performance impact measurement, and stress testing capabilities. Integrated with World main loop and ChunkManager performance tracking.
+
 ### Next Steps
 1. Begin Phase 2 - Predictive Buffer Management implementation
-2. Use distance validation logging to debug predictive algorithm performance
-3. Leverage DMA performance metrics and load radius tracking for optimization guidance
-4. Implement predictive buffer management using validated 4-chunk radius system
-5. Utilize established DMA validation framework for predictive optimization testing
-6. Use coordinate validation framework for predictive movement calculation verification
+2. Use comprehensive integration validation to monitor predictive algorithm performance
+3. Leverage baseline performance metrics for regression detection during predictive optimization
+4. Implement predictive buffer management using validated 4-chunk radius system with integration validation monitoring
+5. Utilize established validation frameworks for predictive optimization testing and collision compatibility verification
+6. Use camera integration validation to ensure smooth player experience during predictive buffering
 
 ### Files Referenced
 - `include/str_chunk_manager.h` - Core chunk management interface
@@ -106,6 +117,8 @@ None identified. Foundation validation system with distance tracking and DMA mon
 - `src/scene/world.cpp` - World scene using chunk system
 - `src/validation/coords/coord_validation.h` - Coordinate validation interface
 - `src/validation/coords/coord_validation.cpp` - Comprehensive coordinate validation
+- `src/validation/integration/system_validation.h` - Integration validation interface and test categories
+- `src/validation/integration/system_validation.cpp` - Comprehensive integration testing implementation
 
 ---
 *State initialized: 2026-01-24*  
