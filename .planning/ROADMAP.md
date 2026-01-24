@@ -28,6 +28,16 @@ This roadmap transforms Stranded's chunk streaming system from one with visible 
 
 **Requirements:** STREAM-01, STREAM-02, STREAM-03, STREAM-04, STREAM-05, STREAM-06, STREAM-07, STREAM-08, STREAM-09, STREAM-10, STREAM-11, STREAM-12, STREAM-13, STREAM-14, STREAM-15
 
+**Plans:** 6 plans in 2 waves
+
+**Plans:**
+- [ ] 01-01-PLAN.md — Circular Buffer System Validation (STREAM-01, STREAM-02, STREAM-03)
+- [ ] 01-02-PLAN.md — Distance-Based Loading Logic (STREAM-04, STREAM-05, STREAM-06)
+- [ ] 01-03-PLAN.md — DMA Transfer Infrastructure (STREAM-07, STREAM-08, STREAM-09)
+- [ ] 01-04-PLAN.md — Coordinate Conversion System (STREAM-10, STREAM-11, STREAM-12)
+- [ ] 01-05-PLAN.md — Background Integration (STREAM-13, STREAM-14, STREAM-15)
+- [ ] 01-06-PLAN.md — System Integration Validation (Integration Testing)
+
 **Success Criteria:**
 1. 16x16 circular buffer maintains stable chunk loading/unloading within 4-chunk radius
 2. DMA transfers reliably update VRAM during VBlank with 64 tiles/frame bandwidth limit
@@ -83,7 +93,7 @@ This roadmap transforms Stranded's chunk streaming system from one with visible 
 
 | Phase | Status | Progress | Notes |
 |-------|--------|----------|-------|
-| 1 - Foundation Validation | Pending | 0/5 | Ready to begin |
+| 1 - Foundation Validation | Ready to execute | 6/6 plans created | Wave 1: parallel execution possible |
 | 2 - Predictive Buffer Management | Pending | 0/5 | Depends on Phase 1 |
 | 3 - Adaptive Streaming Performance | Pending | 0/4 | Depends on Phase 2 |
 | 4 - Integration Validation | Pending | 0/5 | Depends on Phase 3 |
