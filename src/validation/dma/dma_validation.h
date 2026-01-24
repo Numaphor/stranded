@@ -60,6 +60,8 @@ namespace str
     void test_batch_efficiency();
     void run_dma_stress_tests();
     void validate_hardware_compliance();
+    void run_comprehensive_batch_tests();
+    void test_batch_transfer_scenarios();
     
     // Performance measurement functions
     DmaPerformanceMetrics benchmark_dma_transfer(int tile_count, bool force_vblank = true);

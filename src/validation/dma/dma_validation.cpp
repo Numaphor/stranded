@@ -368,4 +368,161 @@ namespace str
         
         BN_LOG_LEVEL(bn::log_level::INFO, "=== DMA Stress Testing Complete ===");
     }
+
+    void run_comprehensive_batch_tests()
+    {
+        BN_LOG_LEVEL(bn::log_level::INFO, "=== Comprehensive Batch Transfer Testing Started ===");
+        
+        // Test batch sizes from 1 to 64 tiles
+        bn::fixed best_efficiency(0);
+        int optimal_batch_size = 1;
+        int best_setup_overhead = 0;
+        int best_transfer_time = 0;
+        
+        BN_LOG_LEVEL(bn::log_level::INFO, "BATCH_ANALYSIS: Testing all batch sizes from 1-64 tiles");
+        
+        for (int batch_size = 1; batch_size <= TILES_PER_FRAME; ++batch_size)
+        {
+            BatchEfficiencyResult result = measure_batch_efficiency(batch_size);
+            
+            if (batch_size == 1 || batch_size == 2 || batch_size == 4 || batch_size == 8 || 
+                batch_size == 16 || batch_size == 32 || batch_size == 64)
+            {
+                BN_LOG_LEVEL(bn::log_level::INFO, "--- Batch Size: ", batch_size, " tiles ---");
+                log_batch_efficiency(result);
+            }
+            
+            // Track optimal batch size
+            if (result.efficiency_ratio > best_efficiency)
+            {
+                best_efficiency = result.efficiency_ratio;
+                optimal_batch_size = batch_size;
+                best_setup_overhead = result.setup_overhead_cycles;
+                best_transfer_time = result.transfer_cycles;
+            }
+        }
+        
+        // Log optimal batch analysis
+        BN_LOG_LEVEL(bn::log_level::INFO, "BATCH_OPTIMAL: Size=", optimal_batch_size, " tiles");
+        BN_LOG_LEVEL(bn::log_level::INFO, "BATCH_OPTIMAL: Efficiency=", best_efficiency);
+        BN_LOG_LEVEL(bn::log_level::INFO, "BATCH_OPTIMAL: Setup=", best_setup_overhead, " cycles");
+        BN_LOG_LEVEL(bn::log_level::INFO, "BATCH_OPTIMAL: Transfer=", best_transfer_time, " cycles");
+        
+        // mGBA integration for CI
+        BN_LOG_LEVEL(bn::log_level::INFO, "OPTIMAL_BATCH_SIZE: ", optimal_batch_size);
+        BN_LOG_LEVEL(bn::log_level::INFO, "OPTIMAL_EFFICIENCY: ", best_efficiency);
+        
+        // Test efficiency improvement over single-tile transfers
+        BatchEfficiencyResult single_tile = measure_batch_efficiency(1);
+        BatchEfficiencyResult optimal_batch = measure_batch_efficiency(optimal_batch_size);
+        
+        bn::fixed improvement_ratio = optimal_batch.efficiency_ratio / single_tile.efficiency_ratio;
+        BN_LOG_LEVEL(bn::log_level::INFO, "BATCH_IMPROVEMENT: ", improvement_ratio, "x better than single-tile");
+        
+        if (improvement_ratio < bn::fixed(1.5))
+        {
+            BN_LOG_LEVEL(bn::log_level::WARN, "BATCH_WARN: Low efficiency improvement - consider DMA channel optimization");
+        }
+        
+        // Validate that optimal batch respects constraints
+        DmaPerformanceMetrics optimal_metrics = benchmark_dma_transfer(optimal_batch_size, true);
+        if (!optimal_metrics.bandwidth_limit_respected)
+        {
+            log_dma_error("BATCH_VIOLATION", "Optimal batch size exceeds bandwidth limits");
+        }
+        
+        if (!validate_transfer_within_vblank(optimal_metrics.cycles_taken))
+        {
+            log_dma_error("BATCH_VBLANK_VIOLATION", "Optimal batch size exceeds VBlank window");
+        }
+        
+        BN_LOG_LEVEL(bn::log_level::INFO, "=== Comprehensive Batch Transfer Testing Complete ===");
+    }
+
+    void test_batch_transfer_scenarios()
+    {
+        BN_LOG_LEVEL(bn::log_level::INFO, "=== Batch Transfer Scenario Testing Started ===");
+        
+        // Scenario 1: Maximum load with optimal batch size
+        BN_LOG_LEVEL(bn::log_level::INFO, "SCENARIO_1: Maximum load test");
+        DmaPerformanceMetrics max_load = benchmark_dma_transfer(TILES_PER_FRAME, true);
+        log_dma_performance(max_load);
+        
+        // Scenario 2: Variable batch sizes during gameplay simulation
+        BN_LOG_LEVEL(bn::log_level::INFO, "SCENARIO_2: Gameplay simulation");
+        int gameplay_batches[] = {8, 16, 32, 24, 40, 12};  // Variable load patterns
+        
+        for (int i = 0; i < 6; ++i)
+        {
+            int batch_size = gameplay_batches[i];
+            BatchEfficiencyResult result = measure_batch_efficiency(batch_size);
+            DmaPerformanceMetrics metrics = benchmark_dma_transfer(batch_size, true);
+            
+            BN_LOG_LEVEL(bn::log_level::INFO, "GAMEPLAY_FRAME_", i, ": ", batch_size, " tiles");
+            BN_LOG_LEVEL(bn::log_level::INFO, "GAMEPLAY_EFF_", i, ": ", result.efficiency_ratio);
+            BN_LOG_LEVEL(bn::log_level::INFO, "GAMEPLAY_BAND_", i, ": ", metrics.bandwidth_utilization, "%");
+            
+            // Validate each frame
+            if (!metrics.bandwidth_limit_respected)
+            {
+                log_dma_error("GAMEPLAY_BANDWIDTH", bn::format<64>("Frame %d exceeded bandwidth", i).c_str());
+            }
+        }
+        
+        // Scenario 3: Stress test with rapid batch size changes
+        BN_LOG_LEVEL(bn::log_level::INFO, "SCENARIO_3: Rapid batch size changes");
+        int rapid_changes[] = {1, 64, 1, 64, 1, 64};  // Extreme variation
+        
+        for (int i = 0; i < 6; ++i)
+        {
+            int batch_size = rapid_changes[i];
+            DmaPerformanceMetrics stress = benchmark_dma_transfer(batch_size, true);
+            
+            BN_LOG_LEVEL(bn::log_level::INFO, "RAPID_FRAME_", i, ": ", batch_size, " -> ", stress.cycles_taken, " cycles");
+            
+            if (!validate_transfer_within_vblank(stress.cycles_taken))
+            {
+                log_dma_error("RAPID_VBLANK", bn::format<64>("Rapid change frame %d failed VBlank", i).c_str());
+            }
+        }
+        
+        // Scenario 4: Sustained operation with optimal batch
+        BN_LOG_LEVEL(bn::log_level::INFO, "SCENARIO_4: Sustained optimal batch operation");
+        int sustained_tiles = 0;
+        int sustained_cycles = 0;
+        
+        // Find optimal batch size for sustained operation
+        int optimal_sustained_batch = 16;  // Usually optimal balance
+        for (int frame = 0; frame < 60; ++frame)  // 1 second of gameplay
+        {
+            DmaPerformanceMetrics frame_metrics = benchmark_dma_transfer(optimal_sustained_batch, true);
+            sustained_tiles += optimal_sustained_batch;
+            sustained_cycles += frame_metrics.cycles_taken;
+            
+            if (!frame_metrics.bandwidth_limit_respected)
+            {
+                log_dma_error("SUSTAINED_BANDWIDTH", bn::format<64>("Sustained frame %d failed", frame).c_str());
+                break;
+            }
+        }
+        
+        bn::fixed sustained_rate = bn::fixed(sustained_tiles) / bn::fixed(sustained_cycles);
+        BN_LOG_LEVEL(bn::log_level::INFO, "SUSTAINED_1SEC: ", sustained_tiles, " tiles in ", sustained_cycles, " cycles");
+        BN_LOG_LEVEL(bn::log_level::INFO, "SUSTAINED_RATE: ", sustained_rate, " tiles/cycle");
+        
+        // Validate sustained operation maintains 60 FPS
+        bn::fixed cycles_per_frame = bn::fixed(sustained_cycles) / 60;
+        bn::fixed vblank_budget = bn::fixed(VBLANK_CYCLES_BUDGET);
+        
+        if (cycles_per_frame > vblank_budget)
+        {
+            log_dma_error("SUSTAINED_60FPS", "Sustained operation cannot maintain 60 FPS");
+        }
+        else
+        {
+            BN_LOG_LEVEL(bn::log_level::INFO, "SUSTAINED_60FPS: OK - ", cycles_per_frame, " <= ", vblank_budget, " cycles/frame");
+        }
+        
+        BN_LOG_LEVEL(bn::log_level::INFO, "=== Batch Transfer Scenario Testing Complete ===");
+    }
 }
