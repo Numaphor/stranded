@@ -10,9 +10,13 @@ namespace str
     // World map data stored in ROM
     struct WorldMapData
     {
-        const bn::affine_bg_map_cell* cells;  // Pointer to full map data in ROM
-        int width_tiles;                       // Full map width in tiles (e.g., 1024)
-        int height_tiles;                      // Full map height in tiles (e.g., 1024)
+        using tile_provider_fn = bn::affine_bg_map_cell (*)(int tile_x, int tile_y, const void* context);
+
+        const bn::affine_bg_map_cell* cells = nullptr;  // Optional pointer to full map data in ROM
+        tile_provider_fn provider = nullptr;            // Optional procedural provider callback
+        const void* provider_context = nullptr;         // Context passed back to provider
+        int width_tiles = 0;                            // Full map width in tiles (e.g., 1024)
+        int height_tiles = 0;                           // Full map height in tiles (e.g., 1024)
 
         constexpr int width_pixels() const { return width_tiles * TILE_SIZE; }
         constexpr int height_pixels() const { return height_tiles * TILE_SIZE; }
@@ -25,7 +29,18 @@ namespace str
             {
                 return bn::affine_bg_map_cell(0); // Out of bounds = empty
             }
-            return cells[tile_y * width_tiles + tile_x];
+
+            if (provider)
+            {
+                return provider(tile_x, tile_y, provider_context);
+            }
+
+            if (cells)
+            {
+                return cells[tile_y * width_tiles + tile_x];
+            }
+
+            return bn::affine_bg_map_cell(0);
         }
     };
 

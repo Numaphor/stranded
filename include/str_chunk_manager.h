@@ -94,7 +94,7 @@ namespace str
         void _determine_needed_chunks(const bn::fixed_point& player_world_pos);
         void _stream_pending_chunk();
         void _load_chunk_immediately(int chunk_x, int chunk_y);
-        void _update_buffer_origin(int center_chunk_x, int center_chunk_y, int load_range);
+        void _recenter_buffer_if_needed(int center_chunk_x, int center_chunk_y, int load_range);
         bool _is_chunk_loaded(int chunk_x, int chunk_y) const;
         void _queue_chunk_for_loading(int chunk_x, int chunk_y);
         int _get_buffer_index(int buffer_tile_x, int buffer_tile_y) const;

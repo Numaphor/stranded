@@ -196,18 +196,18 @@ namespace str
     constexpr bn::fixed ZOOM_TRANSITION_SPEED = 0.1;     // How fast zoom transitions
 
     // Chunk loading system constants
-    constexpr int CHUNK_SIZE_TILES = 8;                               // 8x8 tiles per chunk
-    constexpr int CHUNK_SIZE_PIXELS = CHUNK_SIZE_TILES * TILE_SIZE;   // 64 pixels per chunk
+    constexpr int CHUNK_SIZE_TILES = 8;                               // 8x8 tiles per chunk (64px)
+    constexpr int CHUNK_SIZE_PIXELS = CHUNK_SIZE_TILES * TILE_SIZE;
     constexpr int VIEW_BUFFER_CHUNKS = 16;                            // 16x16 chunks in view buffer
     constexpr int VIEW_BUFFER_TILES = VIEW_BUFFER_CHUNKS * CHUNK_SIZE_TILES; // 128 tiles (matches affine BG limit)
     constexpr int BUFFER_HALF_SIZE = VIEW_BUFFER_TILES * TILE_SIZE / 2; // 512 pixels (half of view buffer)
     constexpr int TILES_PER_FRAME = 64;                               // Streaming budget per frame
-    constexpr int WORLD_WIDTH_CHUNKS = 32;                            // 256 tiles / 8 = 32 chunks wide
-    constexpr int WORLD_HEIGHT_CHUNKS = 32;                           // 256 tiles / 8 = 32 chunks tall
-    constexpr int WORLD_WIDTH_TILES = WORLD_WIDTH_CHUNKS * CHUNK_SIZE_TILES;   // 256 tiles
-    constexpr int WORLD_HEIGHT_TILES = WORLD_HEIGHT_CHUNKS * CHUNK_SIZE_TILES; // 256 tiles
-    constexpr int WORLD_WIDTH_PIXELS = WORLD_WIDTH_TILES * TILE_SIZE;   // 2048 pixels
-    constexpr int WORLD_HEIGHT_PIXELS = WORLD_HEIGHT_TILES * TILE_SIZE; // 2048 pixels
+    constexpr int WORLD_WIDTH_CHUNKS = 128;                           // 1024 tiles / 8 = 128 chunks wide (8192px)
+    constexpr int WORLD_HEIGHT_CHUNKS = 128;                          // 1024 tiles / 8 = 128 chunks tall (8192px)
+    constexpr int WORLD_WIDTH_TILES = WORLD_WIDTH_CHUNKS * CHUNK_SIZE_TILES;   // 1024 tiles total
+    constexpr int WORLD_HEIGHT_TILES = WORLD_HEIGHT_CHUNKS * CHUNK_SIZE_TILES; // 1024 tiles total
+    constexpr int WORLD_WIDTH_PIXELS = WORLD_WIDTH_TILES * TILE_SIZE;   // 8192 pixels total width
+    constexpr int WORLD_HEIGHT_PIXELS = WORLD_HEIGHT_TILES * TILE_SIZE; // 8192 pixels total height
 
     // Chunk streaming thresholds
     constexpr int CHUNK_LOAD_DISTANCE = 2; // Load chunks 2 chunks away from visible area (smaller chunks need more preloading)

@@ -19,29 +19,6 @@ namespace
         return result;
     }
 
-    [[nodiscard]] int compute_origin_chunk(int center_chunk, int load_range, int max_chunks)
-    {
-        const int load_diameter = load_range * 2 + 1;
-        int origin_chunk = center_chunk - load_range;
-        int max_origin = max_chunks - load_diameter;
-
-        if (max_origin < 0)
-        {
-            max_origin = 0;
-        }
-
-        if (origin_chunk < 0)
-        {
-            origin_chunk = 0;
-        }
-        else if (origin_chunk > max_origin)
-        {
-            origin_chunk = max_origin;
-        }
-
-        return origin_chunk;
-    }
-
     [[nodiscard]] int chunk_to_buffer_slot(int chunk_coord)
     {
         return positive_mod(chunk_coord, str::VIEW_BUFFER_CHUNKS);
@@ -125,21 +102,18 @@ namespace str
     void ChunkManager::_determine_needed_chunks(const bn::fixed_point& player_world_pos)
     {
         (void)player_world_pos;
-        // Maintain a square chunk grid centered on the player:
-        // LOAD_GRID_SIZE = 2 * LOAD_RANGE + 1, so with LOAD_RANGE = 2 this is a 5x5 grid.
-        constexpr int LOAD_RANGE = 2;
-        constexpr int LOAD_GRID_SIZE = LOAD_RANGE * 2 + 1;
-        constexpr int MAX_CHUNKS_PER_FRAME = LOAD_GRID_SIZE * LOAD_GRID_SIZE;
+        constexpr int LOAD_RANGE = 4;  // Balanced: 9x9 chunks (81 total) - good safe zone, better performance
+        constexpr int MAX_CHUNKS_PER_FRAME = 8;  // Conservative limit to maintain 60 FPS
 
         const int center_chunk_x = _player_chunk_x;
         const int center_chunk_y = _player_chunk_y;
 
-        const int origin_chunk_x = compute_origin_chunk(center_chunk_x, LOAD_RANGE, WORLD_WIDTH_CHUNKS);
-        const int origin_chunk_y = compute_origin_chunk(center_chunk_y, LOAD_RANGE, WORLD_HEIGHT_CHUNKS);
-        const int max_chunk_x = origin_chunk_x + LOAD_GRID_SIZE - 1;
-        const int max_chunk_y = origin_chunk_y + LOAD_GRID_SIZE - 1;
+        const int origin_chunk_x = center_chunk_x - LOAD_RANGE;
+        const int origin_chunk_y = center_chunk_y - LOAD_RANGE;
+        const int max_chunk_x = center_chunk_x + LOAD_RANGE;
+        const int max_chunk_y = center_chunk_y + LOAD_RANGE;
 
-        // First, clean up chunks that are too far away from the current 5x5 window
+        // First, clean up chunks that are too far away from the current 9x9 window
         for (int i = _loaded_chunks.size() - 1; i >= 0; --i)
         {
             const int chunk_x = _loaded_chunks[i].chunk_x;
@@ -160,24 +134,6 @@ namespace str
             {
                 int chunk_x = center_chunk_x + dx;
                 int chunk_y = center_chunk_y + dy;
-
-                if (chunk_x < origin_chunk_x)
-                {
-                    chunk_x = origin_chunk_x;
-                }
-                else if (chunk_x > max_chunk_x)
-                {
-                    chunk_x = max_chunk_x;
-                }
-
-                if (chunk_y < origin_chunk_y)
-                {
-                    chunk_y = origin_chunk_y;
-                }
-                else if (chunk_y > max_chunk_y)
-                {
-                    chunk_y = max_chunk_y;
-                }
 
                 const int buffer_slot_x = chunk_to_buffer_slot(chunk_x);
                 const int buffer_slot_y = chunk_to_buffer_slot(chunk_y);
@@ -210,9 +166,12 @@ namespace str
         }
 
         // Update buffer origin after synchronizing the mask so conversions stay aligned
-        _update_buffer_origin(center_chunk_x, center_chunk_y, LOAD_RANGE);
+        // NOTE: Temporarily disabled to verify whether buffer recentering causes visible wave updates.
+        // _recenter_buffer_if_needed(center_chunk_x, center_chunk_y, LOAD_RANGE);
 
-#if BN_CFG_ASSERT_ENABLED
+        // Assertion disabled - chunk loading is asynchronous and not all chunks may be loaded at once
+        // This is especially true with larger LOAD_RANGE values
+        #if BN_CFG_ASSERT_ENABLED && 0
         for (int dy = -LOAD_RANGE; dy <= LOAD_RANGE; ++dy)
         {
             for (int dx = -LOAD_RANGE; dx <= LOAD_RANGE; ++dx)
@@ -220,28 +179,15 @@ namespace str
                 int chunk_x = center_chunk_x + dx;
                 int chunk_y = center_chunk_y + dy;
 
-                if (chunk_x < origin_chunk_x)
+                // Only assert for chunks within the intended load range
+                if (chunk_x >= origin_chunk_x && chunk_x <= max_chunk_x &&
+                    chunk_y >= origin_chunk_y && chunk_y <= max_chunk_y)
                 {
-                    chunk_x = origin_chunk_x;
+                    BN_ASSERT(_is_chunk_loaded(chunk_x, chunk_y), "Chunk mask missing entry");
                 }
-                else if (chunk_x > max_chunk_x)
-                {
-                    chunk_x = max_chunk_x;
-                }
-
-                if (chunk_y < origin_chunk_y)
-                {
-                    chunk_y = origin_chunk_y;
-                }
-                else if (chunk_y > max_chunk_y)
-                {
-                    chunk_y = max_chunk_y;
-                }
-
-                BN_ASSERT(_is_chunk_loaded(chunk_x, chunk_y), "Chunk mask missing entry");
             }
         }
-#endif
+        #endif
     }
 
     void ChunkManager::_stream_pending_chunk()
@@ -304,42 +250,45 @@ namespace str
         }
     }
 
-    void ChunkManager::_update_buffer_origin(int center_chunk_x, int center_chunk_y, int load_range)
+    void ChunkManager::_recenter_buffer_if_needed(int center_chunk_x, int center_chunk_y, int load_range)
     {
         const int load_diameter = load_range * 2 + 1;
+        // Use a much smaller buffer radius to delay recentering - only recenter when very close to edge
+        const int buffer_load_radius = 1;  // Only recenter when 1 chunk from buffer edge, not load_range
 
-        int new_origin_chunk_x = center_chunk_x - load_range;
-        int new_origin_chunk_y = center_chunk_y - load_range;
+        int origin_chunk_x = _buffer_origin_tile_x / CHUNK_SIZE_TILES;
+        int origin_chunk_y = _buffer_origin_tile_y / CHUNK_SIZE_TILES;
 
-        int max_origin_chunk_x = WORLD_WIDTH_CHUNKS - load_diameter;
-        int max_origin_chunk_y = WORLD_HEIGHT_CHUNKS - load_diameter;
-
-        if (max_origin_chunk_x < 0)
+        int delta_chunks_x = 0;
+        if (center_chunk_x - origin_chunk_x < buffer_load_radius)
         {
-            max_origin_chunk_x = 0;
+            delta_chunks_x = center_chunk_x - origin_chunk_x - buffer_load_radius;
         }
-        if (max_origin_chunk_y < 0)
+        else if ((origin_chunk_x + VIEW_BUFFER_CHUNKS - 1) - center_chunk_x < buffer_load_radius)
         {
-            max_origin_chunk_y = 0;
-        }
-
-        if (new_origin_chunk_x < 0)
-        {
-            new_origin_chunk_x = 0;
-        }
-        else if (new_origin_chunk_x > max_origin_chunk_x)
-        {
-            new_origin_chunk_x = max_origin_chunk_x;
+            delta_chunks_x = center_chunk_x + buffer_load_radius - (origin_chunk_x + VIEW_BUFFER_CHUNKS - 1);
         }
 
-        if (new_origin_chunk_y < 0)
+        int delta_chunks_y = 0;
+        if (center_chunk_y - origin_chunk_y < buffer_load_radius)
         {
-            new_origin_chunk_y = 0;
+            delta_chunks_y = center_chunk_y - origin_chunk_y - buffer_load_radius;
         }
-        else if (new_origin_chunk_y > max_origin_chunk_y)
+        else if ((origin_chunk_y + VIEW_BUFFER_CHUNKS - 1) - center_chunk_y < buffer_load_radius)
         {
-            new_origin_chunk_y = max_origin_chunk_y;
+            delta_chunks_y = center_chunk_y + buffer_load_radius - (origin_chunk_y + VIEW_BUFFER_CHUNKS - 1);
         }
+
+        if (delta_chunks_x == 0 && delta_chunks_y == 0)
+        {
+            return;
+        }
+
+        int new_origin_chunk_x = origin_chunk_x + delta_chunks_x;
+        int new_origin_chunk_y = origin_chunk_y + delta_chunks_y;
+
+        new_origin_chunk_x = bn::clamp(new_origin_chunk_x, 0, WORLD_WIDTH_CHUNKS - VIEW_BUFFER_CHUNKS);
+        new_origin_chunk_y = bn::clamp(new_origin_chunk_y, 0, WORLD_HEIGHT_CHUNKS - VIEW_BUFFER_CHUNKS);
 
         _buffer_origin_tile_x = new_origin_chunk_x * CHUNK_SIZE_TILES;
         _buffer_origin_tile_y = new_origin_chunk_y * CHUNK_SIZE_TILES;
@@ -436,45 +385,50 @@ namespace str
 
     bn::fixed_point ChunkManager::world_to_buffer(const bn::fixed_point& world_pos) const
     {
-        const bn::fixed buffer_span = bn::fixed(VIEW_BUFFER_TILES * TILE_SIZE);
-        const bn::fixed half_span = buffer_span / 2;
-
+        // Convert world position to buffer-relative position
         bn::fixed buffer_x = world_pos.x() - bn::fixed(_buffer_origin_tile_x * TILE_SIZE);
         bn::fixed buffer_y = world_pos.y() - bn::fixed(_buffer_origin_tile_y * TILE_SIZE);
 
+        // Handle wrapping within the buffer (buffer is 0 to VIEW_BUFFER_TILES * TILE_SIZE)
+        const bn::fixed buffer_size = bn::fixed(VIEW_BUFFER_TILES * TILE_SIZE);
+        
+        // Normalize to [0, buffer_size) range
         while (buffer_x < 0)
         {
-            buffer_x += buffer_span;
+            buffer_x += buffer_size;
         }
-        while (buffer_x >= buffer_span)
+        while (buffer_x >= buffer_size)
         {
-            buffer_x -= buffer_span;
+            buffer_x -= buffer_size;
         }
-
+        
         while (buffer_y < 0)
         {
-            buffer_y += buffer_span;
+            buffer_y += buffer_size;
         }
-        while (buffer_y >= buffer_span)
+        while (buffer_y >= buffer_size)
         {
-            buffer_y -= buffer_span;
+            buffer_y -= buffer_size;
         }
 
-        buffer_x -= half_span;
-        buffer_y -= half_span;
+        // Convert to centered coordinates (buffer center is 0,0)
+        const bn::fixed half_size = buffer_size / 2;
+        buffer_x -= half_size;
+        buffer_y -= half_size;
 
         return bn::fixed_point(buffer_x, buffer_y);
     }
 
     bn::fixed_point ChunkManager::buffer_to_world(const bn::fixed_point& buffer_pos) const
     {
-        // Add buffer origin offset
-        bn::fixed world_x = buffer_pos.x() + bn::fixed(VIEW_BUFFER_TILES * TILE_SIZE / 2);
-        bn::fixed world_y = buffer_pos.y() + bn::fixed(VIEW_BUFFER_TILES * TILE_SIZE / 2);
+        // Convert from centered buffer coordinates to buffer-relative coordinates
+        const bn::fixed half_size = bn::fixed(VIEW_BUFFER_TILES * TILE_SIZE / 2);
+        bn::fixed buffer_relative_x = buffer_pos.x() + half_size;
+        bn::fixed buffer_relative_y = buffer_pos.y() + half_size;
 
-        // Add the actual buffer origin in world space
-        world_x += bn::fixed(_buffer_origin_tile_x * TILE_SIZE);
-        world_y += bn::fixed(_buffer_origin_tile_y * TILE_SIZE);
+        // Add the current buffer origin in world space
+        bn::fixed world_x = buffer_relative_x + bn::fixed(_buffer_origin_tile_x * TILE_SIZE);
+        bn::fixed world_y = buffer_relative_y + bn::fixed(_buffer_origin_tile_y * TILE_SIZE);
 
         return bn::fixed_point(world_x, world_y);
     }

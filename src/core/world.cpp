@@ -21,7 +21,6 @@
 #include "bn_affine_bg_map_ptr.h"
 #include "bn_affine_bg_map_cell.h"
 #include "bn_affine_bg_map_cell_info.h"
-#include "bn_random.h"
 #include "bn_camera_ptr.h"
 #include "bn_core.h"
 #include "bn_keypad.h"
@@ -41,6 +40,8 @@
 #include "bn_bg_palette_items_palette.h"
 #include "bn_sprite_items_hero.h"
 #include "common_variable_8x8_sprite_font.h"
+
+#include <cstdint>
 
 namespace str
 {
@@ -71,69 +72,71 @@ namespace str
         };
         BN_DATA_EWRAM bn::affine_bg_map_cell view_buffer::cells[view_buffer::cells_count];
 
-        // Large world map data stored in EWRAM (256x256 tiles for now - can scale up)
-        constexpr int LARGE_WORLD_SIZE = 256;  // 256x256 tiles = 2048x2048 pixels
-        BN_DATA_EWRAM bn::affine_bg_map_cell large_world_cells[LARGE_WORLD_SIZE * LARGE_WORLD_SIZE];
-
-        // Generate procedural world map
-        void generate_world_map(int world_id)
+        struct procedural_world_context
         {
-            int background_tile = (world_id == 1) ? 2 : 1;
+            int background_tile = 1;
+            int variation_tile = 2;
+            int feature_tile = 3;
+            int world_seed = 1;
+        };
 
-            // Fill with background
-            for (int i = 0; i < LARGE_WORLD_SIZE * LARGE_WORLD_SIZE; ++i)
+        procedural_world_context g_world_context;
+
+        [[nodiscard]] uint32_t hash_coordinates(int x, int y, int seed)
+        {
+            uint32_t value = static_cast<uint32_t>(x) * 73856093u;
+            value ^= static_cast<uint32_t>(y) * 19349663u;
+            value ^= static_cast<uint32_t>(seed) * 83492791u;
+            value ^= value >> 13;
+            value *= 1274126177u;
+            value ^= value >> 16;
+            return value;
+        }
+
+        bn::affine_bg_map_cell procedural_tile_provider(int tile_x, int tile_y, const void* context_ptr)
+        {
+            const auto* context = static_cast<const procedural_world_context*>(context_ptr);
+            uint32_t hash = hash_coordinates(tile_x, tile_y, context->world_seed);
+            uint32_t bucket = hash % 100u;
+
+            int tile = context->background_tile;
+            if (bucket < 5)
             {
-                large_world_cells[i] = bn::affine_bg_map_cell(background_tile);
+                tile = context->feature_tile;
+            }
+            else if (bucket < 35)
+            {
+                tile = context->variation_tile;
             }
 
-            // Add patches of variation using simple procedural generation
-            bn::random random;
-            random.update();  // Seed with frame count
+            return bn::affine_bg_map_cell(tile);
+        }
 
-            int current_index = 0;
-            while (current_index < LARGE_WORLD_SIZE * LARGE_WORLD_SIZE)
+        // Configure procedural world parameters for the requested world
+        void generate_world_map(int world_id)
+        {
+            g_world_context.world_seed = 0xACE1 + world_id * 1315423911;
+            if (world_id == 1)
             {
-                int patch_width = random.get_int(2, 8);
-                int patch_height = random.get_int(2, 8);
-                int base_x = current_index % LARGE_WORLD_SIZE;
-                int base_y = current_index / LARGE_WORLD_SIZE;
-
-                for (int py = 0; py < patch_height; ++py)
-                {
-                    for (int px = 0; px < patch_width; ++px)
-                    {
-                        if (random.get_int(100) < 70)
-                        {
-                            int x = base_x + px;
-                            int y = base_y + py;
-                            if (x < LARGE_WORLD_SIZE && y < LARGE_WORLD_SIZE)
-                            {
-                                large_world_cells[y * LARGE_WORLD_SIZE + x] = bn::affine_bg_map_cell(2);
-                            }
-                        }
-                    }
-                }
-
-                int gap;
-                if (random.get_int(100) < 50)
-                {
-                    gap = random.get_int(1, 17);
-                }
-                else
-                {
-                    gap = random.get_int(64, 200);
-                }
-                current_index += gap + (patch_width * patch_height) / 2;
+                g_world_context.background_tile = 2;
+                g_world_context.variation_tile = 1;
+                g_world_context.feature_tile = 3;
+            }
+            else
+            {
+                g_world_context.background_tile = 1;
+                g_world_context.variation_tile = 2;
+                g_world_context.feature_tile = 3;
             }
         }
 
-        // World map data structure pointing to the large world
         WorldMapData create_world_map_data()
         {
             WorldMapData data;
-            data.cells = large_world_cells;
-            data.width_tiles = LARGE_WORLD_SIZE;
-            data.height_tiles = LARGE_WORLD_SIZE;
+            data.provider = procedural_tile_provider;
+            data.provider_context = &g_world_context;
+            data.width_tiles = WORLD_WIDTH_TILES;
+            data.height_tiles = WORLD_HEIGHT_TILES;
             return data;
         }
     }
@@ -407,8 +410,8 @@ namespace str
                     ny = ct.y() - (ctt.y() > 0 ? CAMERA_DEADZONE_Y : -CAMERA_DEADZONE_Y);
                 if (_camera)
                     _camera->set_position(
-                        bn::clamp(nx, bn::fixed(-MAP_OFFSET_X + 120), bn::fixed(MAP_OFFSET_X - 120)).integer(),
-                        bn::clamp(ny, bn::fixed(-MAP_OFFSET_Y + 80), bn::fixed(MAP_OFFSET_Y - 80)).integer()
+                        bn::clamp(nx, bn::fixed(-WORLD_WIDTH_PIXELS + 120), bn::fixed(WORLD_WIDTH_PIXELS - 120)).integer(),
+                        bn::clamp(ny, bn::fixed(-WORLD_HEIGHT_PIXELS + 80), bn::fixed(WORLD_HEIGHT_PIXELS - 80)).integer()
                     );
             }
             // Sword bg temporarily disabled
