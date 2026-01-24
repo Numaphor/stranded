@@ -1,7 +1,10 @@
 #include "str_chunk_manager.h"
 #include "bn_affine_bg_map_cell_info.h"
 #include "bn_assert.h"
+#include "bn_log.h"
+#include "bn_log_level.h"
 #include "../validation/logging/chunk_validation.h"
+#include <climits>
 
 namespace
 {
@@ -9,6 +12,14 @@ namespace
     {
         if (modulus == 0)
         {
+            BN_LOG_LEVEL(bn::log_level::ERROR, "VALIDATION_ERROR:", "positive_mod called with modulus 0");
+            return 0;
+        }
+
+        // Handle edge cases for maximum safety
+        if (value == INT_MIN && modulus == -1)
+        {
+            BN_LOG_LEVEL(bn::log_level::WARN, "VALIDATION_ERROR:", "positive_mod edge case: INT_MIN % -1");
             return 0;
         }
 
@@ -17,6 +28,15 @@ namespace
         {
             result += modulus;
         }
+        
+        // Final validation
+        if (result < 0 || result >= modulus)
+        {
+            BN_LOG_LEVEL(bn::log_level::ERROR, "VALIDATION_ERROR:", "positive_mod failed:",
+                         value, "%", modulus, "=", result);
+            return 0;
+        }
+        
         return result;
     }
 
@@ -168,6 +188,14 @@ namespace str
 
                 if (!chunk_loaded || !slot_matches)
                 {
+                    // Validate buffer slot before loading
+                    if (!validate_buffer_bounds(buffer_slot_x, buffer_slot_y))
+                    {
+                        BN_LOG_LEVEL(bn::log_level::ERROR, "VALIDATION_ERROR:", "Skipping load for invalid slot:",
+                                     buffer_slot_x, ",", buffer_slot_y);
+                        continue;
+                    }
+                    
                     _load_chunk_immediately(chunk_x, chunk_y);
                     ++chunks_loaded_this_frame;
                 }
@@ -222,9 +250,17 @@ namespace str
             // Get tile from world map
             bn::affine_bg_map_cell cell = _world_map->cell_at(world_tile_x, world_tile_y);
 
-            // Write to view buffer
+            // Write to view buffer with bounds checking
             int buffer_idx = _get_buffer_index(buffer_tile_x, buffer_tile_y);
-            _view_buffer[buffer_idx] = cell;
+            if (buffer_idx >= 0 && buffer_idx < VIEW_BUFFER_TILES * VIEW_BUFFER_TILES)
+            {
+                _view_buffer[buffer_idx] = cell;
+            }
+            else
+            {
+                BN_LOG_LEVEL(bn::log_level::ERROR, "VALIDATION_ERROR:", "Stream buffer index out of bounds:",
+                             buffer_idx, "at tile", local_x, ",", local_y);
+            }
 
             _stream_progress++;
             tiles_this_frame++;
@@ -301,8 +337,14 @@ namespace str
         new_origin_chunk_x = bn::clamp(new_origin_chunk_x, 0, WORLD_WIDTH_CHUNKS - VIEW_BUFFER_CHUNKS);
         new_origin_chunk_y = bn::clamp(new_origin_chunk_y, 0, WORLD_HEIGHT_CHUNKS - VIEW_BUFFER_CHUNKS);
 
+        int old_origin_x = _buffer_origin_tile_x;
+        int old_origin_y = _buffer_origin_tile_y;
+        
         _buffer_origin_tile_x = new_origin_chunk_x * CHUNK_SIZE_TILES;
         _buffer_origin_tile_y = new_origin_chunk_y * CHUNK_SIZE_TILES;
+        
+        // Log buffer recentering for validation
+        log_buffer_recenter(old_origin_x, old_origin_y, _buffer_origin_tile_x, _buffer_origin_tile_y);
     }
 
     bool ChunkManager::_is_chunk_loaded(int chunk_x, int chunk_y) const
@@ -380,6 +422,26 @@ namespace str
         else
         {
             log_buffer_overflow_warning(loaded.buffer_slot_x, loaded.buffer_slot_y, chunk_x, chunk_y);
+            
+            // Emergency cleanup: remove oldest chunks to make space
+            if (_loaded_chunks.size() > 100) // Emergency threshold
+            {
+                BN_LOG_LEVEL(bn::log_level::WARN, "BUFFER_MGMT:", "Emergency cleanup - removing oldest chunks");
+                for (int i = 0; i < 10 && !_loaded_chunks.empty(); ++i)
+                {
+                    const LoadedChunk& old_chunk = _loaded_chunks[0];
+                    log_chunk_state(old_chunk.chunk_x, old_chunk.chunk_y, ChunkState::UNLOADED, "emergency cleanup");
+                    _loaded_chunks.erase(_loaded_chunks.begin());
+                }
+                
+                // Retry adding the new chunk
+                if (!_loaded_chunks.full())
+                {
+                    _loaded_chunks.push_back(loaded);
+                    log_chunk_state(chunk_x, chunk_y, ChunkState::LOADED, "_load_chunk_immediately retry");
+                    track_buffer_turnover(chunk_x, chunk_y);
+                }
+            }
         }
 
         _needs_vram_update = true;
@@ -387,8 +449,24 @@ namespace str
 
     int ChunkManager::_get_buffer_index(int buffer_tile_x, int buffer_tile_y) const
     {
+        // Enhanced bounds checking with validation
+        if (!validate_buffer_bounds(buffer_tile_x / CHUNK_SIZE_TILES, buffer_tile_y / CHUNK_SIZE_TILES))
+        {
+            log_buffer_underflow_warning(buffer_tile_x / CHUNK_SIZE_TILES, buffer_tile_y / CHUNK_SIZE_TILES);
+            return 0; // Fallback to prevent crash
+        }
+        
         int wrapped_x = tile_to_buffer_coord(buffer_tile_x);
         int wrapped_y = tile_to_buffer_coord(buffer_tile_y);
+        
+        // Validate wrapping results
+        if (wrapped_x < 0 || wrapped_x >= VIEW_BUFFER_TILES || wrapped_y < 0 || wrapped_y >= VIEW_BUFFER_TILES)
+        {
+            BN_LOG_LEVEL(bn::log_level::ERROR, "VALIDATION_ERROR:", "Wrapped coordinates out of bounds:",
+                         wrapped_x, ",", wrapped_y, "from", buffer_tile_x, ",", buffer_tile_y);
+            return 0; // Fallback
+        }
+        
         return wrapped_y * VIEW_BUFFER_TILES + wrapped_x;
     }
 

@@ -42,13 +42,13 @@ namespace str
     
     void log_buffer_overflow_warning(int buffer_slot_x, int buffer_slot_y, int chunk_x, int chunk_y)
     {
-        BN_LOG_LEVEL(bn::log_level::WARNING, "VALIDATION_ERROR:", "Buffer overflow at slot", 
+        BN_LOG_LEVEL(bn::log_level::ERROR, "VALIDATION_ERROR:", "Buffer overflow at slot", 
                      buffer_slot_x, ",", buffer_slot_y, "for chunk", chunk_x, ",", chunk_y);
     }
     
     void log_buffer_underflow_warning(int buffer_slot_x, int buffer_slot_y)
     {
-        BN_LOG_LEVEL(bn::log_level::WARNING, "VALIDATION_ERROR:", "Buffer underflow at slot", 
+        BN_LOG_LEVEL(bn::log_level::ERROR, "VALIDATION_ERROR:", "Buffer underflow at slot", 
                      buffer_slot_x, ",", buffer_slot_y);
     }
     
@@ -58,15 +58,15 @@ namespace str
         if (buffer_origin_x < 0 || buffer_origin_x >= WORLD_WIDTH_TILES - VIEW_BUFFER_TILES ||
             buffer_origin_y < 0 || buffer_origin_y >= WORLD_HEIGHT_TILES - VIEW_BUFFER_TILES)
         {
-            BN_LOG_LEVEL(bn::log_level::ERROR, "VALIDATION_ERROR:", "Buffer origin out of bounds:", 
-                         buffer_origin_x, ",", buffer_origin_y);
+        BN_LOG_LEVEL(bn::log_level::ERROR, "VALIDATION_ERROR:", "Buffer origin out of bounds:", 
+                     buffer_origin_x, ",", buffer_origin_y);
             return false;
         }
         
         // Validate alignment to chunk boundaries
         if ((buffer_origin_x % CHUNK_SIZE_TILES) != 0 || (buffer_origin_y % CHUNK_SIZE_TILES) != 0)
         {
-            BN_LOG_LEVEL(bn::log_level::WARNING, "VALIDATION_ERROR:", "Buffer origin not chunk-aligned:", 
+            BN_LOG_LEVEL(bn::log_level::WARN, "VALIDATION_ERROR:", "Buffer origin not chunk-aligned:", 
                          buffer_origin_x, ",", buffer_origin_y);
         }
         
@@ -85,7 +85,7 @@ namespace str
         if (old_state == ChunkState::LOADED && new_state == ChunkState::UNLOADED)
             return true;
             
-        BN_LOG_LEVEL(bn::log_level::WARNING, "VALIDATION_ERROR:", "Invalid state transition:", 
+        BN_LOG_LEVEL(bn::log_level::WARN, "VALIDATION_ERROR:", "Invalid state transition:", 
                      chunk_state_to_string(old_state), "->", chunk_state_to_string(new_state));
         return false;
     }
