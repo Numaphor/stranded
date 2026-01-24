@@ -5,6 +5,7 @@
 #include "bn_log_level.h"
 #include "../validation/logging/chunk_validation.h"
 #include "../validation/logging/distance_validation.h"
+#include "../validation/dma/dma_validation.h"
 #include <climits>
 
 namespace
@@ -153,7 +154,40 @@ namespace str
     {
         if (_needs_vram_update)
         {
+            // Measure DMA performance before transfer
+            str::DmaPerformanceMetrics metrics = str::benchmark_dma_transfer(TILES_PER_FRAME, true);
+            
+            // Log DMA transfer performance with chunk manager context
+            BN_LOG_LEVEL(bn::log_level::INFO, "CHUNK_DMA: commit_to_vram transferring ", metrics.tiles_transferred, " tiles");
+            BN_LOG_LEVEL(bn::log_level::INFO, "CHUNK_DMA: bandwidth utilization ", metrics.bandwidth_utilization, "%");
+            BN_LOG_LEVEL(bn::log_level::INFO, "CHUNK_DMA: VBlank timing ", metrics.within_vblank ? "OK" : "VIOLATION");
+            
+            // Validate constraints before transfer
+            if (!metrics.bandwidth_limit_respected)
+            {
+                BN_LOG_LEVEL(bn::log_level::ERROR, "CHUNK_DMA_ERROR: Bandwidth limit exceeded - ", 
+                             metrics.tiles_transferred, " > ", TILES_PER_FRAME, " tiles");
+            }
+            
+            if (!metrics.within_vblank)
+            {
+                BN_LOG_LEVEL(bn::log_level::ERROR, "CHUNK_DMA_ERROR: Transfer outside VBlank period");
+            }
+            
+            // Validate VBlank timing constraint
+            if (!str::validate_transfer_within_vblank(metrics.cycles_taken))
+            {
+                BN_LOG_LEVEL(bn::log_level::ERROR, "CHUNK_DMA_ERROR: Transfer exceeds VBlank window - ", 
+                             metrics.cycles_taken, " cycles > ", str::VBLANK_CYCLES_BUDGET, " budget");
+            }
+            
+            // Perform the actual VRAM update using Butano's optimized method
+            // This internally uses DMA transfers aligned with VBlank periods
             bg_map.reload_cells_ref();
+            
+            // Log successful completion
+            BN_LOG_LEVEL(bn::log_level::INFO, "CHUNK_DMA: VRAM update completed successfully");
+            
             _needs_vram_update = false;
         }
     }
@@ -307,6 +341,21 @@ namespace str
         // Check if chunk is fully loaded
         if (_stream_progress >= CHUNK_TILES_TOTAL)
         {
+            // Validate DMA bandwidth for this frame's transfers
+            if (tiles_this_frame > 0)
+            {
+                str::DmaPerformanceMetrics frame_metrics = str::benchmark_dma_transfer(tiles_this_frame, true);
+                if (!frame_metrics.bandwidth_limit_respected)
+                {
+                    BN_LOG_LEVEL(bn::log_level::WARN, "CHUNK_STREAM_WARN: Frame bandwidth usage ", 
+                                 frame_metrics.bandwidth_utilization, "% exceeds recommended limit");
+                }
+                
+                // Log streaming performance
+                BN_LOG_LEVEL(bn::log_level::INFO, "CHUNK_STREAM: Loaded ", _pending_chunk_x, ",", _pending_chunk_y, 
+                             " with ", tiles_this_frame, " tiles this frame (", frame_metrics.bandwidth_utilization, "% bandwidth)");
+            }
+            
             // Mark chunk as loaded
             LoadedChunk loaded;
             loaded.chunk_x = _pending_chunk_x;
@@ -416,6 +465,8 @@ namespace str
         log_chunk_state(chunk_x, chunk_y, ChunkState::LOADING, "_load_chunk_immediately");
         
         // Load all tiles of this chunk immediately (8x8 = 64 tiles)
+        // Track tiles loaded for DMA bandwidth validation
+        int tiles_loaded = 0;
         for (int local_y = 0; local_y < CHUNK_SIZE_TILES; ++local_y)
         {
             for (int local_x = 0; local_x < CHUNK_SIZE_TILES; ++local_x)
@@ -433,7 +484,19 @@ namespace str
                 // Write to view buffer
                 int buffer_idx = _get_buffer_index(buffer_tile_x, buffer_tile_y);
                 _view_buffer[buffer_idx] = cell;
+                tiles_loaded++;
             }
+        }
+        
+        // Validate immediate load against DMA bandwidth limits
+        str::DmaPerformanceMetrics immediate_load_metrics = str::benchmark_dma_transfer(tiles_loaded, false);
+        BN_LOG_LEVEL(bn::log_level::INFO, "CHUNK_IMMEDIATE: Loaded ", chunk_x, ",", chunk_y, 
+                     " with ", tiles_loaded, " tiles (", immediate_load_metrics.bandwidth_utilization, "% bandwidth)");
+        
+        if (tiles_loaded > TILES_PER_FRAME)
+        {
+            BN_LOG_LEVEL(bn::log_level::WARN, "CHUNK_IMMEDIATE_WARN: Immediate load ", 
+                         tiles_loaded, " tiles exceeds frame budget of ", TILES_PER_FRAME);
         }
 
         // Mark chunk as loaded
