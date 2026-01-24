@@ -93,6 +93,9 @@ namespace str
         validate_world_boundary_distances();
         validate_manhattan_distance_calculations();
         benchmark_distance_calculations();
+        
+        // Run comprehensive performance testing
+        run_comprehensive_performance_tests();
     }
 
     bool ChunkManager::update(const bn::fixed_point& player_world_pos)

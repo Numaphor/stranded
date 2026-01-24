@@ -49,6 +49,13 @@ namespace str
     void test_stationary_player_load_pattern();
     void test_movement_patterns();
     void test_boundary_conditions();
+    
+    // Enhanced performance testing
+    void measure_load_radius_performance(int player_chunk_x, int player_chunk_y);
+    void run_load_radius_stress_test();
+    void validate_memory_usage_patterns();
+    void measure_frame_time_impact();
+    void run_comprehensive_performance_tests();
 }
 
 #endif // STR_DISTANCE_VALIDATION_H
