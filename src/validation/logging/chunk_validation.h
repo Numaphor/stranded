@@ -45,6 +45,16 @@ namespace str
     BufferMetrics calculate_buffer_metrics();
     void reset_performance_counters();
     
+    // Buffer efficiency validation
+    bool validate_chunk_distribution(int center_chunk_x, int center_chunk_y);
+    bool check_buffer_fragmentation();
+    void validate_load_radius_efficiency(int center_chunk_x, int center_chunk_y, int load_range);
+    
+    // Performance stress testing
+    void run_buffer_edge_case_tests();
+    void test_wrapping_at_boundaries();
+    void test_rapid_direction_changes();
+    
     // Utility functions for logging
     const char* chunk_state_to_string(ChunkState state);
     void log_buffer_recenter(int old_origin_x, int old_origin_y, int new_origin_x, int new_origin_y);

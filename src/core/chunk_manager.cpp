@@ -83,6 +83,10 @@ namespace str
         // Validate initial buffer state
         validate_buffer_stability(_buffer_origin_tile_x, _buffer_origin_tile_y);
         reset_performance_counters();
+        
+        // Run initial performance tests
+        run_buffer_edge_case_tests();
+        test_wrapping_at_boundaries();
     }
 
     bool ChunkManager::update(const bn::fixed_point& player_world_pos)
@@ -115,6 +119,16 @@ namespace str
         // Log buffer utilization metrics
         BufferMetrics metrics = calculate_buffer_metrics();
         log_buffer_utilization(metrics);
+        
+        // Validate chunk distribution efficiency periodically
+        static int frame_counter = 0;
+        frame_counter++;
+        if (frame_counter % 300 == 0) // Every 5 seconds at 60 FPS
+        {
+            validate_load_radius_efficiency(_player_chunk_x, _player_chunk_y, 4);
+            check_buffer_fragmentation();
+            validate_chunk_distribution(_player_chunk_x, _player_chunk_y);
+        }
 
         return _is_streaming;
     }
