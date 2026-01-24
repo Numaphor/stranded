@@ -1,6 +1,7 @@
 #include "str_chunk_manager.h"
 #include "bn_affine_bg_map_cell_info.h"
 #include "bn_assert.h"
+#include "../validation/logging/chunk_validation.h"
 
 namespace
 {
@@ -58,6 +59,10 @@ namespace str
         {
             _view_buffer[i] = bn::affine_bg_map_cell(0);
         }
+
+        // Validate initial buffer state
+        validate_buffer_stability(_buffer_origin_tile_x, _buffer_origin_tile_y);
+        reset_performance_counters();
     }
 
     bool ChunkManager::update(const bn::fixed_point& player_world_pos)
@@ -86,6 +91,10 @@ namespace str
 
         // Determine which chunks need to be loaded
         _determine_needed_chunks(player_world_pos);
+
+        // Log buffer utilization metrics
+        BufferMetrics metrics = calculate_buffer_metrics();
+        log_buffer_utilization(metrics);
 
         return _is_streaming;
     }
@@ -121,6 +130,8 @@ namespace str
             if (chunk_x < origin_chunk_x || chunk_x > max_chunk_x ||
                 chunk_y < origin_chunk_y || chunk_y > max_chunk_y)
             {
+                // Log chunk unloading
+                log_chunk_state(chunk_x, chunk_y, ChunkState::UNLOADED, "_determine_needed_chunks cleanup");
                 _loaded_chunks.erase(_loaded_chunks.begin() + i);
             }
         }
@@ -317,6 +328,9 @@ namespace str
 
     void ChunkManager::_load_chunk_immediately(int chunk_x, int chunk_y)
     {
+        // Log chunk state transition
+        log_chunk_state(chunk_x, chunk_y, ChunkState::LOADING, "_load_chunk_immediately");
+        
         // Load all tiles of this chunk immediately (8x8 = 64 tiles)
         for (int local_y = 0; local_y < CHUNK_SIZE_TILES; ++local_y)
         {
@@ -359,6 +373,13 @@ namespace str
         if (!_loaded_chunks.full())
         {
             _loaded_chunks.push_back(loaded);
+            // Log successful chunk loading
+            log_chunk_state(chunk_x, chunk_y, ChunkState::LOADED, "_load_chunk_immediately");
+            track_buffer_turnover(chunk_x, chunk_y);
+        }
+        else
+        {
+            log_buffer_overflow_warning(loaded.buffer_slot_x, loaded.buffer_slot_y, chunk_x, chunk_y);
         }
 
         _needs_vram_update = true;
