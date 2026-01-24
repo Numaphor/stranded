@@ -396,28 +396,19 @@ namespace str
         
         if (frame_time_us > BG_CRITICAL_THRESHOLD_US)
         {
-            BN_LOG_LEVEL(bn::log_level::ERROR, "BG_VALIDATION: Critical frame time: ", frame_time_us, "μs");
+            BN_LOG_LEVEL(bn::log_level::ERROR, "BG_VALIDATION: Critical frame time: ", frame_time_us, "us");
             _validation_session.total_critical++;
-            result = BgValidationResult::CRITICAL;
+            return BgValidationResult::CRITICAL;
         }
         else if (frame_time_us > BG_WARNING_THRESHOLD_US)
         {
-            BN_LOG_LEVEL(bn::log_level::WARN, "BG_VALIDATION: High frame time: ", frame_time_us, "μs");
+            BN_LOG_LEVEL(bn::log_level::WARN, "BG_VALIDATION: High frame time: ", frame_time_us, "us");
             _validation_session.total_warnings++;
-            result = BgValidationResult::WARN;
+            return BgValidationResult::WARN;
         }
         
-        // Update current frame data
-        _current_frame_data.frame_time_us = frame_time_us;
-        _current_frame_data.chunks_processed = chunks_processed;
-        _current_frame_data.tiles_transferred = tiles_transferred;
-        _current_frame_data.frame_number = _frame_counter;
-        
-        // Record frame data for analysis
-        _record_frame_data(_current_frame_data);
-        
         BN_LOG_LEVEL(bn::log_level::DEBUG, "BG_VALIDATION: Frame time: ", frame_time_us, 
-                     "μs Chunks: ", chunks_processed, " Tiles: ", tiles_transferred);
+                     "us Chunks: ", chunks_processed, " Tiles: ", tiles_transferred);
         return result;
     }
     
@@ -671,9 +662,9 @@ namespace str
     }
     
     void BgValidation::_update_artifact_detection(
-        const bn::fixed_point& current_pos,
-        const bn::fixed_point& previous_pos,
-        bool buffer_recentered)
+        const bn::fixed_point& /* current_pos */,
+        const bn::fixed_point& /* previous_pos */,
+        bool /* buffer_recentered */)
     {
         // This is handled in detect_visual_artifacts()
         // Keeping this method for potential future expansion

@@ -11,7 +11,7 @@
 #include "str_chunk_manager.h"
 #include "str_world_object.h"
 #include "str_world_map_data.h"
-#include "bg_validation.h"
+#include "../validation/background/bg_validation.h"
 
 #include "bn_fixed.h"
 #include "bn_fixed_point.h"
@@ -288,8 +288,10 @@ namespace str
                 str::BgValidation::test_bg_register_sync(bg, camera_pos, expected_bg_pos);
                 
                 // Validate affine background compatibility
+                bn::fixed current_scale = _current_zoom_scale; // Use our tracked scale
+                bn::fixed current_rotation = bg.rotation_angle();
                 str::BgValidation::validate_affine_compatibility(bg, bg_map_ptr, camera_pos, 
-                                                               bg.scale(), bg.rotation_angle());
+                                                               current_scale, current_rotation);
                 
                 // Check rendering pipeline compatibility
                 bool dma_in_progress = _chunk_manager->is_streaming();
@@ -307,7 +309,6 @@ namespace str
                 int estimated_frame_time_us = dma_in_progress ? 12000 : 8000; // μs
                 int chunks_processed = _chunk_manager->get_chunks_processed_this_frame();
                 int tiles_transferred = _chunk_manager->get_tiles_transferred_this_frame();
-                bool buffer_recentered = _chunk_manager->was_buffer_recentered_this_frame();
                 str::BgValidation::measure_performance_impact(estimated_frame_time_us, chunks_processed, tiles_transferred);
             }
 

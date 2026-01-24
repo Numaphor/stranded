@@ -7,8 +7,7 @@
 
 namespace str
 {
-    // Distance validation constants
-    constexpr int CHUNK_LOAD_DISTANCE = 4;  // 4-chunk radius for loading validation
+    // Distance validation constants are already defined in str_constants.h
     
     // Distance calculation logging categories
     enum class DistanceLogCategory

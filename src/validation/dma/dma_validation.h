@@ -24,8 +24,7 @@ namespace str
     constexpr int SCANLINE_CYCLES = 1232;         // Cycles per scanline at 16.78MHz
     constexpr int VBLANK_CYCLES_BUDGET = VBLANK_SCANLINES * SCANLINE_CYCLES;
 
-    // Bandwidth limits from constants
-    constexpr int TILES_PER_FRAME = 64;           // GBA hardware bandwidth limit
+    // Bandwidth limits from constants are already defined in str_constants.h
     constexpr int BYTES_PER_TILE = 32;             // 8x8 tiles = 32 bytes at 4bpp
     constexpr int WORDS_PER_TILE = 8;             // 32 bytes / 4 bytes per word
     constexpr int MAX_WORDS_PER_FRAME = TILES_PER_FRAME * WORDS_PER_TILE;  // 512 words

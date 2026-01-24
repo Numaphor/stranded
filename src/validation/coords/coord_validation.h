@@ -6,14 +6,8 @@
 
 namespace str
 {
-    // Buffer size constants for validation
-    constexpr int VIEW_BUFFER_TILES = 128;
-    constexpr int VIEW_BUFFER_CHUNKS = 16;
-    constexpr int TILE_SIZE = 8;
-    
-    // World boundary constants
-    constexpr int WORLD_WIDTH_PIXELS = 8192;
-    constexpr int WORLD_HEIGHT_PIXELS = 8192;
+    // Buffer size constants are already defined in str_constants.h
+    // World boundary constants use values from str_constants.h
     constexpr int MAX_WORLD_COORD = 8191;
     constexpr int MIN_WORLD_COORD = 0;
     

@@ -103,7 +103,6 @@ namespace str
         run_comprehensive_performance_tests();
         
         // Initialize coordinate validation system
-        str::g_chunk_manager = this;
         str::validate_coordinate_transformations();
         str::test_buffer_boundaries();
         str::test_world_boundaries();
@@ -219,7 +218,7 @@ namespace str
     void ChunkManager::_determine_needed_chunks(const bn::fixed_point& player_world_pos)
     {
         (void)player_world_pos;
-        constexpr int LOAD_RANGE = 4;  // Balanced: 9x9 chunks (81 total) - good safe zone, better performance
+        constexpr int LOAD_RANGE = CHUNK_LOAD_DISTANCE;  // Use global constant for consistency
         constexpr int MAX_CHUNKS_PER_FRAME = 8;  // Conservative limit to maintain 60 FPS
 
         const int center_chunk_x = _player_chunk_x;
@@ -426,9 +425,8 @@ namespace str
         }
     }
 
-    void ChunkManager::_recenter_buffer_if_needed(int center_chunk_x, int center_chunk_y, int load_range)
+    void ChunkManager::_recenter_buffer_if_needed(int center_chunk_x, int center_chunk_y, int /* load_range */)
     {
-        const int load_diameter = load_range * 2 + 1;
         // Use a much smaller buffer radius to delay recentering - only recenter when very close to edge
         const int buffer_load_radius = 1;  // Only recenter when 1 chunk from buffer edge, not load_range
 
