@@ -16,7 +16,7 @@ Validate and instrument the existing chunk streaming foundation to ensure stable
 ## Current Position
 
 **Active Phase:** Phase 1 - Foundation Validation  
-**Plan:** 01-03 (DMA Transfer Validation and Optimization)  
+**Plan:** 01-04 (Coordinate Conversion Validation)  
 **Status:** Plan Complete  
 
 **Progress Bar:** `[██████████] 100%`
@@ -62,6 +62,10 @@ Validate and instrument the existing chunk streaming foundation to ensure stable
 - **Batch transfer optimization:** Systematic analysis of DMA setup vs transfer efficiency tradeoffs
 - **mGBA benchmarking integration:** Automated CI validation with structured logging
 - **Hardware compliance checking:** 32-bit transfers, 4-byte alignment, bandwidth limit validation
+- **Comprehensive coordinate validation:** Systematic edge case matrix with bidirectional testing
+- **Buffer wrapping arithmetic:** Robust positive_mod implementation with overflow protection
+- **Coordinate precision validation:** bn::fixed vs integer consistency with tolerance checking
+- **Performance impact measurement:** Frame-based timing for GBA-appropriate overhead analysis
 
 ### Technical Architecture
 - **Framework:** Butano C++ Framework 21.0.0
@@ -82,7 +86,7 @@ Validate and instrument the existing chunk streaming foundation to ensure stable
 ## Session Continuity
 
 ### Current Focus Areas
-Phase 1 Foundation Validation complete with comprehensive distance-based loading validation and DMA transfer optimization. Ready for Phase 2 - Predictive Buffering.
+Phase 1 Foundation Validation complete with comprehensive distance-based loading validation, DMA transfer optimization, and coordinate conversion validation. Ready for Phase 2 - Predictive Buffering.
 
 ### Blockers
 None identified. Foundation validation system with distance tracking and DMA monitoring provides comprehensive monitoring for next phase.
@@ -93,15 +97,18 @@ None identified. Foundation validation system with distance tracking and DMA mon
 3. Leverage DMA performance metrics and load radius tracking for optimization guidance
 4. Implement predictive buffer management using validated 4-chunk radius system
 5. Utilize established DMA validation framework for predictive optimization testing
+6. Use coordinate validation framework for predictive movement calculation verification
 
 ### Files Referenced
 - `include/str_chunk_manager.h` - Core chunk management interface
 - `src/core/chunk_manager.cpp` - Current chunk streaming implementation
 - `include/str_constants.h` - System constants and configuration
 - `src/scene/world.cpp` - World scene using chunk system
+- `src/validation/coords/coord_validation.h` - Coordinate validation interface
+- `src/validation/coords/coord_validation.cpp` - Comprehensive coordinate validation
 
 ---
 *State initialized: 2026-01-24*  
-*Last session: 2026-01-24T19:08:51Z - 2026-01-24T19:12:15Z*
-*Stopped at:* Completed Phase 01-03 DMA Transfer Validation and Optimization  
+*Last session: 2026-01-24T19:08:51Z - 2026-01-24T20:08:06Z*
+*Stopped at:* Completed Phase 01-04 Coordinate Conversion Validation  
 *Resume file:* None
