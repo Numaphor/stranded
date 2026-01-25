@@ -1,5 +1,7 @@
 #include "str_level.h"
 #include "str_constants.h"
+#include "str_chunk_manager.h"
+#include "str_world_object.h"
 
 #include "bn_affine_bg_map_ptr.h"
 #include "bn_affine_bg_map_cell.h"
@@ -14,7 +16,16 @@ namespace str
     // Level Implementation
     // =========================================================================
 
-    Level::Level(bn::affine_bg_map_ptr bg)
+    Level::Level() :
+        _chunk_manager(nullptr)
+    {
+        _zone_tiles.clear();
+        _zone_tiles.push_back(COLLISION_ZONE_TILE_INDEX);
+        _zone_tiles.push_back(INTERACTION_ZONE_TILE_INDEX);
+    }
+
+    Level::Level(bn::affine_bg_map_ptr bg) :
+        _chunk_manager(nullptr)
     {
         _bg_map_ptr = bg;
         _floor_tiles = {};
@@ -29,6 +40,36 @@ namespace str
                 _floor_tiles.push_back(cells.at(i));
             }
         }
+    }
+
+    void Level::set_chunk_manager(const ChunkManager* chunk_manager)
+    {
+        _chunk_manager = chunk_manager;
+    }
+
+    void Level::add_world_object(WorldObject* obj)
+    {
+        if (obj && !_world_objects.full())
+        {
+            _world_objects.push_back(obj);
+        }
+    }
+
+    void Level::remove_world_object(WorldObject* obj)
+    {
+        for (int i = _world_objects.size() - 1; i >= 0; --i)
+        {
+            if (_world_objects[i] == obj)
+            {
+                _world_objects.erase(_world_objects.begin() + i);
+                return;
+            }
+        }
+    }
+
+    void Level::clear_world_objects()
+    {
+        _world_objects.clear();
     }
 
     bn::vector<int, 32> Level::floor_tiles() { return _floor_tiles; }
@@ -106,13 +147,114 @@ namespace str
     void Level::clear_merchant_zone() { _merchant_zone_center.reset(); }
     void Level::set_merchant_zone_enabled(bool enabled) { _merchant_zone_enabled = enabled; }
 
+    bool Level::_collides_with_world_objects([[maybe_unused]] const bn::fixed_point &position) const
+    {
+        // TODO: Enable when world objects are properly initialized
+        // For now, always return false to avoid potential issues
+        // NOTE: Once enabled, this function should have test coverage to ensure
+        // world object collision detection works correctly with the chunk system
+        return false;
+
+        /*
+        // Skip if no world objects registered
+        if (_world_objects.empty())
+        {
+            return false;
+        }
+
+        // Check collision with world objects (trees, sword, buildings)
+        for (int i = 0; i < _world_objects.size(); ++i)
+        {
+            const WorldObject* obj = _world_objects[i];
+            if (obj && obj->has_collision() && obj->collides_with_point(position))
+            {
+                return true;
+            }
+        }
+        return false;
+        */
+    }
+
+    bool Level::_is_position_valid_chunked(const bn::fixed_point &p) const
+    {
+        if (!_chunk_manager)
+            return true;
+
+        // Check merchant collision
+        if (is_in_merchant_collision_zone(p))
+            return false;
+
+        // Check world object collision
+        if (_collides_with_world_objects(p))
+            return false;
+
+        // Check collision points against world tiles
+        bn::fixed_point pts[] = {
+            {p.x() - PLAYER_HITBOX_REDUCED_WIDTH / 2, p.y() - PLAYER_HITBOX_HEIGHT / 2 + PLAYER_HITBOX_VERTICAL_OFFSET},
+            {p.x() + PLAYER_HITBOX_REDUCED_WIDTH / 2 - 1, p.y() - PLAYER_HITBOX_HEIGHT / 2 + PLAYER_HITBOX_VERTICAL_OFFSET},
+            {p.x() - PLAYER_HITBOX_REDUCED_WIDTH / 2, p.y() + PLAYER_HITBOX_HEIGHT / 2 + PLAYER_HITBOX_VERTICAL_OFFSET - 1},
+            {p.x() + PLAYER_HITBOX_REDUCED_WIDTH / 2 - 1, p.y() + PLAYER_HITBOX_HEIGHT / 2 + PLAYER_HITBOX_VERTICAL_OFFSET - 1},
+            {p.x(), p.y() - PLAYER_HITBOX_HEIGHT / 2 + PLAYER_HITBOX_VERTICAL_OFFSET},
+            {p.x() - PLAYER_HITBOX_WIDTH / 4, p.y() - PLAYER_HITBOX_HEIGHT / 2 + PLAYER_HITBOX_VERTICAL_OFFSET},
+            {p.x() + PLAYER_HITBOX_WIDTH / 4, p.y() - PLAYER_HITBOX_HEIGHT / 2 + PLAYER_HITBOX_VERTICAL_OFFSET}
+        };
+
+        for (auto &pt : pts)
+        {
+            // Convert camera-relative point to world coordinates before sampling tiles
+            bn::fixed_point world_pt = _chunk_manager->buffer_to_world(pt);
+
+            // Convert world position to tile coordinates
+            int tile_x = world_pt.x().integer() / TILE_SIZE;
+            int tile_y = world_pt.y().integer() / TILE_SIZE;
+
+            // Check bounds
+            if (tile_x < 0 || tile_x >= WORLD_WIDTH_TILES ||
+                tile_y < 0 || tile_y >= WORLD_HEIGHT_TILES)
+            {
+                return false;
+            }
+
+            // Get tile from chunk manager
+            int tidx = _chunk_manager->get_tile_at_world(tile_x, tile_y);
+
+            // Check against zone tiles
+            for (int z : _zone_tiles)
+            {
+                if (tidx == z && z != 3 && z != 4)
+                    return false;
+            }
+        }
+        return true;
+    }
+
     bool Level::is_position_valid(const bn::fixed_point &p) const
     {
+        // Use chunked collision if chunk manager is available
+        if (_chunk_manager)
+        {
+            return _is_position_valid_chunked(p);
+        }
+
+        // Fall back to original behavior for non-chunked maps
         if (!_bg_map_ptr || is_in_merchant_collision_zone(p))
             return 0;
+
+        // Check world object collision
+        if (_collides_with_world_objects(p))
+            return false;
+
         auto c = _bg_map_ptr->cells_ref().value();
         int w = _bg_map_ptr->dimensions().width(), h = _bg_map_ptr->dimensions().height();
-        bn::fixed_point pts[] = {{p.x() - PLAYER_HITBOX_REDUCED_WIDTH / 2, p.y() - PLAYER_HITBOX_HEIGHT / 2 + PLAYER_HITBOX_VERTICAL_OFFSET}, {p.x() + PLAYER_HITBOX_REDUCED_WIDTH / 2 - 1, p.y() - PLAYER_HITBOX_HEIGHT / 2 + PLAYER_HITBOX_VERTICAL_OFFSET}, {p.x() - PLAYER_HITBOX_REDUCED_WIDTH / 2, p.y() + PLAYER_HITBOX_HEIGHT / 2 + PLAYER_HITBOX_VERTICAL_OFFSET - 1}, {p.x() + PLAYER_HITBOX_REDUCED_WIDTH / 2 - 1, p.y() + PLAYER_HITBOX_HEIGHT / 2 + PLAYER_HITBOX_VERTICAL_OFFSET - 1}, {p.x(), p.y() - PLAYER_HITBOX_HEIGHT / 2 + PLAYER_HITBOX_VERTICAL_OFFSET}, {p.x() - PLAYER_HITBOX_WIDTH / 4, p.y() - PLAYER_HITBOX_HEIGHT / 2 + PLAYER_HITBOX_VERTICAL_OFFSET}, {p.x() + PLAYER_HITBOX_WIDTH / 4, p.y() - PLAYER_HITBOX_HEIGHT / 2 + PLAYER_HITBOX_VERTICAL_OFFSET}};
+        bn::fixed_point pts[] = {
+            {p.x() - PLAYER_HITBOX_REDUCED_WIDTH / 2, p.y() - PLAYER_HITBOX_HEIGHT / 2 + PLAYER_HITBOX_VERTICAL_OFFSET},
+            {p.x() + PLAYER_HITBOX_REDUCED_WIDTH / 2 - 1, p.y() - PLAYER_HITBOX_HEIGHT / 2 + PLAYER_HITBOX_VERTICAL_OFFSET},
+            {p.x() - PLAYER_HITBOX_REDUCED_WIDTH / 2, p.y() + PLAYER_HITBOX_HEIGHT / 2 + PLAYER_HITBOX_VERTICAL_OFFSET - 1},
+            {p.x() + PLAYER_HITBOX_REDUCED_WIDTH / 2 - 1, p.y() + PLAYER_HITBOX_HEIGHT / 2 + PLAYER_HITBOX_VERTICAL_OFFSET - 1},
+            {p.x(), p.y() - PLAYER_HITBOX_HEIGHT / 2 + PLAYER_HITBOX_VERTICAL_OFFSET},
+            {p.x() - PLAYER_HITBOX_WIDTH / 4, p.y() - PLAYER_HITBOX_HEIGHT / 2 + PLAYER_HITBOX_VERTICAL_OFFSET},
+            {p.x() + PLAYER_HITBOX_WIDTH / 4, p.y() - PLAYER_HITBOX_HEIGHT / 2 + PLAYER_HITBOX_VERTICAL_OFFSET}
+        };
         for (auto &pt : pts)
         {
             int cx = ((pt.x() + w * 4) / 8).integer(), cy = ((pt.y() + h * 4) / 8).integer();

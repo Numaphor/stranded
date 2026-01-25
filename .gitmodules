@@ -4,3 +4,6 @@
 [submodule "llm_council_skill"]
 	path = llm_council_skill
 	url = https://github.com/shuntacurosu/llm_council_skill.git
+[submodule "get-shit-done"]
+	path = get-shit-done
+	url = https://github.com/glittercowboy/get-shit-done.git

@@ -8,6 +8,11 @@
 #include "str_world_state.h"
 #include "str_constants.h"
 #include "str_direction_utils.h"
+#include "str_chunk_manager.h"
+#include "str_world_object.h"
+#include "str_world_map_data.h"
+#include "../validation/background/bg_validation.h"
+#include "../validation/integration/system_validation.h"
 
 #include "bn_fixed.h"
 #include "bn_fixed_point.h"
@@ -18,7 +23,6 @@
 #include "bn_affine_bg_map_ptr.h"
 #include "bn_affine_bg_map_cell.h"
 #include "bn_affine_bg_map_cell_info.h"
-#include "bn_random.h"
 #include "bn_camera_ptr.h"
 #include "bn_core.h"
 #include "bn_keypad.h"
@@ -39,6 +43,8 @@
 #include "bn_sprite_items_hero.h"
 #include "common_variable_8x8_sprite_font.h"
 
+#include <cstdint>
+
 namespace str
 {
 
@@ -48,67 +54,93 @@ namespace str
 
     namespace
     {
-        struct bg_map
+        // View buffer for chunk streaming (128x128 tiles, same as before)
+        struct view_buffer
         {
-            static const int columns = MAP_COLUMNS;
-            static const int rows = MAP_ROWS;
-            static const int cells_count = MAP_CELLS_COUNT;
+            static const int columns = VIEW_BUFFER_TILES;  // 128
+            static const int rows = VIEW_BUFFER_TILES;     // 128
+            static const int cells_count = columns * rows; // 16384
             BN_DATA_EWRAM static bn::affine_bg_map_cell cells[cells_count];
             bn::affine_bg_map_item map_item;
-            int _background_tile;
 
-            bg_map(int world_id = 0) : map_item(cells[0], bn::size(columns, rows))
+            view_buffer() : map_item(cells[0], bn::size(columns, rows))
             {
-                _background_tile = 1;
-                if (world_id == 1)
-                {
-                    _background_tile = 2;
-                }
-                
+                // Initialize with empty tiles - ChunkManager will fill it
                 for (int i = 0; i < cells_count; ++i)
                 {
-                    cells[i] = bn::affine_bg_map_cell(_background_tile);
-                }
-
-                bn::random random;
-                int current_index = 0;
-                while (current_index < cells_count)
-                {
-                    int patch_width = random.get_int(2, 6);
-                    int patch_height = random.get_int(2, 6);
-                    int base_x = current_index % columns;
-                    int base_y = current_index / columns;
-
-                    for (int py = 0; py < patch_height; ++py)
-                    {
-                        for (int px = 0; px < patch_width; ++px)
-                        {
-                            if (random.get_int(100) < 70)
-                            {
-                                int x = base_x + px;
-                                int y = base_y + py;
-                                if (x < columns && y < rows)
-                                {
-                                    cells[y * columns + x] = bn::affine_bg_map_cell(2);
-                                }
-                            }
-                        }
-                    }
-
-                    int gap;
-                    if (random.get_int(100) < 50)
-                    {
-                        gap = random.get_int(1, 17);
-                    }
-                    else
-                    {
-                        gap = random.get_int(64, 129);
-                    }
-                    current_index += gap + (patch_width * patch_height) / 2;
+                    cells[i] = bn::affine_bg_map_cell(1);
                 }
             }
         };
-        BN_DATA_EWRAM bn::affine_bg_map_cell bg_map::cells[bg_map::cells_count];
+        BN_DATA_EWRAM bn::affine_bg_map_cell view_buffer::cells[view_buffer::cells_count];
+
+        struct procedural_world_context
+        {
+            int background_tile = 1;
+            int variation_tile = 2;
+            int feature_tile = 3;
+            int world_seed = 1;
+        };
+
+        procedural_world_context g_world_context;
+
+        [[nodiscard]] uint32_t hash_coordinates(int x, int y, int seed)
+        {
+            uint32_t value = static_cast<uint32_t>(x) * 73856093u;
+            value ^= static_cast<uint32_t>(y) * 19349663u;
+            value ^= static_cast<uint32_t>(seed) * 83492791u;
+            value ^= value >> 13;
+            value *= 1274126177u;
+            value ^= value >> 16;
+            return value;
+        }
+
+        bn::affine_bg_map_cell procedural_tile_provider(int tile_x, int tile_y, const void* context_ptr)
+        {
+            const auto* context = static_cast<const procedural_world_context*>(context_ptr);
+            uint32_t hash = hash_coordinates(tile_x, tile_y, context->world_seed);
+            uint32_t bucket = hash % 100u;
+
+            int tile = context->background_tile;
+            if (bucket < 5)
+            {
+                tile = context->feature_tile;
+            }
+            else if (bucket < 35)
+            {
+                tile = context->variation_tile;
+            }
+
+            return bn::affine_bg_map_cell(tile);
+        }
+
+        // Configure procedural world parameters for the requested world
+        void generate_world_map(int world_id)
+        {
+            g_world_context.world_seed = 0xACE1 + world_id * 1315423911;
+            if (world_id == 1)
+            {
+                g_world_context.background_tile = 2;
+                g_world_context.variation_tile = 1;
+                g_world_context.feature_tile = 3;
+            }
+            else
+            {
+                g_world_context.background_tile = 1;
+                g_world_context.variation_tile = 2;
+                g_world_context.feature_tile = 3;
+            }
+        }
+
+        WorldMapData create_world_map_data()
+        {
+            WorldMapData data;
+            data.provider = procedural_tile_provider;
+            data.provider_context = &g_world_context;
+            data.width_tiles = WORLD_WIDTH_TILES;
+            data.height_tiles = WORLD_HEIGHT_TILES;
+            return data;
+        }
     }
 
     // =========================================================================
@@ -118,13 +150,15 @@ namespace str
     World::World() : _player(nullptr),
                      _level(nullptr),
                      _minimap(nullptr),
-                     // _sword_bg(bn::nullopt), // Temporarily disabled
                      _merchant(nullptr),
                      _player_status_display(nullptr),
                      _camera(bn::nullopt),
                      _last_camera_direction(PlayerMovement::Direction::DOWN),
                      _direction_change_frames(0),
                      _current_world_id(0),
+                     _use_chunked_world(false),
+                     _chunk_manager(nullptr),
+                     _player_world_position(0, 0),
                      _shake_frames(0),
                      _shake_intensity(0),
                      _continuous_fire_frames(0),
@@ -139,10 +173,13 @@ namespace str
         builder.set_bg_priority(1);
         _player = new Player(builder.release_build());
         _lookahead_current = bn::fixed_point(0, 0);
+        _skip_camera_update = false;
+        _lookahead_paused = false;
     }
 
     World::~World()
     {
+        delete _chunk_manager;
         delete _player;
         delete _level;
         delete _minimap;
@@ -152,6 +189,8 @@ namespace str
     str::Scene str::World::execute(bn::fixed_point spawn_location, int world_id)
     {
         _current_world_id = world_id;
+        _use_chunked_world = true;  // Enable chunk system
+
         WorldStateManager &state_manager = WorldStateManager::instance();
         if (state_manager.has_saved_state(world_id))
         {
@@ -159,21 +198,62 @@ namespace str
             spawn_location = saved_state.player_position;
         }
 
-        bn::camera_ptr camera = bn::camera_ptr::create(0, 0);
-        _camera = camera;
+        // Generate the large world map
+        generate_world_map(world_id);
+        WorldMapData world_map_data = create_world_map_data();
 
-        bg_map bg_map_obj(world_id);
+        // Create view buffer and background
+        view_buffer vb;
         bn::affine_bg_tiles_ptr tiles = bn::affine_bg_tiles_items::tiles_affine.create_tiles();
         bn::bg_palette_ptr palette = bn::bg_palette_items::palette.create_palette();
-        bn::affine_bg_map_ptr bg_map_ptr = bg_map_obj.map_item.create_map(tiles, palette);
+        bn::affine_bg_map_ptr bg_map_ptr = vb.map_item.create_map(tiles, palette);
         bn::affine_bg_ptr bg = bn::affine_bg_ptr::create(bg_map_ptr);
+
+        // Initialize chunk manager
+        if (_chunk_manager)
+        {
+            delete _chunk_manager;
+        }
+        _chunk_manager = new ChunkManager();
+        _chunk_manager->init(world_map_data, view_buffer::cells);
+        
+        // Initialize background validation
+        str::BgValidation::init();
+        
+        // Initialize system integration validation
+        str::SystemValidation::init();
+
+        // Start with simple approach: player and camera in buffer coordinates
+        // World position = player_screen_pos + camera_pos + buffer_offset
+        // Initial: player at (0,0), camera at (0,0), offset = 512
+        _player_world_position = bn::fixed_point(BUFFER_HALF_SIZE, BUFFER_HALF_SIZE);
+
+        bn::camera_ptr camera = bn::camera_ptr::create(0, 0);
+        _camera = camera;
         bg.set_camera(camera);
 
-        _level = new Level(bg_map_ptr);
-        _player->spawn(spawn_location, camera);
-        _camera_target_pos = spawn_location;
-        camera.set_position(spawn_location.x(), spawn_location.y());
+        // Create level for collision (uses chunk manager)
+        _level = new Level();
+        _level->set_chunk_manager(_chunk_manager);
+
+        // Player spawns at origin
+        _player->spawn(bn::fixed_point(0, 0), camera);
+        _camera_target_pos = bn::fixed_point(0, 0);
         _lookahead_current = bn::fixed_point(0, 0);
+
+        // Force initial chunk loading - run multiple updates to fill visible area
+        // With LOAD_RANGE=2 (5x5=25 chunks) and 25 chunks/frame max, we need 1 frame
+        // But we use 20 iterations to ensure all chunks are loaded and committed
+        // 25 chunks / 25 chunks per frame = 1 frame minimum; 20 provides safety margin
+        constexpr int INITIAL_CHUNK_LOAD_ITERATIONS = 20;
+        for (int i = 0; i < INITIAL_CHUNK_LOAD_ITERATIONS; ++i)
+        {
+            _chunk_manager->update(_player_world_position);
+        }
+        _chunk_manager->commit_to_vram(bg_map_ptr);
+        
+        // Start background validation session after initial setup
+        str::BgValidation::start_validation_session();
 
         // Sword bg temporarily disabled for affine main bg
         // _sword_bg = bn::affine_bg_items::sword.create_bg(0, 0);
@@ -195,16 +275,101 @@ namespace str
 
         while (true)
         {
+            // Update chunk streaming
+            if (_chunk_manager)
+            {
+                // Store previous background position for artifact detection
+                bn::fixed_point previous_bg_pos(bg.x(), bg.y());
+                
+                _chunk_manager->update(_player_world_position);
+                _chunk_manager->commit_to_vram(bg_map_ptr);
+                
+                // Get current camera position for validation
+                bn::fixed_point camera_pos = _camera ? bn::fixed_point(_camera->x(), _camera->y()) : bn::fixed_point(0, 0);
+                bn::fixed_point expected_bg_pos = bn::fixed_point(-camera_pos.x(), -camera_pos.y());
+                
+                // Validate BG register synchronization
+                str::BgValidation::test_bg_register_sync(bg, camera_pos, expected_bg_pos);
+                
+                // Validate affine background compatibility
+                bn::fixed current_scale = _current_zoom_scale; // Use our tracked scale
+                bn::fixed current_rotation = bg.rotation_angle();
+                str::BgValidation::validate_affine_compatibility(bg, bg_map_ptr, camera_pos, 
+                                                               current_scale, current_rotation);
+                
+                // Check rendering pipeline compatibility
+                bool dma_in_progress = _chunk_manager->is_streaming();
+                bool vblank_active = false; // We're in main loop, not VBlank
+                str::BgValidation::check_rendering_pipeline(bg, 1, dma_in_progress, vblank_active);
+                
+                // Detect visual artifacts
+                bool buffer_recentered = _chunk_manager->was_buffer_recentered_this_frame();
+                bn::fixed_point current_bg_pos(bg.x(), bg.y());
+                str::BgValidation::detect_visual_artifacts(current_bg_pos, previous_bg_pos, buffer_recentered);
+                
+                // Measure performance impact
+                // Note: In a real implementation, you'd measure actual frame time here
+                // For now, we'll use a reasonable estimate
+                int estimated_frame_time_us = dma_in_progress ? 12000 : 8000; // μs
+                int chunks_processed = _chunk_manager->get_chunks_processed_this_frame();
+                int tiles_transferred = _chunk_manager->get_tiles_transferred_this_frame();
+                str::BgValidation::measure_performance_impact(estimated_frame_time_us, chunks_processed, tiles_transferred);
+                
+                // Run system integration validation periodically
+                static int integration_validation_counter = 0;
+                integration_validation_counter++;
+                if (integration_validation_counter >= 300) // Every 5 seconds at 60 FPS
+                {
+                    str::SystemValidation::run_category_tests(str::IntegrationTestCategory::PERFORMANCE);
+                    integration_validation_counter = 0;
+                }
+            }
+
             bn::core::update();
             if (bn::keypad::select_held() && bn::keypad::a_pressed())
             {
+                // End validation session before exiting
+                str::BgValidation::end_validation_session();
+                str::SystemValidation::shutdown();
+                
                 if (_merchant)
                     _merchant->set_is_hidden(true);
                 _save_current_state();
                 return str::Scene::MENU;
             }
             if (bn::keypad::select_pressed() && !bn::keypad::a_held() && !bn::keypad::b_held() && !bn::keypad::l_held() && !bn::keypad::r_held())
+            {
+                _recenter_camera();
                 _zoomed_out = !_zoomed_out;
+            }
+            
+            // Background validation stress test trigger
+            if (bn::keypad::start_pressed() && bn::keypad::b_held())
+            {
+                // Run combined stress test for 5 seconds
+                str::BgValidation::run_stress_test(bg, 3, STRESS_TEST_DURATION_FRAMES);
+            }
+            
+            // System integration validation trigger
+            if (bn::keypad::start_pressed() && bn::keypad::a_held())
+            {
+                // Run comprehensive integration validation
+                str::SystemValidation::run_all_integration_tests();
+            }
+            
+            // Collision system validation trigger
+            if (bn::keypad::start_pressed() && bn::keypad::select_held())
+            {
+                // Run collision compatibility tests
+                str::SystemValidation::run_category_tests(str::IntegrationTestCategory::COLLISION);
+            }
+            
+            // Entity positioning validation trigger
+            if (bn::keypad::start_pressed() && bn::keypad::r_held())
+            {
+                // Run entity positioning tests
+                str::SystemValidation::run_category_tests(str::IntegrationTestCategory::ENTITIES);
+            }
             bn::fixed t_sc = _zoomed_out ? ZOOM_OUT_SCALE : ZOOM_NORMAL_SCALE;
             if (_current_zoom_scale != t_sc)
             {
@@ -273,29 +438,68 @@ namespace str
             else
                 _continuous_fire_frames = 0;
             _player->update_z_order();
+
+            // Track player world position for chunk streaming
+            // Player pos() returns position relative to camera (screen position)
+            // So we need: player_screen_pos + camera_pos + buffer_offset
+            bn::fixed cam_x = _camera ? _camera->x() : bn::fixed(0);
+            bn::fixed cam_y = _camera ? _camera->y() : bn::fixed(0);
+            _player_world_position.set_x(_player->pos().x() + cam_x + BUFFER_HALF_SIZE);
+            _player_world_position.set_y(_player->pos().y() + cam_y + BUFFER_HALF_SIZE);
+
             if (!str::ZoneManager::is_position_valid(_player->pos()))
                 _player->revert_position();
             if (_minimap)
                 _minimap->update(_player->pos(), {0, 0}, _enemies);
-            PlayerMovement::Direction fdir = _player->facing_direction();
-            bn::fixed_point dl = {0, 0};
-            if (fdir == PlayerMovement::Direction::RIGHT)
-                dl = {CAMERA_LOOKAHEAD_X, 0};
-            else if (fdir == PlayerMovement::Direction::LEFT)
-                dl = {-CAMERA_LOOKAHEAD_X, 0};
-            else if (fdir == PlayerMovement::Direction::UP)
-                dl = {0, -CAMERA_LOOKAHEAD_Y};
-            else if (fdir == PlayerMovement::Direction::DOWN)
-                dl = {0, CAMERA_LOOKAHEAD_Y};
-            _lookahead_current += (dl - _lookahead_current) * CAMERA_LOOKAHEAD_SMOOTHING;
-            bn::fixed_point cp = _camera ? bn::fixed_point(_camera->x(), _camera->y()) : bn::fixed_point(0, 0), ct = _player->pos() + _lookahead_current, ctt = ct - cp;
-            bn::fixed nx = cp.x(), ny = cp.y();
-            if (bn::abs(ctt.x()) > CAMERA_DEADZONE_X)
-                nx = ct.x() - (ctt.x() > 0 ? CAMERA_DEADZONE_X : -CAMERA_DEADZONE_X);
-            if (bn::abs(ctt.y()) > CAMERA_DEADZONE_Y)
-                ny = ct.y() - (ctt.y() > 0 ? CAMERA_DEADZONE_Y : -CAMERA_DEADZONE_Y);
-            if (_camera)
-                _camera->set_position(bn::clamp(nx, bn::fixed(-MAP_OFFSET_X + 120), bn::fixed(MAP_OFFSET_X - 120)).integer(), bn::clamp(ny, bn::fixed(-MAP_OFFSET_Y + 80), bn::fixed(MAP_OFFSET_Y - 80)).integer());
+            // Camera follows player (original logic)
+            if (_skip_camera_update)
+            {
+                _skip_camera_update = false;
+            }
+            else
+            {
+                bool player_is_moving = _player && _player->is_moving();
+                if (_lookahead_paused)
+                {
+                    if (player_is_moving)
+                    {
+                        _lookahead_paused = false;
+                    }
+                    else
+                    {
+                        _lookahead_current = bn::fixed_point(0, 0);
+                    }
+                }
+
+                bn::fixed_point dl = {0, 0};
+                if (!_lookahead_paused)
+                {
+                    PlayerMovement::Direction fdir = _player->facing_direction();
+                    if (fdir == PlayerMovement::Direction::RIGHT)
+                        dl = {CAMERA_LOOKAHEAD_X, 0};
+                    else if (fdir == PlayerMovement::Direction::LEFT)
+                        dl = {-CAMERA_LOOKAHEAD_X, 0};
+                    else if (fdir == PlayerMovement::Direction::UP)
+                        dl = {0, -CAMERA_LOOKAHEAD_Y};
+                    else if (fdir == PlayerMovement::Direction::DOWN)
+                        dl = {0, CAMERA_LOOKAHEAD_Y};
+                }
+
+                _lookahead_current += (dl - _lookahead_current) * CAMERA_LOOKAHEAD_SMOOTHING;
+                bn::fixed_point cp = _camera ? bn::fixed_point(_camera->x(), _camera->y()) : bn::fixed_point(0, 0);
+                bn::fixed_point ct = _player->pos() + _lookahead_current;
+                bn::fixed_point ctt = ct - cp;
+                bn::fixed nx = cp.x(), ny = cp.y();
+                if (bn::abs(ctt.x()) > CAMERA_DEADZONE_X)
+                    nx = ct.x() - (ctt.x() > 0 ? CAMERA_DEADZONE_X : -CAMERA_DEADZONE_X);
+                if (bn::abs(ctt.y()) > CAMERA_DEADZONE_Y)
+                    ny = ct.y() - (ctt.y() > 0 ? CAMERA_DEADZONE_Y : -CAMERA_DEADZONE_Y);
+                if (_camera)
+                    _camera->set_position(
+                        bn::clamp(nx, bn::fixed(-WORLD_WIDTH_PIXELS + 120), bn::fixed(WORLD_WIDTH_PIXELS - 120)).integer(),
+                        bn::clamp(ny, bn::fixed(-WORLD_HEIGHT_PIXELS + 80), bn::fixed(WORLD_HEIGHT_PIXELS - 80)).integer()
+                    );
+            }
             // Sword bg temporarily disabled
             // if (_sword_bg)
             // {
@@ -467,6 +671,25 @@ namespace str
                     _merchant->get_sprite()->remove_affine_mat();
             }
         }
+    }
+
+    void World::_recenter_camera()
+    {
+        if (!_camera)
+        {
+            return;
+        }
+
+        _lookahead_current = bn::fixed_point(0, 0);
+        _skip_camera_update = true;
+        _lookahead_paused = true;
+
+        bn::fixed_point player_pos = _player ? _player->pos() : bn::fixed_point(0, 0);
+        _camera_target_pos = player_pos;
+
+        bn::fixed clamped_x = bn::clamp(player_pos.x(), bn::fixed(-MAP_OFFSET_X + 120), bn::fixed(MAP_OFFSET_X - 120));
+        bn::fixed clamped_y = bn::clamp(player_pos.y(), bn::fixed(-MAP_OFFSET_Y + 80), bn::fixed(MAP_OFFSET_Y - 80));
+        _camera->set_position(clamped_x, clamped_y);
     }
 
     void World::_init_world_specific_content(int world_id, bn::camera_ptr &camera, bn::affine_bg_ptr &bg, bn::sprite_text_generator &text_generator)

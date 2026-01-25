@@ -9,7 +9,8 @@
       "Bash(opencode models:*)",
       "Bash(make)",
       "Bash(git stash show:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(make:*)"
     ]
   }
 }

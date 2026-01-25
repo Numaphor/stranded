@@ -19,14 +19,16 @@
 #include "str_enemy.h"
 #include "str_level.h"
 #include "str_minimap.h"
-#include "str_npc_derived.h" // Include NPC derived classes
+#include "str_npc_derived.h"
 #include "str_hitbox.h"
 #include "str_world_state.h"
 
 namespace str
 {
-    // Forward declaration for future feature
+    // Forward declarations
     class PlayerStatusDisplay;
+    class WorldObject;
+    class ChunkManager;
 
     class World
     {
@@ -41,17 +43,23 @@ namespace str
         Level *_level;
         bn::vector<Enemy, 16> _enemies;
         Minimap *_minimap;
-        // bn::optional<bn::affine_bg_ptr> _sword_bg; // Temporarily disabled for affine main bg
-        NPC *_merchant;                                   // Changed to base NPC pointer to allow different types
-        PlayerStatusDisplay *_player_status_display;      // Future: Player status display (will be converted to unique_ptr)
-        bn::optional<bn::camera_ptr> _camera;             // Camera for positioning
-        PlayerMovement::Direction _last_camera_direction; // Track last direction for smooth direction changes
-        int _direction_change_frames;                     // Counter for how many frames we've been changing direction
-        int _current_world_id;                            // Track current world
+        NPC *_merchant;
+        PlayerStatusDisplay *_player_status_display;
+        bn::optional<bn::camera_ptr> _camera;
+        PlayerMovement::Direction _last_camera_direction;
+        int _direction_change_frames;
+        int _current_world_id;
+
+        // Chunk loading system for large worlds (allocated on demand)
+        bool _use_chunked_world;
+        ChunkManager* _chunk_manager;  // Pointer - only allocated when chunked mode is enabled
+        bn::fixed_point _player_world_position;  // Player position in world coordinates
 
         // Camera deadzone system
         bn::fixed_point _camera_target_pos; // Where the camera wants to be
         bn::fixed_point _lookahead_current; // Smoothed lookahead vector
+        bool _skip_camera_update;           // Skip camera follow for next frame (e.g., after recenter)
+        bool _lookahead_paused;             // Prevent lookahead drift until player moves again
 
         // Screen shake system
         int _shake_frames;           // Number of frames left to shake
@@ -73,6 +81,7 @@ namespace str
         
         void _handle_zoom();
         void _update_camera(bn::camera_ptr& camera);
+        void _recenter_camera();
         void _update_enemies(bn::camera_ptr& camera, bn::affine_bg_ptr& bg);
         // void _update_sword_bg(bn::camera_ptr& camera, bn::rect_window& internal_window); // Temporarily disabled
         void _apply_zoom_to_sprites(bn::camera_ptr& camera);
