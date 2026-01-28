@@ -2,14 +2,53 @@
 
 This is a top-down adventure game built with the **Butano engine** for Game Boy Advance. The project follows a specific architecture and conventions that AI agents should understand for effective contributions.
 
+## Code Style & Patterns
+
+### Naming Conventions
+- **Classes**: `PascalCase` (e.g., `Player`, `Enemy`, `World`)
+- **Functions/Methods**: `snake_case` (e.g., `execute()`, `update()`, `is_position_valid()`)
+- **Variables**: `snake_case` with underscore prefix for private members (e.g., `_player`, `_current_state`)
+- **Constants**: `SCREAMING_SNAKE_CASE` (e.g., `TILE_SIZE`, `MAX_AMMO`)
+- **Namespaces**: `str` for all game code
+- **Enums**: `PascalCase` with underscore prefix for values (e.g., `ENEMY_TYPE::SPEARGUARD`)
+
+### Code Organization
+- **Headers**: `include/str_*.h` - Interface declarations only
+- **Source**: `src/` - Implementation files organized by domain:
+  - `src/actors/` - Player, Enemy, NPC implementations
+  - `src/core/` - Entity, collision, world state, scenes
+- **All code** wrapped in `namespace str { ... }`
+
+### Include Organization
+```cpp
+// Project headers (alphabetical)
+#include "str_player.h"
+#include "str_level.h"
+
+// Butano headers (alphabetical)  
+#include "bn_fixed_point.h"
+#include "bn_sprite_ptr.h"
+
+// Asset headers (alphabetical)
+#include "bn_sprite_items_hero.h"
+```
+
 ## Architecture Overview
 
 ### Core Scene System
 
-- Scene management via `fe::Scene` enum (MENU, WORLD) with state transitions in `main.cpp`
-- `World::execute()` is the main game loop handling player, enemies, NPCs, and collision detection
-- World-specific content loaded by `_init_world_specific_content()` based on `world_id` parameter
+- Scene management via `str::Scene` enum (START, MENU, CONTROLS, WORLD) with state transitions in `main.cpp`
+- Each scene class implements `execute()` returning next `Scene`
 - State persistence through `WorldStateManager` singleton for saving/loading player progress across worlds
+- World-specific content loaded based on `world_id` parameter
+
+### Entity-Component Architecture
+
+- Base `Entity` class with `Hitbox`, position, and sprite management
+- `Player` extends Entity with composition pattern (PlayerMovement, PlayerAnimation, PlayerVFX, PlayerState, PlayerAbilities)
+- `Enemy` uses state machine pattern (`EnemyStateMachine` + concrete states like `ChaseState`, `AttackState`)
+- NPCs use polymorphic design (`MerchantNPC`, `PenguinNPC`, `TortoiseNPC` inherit from base `NPC`)
+- All positions use `bn::fixed_point`, velocities use `bn::fixed`
 
 ### Entity-Component Architecture
 
@@ -22,8 +61,9 @@ This is a top-down adventure game built with the **Butano engine** for Game Boy 
 
 - **Sprite-based collision**: Player vs enemies, bullets vs enemies using `Hitbox::collides_with()`
 - **Tile-based collision**: Level boundaries, merchant zones via `Level::is_position_valid()`
-- **Zone system**: Merchant interaction (100x100), collision (24x24), and sword zones with hardcoded coordinates
+- **Zone system**: Merchant interaction (100x100), collision (40x40), and sword zones with hardcoded coordinates
 - Debug visualization via `HitboxDebug` class (toggle with SELECT+START)
+- All hitbox sizes and zones defined in `str_constants.h`
 
 ### Level & World Management
 
@@ -31,6 +71,7 @@ This is a top-down adventure game built with the **Butano engine** for Game Boy 
 - Background tiles dynamically updated for debug visualization zones
 - Camera follows player with precise tracking: `camera.set_x(player_pos.x())`
 - Multi-world system (0=Main, 1=Forest, 2=Desert, 3=Ocean) with unique enemies/NPCs per world
+- Zone bounds cached to avoid expensive map scanning each frame
 
 ## Build & Development Workflow
 
@@ -49,9 +90,11 @@ taskkill /im mGBA.exe /F; make -j8
 
 ### File Organization
 
-- `src/` - All C++ implementation files
-- `include/` - All header files (.h)
-- `graphics/` - Sprite assets (.bmp + .json pairs)
+- `src/` - All C++ implementation files organized by domain:
+  - `src/actors/` - Player, Enemy, NPC implementations
+  - `src/core/` - Entity, collision, world state, scenes
+- `include/` - All header files (.h) with interface declarations only
+- `graphics/` - Sprite assets (.bmp + .json pairs) and background tiles
 - `audio/` - Sound effects and music
 - Build artifacts in `build/` (never use `make clean`)
 
@@ -89,7 +132,7 @@ taskkill /im mGBA.exe /F; make -j8
 
 ### Naming Patterns
 
-- Namespace: `fe` for all game code
+- Namespace: `str` for all game code
 - Enums: `ENEMY_TYPE::SPEARGUARD`, `Scene::WORLD`
 - Private members: `_member_name`
 - Friend classes extensively used for tight coupling (World ↔ Player ↔ Enemy)
@@ -101,6 +144,64 @@ taskkill /im mGBA.exe /F; make -j8
 - Entity removal deferred until after iteration completion
 - Background tile updates batched and conditionally reloaded
 
+## Critical Patterns for First-Attempt Success
+
+### 1. Always Use `bn::fixed_point` for Positions
+```cpp
+// CORRECT
+bn::fixed_point player_pos(50, 100);
+
+// WRONG
+int player_x = 50, player_y = 100;
+```
+
+### 2. Check Position Validity Before Movement
+```cpp
+if (_level.is_position_valid(new_position)) {
+    player.set_position(new_position);
+}
+```
+
+### 3. Use State Machine Pattern for Entity Behavior
+```cpp
+// Enemy state transitions
+_state_machine.transition_to(*this, bn::unique_ptr<ChaseState>(new ChaseState()));
+```
+
+### 4. Follow Camera Assignment Pattern
+```cpp
+sprite.set_camera(camera);
+bg.set_camera(camera);
+```
+
+### 5. Use Butano Containers for Memory Management
+```cpp
+bn::vector<Enemy, 16> enemies;  // Fixed-size vector
+bn::optional<bn::sprite_ptr> sprite;  // Optional sprite
+```
+
+### 6. Constants in `str_constants.h`
+All magic numbers should be defined as constants with descriptive names.
+
+### 7. Namespace Wrapping
+All game code must be wrapped in `namespace str { ... }`.
+
+### 8. Include Organization
+```cpp
+// Project headers (alphabetical)
+#include "str_player.h"
+#include "str_level.h"
+
+// Butano headers (alphabetical)  
+#include "bn_fixed_point.h"
+#include "bn_sprite_ptr.h"
+
+// Asset headers (alphabetical)
+#include "bn_sprite_items_hero.h"
+```
+
+These patterns represent the core architectural DNA of the Stranded GBA game. Following them ensures compatibility with the existing codebase and the constraints of GBA development through the Butano engine.
+
 ## Common Pitfalls
 
 - Never modify position without checking `Level::is_position_valid()`
@@ -108,6 +209,8 @@ taskkill /im mGBA.exe /F; make -j8
 - State machine transitions must call `exit()` → `enter()` sequence
 - Zone collision uses exclusive upper bounds (`< zone_right` not `<= zone_right`)
 - Background map reloading needed after tile updates via `bg_map_ptr.reload_cells_ref()`
+- All positions must use `bn::fixed_point`, not integer types
+- All game code must be wrapped in `namespace str { ... }`
 
 When implementing features, always build and test immediately. The game should run without errors on mGBA emulator for successful integration.
 
@@ -271,3 +374,61 @@ run_frames(120, "step3_gameplay.png")   # Capture gameplay
 3. **CI/CD Integration**: Run headless tests in GitHub Actions without display server
 4. **Bug Reproduction**: Script exact input sequences to reproduce issues
 5. **Screenshot Documentation**: Generate screenshots for README and documentation
+
+## Critical Patterns for First-Attempt Success
+
+### 1. Always Use `bn::fixed_point` for Positions
+```cpp
+// CORRECT
+bn::fixed_point player_pos(50, 100);
+
+// WRONG
+int player_x = 50, player_y = 100;
+```
+
+### 2. Check Position Validity Before Movement
+```cpp
+if (_level.is_position_valid(new_position)) {
+    player.set_position(new_position);
+}
+```
+
+### 3. Use State Machine Pattern for Entity Behavior
+```cpp
+// Enemy state transitions
+_state_machine.transition_to(*this, bn::unique_ptr<ChaseState>(new ChaseState()));
+```
+
+### 4. Follow Camera Assignment Pattern
+```cpp
+sprite.set_camera(camera);
+bg.set_camera(camera);
+```
+
+### 5. Use Butano Containers for Memory Management
+```cpp
+bn::vector<Enemy, 16> enemies;  // Fixed-size vector
+bn::optional<bn::sprite_ptr> sprite;  // Optional sprite
+```
+
+### 6. Constants in `str_constants.h`
+All magic numbers should be defined as constants with descriptive names.
+
+### 7. Namespace Wrapping
+All game code must be wrapped in `namespace str { ... }`.
+
+### 8. Include Organization
+```cpp
+// Project headers (alphabetical)
+#include "str_player.h"
+#include "str_level.h"
+
+// Butano headers (alphabetical)  
+#include "bn_fixed_point.h"
+#include "bn_sprite_ptr.h"
+
+// Asset headers (alphabetical)
+#include "bn_sprite_items_hero.h"
+```
+
+These patterns represent the core architectural DNA of the Stranded GBA game. Following them ensures compatibility with the existing codebase and the constraints of GBA development through the Butano engine.
