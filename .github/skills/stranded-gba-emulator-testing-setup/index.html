@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stranded - GBA Emulator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #fff;
+            padding: 20px;
+        }
+        h1 {
+            margin-bottom: 10px;
+            margin-top: 20px;
+            font-size: 2rem;
+            text-shadow: 0 0 20px rgba(155, 188, 15, 0.5);
+            color: #9bbc0f;
+        }
+        .subtitle {
+            color: #8892b0;
+            margin-bottom: 20px;
+            font-size: 1rem;
+        }
+        #game {
+            width: 640px;
+            height: 480px;
+            max-width: 100%;
+        }
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .control-group {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 12px 16px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        .control-group h3 {
+            color: #9bbc0f;
+            margin-bottom: 8px;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .key {
+            display: inline-block;
+            background: linear-gradient(180deg, #4a4a4a 0%, #2a2a2a 100%);
+            padding: 6px 10px;
+            border-radius: 6px;
+            margin: 2px;
+            font-size: 0.8rem;
+            border: 1px solid #555;
+            box-shadow: 0 3px 0 #1a1a1a;
+        }
+        .key-action {
+            color: #9bbc0f;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>🌟 Stranded</h1>
+    <p class="subtitle">A Top-Down Sci-Fi Action RPG for Game Boy Advance</p>
+    
+    <div id="game"></div>
+    
+    <div class="controls">
+        <div class="control-group">
+            <h3>Movement</h3>
+            <div><span class="key">Arrow Keys</span> <span class="key-action">D-Pad</span></div>
+        </div>
+        <div class="control-group">
+            <h3>Actions</h3>
+            <div><span class="key">Z</span> <span class="key-action">A</span></div>
+            <div><span class="key">X</span> <span class="key-action">B</span></div>
+        </div>
+        <div class="control-group">
+            <h3>Triggers</h3>
+            <div><span class="key">A</span> <span class="key-action">L</span></div>
+            <div><span class="key">S</span> <span class="key-action">R</span></div>
+        </div>
+        <div class="control-group">
+            <h3>System</h3>
+            <div><span class="key">Enter</span> <span class="key-action">Start</span></div>
+            <div><span class="key">Shift</span> <span class="key-action">Select</span></div>
+        </div>
+    </div>
+
+    <script type="text/javascript">
+        EJS_player = '#game';
+        EJS_core = 'gba';
+        EJS_gameUrl = '/stranded.gba';
+        EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
+        EJS_startOnLoaded = false;
+        
+        // Override WebGL context creation to enable preserveDrawingBuffer
+        (function() {
+            var origGetContext = HTMLCanvasElement.prototype.getContext;
+            HTMLCanvasElement.prototype.getContext = function(type, attrs) {
+                if (type === 'webgl' || type === 'webgl2' || type === 'experimental-webgl') {
+                    attrs = attrs || {};
+                    attrs.preserveDrawingBuffer = true;
+                }
+                return origGetContext.call(this, type, attrs);
+            };
+        })();
+    </script>
+    <script src="https://cdn.emulatorjs.org/stable/data/loader.js"></script>
+    <script>
+        // Screenshot tool - waits for emulator to be ready
+        setTimeout(function initScreenshot() {
+            if (!window.EJS_emulator) {
+                setTimeout(initScreenshot, 500);
+                return;
+            }
+            window.takeScreenshot = function() {
+                try {
+                    // Use EmulatorJS built-in screenshot if available
+                    if (window.EJS_emulator && window.EJS_emulator.gameManager) {
+                        var gm = window.EJS_emulator.gameManager;
+                        if (gm.screenshot) {
+                            var dataUrl = gm.screenshot();
+                            if (dataUrl) {
+                                var xhr = new XMLHttpRequest();
+                                xhr.open('POST', 'http://localhost:3003/screenshot', true);
+                                xhr.setRequestHeader('Content-Type', 'application/json');
+                                xhr.send(JSON.stringify({ image: dataUrl }));
+                                console.log('Screenshot captured via EJS gameManager');
+                                return;
+                            }
+                        }
+                    }
+                    
+                    // Fallback: find the canvas and draw to 2D canvas
+                    var canvas = document.querySelector('.ejs_canvas') || document.querySelector('canvas');
+                    if (!canvas) { console.log('No canvas found'); return; }
+                    
+                    var tempCanvas = document.createElement('canvas');
+                    tempCanvas.width = canvas.width;
+                    tempCanvas.height = canvas.height;
+                    var ctx = tempCanvas.getContext('2d');
+                    ctx.drawImage(canvas, 0, 0);
+                    var dataUrl = tempCanvas.toDataURL('image/png');
+                    
+                    var xhr = new XMLHttpRequest();
+                    xhr.open('POST', 'http://localhost:3002/screenshot', true);
+                    xhr.setRequestHeader('Content-Type', 'application/json');
+                    xhr.send(JSON.stringify({ image: dataUrl }));
+                    console.log('Screenshot captured via canvas drawImage');
+                } catch(e) {
+                    console.error('Screenshot failed:', e);
+                }
+            };
+            // Poll for screenshot commands
+            setInterval(function() {
+                var xhr = new XMLHttpRequest();
+                xhr.open('GET', 'http://localhost:3003/command', true);
+                xhr.onload = function() {
+                    if (xhr.status === 200) {
+                        try {
+                            var cmd = JSON.parse(xhr.responseText);
+                            if (cmd && cmd.action === 'screenshot') {
+                                window.takeScreenshot();
+                            }
+                        } catch(e) {}
+                    }
+                };
+                xhr.send();
+            }, 300);
+            console.log('Screenshot tool ready. Use takeScreenshot() or send {"action":"screenshot"} to server.');
+        }, 2000);
+    </script>
+</body>
+</html>
