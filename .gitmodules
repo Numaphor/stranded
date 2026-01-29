@@ -1,6 +1,6 @@
 [submodule "butano"]
 	path = butano
 	url = https://github.com/GValiente/butano
-[submodule "llm_council_skill"]
-	path = llm_council_skill
-	url = https://github.com/shuntacurosu/llm_council_skill.git
+[submodule "get-shit-done-autopilot"]
+	path = get-shit-done-autopilot
+	url = https://github.com/jamoeight/get-shit-done-autopilot.git
