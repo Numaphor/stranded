@@ -122,6 +122,18 @@ Use any GBA emulator to play:
 - **[Visual Boy Advance](https://visualboyadvance.org/)** — Popular alternative
 - **Real Hardware** — Flash cart or GBA consolizer
 
+**Windows on ARM64:** mGBA does not provide a native ARM64 Windows build. You can:
+
+1. **Use mGBA x64 (portable)** — Download the [64-bit portable zip](https://mgba.io/downloads.html) (no installer). On Windows 11 ARM, it runs via Prism x64 emulation and usually works fine. Extract it, then point the project at it (see below).
+2. **Use VisualBoyAdvance-M (native ARM64)** — Download the [ARM64 nightly build](https://nightly.visualboyadvance-m.org/) (`visualboyadvance-m-Win-ARM64.zip`). Extract and set it as your emulator (see below).
+
+To choose which emulator runs when you use the **Run** task or debug:
+
+- In VS Code: **File → Preferences → Settings**, search for `stranded.emulatorPath`, or edit `.vscode/settings.json` and set:
+  - `"stranded.emulatorPath": "C:\\path\\to\\VisualBoyAdvance-m.exe"` (ARM64 native), or
+  - `"stranded.emulatorPath": "${workspaceFolder}/tools/mGBA.exe"` (bundled x64 mGBA, runs under emulation on ARM).
+- Then run **Terminal → Run Task → run** to build and launch `stranded.gba` in the selected emulator.
+
 ---
 
 ## 🎮 Controls

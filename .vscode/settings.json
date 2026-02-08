@@ -9,5 +9,6 @@
         "utility": "cpp",
         "variant": "cpp",
         "coroutine": "cpp"
-    }
+    },
+    "stranded.emulatorPath": "${workspaceFolder}/tools/mGBA-0.10.5-win64/mGBA.exe"
 }
