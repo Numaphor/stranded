@@ -32,6 +32,9 @@ namespace str
     constexpr int MERCHANT_INTERACTION_ZONE_WIDTH = 50;
     constexpr int MERCHANT_INTERACTION_ZONE_HEIGHT = 50;
 
+    /** Vertical offset (pixels) for objective/interaction hint above NPC or target. Negative = above. */
+    constexpr int OBJECTIVE_HINT_OFFSET_Y = -24;
+
     constexpr int COLLISION_ZONE_TILE_INDEX = 3;
     constexpr int INTERACTION_ZONE_TILE_INDEX = 4;
 

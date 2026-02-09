@@ -3,9 +3,11 @@ alwaysApply: true
 ---
 # Codebase Documentation Usage
 
-When working with this Butano GBA project, always reference the codebase documentation in `.planning/codebase/` before making changes.
+When working with this Butano GBA project, **always use the codebase documentation in `.planning/` first** — especially `.planning/codebase/` — before making changes. Do not skip or ignore `.planning/`.
 
 ## Before Modifying Code
+
+0. **Use `.planning/` first.** Read `.planning/codebase/` (ARCHITECTURE.md, STRUCTURE.md, CONVENTIONS.md, CONCERNS.md as relevant). In Ultrawork mode, also delegate codebase exploration to the **butano** subagent; do not skip .planning or do exploration yourself.
 
 1. **Check existing patterns** in `CONVENTIONS.md`:
    - Naming conventions (snake_case files, PascalCase classes)

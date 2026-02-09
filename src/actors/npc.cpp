@@ -95,7 +95,9 @@ namespace str
         {
             _text_generator.set_center_alignment();
             _text_sprites.clear();
-            _text_generator.generate(0, _text_y_limit, "press 'A' to interact", _text_sprites);
+            bn::fixed screen_x = pos().x() - _camera.x();
+            bn::fixed screen_y = pos().y() - _camera.y() + str::OBJECTIVE_HINT_OFFSET_Y;
+            _text_generator.generate(screen_x.integer(), screen_y.integer(), "Talk", _text_sprites);
         }
         else
             _text_sprites.clear();
