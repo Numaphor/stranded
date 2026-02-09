@@ -1,12 +1,21 @@
 ---
-description: Butano GBA engine development guidelines and common pitfalls. Apply when working with C++ code, Makefiles, asset files, or any GBA game development in this project.
-globs: "*.cpp,*.h,*.hpp,Makefile,*.json,*.bmp"
 alwaysApply: true
 ---
-
-# Butano GBA Engine — Development Rules
+# Butano GBA Engine — Complete Development Guide
 
 This project uses **Butano**, a modern C++ engine for Game Boy Advance development. All code targets the GBA's ARM7TDMI CPU via devkitARM (or Wonderful Toolchain). Follow these rules strictly.
+
+## Project Context & Hardware Constraints
+
+This is a Game Boy Advance game built with the **Butano** engine — a modern C++ framework for GBA homebrew development.
+
+### Hardware Constraints (Always Keep in Mind)
+
+- **CPU**: ARM7TDMI @ 16.78 MHz — every cycle counts
+- **RAM**: 256KB EWRAM + 32KB IWRAM — memory is scarce
+- **VRAM**: 96KB — sprite and background tile budgets are tight
+- **ROM**: Up to 32MB — generous but don't waste it
+- **No heap allocation in hot paths** — use Butano's fixed-size containers
 
 ## Build System
 
@@ -23,10 +32,23 @@ This project uses **Butano**, a modern C++ engine for Game Boy Advance developme
   - `-DBN_CFG_AUDIO_MAX_MUSIC_CHANNELS` — max Direct Sound music channels
 - Enable stack traces for debugging: `STACKTRACE := true` in the Makefile.
 - For multiboot ROMs, use the `_mb` suffix: `TARGET := $(notdir $(CURDIR))_mb`. Butano's footprint is large; multiboot is only viable for very simple games.
+- devkitARM / devkitPro toolchain
+- Butano's Makefile-based build system
+- Assets defined in JSON graphics/audio config files
+- Test with mGBA emulator
 
 ## C++ and Language Rules
 
 - **Language standard**: C++23 (as of recent Butano versions).
+- **Modern C++ style** (C++20+ features supported by devkitARM)
+- **RAII everywhere** — Butano's smart pointers handle VRAM/OAM allocation
+- **No raw `new`/`delete`**
+- **Prefer composition over inheritance**
+- **Keep headers minimal** — forward declare when possible
+- **Use `[[nodiscard]]`** on functions that return important values
+
+### Butano-Specific Rules
+
 - **No `float` or `double`**: The GBA has no FPU. Use `bn::fixed` for decimal math (fixed-point arithmetic). It is fast; floats are emulated in software and extremely slow.
 - **No `sprintf` / `std::ostringstream`**: Use `bn::to_string<N>(value)` or `bn::ostringstream` instead. Butano's string functions are 5x+ faster and don't consume ~4KB of IWRAM.
 - **No standard containers**: Use Butano containers (`bn::vector`, `bn::string`, `bn::deque`, `bn::unordered_map`, etc.) instead of `std::vector`, `std::string`, etc. Butano containers:
@@ -58,7 +80,15 @@ This project uses **Butano**, a modern C++ engine for Game Boy Advance developme
   ```
 - **`bn::seed_random`** should be used when you need to set a seed; `bn::random` does not support seeding.
 - **`bn::top_left_rect`** should be used instead of `bn::rect` when working with odd dimensions.
-- For random seeding, use `bn::seed_random` (not `bn::random`).
+
+### Butano Conventions
+
+- Use `bn::` namespace types over STL equivalents (`bn::vector`, `bn::string`, `bn::optional`)
+- Prefer `bn::fixed` over floating point — GBA has no FPU
+- Use `bn::sprite_ptr`, `bn::bg_palettes`, `bn::regular_bg_ptr` for graphics
+- Follow Butano's action system for animations and tweens
+- Use `bn::core::update()` as the main loop heartbeat
+- Assets go through Butano's build pipeline (`.bmp` → `.bn_gfx.h`)
 
 ## Memory Management
 
@@ -150,6 +180,16 @@ This project uses **Butano**, a modern C++ engine for Game Boy Advance developme
 - Use `bn::core::log()` and the emulator's log window for debug output.
 - After updating Butano, always do a full rebuild. Also update devkitARM, as newer Butano versions may require newer toolchain features.
 - Can directly manipulate pixels via bitmap backgrounds, but they are much slower than tiled backgrounds. Avoid if possible.
+
+## Common Pitfalls to Avoid
+
+- Don't exceed 128 sprites on screen (OAM limit)
+- Don't use STL containers in performance-critical code
+- Don't forget to call `bn::core::update()` — the screen won't refresh
+- Don't assume float math works efficiently — use `bn::fixed`
+- Don't allocate on the heap in the game loop
+- Don't exceed 256KB IWRAM total — memory is limited
+- Don't use floats or doubles — GBA has no FPU
 
 ## Licensing
 
