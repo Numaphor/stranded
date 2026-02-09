@@ -1,6 +1,5 @@
 ---
-description: Use codebase documentation when modifying C++/header files
-alwaysApply: false
+alwaysApply: true
 ---
 # Codebase Documentation Usage
 
