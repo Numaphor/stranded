@@ -60,8 +60,11 @@ Only after this quick reasoning loop do you proceed to call tools or modify code
 
 ### Subagent invocation requirement (Cursor subagents)
 
-- In this project, when Ultrawork Mode is active, **always** use `.cursor/rules/codebase-documentation.mdc` and `.planning/codebase/` before non-trivial edits. When you need research offloaded, **launch the butano subagent** using Cursor’s subagent support (see [Cursor docs: Context → Subagents](https://cursor.com/docs/context/subagents)).
-  - **How to invoke butano:** Custom subagents in `.cursor/agents/` are exposed to Agent as **tools**. Use the subagent tool to run the **butano** agent (name in `.cursor/agents/butano.md`) with a clear research prompt. If your client does not show a subagent tool, start a **new Agent chat** (Ctrl+I / Cmd+I), select or @-mention the **butano** agent, run the research task there, then paste the summary back into this conversation.
+- **You have subagent delegation.** Per [Cursor docs: Subagents](https://cursor.com/docs/context/subagents): *"Agent includes all custom subagents in its available tools"* and delegates work via **Task tool** calls. Custom subagents in `.cursor/agents/` (e.g. **butano**) are part of your tool set. Do not claim you lack a "subagent tool" or "Task tool" — use delegation when this rule requires it.
+- In this project, when Ultrawork Mode is active, **always** use `.cursor/rules/codebase-documentation.mdc` and `.planning/codebase/` before non-trivial edits. When you need research offloaded, **launch the butano subagent** by invoking it by name:
+  - **Explicit invocation (Cursor docs):** Use **`/butano`** in your prompt or response to run the butano subagent (e.g. *"Run /butano to research: [clear research question]"*), or phrase naturally: *"Use the butano subagent to [research X]"* / *"Have the butano subagent [task]."* Cursor triggers delegation from these.
+  - If you have a tool that accepts a subagent name and a task (Task tool or similar), call it with subagent **butano** and a clear research prompt.
+  - **Fallback (user-driven):** If delegation does not trigger, ask the user to send: `Run /butano to research: [your research question]` in this chat, then paste the result back so you can continue.
   - Reading files and rules for context is allowed first, but **no ApplyPatch / Shell / Write edits** may occur until you have used codebase-documentation and .planning and, when needed, at least one butano run has completed.
 - For feature work, refactors, or bugfixes touching gameplay, world, scenes, or core systems:
   - Follow **codebase-documentation** and **.planning/codebase/** for patterns and where to edit. Launch the **butano** agent when you need research or a deep-dive; it does that by default.
