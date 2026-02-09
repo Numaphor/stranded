@@ -4,6 +4,7 @@
 #include "str_minimap.h"
 #include "str_enemy.h"
 #include "str_npc.h"
+#include "str_quest.h"
 #include "str_collision.h"
 #include "str_world_state.h"
 #include "str_constants.h"
@@ -249,6 +250,14 @@ namespace str
                 _merchant->set_sprite_z_order(-_merchant->pos().y().integer());
                 if (!_merchant->is_talking() && mwt)
                     _player->set_listening(0);
+                QuestID completed = _quest_manager.get_and_clear_last_completed();
+                if (completed != QuestID::_COUNT)
+                {
+                    if (completed == QuestID::COLLECT_HEARTS && _player->get_hp() < HUD_MAX_HP)
+                        _player->heal(1);
+                    else if (completed == QuestID::SLAY_ENEMIES)
+                        _player->add_ammo(2);
+                }
                 if (str::Hitbox::is_in_merchant_interaction_zone(_player->pos(), _merchant->pos()))
                 {
                     _merchant->set_near_player(1);
@@ -368,7 +377,10 @@ namespace str
                         e.damage_from_right(1);
                 }
                 if (e.is_ready_for_removal())
+                {
+                    _quest_manager.notify_kill();
                     _enemies.erase(_enemies.begin() + i);
+                }
                 else
                     i++;
             }
@@ -391,6 +403,7 @@ namespace str
                     }
 
                     collectible.collect();
+                    _quest_manager.notify_collected(collectible.type());
                 }
             }
 
@@ -518,12 +531,13 @@ namespace str
         switch (world_id)
         {
         case 0:
-            _merchant = new MerchantNPC(bn::fixed_point(100, -50), camera, text_generator);
+            _merchant = new MerchantNPC(bn::fixed_point(100, -50), camera, text_generator, &_quest_manager);
             _enemies.push_back(Enemy(0, -100, camera, bg, ENEMY_TYPE::SPEARGUARD, 3));
             _enemies.push_back(Enemy(50, -80, camera, bg, ENEMY_TYPE::SPEARGUARD, 3));
             _enemies.push_back(Enemy(-50, -120, camera, bg, ENEMY_TYPE::SPEARGUARD, 3));
             _collectibles.push_back(Collectible(bn::fixed_point(80, -40), CollectibleType::HEALTH, camera));
             _collectibles.push_back(Collectible(bn::fixed_point(-40, -60), CollectibleType::HEALTH, camera));
+            _collectibles.push_back(Collectible(bn::fixed_point(0, -70), CollectibleType::HEALTH, camera));
             break;
         case 1:
             _enemies.push_back(Enemy(-100, -50, camera, bg, ENEMY_TYPE::SPEARGUARD, 2));
@@ -531,16 +545,17 @@ namespace str
             _collectibles.push_back(Collectible(bn::fixed_point(-60, -40), CollectibleType::HEALTH, camera));
             break;
         case 2:
-            _merchant = new MerchantNPC(bn::fixed_point(-80, 100), camera, text_generator);
+            _merchant = new MerchantNPC(bn::fixed_point(-80, 100), camera, text_generator, &_quest_manager);
             _enemies.push_back(Enemy(0, 0, camera, bg, ENEMY_TYPE::SPEARGUARD, 4));
             _enemies.push_back(Enemy(100, 20, camera, bg, ENEMY_TYPE::SPEARGUARD, 4));
             _enemies.push_back(Enemy(-100, 40, camera, bg, ENEMY_TYPE::SPEARGUARD, 4));
             _enemies.push_back(Enemy(0, 80, camera, bg, ENEMY_TYPE::SPEARGUARD, 4));
             _collectibles.push_back(Collectible(bn::fixed_point(20, 40), CollectibleType::HEALTH, camera));
             _collectibles.push_back(Collectible(bn::fixed_point(-40, 80), CollectibleType::HEALTH, camera));
+            _collectibles.push_back(Collectible(bn::fixed_point(-20, 20), CollectibleType::HEALTH, camera));
             break;
         default:
-            _merchant = new MerchantNPC(bn::fixed_point(100, -50), camera, text_generator);
+            _merchant = new MerchantNPC(bn::fixed_point(100, -50), camera, text_generator, &_quest_manager);
             _enemies.push_back(Enemy(0, -100, camera, bg, ENEMY_TYPE::SPEARGUARD, 3));
             break;
         }

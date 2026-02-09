@@ -23,6 +23,7 @@
 #include "str_npc_derived.h" // Include NPC derived classes
 #include "str_hitbox.h"
 #include "str_world_state.h"
+#include "str_quest.h"
 
 namespace str
 {
@@ -45,6 +46,7 @@ namespace str
         Minimap *_minimap;
         // bn::optional<bn::affine_bg_ptr> _sword_bg; // Temporarily disabled for affine main bg
         NPC *_merchant;                                   // Changed to base NPC pointer to allow different types
+        QuestManager _quest_manager;
         PlayerStatusDisplay *_player_status_display;      // Future: Player status display (will be converted to unique_ptr)
         bn::optional<bn::camera_ptr> _camera;             // Camera for positioning
         PlayerMovement::Direction _last_camera_direction; // Track last direction for smooth direction changes

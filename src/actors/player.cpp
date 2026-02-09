@@ -147,20 +147,21 @@ namespace str
 
     PlayerVFX::PlayerVFX() : _last_vfx_state(PlayerMovement::State::IDLE), _last_vfx_direction(PlayerMovement::Direction::DOWN) {}
 
-    void PlayerVFX::initialize(bn::camera_ptr camera) { _camera = camera; }
+    void PlayerVFX::initialize(bn::camera_ptr camera)
+    {
+        _camera = camera;
+        _vfx_sprite = bn::sprite_items::hero_vfx.create_sprite(0, 0);
+        if (_camera)
+            _vfx_sprite->set_camera(*_camera);
+        _vfx_sprite->set_bg_priority(0);
+        _vfx_sprite->set_z_order(-32000);
+        _vfx_sprite->set_visible(false);
+    }
 
     void PlayerVFX::update(bn::fixed_point player_pos, PlayerMovement::State state, PlayerMovement::Direction direction)
     {
         if (should_show_vfx(state))
         {
-            if (!_vfx_sprite)
-            {
-                _vfx_sprite = bn::sprite_items::hero_vfx.create_sprite(0, 0);
-                if (_camera)
-                    _vfx_sprite->set_camera(*_camera);
-                _vfx_sprite->set_bg_priority(0);
-                _vfx_sprite->set_z_order(-32000);
-            }
             if (should_change_vfx(state, direction))
                 apply_vfx_state(state, direction);
             _vfx_sprite->set_visible(true);

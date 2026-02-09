@@ -66,8 +66,10 @@ namespace str
 
         // Dialog option system
         DIALOG_STATE _dialog_state = DIALOG_STATE::GREETING;
-        bn::vector<DialogOption, 8> _dialog_options; // Max 8 options (sufficient for most NPCs)
+        bn::vector<DialogOption, 8> _dialog_options; // Max 8 options (past, directions, turn in, how's quest, accept, goodbye)
         int _selected_option = 0;
+        int _dialog_options_scroll = 0; // Offset for scrolling when more than VISIBLE_DIALOG_OPTIONS
+        static constexpr int VISIBLE_DIALOG_OPTIONS = 3; // Only 3 options visible on screen at once
         bool _has_dialog_options = false;
 
     public:
@@ -81,7 +83,7 @@ namespace str
         bool is_in_interaction_zone(bn::fixed_point player_pos);
         bool check_trigger(bn::fixed_point player_pos); // Legacy method that calls is_in_interaction_zone
         bool is_talking();
-        void talk();
+        virtual void talk();
         bool finished_talking();
         void set_is_hidden(bool is_hidden);
         bool hidden();
@@ -100,6 +102,8 @@ namespace str
         virtual void initialize_sprite() {}
         virtual void initialize_dialogue() {}
         virtual void initialize_dialog_options() {}
+        // Called when user selects a dialog option; derived classes can use for quest accept/turn-in etc.
+        virtual void on_dialog_option_selected(int option_index) { (void)option_index; }
     };
 }
 
