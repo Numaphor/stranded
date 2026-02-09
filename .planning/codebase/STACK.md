@@ -5,78 +5,72 @@
 ## Languages
 
 **Primary:**
-- C++23 - Core game logic and systems (src/, include/)
-- C++23 - Butano engine integration (butano/)
+- C++23 - Core game logic and engine integration (Game Boy Advance development)
 
 **Secondary:**
-- Python - Asset processing and tooling (tools/, build system integration)
+- Python 3 - Asset processing, build tools, font generation
+- JavaScript - Development workflows and emulator launching
 
 ## Runtime
 
 **Environment:**
-- Game Boy Advance (ARM7TDMI CPU)
-- 60 FPS target with frame management
-- Hardware constraints: 32KB IWRAM, 256KB EWRAM, no FPU
+- Game Boy Advance (ARM7TDMI CPU, 16.78MHz)
+- Cross-compilation target via Wonderful Toolchain/devkitARM
 
-**Package Manager / Build System:**
-- Make - Primary build system
+**Package Manager:**
+- wf-pacman (Wonderful Toolchain package manager)
 - Lockfile: Not applicable (embedded target)
-- Build configuration: Makefile with Butano integration
 
 ## Frameworks
 
 **Core:**
-- Butano C++23 Engine - Game Boy Advance development framework
-- devkitARM / Wonderful Toolchain - GBA toolchain
-- Maxmod - Audio playback (Direct Sound)
+- Butano C++ Engine - Modern high-level GBA development engine
+- Wonderful Toolchain - ARM cross-compilation toolchain
 
 **Testing:**
-- Manual testing via mGBA emulator
-- No automated test framework detected
+- Not detected (embedded system - manual/emulator testing)
 
 **Build/Dev:**
-- Make - Build orchestration
-- Python - Asset processing scripts
-- Grit - Graphics conversion tool
-- mmutil - Audio conversion tool
+- Make - Build system with Butano integration
+- mGBA emulator - Primary testing/development emulator
+- Docker - Containerized development environment
 
 ## Key Dependencies
 
 **Critical:**
-- Butano Library (butano/butano/) - Core GBA engine providing sprites, backgrounds, input, audio, memory management
-- bn::fixed-point arithmetic - Essential for GBA (no FPU)
-- bn::optional - Resource management pattern
+- Butano Engine (git submodule) - Game engine framework
+- Wonderful Toolchain - ARM cross-compiler and toolchain
+- ETL (Embedded Template Library) - Standard library replacement used by Butano
 
 **Infrastructure:**
-- mGBA emulator - Development testing environment
-- Grit - Converts BMP images to GBA format
-- Maxmod - MOD/XM/S3M/IT music playback
+- PIL (Python Imaging Library) - Font and asset generation
+- Node.js - Development workflow scripts
 
 ## Configuration
 
 **Environment:**
-- Makefile-based configuration with USERFLAGS for compiler options
-- Build targets: ROM file generation for GBA
-- Asset pipeline: JSON descriptors for graphics/audio
+- Wonderful Toolchain environment variables
+- Cross-compilation GCC toolchain path
+- Makefile-based configuration
 
 **Build:**
-- Main Makefile with LIBBUTANO path configuration
-- SOURCES += src src/core src/actors butano/common/src
-- GRAPHICS += graphics/ butano/common/graphics/
-- AUDIO += audio/ butano/common/audio/
+- `Makefile` - Primary build configuration
+- Butano toolchain integration via `butano.mak`
+- Asset processing via Butano graphics/audio tools
 
 ## Platform Requirements
 
 **Development:**
-- Windows environment (based on file paths)
-- devkitARM or Wonderful Toolchain
-- Python for asset processing
-- mGBA emulator for testing
+- Windows/macOS/Linux (host OS)
+- Python 3 with PIL
+- Node.js (for development scripts)
+- Docker (optional for containerized environment)
 
-**Target:**
-- Game Boy Advance hardware
-- GBA-compatible flash carts
-- mGBA/NanoBoyAdvance/Mesen for emulation
+**Production:**
+- Game Boy Advance hardware or compatible emulator
+- 32KB IWRAM + 256KB EWRAM memory constraints
+- ROM size limitations
 
 ---
+
 *Stack analysis: 2026-02-09*

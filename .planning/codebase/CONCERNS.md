@@ -4,130 +4,153 @@
 
 ## Tech Debt
 
-**Sword Background System:**
-- Issue: Sword background system temporarily disabled with commented code
-- Files: `src/core/world.cpp` (lines 121, 178-188)
-- Impact: Missing visual sword effect, commented code blocks maintain complexity
-- Fix approach: Either remove sword system completely or re-enable with proper implementation
+**Memory Management in World Class:**
+- Issue: Manual new/delete usage without RAII or smart pointers
+- Files: `src/core/world.cpp` (lines 140, 146-149, 172, 190, 381-382, 477, 484, 494, 501)
+- Impact: Potential memory leaks if exceptions occur or during complex cleanup scenarios
+- Fix approach: Replace raw pointers with `bn::unique_ptr` or implement proper RAII wrappers
 
-**Manual Memory Management:**
-- Issue: Mixed use of new/delete without RAII or smart pointers
-- Files: `src/core/world.cpp` (Level, Minimap, MerchantNPC allocations)
-- Impact: Potential memory leaks if exceptions occur or in error paths
-- Fix approach: Consider bn::optional or RAII wrappers for dynamic allocations
+**Large Monolithic Functions:**
+- Issue: `World::execute()` function is over 300 lines long with complex nested logic
+- Files: `src/core/world.cpp` (lines 152-470)
+- Impact: Difficult to maintain, test, and understand. High cyclomatic complexity.
+- Fix approach: Break into smaller focused methods for camera handling, enemy updates, input processing, etc.
+
+**Hard-coded Magic Numbers:**
+- Issue: Extensive use of hard-coded numerical values throughout codebase
+- Files: All source files contain numerous hard-coded values (coordinates, timers, sizes)
+- Impact: Difficult to tune game balance and maintain consistency
+- Fix approach: Move more constants to `str_constants.h` or create configuration structs
 
 ## Known Bugs
 
-**None explicitly documented** - No TODO/FIXME/HACK comments found in codebase
+**Sword Background Disabled:**
+- Symptoms: Sword rendering functionality is commented out throughout world code
+- Files: `src/core/world.cpp` (lines 121, 178-188, 299-302, 388-402)
+- Trigger: Sword attacks don't show visual effects
+- Workaround: None - feature is intentionally disabled
+
+**Camera Zoom Sprite Positioning:**
+- Symptoms: Complex affine matrix calculations may cause sprite positioning errors
+- Files: `src/core/world.cpp` (lines 403-468)
+- Trigger: During zoom transitions with multiple sprites
+- Workaround: Avoid rapid zoom changes with many active sprites
 
 ## Security Considerations
 
-**Asset Security:**
-- Risk: Embedded assets in ROM could be extracted
-- Files: All graphics/audio assets in ROM binary
-- Current mitigation: Standard GBA ROM protection
-- Recommendation: Consider asset obfuscation if needed for commercial release
+**Input Handling Validation:**
+- Risk: Complex input handling in Player class may miss edge cases
+- Files: `src/actors/player.cpp` (lines 992-1240)
+- Impact: Could lead to unintended game states or crashes
+- Current mitigation: Basic state checks before processing input
+- Recommendations: Add more comprehensive input validation and state consistency checks
 
 ## Performance Bottlenecks
 
-**Large World Update Loop:**
-- Problem: World::execute() method is ~500+ lines with complex logic
-- Files: `src/core/world.cpp` (main game loop)
-- Cause: Single monolithic update function handling camera, zoom, entities, collision
-- Improvement: Break down into smaller, focused update methods
+**Frame-by-Frame Sprite Operations:**
+- Problem: Every frame processes all sprites for zoom effects
+- Files: `src/core/world.cpp` (lines 431-441)
+- Cause: No dirty flag system to skip unchanged sprites
+- Improvement path: Implement sprite dirty state tracking
 
-**Complex Camera/Zoom System:**
-- Problem: Zoom and affine transformation logic scattered throughout update loop
-- Files: `src/core/world.cpp` (lines 208-238, 310-335, 403-468)
-- Cause: Manual affine matrix management with complex conditional logic
-- Improvement: Extract to dedicated CameraManager or ZoomSystem class
+**Vector Operations with Fixed Size Limits:**
+- Problem: Linear searches in enemy and bullet vectors
+- Files: `src/core/world.cpp` (lines 336-372, 431-441)
+- Cause: No spatial partitioning or indexing
+- Improvement path: Implement spatial grid for collision detection
 
-**Manual Sprite Position Updates:**
-- Problem: Each sprite manually updated for zoom every frame
-- Files: `src/core/world.cpp` (lines 406-441)
-- Cause: Direct sprite manipulation in main loop
-- Improvement: Create sprite group management system
+**String Operations in UI:**
+- Problem: Frequent string concatenation in menu systems
+- Files: `src/core/scenes.cpp` (lines 47-52, 102-107)
+- Cause: Building UI text every frame regardless of changes
+- Improvement path: Cache UI text until state changes
 
 ## Fragile Areas
 
-**World::execute() Method:**
-- Files: `src/core/world.cpp`
-- Why fragile: 500+ line method with many responsibilities and nested conditionals
-- Safe modification: Extract camera, zoom, and entity update logic to separate methods
-- Test coverage: Manual testing only - changes risk breaking core gameplay
+**World::execute() Main Loop:**
+- Files: `src/core/world.cpp` (lines 196-469)
+- Why fragile: Contains all game logic in one massive function, prone to breaking with small changes
+- Safe modification: Extract focused helper methods one at a time
+- Test coverage: No unit tests - relies on manual integration testing
 
-**Memory Management in Constructors:**
-- Files: `src/core/world.cpp` (constructor and destructor)
-- Why fragile: Manual new/delete without exception safety
-- Safe modification: Use RAII or bn::optional for dynamic allocations
-- Test coverage: Limited - memory issues hard to test manually
+**Player Input Handling:**
+- Files: `src/actors/player.cpp` (lines 992-1240)
+- Why fragile: Complex nested conditionals for combo detection and state transitions
+- Safe modification: Create state machine for input handling with clear transitions
+- Test coverage: No automated tests for edge cases
 
-**Affine Matrix Management:**
-- Files: `src/core/world.cpp` (zoom system)
-- Why fragile: Complex state management for multiple affine matrices
-- Safe modification: Create dedicated zoom management class
-- Test coverage: Manual testing of zoom transitions
+**Zoom and Camera System:**
+- Files: `src/core/world.cpp` (lines 307-335, 403-468)
+- Why fragile: Complex coordinate transformations during zoom transitions
+- Safe modification: Separate zoom logic into dedicated class with clear interface
+- Test coverage: Limited testing edge cases for sprite positioning
 
 ## Scaling Limits
 
-**Entity Count:**
-- Current capacity: Limited by bn::vector sizes (e.g., 32 bullets)
-- Limit: GBA sprite hardware limits (OAM entries)
-- Scaling path: Implement entity pooling, optimize sprite usage
+**Enemy Count:**
+- Current capacity: Limited by `bn::vector<Enemy, 16>` (hard-coded 16 enemy limit)
+- Limit: Game will crash or behave unexpectedly with >16 enemies
+- Scaling path: Make enemy capacity configurable with performance monitoring
 
-**Background Complexity:**
-- Current capacity: 128x128 tile maps with random generation
-- Limit: GBA VRAM and tile memory constraints
-- Scaling path: Use big backgrounds or streaming for larger worlds
+**Sprite Memory:**
+- Current capacity: Limited by GBA hardware sprite limits
+- Limit: Sprite overflow causes clipping or disappearing sprites
+- Scaling path: Implement sprite pooling and priority-based culling
+
+**Background Map Size:**
+- Current capacity: 128x128 tiles (1024x1024 pixels) - maximum for affine backgrounds
+- Limit: Cannot increase world size without switching to different background type
+- Scaling path: Consider big backgrounds or multi-screen tiling system
 
 ## Dependencies at Risk
 
-**Butano Engine:**
-- Risk: Submodule could diverge or have breaking changes
-- Impact: Entire game depends on Butano APIs
-- Migration: Keep butano submodule pinned, track upstream changes
+**Butano Engine Version:**
+- Risk: Butano is actively developed with potential breaking changes
+- Impact: API changes could require significant code updates
+- Migration plan: Pin to specific version, create compatibility layer
 
-**mGBA Emulator:**
-- Risk: Version compatibility for testing
-- Impact: Development workflow
-- Migration: Update to newer mGBA versions as needed
+**DevkitARM/Wonderful Toolchain:**
+- Risk: Toolchain updates may break build system
+- Impact: Could prevent compilation and deployment
+- Migration plan: Use containerized build environment, test toolchain updates in isolation
 
 ## Missing Critical Features
 
-**Automated Testing:**
-- Problem: No unit tests or automated integration tests
-- Blocks: Reliable refactoring, regression detection
-- Impact: High risk for code changes
-
-**Error Handling:**
-- Problem: Limited error handling for edge cases
-- Blocks: Robust gameplay experience
-- Impact: Medium - crashes possible in edge cases
+**Save Game System:**
+- Problem: World state only saved in memory, lost on application restart
+- Blocks: Persistent game progress, longer play sessions
+- Current: `WorldStateManager` only handles session persistence
 
 **Configuration System:**
-- Problem: Hardcoded constants throughout codebase
-- Blocks: Easy tweaking of game balance
-- Impact: Low - constants consolidated in str_constants.h
+- Problem: No way to tune game parameters without recompiling
+- Blocks: Game balance adjustments, accessibility options
+- Current: All values hard-coded in source
+
+**Error Handling:**
+- Problem: Limited error handling for out-of-memory or resource failures
+- Blocks: Robust operation on hardware with limited resources
+- Current: Assumes all allocations succeed
 
 ## Test Coverage Gaps
 
-**Core Game Mechanics:**
-- What's not tested: Player movement, combat, collision detection
-- Files: `src/actors/player.cpp`, `src/core/collision.cpp`
-- Risk: High - gameplay bugs could go unnoticed
-- Priority: High
+**Unit Tests:**
+- What's not tested: Individual class methods, utility functions, state transitions
+- Files: All source files lack unit test coverage
+- Risk: Refactoring may introduce subtle bugs
+- Priority: High - core game logic needs test coverage
 
-**Scene Transitions:**
-- What's not tested: Menu navigation, save/load, state persistence
-- Files: `src/core/scenes.cpp`, `src/core/world_state.cpp`
-- Risk: Medium - navigation bugs affect game flow
-- Priority: Medium
+**Integration Tests:**
+- What's not tested: Scene transitions, save/load operations, complex input sequences
+- Files: Scene system, world state management
+- Risk: Critical game flows may break unnoticed
+- Priority: Medium - manual testing catches major issues
 
-**Performance Edge Cases:**
-- What's not tested: Memory limits, sprite overflow, maximum entity counts
-- Files: Memory allocation patterns throughout codebase
-- Risk: High - GBA hardware constraints are strict
-- Priority: High
+**Performance Tests:**
+- What's not tested: Memory usage, frame rate under load, scaling behavior
+- Files: Performance-critical areas like sprite management
+- Risk: Performance regressions go unnoticed until deployment
+- Priority: Low - GBA hardware constraints make this critical
 
 ---
+
 *Concerns audit: 2026-02-09*

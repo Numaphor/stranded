@@ -4,123 +4,126 @@
 
 ## Pattern Overview
 
-**Overall:** Game loop with scene stack pattern and entity-component architecture
+**Overall:** Scene-based Game Architecture with Entity-Component Pattern
 
 **Key Characteristics:**
-- Scene-based navigation system with state machine pattern
-- Entity hierarchy with component-based actors
-- Fixed-point arithmetic for GBA hardware constraints
-- Memory-conscious design with EWRAM/IWRAM management
-- Frame-based update loop with 60 FPS target
+- Scene-driven flow with centralized state management
+- Entity-based actor system with inheritance hierarchy
+- State machine pattern for player and enemy behaviors
+- Component-based design for reusable game systems
+- Hardware-optimized rendering pipeline for GBA constraints
 
 ## Layers
 
-**Application Layer:**
-- Purpose: Main game loop and scene orchestration
-- Location: `src/main.cpp`
-- Contains: Scene switching, initialization, core update loop
-- Depends on: Scene implementations, Butano core
-- Used by: Hardware/emulator entry point
-
-**Scene Layer:**
-- Purpose: UI screens and game flow management
+**Presentation Layer:**
+- Purpose: Scene management, UI rendering, and visual effects
 - Location: `src/core/scenes.cpp`, `include/str_scene_*.h`
-- Contains: Start screen, menu, controls, world scene
-- Depends on: Player, World, UI components
-- Used by: Application layer
+- Contains: Start screen, Menu, Controls, World scenes
+- Depends on: Butano rendering engine, input system
+- Used by: Main game loop
 
-**Game World Layer:**
-- Purpose: Core gameplay mechanics and world state
-- Location: `src/core/world.cpp`, `include/str_world_state.h`
-- Contains: World management, camera, enemy spawning, collision
-- Depends on: Player, Level, Enemies, NPCs
+**Game Logic Layer:**
+- Purpose: Core game mechanics, rules, and entity behaviors
+- Location: `src/actors/`, `src/core/`
+- Contains: Player, Enemy, NPC classes, collision, movement
+- Depends on: Entity base classes, state machines
 - Used by: World scene
 
-**Entity Layer:**
-- Purpose: Game actors and their behaviors
-- Location: `src/actors/`, `include/str_*.h`
-- Contains: Player, enemies, NPCs, bullets
-- Depends on: Movement systems, animation, collision
-- Used by: World layer
+**Data Management Layer:**
+- Purpose: Game state persistence, world state management
+- Location: `src/core/world_state.cpp`, `include/str_world_state.h`
+- Contains: Save/load functionality, world-specific data
+- Depends on: SRAM storage, entity positions
+- Used by: World scene
 
-**Core Systems Layer:**
-- Purpose: Shared game mechanics and utilities
-- Location: `src/core/`, `include/str_*.h`
-- Contains: Collision, movement, HUD, minimap, level
-- Depends on: Butano engine, math utilities
-- Used by: Entity layer, World layer
+**Engine Abstraction Layer:**
+- Purpose: Hardware-specific optimizations and rendering pipeline
+- Location: `butano/` library integration
+- Contains: Sprite management, background rendering, audio
+- Depends on: GBA hardware, devkitARM toolchain
+- Used by: All game components
 
 ## Data Flow
 
-**Game Update Cycle:**
+**Scene Transitions:**
 
-1. Main loop (`src/main.cpp`) - Scene selection and bn::core::update()
-2. Scene execution (`src/core/scenes.cpp`) - UI or world scene
-3. World update (`src/core/world.cpp`) - Player, enemies, camera, collision
-4. Entity updates (`src/actors/*.cpp`) - Movement, animation, state
-5. Render frame - Butano handles sprite/background drawing
+1. Main loop reads Scene enum and instantiates appropriate scene
+2. Scene executes and returns next Scene enum
+3. Main loop destroys current scene and creates new one
+4. State (spawn location, world ID) passed between scenes
+
+**Game Loop Update:**
+
+1. `bn::core::update()` processes hardware input
+2. Player movement system updates position and state
+3. Enemy AI updates based on player position
+4. Collision detection handles interactions
+5. Rendering system updates sprites and backgrounds
+6. Camera system follows player with lookahead
 
 **State Management:**
-- WorldStateManager singleton for persistent save data
-- Scene enum for navigation state
-- Player state machine for movement/actions
-- Enemy state machines for AI behavior
+- Global state managed by `WorldStateManager` singleton
+- Player state through `PlayerMovement` state machine
+- Enemy state through `EnemyStateMachine`
+- Scene state through enum-based navigation
 
 ## Key Abstractions
 
-**Scene System:**
-- Purpose: Encapsulate different game states/screens
-- Examples: `str::Start`, `str::Menu`, `str::World`, `str::Controls`
-- Pattern: Each scene has execute() method returning next scene
-
 **Entity Base Class:**
 - Purpose: Common interface for all game objects
-- Examples: Player, Enemy, NPC inheritance
-- Pattern: Virtual methods for position, hitbox, update
+- Examples: `src/actors/player.cpp`, `src/actors/enemy.cpp`, `src/actors/npc.cpp`
+- Pattern: Inheritance with virtual methods for update and render
+
+**Scene System:**
+- Purpose: Encapsulate game states and transitions
+- Examples: `src/core/scenes.cpp` (Menu, Start, Controls, World)
+- Pattern: State pattern with execute() methods returning next scene
+
+**Hitbox System:**
+- Purpose: Collision detection between game objects
+- Examples: `src/core/collision.cpp`, `include/str_hitbox.h`
+- Pattern: Component-based collision with AABB detection
 
 **State Machine Pattern:**
-- Purpose: Manage complex behaviors and animations
-- Examples: PlayerMovement::State, Enemy states
-- Pattern: Enum states with transition logic and timers
-
-**Fixed-Point Math:**
-- Purpose: Hardware-compatible decimal arithmetic
-- Examples: bn::fixed for all positions and velocities
-- Pattern: bn::fixed_point for 2D coordinates
+- Purpose: Manage complex entity behaviors
+- Examples: Player states (IDLE, WALKING, ROLLING, ATTACKING)
+- Pattern: Enum-based states with transition logic
 
 ## Entry Points
 
-**main():**
+**Main Entry Point:**
 - Location: `src/main.cpp`
-- Triggers: GBA boot/ROM load
-- Responsibilities: Initialize Butano, run scene loop, handle core updates
+- Triggers: GBA boot sequence
+- Responsibilities: Initialize Butano, run scene loop, handle global state
 
-**Scene::execute():**
-- Location: Each scene class in `src/core/scenes.cpp`
-- Triggers: User navigation or game events
-- Responsibilities: Handle scene-specific logic, return next scene
+**Scene Entry Points:**
+- Location: `src/core/scenes.cpp` (Menu, Start, Controls, World classes)
+- Triggers: Scene transitions from main loop
+- Responsibilities: Scene-specific initialization, input handling, render loop
 
-**World::execute():**
-- Location: `src/core/world.cpp`
-- Triggers: Scene::WORLD selected
-- Responsibilities: Main gameplay loop, entity updates, collision detection
+**World Entry Point:**
+- Location: `src/core/world.cpp` (World::execute method)
+- Triggers: Transition from Menu scene
+- Responsibilities: Initialize game world, spawn entities, run game loop
 
 ## Error Handling
 
-**Strategy:** Asserts and defensive programming with graceful degradation
+**Strategy:** Assertions with graceful degradation
 
 **Patterns:**
-- Butano asserts for debugging (STACKTRACE enabled)
-- Health system for player damage/death
-- Reset functionality for corrupted state
-- Position validation with boundary checks
+- Butano assertions for critical failures
+- State validation in entity updates
+- Collision bounds checking
+- Resource cleanup in destructors
 
 ## Cross-Cutting Concerns
 
-- Logging: bn::core::log() to emulator debug window
-- Validation: Boundary checking, position validation
-- Resource management: bn::optional for sprite lifecycle, manual memory management with new/delete
-- Performance: EWRAM allocation for large data structures, frame-based updates
+**Logging:** Butano's `bn::core::log()` for debug output
+
+**Validation:** Hitbox boundary checks, state transitions
+
+**Authentication:** Not applicable (single-player game)
 
 ---
+
 *Architecture analysis: 2026-02-09*

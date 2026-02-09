@@ -9,6 +9,12 @@ Systematically explore the current project and write 7 structured analysis docum
 
 Adapted from the GSD (Get Shit Done) codebase mapping system.
 
+## Preferred Path: Subagents
+
+The `/map-codebase` command spawns four **codebase-mapper** subagents in parallel (one per focus area). Each subagent runs in its own context window and writes documents directly — this is faster and avoids context bloat.
+
+**This skill is the sequential fallback.** Use it when subagents are unavailable or when you want to run the analysis in the current context (e.g., for a partial update of specific documents).
+
 ## When to Use
 
 - **Brownfield projects** — understand existing code before adding features

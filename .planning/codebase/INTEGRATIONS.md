@@ -4,53 +4,91 @@
 
 ## APIs & External Services
 
-**No external APIs detected** - This is an offline GBA game with no network connectivity.
+**Version Control:**
+- GitHub - Source code hosting and CI/CD
+  - SDK/Client: Git CLI
+  - Auth: SSH/GitHub tokens
+  - Features: Automated builds, releases, container publishing
 
 ## Data Storage
 
 **Databases:**
-- No databases - GBA games use SRAM for save data only
-- SRAM integration: Via Butano's SRAM examples (butano/examples/sram/)
+- None (embedded game system - data stored in ROM)
 
 **File Storage:**
-- Local filesystem only - All assets compiled into ROM binary
-- BMP format images converted by Grit to GBA format
-- MOD/XM/S3M/IT audio files converted by mmutil
+- ROM file system - All assets compiled into binary
+- GitHub Releases - ROM distribution
+- GitHub Container Registry - Docker images
 
 **Caching:**
-- Hardware-level caching - IWRAM (32KB fast) and EWRAM (256KB slow)
-- bn::memory management for RAM monitoring
+- GitHub Actions cache - Toolchain dependencies caching
 
 ## Authentication & Identity
 
-- None - Single-player offline game
-- No user accounts or authentication required
+**Auth Provider:**
+- GitHub Actions - CI/CD authentication
+  - Implementation: GitHub tokens for release management
+  - Container Registry: GitHub Container Registry with token auth
 
 ## Monitoring & Observability
 
-- Error Tracking: bn::core::log() for debug output to emulator
-- Logging: Console-style logging via emulator debug windows
-- Stack traces: Enabled via STACKTRACE := true in Makefile
-- Profiling: Available via Butano profiler examples
+**Error Tracking:**
+- None (embedded system - debug via emulator logging)
+
+**Logs:**
+- Butano logging framework - Emulator console output
+- Build process logs - GitHub Actions workflow logs
 
 ## CI/CD & Deployment
 
-- Hosting: GitHub Actions for build validation (.github/workflows/build.yml)
-- CI Pipeline: Automated build testing
-- Deployment: Manual ROM distribution for GBA hardware/emulators
+**Hosting:**
+- GitHub - Source code and releases
+- GitHub Container Registry - Docker development environment
+
+**CI Pipeline:**
+- GitHub Actions workflows
+  - Build validation on push/PR
+  - Automated ROM generation
+  - Release creation with hash-based versioning
+  - Docker environment publishing
 
 ## Environment Configuration
 
-**Required env vars / config:**
-- LIBBUTANO path in Makefile (relative to butano/butano/)
-- ROMTITLE and ROMCODE for GBA header
-- STACKTRACE := true for debugging
-- USERFLAGS for custom compiler options
+**Required env vars:**
+- WONDERFUL_TOOLCHAIN - Toolchain installation path
+- GITHUB_TOKEN - Release and container publishing auth
+
+**Secrets location:**
+- GitHub Actions secrets
+- GitHub Container Registry
 
 ## Webhooks & Callbacks
 
-- Incoming: None (offline embedded target)
-- Outgoing: None (no network capabilities)
+**Incoming:**
+- GitHub webhook triggers - Push/PR events
+- None for runtime (embedded game)
+
+**Outgoing:**
+- GitHub Releases API - ROM publishing
+- Container Registry API - Docker image publishing
+
+## Development Toolchain
+
+**Build Tools:**
+- Wonderful Toolchain - ARM cross-compilation
+- Butano Asset Tools - Graphics/audio processing
+- mGBA - Development and testing emulator
+
+**Asset Processing:**
+- Butano graphics tool - BMP to GBA format conversion
+- Butano audio tool - Module music processing
+- Python PIL - Custom font generation
+
+**Container Integration:**
+- Docker development environment with pre-installed toolchain
+- Automated container publishing on ROM changes
+- Complete development environment encapsulation
 
 ---
+
 *Integration audit: 2026-02-09*
