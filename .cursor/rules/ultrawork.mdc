@@ -66,6 +66,26 @@ Only after this quick reasoning loop do you proceed to call tools or modify code
 
 **Rule:** Before making non-trivial edits, first offload as much reconnaissance and planning work as possible to specialized subagents, then act on their results as the orchestrator.
 
+### Subagent invocation requirement (Cursor Task tool)
+
+- In this project, when Ultrawork Mode is active, you **must invoke the Cursor `Task` tool to launch at least one subagent** (as specified in `.cursor/agents/butano.md`) **before performing any non-trivial code or file edits**.
+  - Reading files and rules for context is allowed first, but **no ApplyPatch / Shell / Write edits** may occur until at least one `Task`-based subagent run has completed.
+- For any feature work, refactor, or bugfix that touches gameplay, world, scenes, or core systems, you must:
+  - Launch the appropriate `codebase-mapper` and/or `explore` subagents via the `Task` tool.
+  - Use their returned summaries to drive your plan and explicitly treat missing subagent usage as a **hard error** in Ultrawork sessions.
+- If you realize you have started implementing without subagents while Ultrawork is active, you must:
+  - Stop further edits, run the required `Task` subagents, and
+  - Adjust or re-validate your plan based on their results before continuing implementation.
+
+#### Parallel subagent usage
+
+- For any non-trivial Ultrawork task in this repo, you must:
+  - Launch **at least 2 subagents in parallel** via the `Task` tool (for example: a `codebase-mapper` agent and an `explore` agent for hotspots), and
+  - Never exceed **4 concurrent subagents** in a single batch.
+- When deciding which subagents to run in parallel:
+  - Prefer a mix of **mapping** (architecture/structure) and **focused exploration** (hotspots/subsystems) as defined in `.cursor/agents/butano.md`.
+  - Only reduce to a single subagent when the task is truly trivial (single-file, localized change); in Ultrawork sessions, this should be rare.
+
 ### 1. HUMAN IN THE LOOP = BOTTLENECK
 
 Do not stop to ask questions when you can figure out the answer yourself. Explore the codebase, read the docs, trace the code paths. Only ask the user when you genuinely cannot determine the answer through investigation.
