@@ -49,11 +49,20 @@ Only after this quick reasoning loop do you proceed to call tools or modify code
   - Turning user intent into a concrete plan
   - Making all editing decisions and applying all code/file changes
   - Integrating findings from subagents into cohesive, production-ready work
-- **Subagents** (invoked via task tools, e.g. explore/codebase-mapper/general-purpose agents) own:
+- **Subagents** (invoked via task tools such as `explore`, `generalPurpose`, or project-specific agents) own:
   - Broad and deep **codebase exploration**
   - **Architecture and convention discovery**
   - **Planning assistance** for large or cross-cutting tasks
   - Focused **research** on libraries, APIs, or patterns
+
+#### Project-specific subagent selection
+
+- When a project defines its own agent file under `.cursor/agents/` for a specific stack or engine, those agents **override generic subagent choices**:
+  - **This repository** is a Butano GBA project (see `.cursor/rules/butano-gba.mdc`).
+  - It defines a `butano` agent in `.cursor/agents/butano.md` which in turn specifies the exact subagents to use.
+- **Rule for this repo**:
+  - Do **not** rely on the generic `codebase-mapper` agent directly for Ultrawork orchestration.
+  - Instead, always follow the subagent suite and orchestration checklist defined in `.cursor/agents/butano.md` whenever this rule calls for subagents.
 
 **Rule:** Before making non-trivial edits, first offload as much reconnaissance and planning work as possible to specialized subagents, then act on their results as the orchestrator.
 
@@ -101,12 +110,21 @@ For non-trivial tasks:
 
 ### Phase 1: Reconnaissance
 1. Read the task requirements carefully — parse implicit requirements from explicit requests.
-2. As the orchestrator, **launch specialized subagents first** (explore/codebase-mapper/general-purpose) to:
-   - Map relevant areas of the codebase
-   - Discover architecture, conventions, and existing patterns
-   - Collect reference implementations for similar features
-3. Use these subagents to perform **wide, parallel exploration**, keeping the orchestrator's own context window as light as possible.
-4. Based on the subagents' summaries, selectively open and read only the **most relevant** files or docs as the orchestrator.
+2. **Prefer existing planning and documentation over fresh mapping.**
+   - Always check `.planning/` (especially `.planning/codebase/`) and any project-specific docs or agents **before** attempting to rediscover or remap the codebase.
+   - In this repository, treat `.planning/codebase/` as the primary source of truth for architecture, structure, and conventions.
+3. As the orchestrator, **launch specialized subagents only as needed**, choosing them according to project-specific agents when available:
+   - Use subagents to:
+     - Read, summarize, and cross-reference existing `.planning` documents and rules.
+     - Locate the specific files, functions, and patterns relevant to the current task.
+   - Only fall back to **codebase-mapping or large-scale discovery** when:
+     - `.planning` documents are missing for the relevant area, or
+     - They are clearly outdated or inconsistent with the current code.
+   - When that fallback is needed:
+     - In generic repositories, prefer a dedicated mapping agent such as `.cursor/agents/codebase-mapper.md` to (re)generate `.planning` documentation.
+     - **In this Butano GBA repository, continue to follow the subagent suite and checklist in `.cursor/agents/butano.md`; those subagents may internally perform mapping work, but the orchestrator should still treat `.planning` as the canonical target to refresh.**
+4. Use these subagents to perform **targeted exploration**, keeping the orchestrator's own context window as light as possible while leveraging existing `.planning` artifacts.
+5. Based on the subagents' summaries, selectively open and read only the **most relevant** files or docs as the orchestrator.
 
 ### Phase 2: Planning
 1. Ask subagents to propose **draft plans** or option sets for complex tasks (trade-offs, sequences of steps, risk areas).
