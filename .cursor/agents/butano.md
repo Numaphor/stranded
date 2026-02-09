@@ -2,6 +2,7 @@
 name: butano
 model: inherit
 description: This is a Game Boy Advance game built with the **Butano** engine (C++23, devkitARM toolchain).
+readonly: true
 ---
 
 ## Environment
