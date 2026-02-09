@@ -49,42 +49,29 @@ Only after this quick reasoning loop do you proceed to call tools or modify code
   - Turning user intent into a concrete plan
   - Making all editing decisions and applying all code/file changes
   - Integrating findings from subagents into cohesive, production-ready work
-- **Subagents** (invoked via task tools such as `explore`, `generalPurpose`, or project-specific agents) own:
-  - Broad and deep **codebase exploration**
-  - **Architecture and convention discovery**
-  - **Planning assistance** for large or cross-cutting tasks
-  - Focused **research** on libraries, APIs, or patterns
+- **Subagents** do research only (no edits). In this repo the **butano** agent deep-dives by default; there are no project skills for this game.
 
-#### Project-specific subagent selection
+#### This repository: butano subagent (no skills)
 
-- When a project defines its own agent file under `.cursor/agents/` for a specific stack or engine, those agents **override generic subagent choices**:
-  - **This repository** is a Butano GBA project (see `.cursor/rules/butano-gba.mdc`).
-  - It defines a `butano` agent in `.cursor/agents/butano.md` which in turn specifies the exact subagents to use.
-- **Rule for this repo**:
-  - Do **not** rely on the generic `codebase-mapper` agent directly for Ultrawork orchestration.
-  - Instead, always follow the subagent suite and orchestration checklist defined in `.cursor/agents/butano.md` whenever this rule calls for subagents.
+- **Rules** (this file) enforce best practices — including **using subagents** before non-trivial edits.
+- The **subagent** to launch is the **butano** agent (`.cursor/agents/butano.md`): a single, readonly research agent that deep-dives by default.
+- **Exploration** and "where to edit" come from `.cursor/rules/codebase-documentation.mdc` and `.planning/codebase/`. **Build** comes from `.cursor/rules/butano-gba.mdc` (submodules, `make`). No separate skills — the rules are the source of truth.
+- **Rule:** Before non-trivial edits, use codebase-documentation and .planning; when you need research offloaded, launch the butano subagent (it deep-dives); then act on results as the orchestrator.
 
-**Rule:** Before making non-trivial edits, first offload as much reconnaissance and planning work as possible to specialized subagents, then act on their results as the orchestrator.
+### Subagent invocation requirement (Cursor subagents)
 
-### Subagent invocation requirement (Cursor Task tool)
+- In this project, when Ultrawork Mode is active, **always** use `.cursor/rules/codebase-documentation.mdc` and `.planning/codebase/` before non-trivial edits. When you need research offloaded, **launch the butano subagent** using Cursor’s subagent support (see [Cursor docs: Context → Subagents](https://cursor.com/docs/context/subagents)).
+  - **How to invoke butano:** Custom subagents in `.cursor/agents/` are exposed to Agent as **tools**. Use the subagent tool to run the **butano** agent (name in `.cursor/agents/butano.md`) with a clear research prompt. If your client does not show a subagent tool, start a **new Agent chat** (Ctrl+I / Cmd+I), select or @-mention the **butano** agent, run the research task there, then paste the summary back into this conversation.
+  - Reading files and rules for context is allowed first, but **no ApplyPatch / Shell / Write edits** may occur until you have used codebase-documentation and .planning and, when needed, at least one butano run has completed.
+- For feature work, refactors, or bugfixes touching gameplay, world, scenes, or core systems:
+  - Follow **codebase-documentation** and **.planning/codebase/** for patterns and where to edit. Launch the **butano** agent when you need research or a deep-dive; it does that by default.
+  - Use the returned summaries to drive your plan. Treat skipping codebase-documentation or .planning as a **hard error** in Ultrawork sessions.
+- If you started implementing without checking .planning/codebase-documentation, stop edits, gather that context, then re-validate your plan before continuing.
 
-- In this project, when Ultrawork Mode is active, you **must invoke the Cursor `Task` tool to launch at least one subagent** (as specified in `.cursor/agents/butano.md`) **before performing any non-trivial code or file edits**.
-  - Reading files and rules for context is allowed first, but **no ApplyPatch / Shell / Write edits** may occur until at least one `Task`-based subagent run has completed.
-- For any feature work, refactor, or bugfix that touches gameplay, world, scenes, or core systems, you must:
-  - Launch the appropriate `codebase-mapper` and/or `explore` subagents via the `Task` tool.
-  - Use their returned summaries to drive your plan and explicitly treat missing subagent usage as a **hard error** in Ultrawork sessions.
-- If you realize you have started implementing without subagents while Ultrawork is active, you must:
-  - Stop further edits, run the required `Task` subagents, and
-  - Adjust or re-validate your plan based on their results before continuing implementation.
+#### When to launch butano
 
-#### Parallel subagent usage
-
-- For any non-trivial Ultrawork task in this repo, you must:
-  - Launch **at least 2 subagents in parallel** via the `Task` tool (for example: a `codebase-mapper` agent and an `explore` agent for hotspots), and
-  - Never exceed **4 concurrent subagents** in a single batch.
-- When deciding which subagents to run in parallel:
-  - Prefer a mix of **mapping** (architecture/structure) and **focused exploration** (hotspots/subsystems) as defined in `.cursor/agents/butano.md`.
-  - Only reduce to a single subagent when the task is truly trivial (single-file, localized change); in Ultrawork sessions, this should be rare.
+- Launch **butano** when you need research or a deep-dive offloaded. Butano deep-dives by default; no skills. Never exceed **4 concurrent** subagent runs.
+- Build context is from the butano-gba rule (submodules, make) — no separate skill. Only skip launching butano when the task is truly trivial (single-file, localized change) and codebase-documentation + .planning are enough.
 
 ### 1. HUMAN IN THE LOOP = BOTTLENECK
 
@@ -133,17 +120,8 @@ For non-trivial tasks:
 2. **Prefer existing planning and documentation over fresh mapping.**
    - Always check `.planning/` (especially `.planning/codebase/`) and any project-specific docs or agents **before** attempting to rediscover or remap the codebase.
    - In this repository, treat `.planning/codebase/` as the primary source of truth for architecture, structure, and conventions.
-3. As the orchestrator, **launch specialized subagents only as needed**, choosing them according to project-specific agents when available:
-   - Use subagents to:
-     - Read, summarize, and cross-reference existing `.planning` documents and rules.
-     - Locate the specific files, functions, and patterns relevant to the current task.
-   - Only fall back to **codebase-mapping or large-scale discovery** when:
-     - `.planning` documents are missing for the relevant area, or
-     - They are clearly outdated or inconsistent with the current code.
-   - When that fallback is needed:
-     - In generic repositories, prefer a dedicated mapping agent such as `.cursor/agents/codebase-mapper.md` to (re)generate `.planning` documentation.
-     - **In this Butano GBA repository, continue to follow the subagent suite and checklist in `.cursor/agents/butano.md`; those subagents may internally perform mapping work, but the orchestrator should still treat `.planning` as the canonical target to refresh.**
-4. Use these subagents to perform **targeted exploration**, keeping the orchestrator's own context window as light as possible while leveraging existing `.planning` artifacts.
+3. **Always** use `.cursor/rules/codebase-documentation.mdc` and `.planning/codebase/` for exploration and where to edit. As the orchestrator, **launch the butano subagent** when you need research offloaded — it deep-dives by default; build is from the butano-gba rule (submodules, make).
+4. Use the butano subagent for research when needed; keep the orchestrator's context light by relying on .planning and codebase-documentation first.
 5. Based on the subagents' summaries, selectively open and read only the **most relevant** files or docs as the orchestrator.
 
 ### Phase 2: Planning
@@ -155,14 +133,14 @@ For non-trivial tasks:
 ### Phase 3: Implementation
 1. As the orchestrator, perform **all file and code edits yourself**. Subagents **must not** apply patches or modify files directly.
 2. Implement changes methodically, one logical unit at a time, guided by the accepted plan.
-3. When additional context is needed mid-implementation, **spawn focused subagents** (e.g., "find all callsites", "analyze this subsystem") instead of overloading the orchestrator context.
+3. When additional context is needed mid-implementation, re-check **codebase-documentation** and **.planning** first; if you need more research, **launch the butano subagent** with a narrow prompt (it deep-dives by default).
 4. After each meaningful change, verify it doesn't break existing functionality; write tests alongside implementation when test infrastructure exists.
 5. Keep commits atomic and focused.
 
 ### Phase 4: Verification
 1. Run the build/compile step if applicable.
 2. Run existing tests.
-3. Optionally delegate **targeted verification or regression-hunting** (e.g., "search for other affected modules") to subagents, then integrate their findings.
+3. Optionally use **codebase-documentation** and **.planning** (or launch butano) for targeted verification or regression-hunting, then integrate findings.
 4. Manually trace through the changes for correctness and check for regressions in related code.
 
 ## Deep Research Protocol
@@ -189,7 +167,7 @@ When you encounter unfamiliar APIs, libraries, or patterns:
 - If a test fails, understand why before changing code. The test might be right.
 - If you're stuck, step back and re-read the surrounding code. The answer is usually in the codebase.
 - If your approach isn't working after 2-3 attempts, reconsider the approach entirely.
- - When overwhelmed by context, **offload exploration** to subagents instead of trying to carry everything in the orchestrator's context window.
+ - When overwhelmed by context, **launch the butano subagent** to offload research instead of carrying everything in the orchestrator's context window.
 
 ## Communication Style
 
