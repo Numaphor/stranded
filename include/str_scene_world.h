@@ -13,6 +13,7 @@
 #include "bn_rect_window.h"
 #include "bn_sprite_affine_mat_ptr.h"
 #include "str_constants.h"
+#include "str_collectible.h"
 
 #include "str_scene.h"
 #include "str_player.h"
@@ -40,6 +41,7 @@ namespace str
         Player *_player;
         Level *_level;
         bn::vector<Enemy, 16> _enemies;
+        bn::vector<Collectible, 16> _collectibles;
         Minimap *_minimap;
         // bn::optional<bn::affine_bg_ptr> _sword_bg; // Temporarily disabled for affine main bg
         NPC *_merchant;                                   // Changed to base NPC pointer to allow different types

@@ -8,6 +8,7 @@
 #include "str_world_state.h"
 #include "str_constants.h"
 #include "str_direction_utils.h"
+#include "str_collectible.h"
 
 #include "bn_fixed.h"
 #include "bn_fixed_point.h"
@@ -117,6 +118,7 @@ namespace str
 
     World::World() : _player(nullptr),
                      _level(nullptr),
+                     _collectibles(),
                      _minimap(nullptr),
                      // _sword_bg(bn::nullopt), // Temporarily disabled
                      _merchant(nullptr),
@@ -370,6 +372,40 @@ namespace str
                 else
                     i++;
             }
+
+            // Update collectibles and handle player pickups.
+            for(Collectible& collectible : _collectibles)
+            {
+                if(collectible.is_collected())
+                {
+                    continue;
+                }
+
+                collectible.update();
+
+                if(str::Collision::check_bb(_player->get_hitbox(), collectible.hitbox()))
+                {
+                    if(_player->get_hp() < HUD_MAX_HP)
+                    {
+                        _player->heal(1);
+                    }
+
+                    collectible.collect();
+                }
+            }
+
+            // Remove collected collectibles from the world.
+            for(int i = 0; i < _collectibles.size();)
+            {
+                if(_collectibles[i].is_collected())
+                {
+                    _collectibles.erase(_collectibles.begin() + i);
+                }
+                else
+                {
+                    ++i;
+                }
+            }
             
             _player->get_hud().set_alert(alert_active);
 
@@ -472,6 +508,7 @@ namespace str
     void World::_init_world_specific_content(int world_id, bn::camera_ptr &camera, bn::affine_bg_ptr &bg, bn::sprite_text_generator &text_generator)
     {
         _enemies.clear();
+        _collectibles.clear();
         if (_merchant)
         {
             delete _merchant;
@@ -485,10 +522,13 @@ namespace str
             _enemies.push_back(Enemy(0, -100, camera, bg, ENEMY_TYPE::SPEARGUARD, 3));
             _enemies.push_back(Enemy(50, -80, camera, bg, ENEMY_TYPE::SPEARGUARD, 3));
             _enemies.push_back(Enemy(-50, -120, camera, bg, ENEMY_TYPE::SPEARGUARD, 3));
+            _collectibles.push_back(Collectible(bn::fixed_point(80, -40), CollectibleType::HEALTH, camera));
+            _collectibles.push_back(Collectible(bn::fixed_point(-40, -60), CollectibleType::HEALTH, camera));
             break;
         case 1:
             _enemies.push_back(Enemy(-100, -50, camera, bg, ENEMY_TYPE::SPEARGUARD, 2));
             _enemies.push_back(Enemy(80, -100, camera, bg, ENEMY_TYPE::SPEARGUARD, 2));
+            _collectibles.push_back(Collectible(bn::fixed_point(-60, -40), CollectibleType::HEALTH, camera));
             break;
         case 2:
             _merchant = new MerchantNPC(bn::fixed_point(-80, 100), camera, text_generator);
@@ -496,6 +536,8 @@ namespace str
             _enemies.push_back(Enemy(100, 20, camera, bg, ENEMY_TYPE::SPEARGUARD, 4));
             _enemies.push_back(Enemy(-100, 40, camera, bg, ENEMY_TYPE::SPEARGUARD, 4));
             _enemies.push_back(Enemy(0, 80, camera, bg, ENEMY_TYPE::SPEARGUARD, 4));
+            _collectibles.push_back(Collectible(bn::fixed_point(20, 40), CollectibleType::HEALTH, camera));
+            _collectibles.push_back(Collectible(bn::fixed_point(-40, 80), CollectibleType::HEALTH, camera));
             break;
         default:
             _merchant = new MerchantNPC(bn::fixed_point(100, -50), camera, text_generator);
