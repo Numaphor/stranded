@@ -1,5 +1,9 @@
 #include "str_scene_world.h"
 #include "str_player.h"
+#include "str_soldier.h"
+
+#include "bn_sprite_items_hero.h"
+#include "bn_sprite_items_soldier.h"
 #include "str_level.h"
 #include "str_minimap.h"
 #include "str_enemy.h"
@@ -128,6 +132,7 @@ namespace str
                      _last_camera_direction(PlayerMovement::Direction::DOWN),
                      _direction_change_frames(0),
                      _current_world_id(0),
+                     _selected_character_id(0),
                      _shake_frames(0),
                      _shake_intensity(0),
                      _continuous_fire_frames(0),
@@ -138,9 +143,6 @@ namespace str
                      _player_affine_mat(bn::nullopt),
                      _vfx_affine_mat(bn::nullopt)
     {
-        bn::sprite_builder builder(bn::sprite_items::hero);
-        builder.set_bg_priority(1);
-        _player = new Player(builder.release_build());
         _lookahead_current = bn::fixed_point(0, 0);
     }
 
@@ -152,14 +154,38 @@ namespace str
         delete _merchant;
     }
 
-    str::Scene str::World::execute(bn::fixed_point spawn_location, int world_id)
+    str::Scene str::World::execute(bn::fixed_point spawn_location, int world_id, int character_id)
     {
         _current_world_id = world_id;
+        _selected_character_id = character_id;
         WorldStateManager &state_manager = WorldStateManager::instance();
         if (state_manager.has_saved_state(world_id))
         {
             WorldState saved_state = state_manager.load_world_state(world_id);
             spawn_location = saved_state.player_position;
+            _selected_character_id = saved_state.selected_character_id;
+        }
+
+        // (Re)create player based on final selected character
+        if (_player)
+        {
+            delete _player;
+            _player = nullptr;
+        }
+
+        if (_selected_character_id == 1)
+        {
+            // Soldier
+            bn::sprite_builder soldier_builder(bn::sprite_items::soldier);
+            soldier_builder.set_bg_priority(1);
+            _player = new Soldier(soldier_builder.release_build());
+        }
+        else
+        {
+            // Hero (default)
+            bn::sprite_builder hero_builder(bn::sprite_items::hero);
+            hero_builder.set_bg_priority(1);
+            _player = new Player(hero_builder.release_build(), bn::sprite_items::hero.tiles_item());
         }
 
         bn::camera_ptr camera = bn::camera_ptr::create(0, 0);
@@ -566,7 +592,7 @@ namespace str
         if (_player)
         {
             WorldStateManager &state_manager = WorldStateManager::instance();
-            state_manager.save_world_state(_current_world_id, _player->pos(), _player->get_hp());
+            state_manager.save_world_state(_current_world_id, _player->pos(), _player->get_hp(), _selected_character_id);
         }
     }
 

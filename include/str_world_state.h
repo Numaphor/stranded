@@ -12,11 +12,12 @@ namespace str
         int world_id;
         bn::fixed_point player_position;
         int player_health;
+        int selected_character_id;
         // Could add more state like enemy positions, items collected, etc.
         bool is_saved;
         
-        WorldState() : world_id(0), player_position(50, 100), player_health(100), is_saved(false) {}
-        WorldState(int id) : world_id(id), player_position(50, 100), player_health(100), is_saved(false) {}
+        WorldState() : world_id(0), player_position(50, 100), player_health(100), selected_character_id(0), is_saved(false) {}
+        WorldState(int id) : world_id(id), player_position(50, 100), player_health(100), selected_character_id(0), is_saved(false) {}
     };
     
     class WorldStateManager
@@ -29,7 +30,7 @@ namespace str
         }
         
         // Save current world state
-        void save_world_state(int world_id, const bn::fixed_point& player_pos, int player_health);
+        void save_world_state(int world_id, const bn::fixed_point& player_pos, int player_health, int character_id);
         
         // Load world state
         WorldState load_world_state(int world_id);

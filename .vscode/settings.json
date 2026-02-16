@@ -10,5 +10,14 @@
         "variant": "cpp",
         "coroutine": "cpp"
     },
-    "stranded.emulatorPath": "${workspaceFolder}/tools/mGBA-0.10.5-win64/mGBA.exe"
+    "stranded.emulatorPath": "${workspaceFolder}/tools/mGBA-0.10.5-win64/mGBA.exe",
+    "clangd.path": "c:\\Users\\numap\\AppData\\Roaming\\Cursor\\User\\globalStorage\\llvm-vs-code-extensions.vscode-clangd\\install\\21.1.8\\clangd_21.1.8\\bin\\clangd.exe",
+    "clangd.arguments": [
+        "--background-index",
+        "--clang-tidy",
+        "--completion-style=detailed",
+        "--header-insertion=iwyu",
+        "--fallback-style=llvm",
+        "--compile-commands-dir=${workspaceFolder}"
+    ]
 }

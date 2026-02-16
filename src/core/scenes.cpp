@@ -1,7 +1,12 @@
 #include "str_scene_menu.h"
 #include "str_scene_start.h"
 #include "str_scene_controls.h"
+#include "str_scene_character_select.h"
 #include "str_constants.h"
+
+#include "bn_sprite_items_hero.h"
+#include "bn_sprite_items_soldier.h"
+#include "bn_sprite_items_cursor.h"
 
 #include "bn_core.h"
 #include "bn_keypad.h"
@@ -63,7 +68,7 @@ namespace str
             move(1);
     }
 
-    str::Scene Menu::execute(int &wid, bn::fixed_point &sl)
+    str::Scene Menu::execute(int &wid, bn::fixed_point &sl, int &/*selected_character_id*/)
     {
         bn::bg_palettes::set_transparent_color(bn::color(MENU_BG_COLOR_R, MENU_BG_COLOR_G, MENU_BG_COLOR_B));
         while (1)
@@ -75,6 +80,7 @@ namespace str
             {
                 wid = _worlds[_selected_index].world_id;
                 sl = _worlds[_selected_index].spawn_location;
+                // Pass through character_id (character was already selected)
                 return str::Scene::WORLD;
             }
             if (bn::keypad::b_pressed())
@@ -96,8 +102,8 @@ namespace str
         tg.set_center_alignment();
         tg.set_bg_priority(0);
         tg.generate(0, START_TITLE_Y_POSITION, "STRANDED", _text_sprites);
-        const char *opts[] = {"Play Game", "Controls"};
-        for (int i = 0; i < 2; ++i)
+        const char *opts[] = {"Play Game", "Controls", "3D Viewer"};
+        for (int i = 0; i < 3; ++i)
         {
             bn::string<64> l = (i == _selected_index ? "> " : "  ");
             l += opts[i];
@@ -115,12 +121,16 @@ namespace str
         {
             bn::core::update();
             if (bn::keypad::up_pressed())
-                _selected_index = !_selected_index;
+                _selected_index = (_selected_index + 2) % 3;
             if (bn::keypad::down_pressed())
-                _selected_index = !_selected_index;
+                _selected_index = (_selected_index + 1) % 3;
             _update_display();
             if (bn::keypad::a_pressed())
-                return _selected_index ? str::Scene::CONTROLS : str::Scene::MENU;
+            {
+                if (_selected_index == 0) return str::Scene::CHARACTER_SELECT;
+                if (_selected_index == 1) return str::Scene::CONTROLS;
+                return str::Scene::MODEL_VIEWER;
+            }
         }
     }
 
@@ -163,6 +173,90 @@ namespace str
         while (1)
         {
             bn::core::update();
+            if (bn::keypad::b_pressed())
+                return str::Scene::START;
+        }
+    }
+
+    // =========================================================================
+    // Character Select Implementation
+    // =========================================================================
+
+    CharacterSelect::CharacterSelect() : _selected_index(0) 
+    { 
+        _init_characters(); 
+    }
+
+
+    void CharacterSelect::_init_characters()
+    {
+        _character_sprites.clear();
+        // Create character preview sprites
+        bn::sprite_builder hero_builder(bn::sprite_items::hero);
+        hero_builder.set_position(-60, 0);
+        hero_builder.set_bg_priority(1);
+        _character_sprites.push_back(hero_builder.release_build());
+
+        bn::sprite_builder soldier_builder(bn::sprite_items::soldier);
+        soldier_builder.set_position(60, 0);
+        soldier_builder.set_bg_priority(1);
+        _character_sprites.push_back(soldier_builder.release_build());
+
+        // Create cursor sprite (but don't use it for now to avoid issues)
+        // _cursor_sprite.reset();
+    }
+
+    void CharacterSelect::_update_display()
+    {
+        _text_sprites.clear();
+        bn::sprite_text_generator tg(common::variable_8x8_sprite_font);
+        tg.set_center_alignment();
+        tg.set_bg_priority(0);
+        
+        tg.generate(0, MENU_TITLE_Y_POSITION, "SELECT CHARACTER", _text_sprites);
+        
+        // Character descriptions
+        tg.generate(-60, 50, "HERO", _text_sprites);
+        tg.generate(-60, 70, "Balanced fighter", _text_sprites);
+        tg.generate(-60, 85, "Sword & Gun", _text_sprites);
+        
+        tg.generate(60, 50, "SOLDIER", _text_sprites);
+        tg.generate(60, 70, "Ranged specialist", _text_sprites);
+        tg.generate(60, 85, "Heavy firepower", _text_sprites);
+        
+        // Selection indicator - show selection
+        if (_selected_index == 0) {
+            tg.generate(-60, -40, ">>> SELECT <<<", _text_sprites);
+        } else {
+            tg.generate(60, -40, ">>> SELECT <<<", _text_sprites);
+        }
+        
+        tg.generate(0, MENU_INSTRUCTIONS_Y_POSITION, "LEFT/RIGHT: Select  A: Confirm  B: Back", _text_sprites);
+    }
+
+    void CharacterSelect::_handle_input()
+    {
+        if (bn::keypad::left_pressed())
+            _selected_index = 0;
+        if (bn::keypad::right_pressed())
+            _selected_index = 1;
+    }
+
+    str::Scene CharacterSelect::execute(int& selected_character_id)
+    {
+        bn::bg_palettes::set_transparent_color(bn::color(MENU_BG_COLOR_R, MENU_BG_COLOR_G, MENU_BG_COLOR_B));
+        
+        while (1)
+        {
+            bn::core::update();
+            _handle_input();
+            _update_display();
+            
+            if (bn::keypad::a_pressed())
+            {
+                selected_character_id = _selected_index;
+                return str::Scene::MENU;
+            }
             if (bn::keypad::b_pressed())
                 return str::Scene::START;
         }

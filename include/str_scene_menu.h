@@ -32,7 +32,7 @@ namespace str
         Menu();
         ~Menu();
 
-        str::Scene execute(int &selected_world_id, bn::fixed_point &spawn_location);
+        str::Scene execute(int &selected_world_id, bn::fixed_point &spawn_location, int &/*selected_character_id*/);
 
     private:
         bn::vector<WorldData, 8> _worlds;

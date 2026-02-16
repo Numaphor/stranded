@@ -105,27 +105,106 @@ namespace str
     // PlayerAnimation Implementation
     // =========================================================================
 
-    PlayerAnimation::PlayerAnimation(bn::sprite_ptr sprite)
-        : _sprite(sprite), _last_state(PlayerMovement::State::IDLE), _last_direction(PlayerMovement::Direction::DOWN) {}
+    PlayerAnimation::PlayerAnimation(bn::sprite_ptr sprite,
+                                     const bn::sprite_tiles_item& tiles_item,
+                                     Profile profile) :
+        _sprite(sprite),
+        _tiles_item(&tiles_item),
+        _last_state(PlayerMovement::State::IDLE),
+        _last_direction(PlayerMovement::Direction::DOWN),
+        _profile(profile)
+    {}
 
     void PlayerAnimation::apply_state(PlayerMovement::State state, PlayerMovement::Direction direction)
     {
         if (!should_change_animation(state, direction))
+        {
             return;
+        }
+
         _sprite.set_horizontal_flip(direction == PlayerMovement::Direction::LEFT);
+
         struct Anim
         {
-            int speed, u_s, u_c, d_s, d_c, s_s, s_c;
+            int speed;
+            int u_s, u_c;   // UP   start, count
+            int d_s, d_c;   // DOWN start, count
+            int s_s, s_c;   // SIDE start, count
         };
-        static const Anim anims[] = {{12, 384, 12, 0, 12, 240, 12}, {5, 408, 8, 120, 8, 264, 8}, {8, 432, 8, 144, 8, 288, 8}, {8, 504, 8, 216, 8, 312, 6}, {8, 480, 7, 192, 7, 336, 4}, {8, 480, 7, 192, 7, 360, 5}, {10, 456, 4, 168, 4, 336, 4}, {4, 24, 24, 24, 24, 24, 24}, {4, 48, 24, 48, 24, 48, 24}, {4, 72, 24, 72, 24, 72, 24}, {4, 96, 24, 96, 24, 96, 24}, {6, 0, 13, 0, 13, 0, 13}, {15, 528, 13, 528, 13, 528, 13}};
-        const auto &a = anims[static_cast<int>(state)];
-        int s = (direction == PlayerMovement::Direction::UP) ? a.u_s : (direction == PlayerMovement::Direction::DOWN ? a.d_s : a.s_s);
-        int c = (direction == PlayerMovement::Direction::UP) ? a.u_c : (direction == PlayerMovement::Direction::DOWN ? a.d_c : a.s_c);
-        bool once = state == PlayerMovement::State::DEAD || state == PlayerMovement::State::ROLLING || state == PlayerMovement::State::SLASHING || state == PlayerMovement::State::ATTACKING || state == PlayerMovement::State::CHOPPING;
+
+        // Hero animation table (existing values)
+        static const Anim hero_anims[] = {
+            {12, 384, 12, 0,   12, 240, 12}, // IDLE
+            {5,  408, 8,  120, 8,  264, 8 }, // WALKING
+            {8,  432, 8,  144, 8,  288, 8 }, // RUNNING
+            {8,  504, 8,  216, 8,  312, 6 }, // ROLLING
+            {8,  480, 7,  192, 7,  336, 4 }, // CHOPPING
+            {8,  480, 7,  192, 7,  360, 5 }, // SLASHING
+            {10, 456, 4,  168, 4,  336, 4 }, // ATTACKING
+            {4,  24,  24, 24,  24, 24,  24}, // HEAL_BUFF
+            {4,  48,  24, 48,  24, 48,  24}, // DEFENCE_BUFF
+            {4,  72,  24, 72,  24, 72,  24}, // POWER_BUFF
+            {4,  96,  24, 96,  24, 96,  24}, // ENERGY_BUFF
+            {6,  0,   13, 0,   13, 0,   13}, // HIT
+            {15, 528, 13, 528, 13, 528, 13}  // DEAD
+        };
+
+        // Soldier animation table — adjust indices to match soldier.bmp
+        static const Anim soldier_anims[] = {
+            // IDLE
+            {8,  0, 4,  0, 4,  0, 4},
+            // WALKING
+            {6,  4, 4,  4, 4,  4, 4},
+            // RUNNING
+            {4,  8, 4,  8, 4,  8, 4},
+            // ROLLING
+            {6,  12, 4, 12, 4, 12, 4},
+            // CHOPPING
+            {6,  16, 4, 16, 4, 16, 4},
+            // SLASHING
+            {6,  20, 4, 20, 4, 20, 4},
+            // ATTACKING
+            {6,  24, 4, 24, 4, 24, 4},
+            // HEAL_BUFF
+            {6,  28, 4, 28, 4, 28, 4},
+            // DEFENCE_BUFF
+            {6,  32, 4, 32, 4, 32, 4},
+            // POWER_BUFF
+            {6,  36, 4, 36, 4, 36, 4},
+            // ENERGY_BUFF
+            {6,  40, 4, 40, 4, 40, 4},
+            // HIT
+            {8,  44, 4, 44, 4, 44, 4},
+            // DEAD
+            {10, 48, 4, 48, 4, 48, 4}
+        };
+
+        const Anim* table = (_profile == Profile::HERO) ? hero_anims : soldier_anims;
+        const Anim& a = table[static_cast<int>(state)];
+
+        int s = (direction == PlayerMovement::Direction::UP)   ? a.u_s :
+                (direction == PlayerMovement::Direction::DOWN) ? a.d_s : a.s_s;
+        int c = (direction == PlayerMovement::Direction::UP)   ? a.u_c :
+                (direction == PlayerMovement::Direction::DOWN) ? a.d_c : a.s_c;
+
+        bool once = state == PlayerMovement::State::DEAD ||
+                    state == PlayerMovement::State::ROLLING ||
+                    state == PlayerMovement::State::SLASHING ||
+                    state == PlayerMovement::State::ATTACKING ||
+                    state == PlayerMovement::State::CHOPPING;
+
         bn::vector<uint16_t, 32> f;
         for (int i = 0; i < c; ++i)
+        {
             f.push_back(s + i);
-        _animation = once ? bn::sprite_animate_action<32>::once(_sprite, a.speed, bn::sprite_items::hero.tiles_item(), bn::span<const uint16_t>(f.data(), f.size())) : bn::sprite_animate_action<32>::forever(_sprite, a.speed, bn::sprite_items::hero.tiles_item(), bn::span<const uint16_t>(f.data(), f.size()));
+        }
+
+        _animation = once ?
+            bn::sprite_animate_action<32>::once(_sprite, a.speed, *_tiles_item,
+                                                bn::span<const uint16_t>(f.data(), f.size())) :
+            bn::sprite_animate_action<32>::forever(_sprite, a.speed, *_tiles_item,
+                                                   bn::span<const uint16_t>(f.data(), f.size()));
+
         _last_state = state;
         _last_direction = direction;
     }
@@ -681,7 +760,12 @@ namespace str
     // Player Implementation
     // =========================================================================
 
-    Player::Player(bn::sprite_ptr sprite) : Entity(sprite), _animation(sprite), _gun_active(false)
+    Player::Player(bn::sprite_ptr sprite,
+                   const bn::sprite_tiles_item& tiles_item,
+                   PlayerAnimation::Profile profile) :
+        Entity(sprite),
+        _animation(sprite, tiles_item, profile),
+        _gun_active(false)
     {
         if (auto player_sprite = get_sprite())
         {

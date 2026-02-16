@@ -11,13 +11,14 @@ namespace str
     // WorldStateManager Implementation
     // =========================================================================
 
-    void WorldStateManager::save_world_state(int world_id, const bn::fixed_point &player_pos, int player_health)
+    void WorldStateManager::save_world_state(int world_id, const bn::fixed_point &player_pos, int player_health, int character_id)
     {
         WorldState *existing_state = _find_state(world_id);
         if (existing_state)
         {
             existing_state->player_position = player_pos;
             existing_state->player_health = player_health;
+            existing_state->selected_character_id = character_id;
             existing_state->is_saved = true;
         }
         else
@@ -25,6 +26,7 @@ namespace str
             WorldState new_state(world_id);
             new_state.player_position = player_pos;
             new_state.player_health = player_health;
+            new_state.selected_character_id = character_id;
             new_state.is_saved = true;
             _saved_states.push_back(new_state);
         }

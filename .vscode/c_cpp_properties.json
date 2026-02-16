@@ -6,16 +6,22 @@
                 "${workspaceFolder}/include/",
                 "${workspaceFolder}/build/",
                 "${workspaceFolder}/butano/butano/include/",
-                "${workspaceFolder}/butano/common/include/"
+                "${workspaceFolder}/butano/common/include/",
+                "D:/devkitPro/devkitARM/arm-none-eabi/include",
+                "D:/devkitPro/devkitARM/arm-none-eabi/include/c++/15.2.0",
+                "D:/devkitPro/devkitARM/arm-none-eabi/include/c++/15.2.0/arm-none-eabi",
+                "D:/devkitPro/devkitARM/lib/gcc/arm-none-eabi/15.2.0/include"
             ],
             "defines": [
                 "_DEBUG",
                 "UNICODE",
-                "_UNICODE"
+                "_UNICODE",
+                "GBA",
+                "ARM7"
             ],
             "cStandard": "gnu17",
             "cppStandard": "gnu++23",
-            "compilerPath": "C:/devkitPro/devkitARM/bin/arm-none-eabi-gcc.exe",
+            "compilerPath": "D:/devkitPro/devkitARM/bin/arm-none-eabi-gcc.exe",
             "intelliSenseMode": "windows-gcc-arm"
         }
     ],

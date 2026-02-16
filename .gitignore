@@ -18,4 +18,9 @@ build/
 .idea/
 .windsurf/
 
+# clangd
+compile_commands.json
+.clangd
+.cache
 # OS specific files
+*.exe

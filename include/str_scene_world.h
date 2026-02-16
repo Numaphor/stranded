@@ -36,7 +36,7 @@ namespace str
         World();
         ~World();
 
-        str::Scene execute(bn::fixed_point spawn_location, int world_id = 0);
+        str::Scene execute(bn::fixed_point spawn_location, int world_id = 0, int character_id = 0);
 
     private:
         Player *_player;
@@ -52,6 +52,7 @@ namespace str
         PlayerMovement::Direction _last_camera_direction; // Track last direction for smooth direction changes
         int _direction_change_frames;                     // Counter for how many frames we've been changing direction
         int _current_world_id;                            // Track current world
+        int _selected_character_id;                      // Track selected character
 
         // Camera deadzone system
         bn::fixed_point _camera_target_pos; // Where the camera wants to be

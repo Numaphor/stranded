@@ -3,6 +3,7 @@
 
 #include "bn_fixed.h"
 #include "bn_fixed_point.h"
+#include "bn_string.h"
 
 namespace str
 {
@@ -197,6 +198,22 @@ namespace str
     constexpr bn::fixed ZOOM_NORMAL_SCALE = 1;
     constexpr bn::fixed ZOOM_OUT_SCALE = bn::fixed(0.6); // Scale of 0.6 makes sprites appear at 60% size (zoomed out)
     constexpr bn::fixed ZOOM_TRANSITION_SPEED = 0.1;     // How fast zoom transitions
+
+    // Character Selection Constants
+    struct CharacterData
+    {
+        int character_id;
+        bn::string<32> name;
+        bn::string<64> description;
+        bn::string<32> sprite_item_name;
+        bool is_unlocked;
+    };
+
+    const CharacterData CHARACTERS[] = {
+        {0, "Hero", "Balanced fighter with sword and gun", "hero", true},
+        {1, "Soldier", "Ranged specialist with heavy firepower", "soldier", true}
+    };
+    constexpr int CHARACTER_COUNT = 2;
 }
 
 #endif

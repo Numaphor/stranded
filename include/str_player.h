@@ -6,6 +6,7 @@
 #include "bn_fixed_point.h"
 #include "bn_optional.h"
 #include "bn_sprite_animate_actions.h"
+#include "bn_sprite_tiles_item.h"
 #include "bn_vector.h"
 
 #include "str_hitbox.h"
@@ -136,17 +137,28 @@ namespace str
     class PlayerAnimation
     {
     public:
-        explicit PlayerAnimation(bn::sprite_ptr sprite);
+        enum class Profile
+        {
+            HERO,
+            SOLDIER
+        };
+
+        PlayerAnimation(bn::sprite_ptr sprite,
+                        const bn::sprite_tiles_item& tiles_item,
+                        Profile profile = Profile::HERO);
+
         void update();
         void apply_state(PlayerMovement::State state, PlayerMovement::Direction direction);
 
     private:
         bn::sprite_ptr _sprite;
+        const bn::sprite_tiles_item* _tiles_item;
         bn::optional<bn::sprite_animate_action<32>> _animation;
         PlayerMovement::State _last_state;
         PlayerMovement::Direction _last_direction;
+        Profile _profile;
 
-        // Helper method to create animation ranges
+        // Helper methods stay the same
         void make_anim_range(int speed, int start_frame, int end_frame);
         void make_anim_range_once(int speed, int start_frame, int end_frame);
         bool should_change_animation(PlayerMovement::State state, PlayerMovement::Direction direction);
@@ -250,7 +262,9 @@ namespace str
     class Player : public Entity
     {
     public:
-        explicit Player(bn::sprite_ptr sprite);
+        Player(bn::sprite_ptr sprite,
+               const bn::sprite_tiles_item& tiles_item,
+               PlayerAnimation::Profile profile = PlayerAnimation::Profile::HERO);
 
         void spawn(bn::fixed_point pos, bn::camera_ptr camera);
         void update();
