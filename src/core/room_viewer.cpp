@@ -51,7 +51,7 @@ str::Scene RoomViewer::execute()
     room.set_theta(model_theta);
     room.set_psi(model_psi);
 
-    bn::fixed cam_y = 352;
+    bn::fixed cam_y = 274;
 
     // Debug mode: SELECT toggles which axis D-PAD controls
     // 0 = phi (Left/Right) + psi (Up/Down)
