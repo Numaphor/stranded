@@ -62,7 +62,8 @@
       "Bash(git reset:*)",
       "Bash(git rm:*)",
       "Bash(git commit:*)",
-      "Bash(python tools/generate_room_obj.py:*)"
+      "Bash(python tools/generate_room_obj.py:*)",
+      "Bash(git submodule update:*)"
     ]
   }
 }
