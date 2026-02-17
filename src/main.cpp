@@ -8,6 +8,7 @@
 #include "str_scene_character_select.h"
 #include "str_scene_world.h"
 #include "str_scene_model_viewer.h"
+#include "str_scene_room_viewer.h"
 
 int main()
 {
@@ -55,6 +56,13 @@ int main()
             case str::Scene::MODEL_VIEWER:
             {
                 str::ModelViewer* viewer = new str::ModelViewer();
+                next = viewer->execute();
+                delete viewer;
+                break;
+            }
+            case str::Scene::ROOM_VIEWER:
+            {
+                str::RoomViewer* viewer = new str::RoomViewer();
                 next = viewer->execute();
                 delete viewer;
                 break;

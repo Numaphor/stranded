@@ -10,7 +10,8 @@ namespace str
         MENU,
         CONTROLS,
         WORLD,
-        MODEL_VIEWER
+        MODEL_VIEWER,
+        ROOM_VIEWER
     };
 }
 

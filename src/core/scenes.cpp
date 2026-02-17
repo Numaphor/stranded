@@ -102,8 +102,8 @@ namespace str
         tg.set_center_alignment();
         tg.set_bg_priority(0);
         tg.generate(0, START_TITLE_Y_POSITION, "STRANDED", _text_sprites);
-        const char *opts[] = {"Play Game", "Controls", "3D Viewer"};
-        for (int i = 0; i < 3; ++i)
+        const char *opts[] = {"Play Game", "Controls", "3D Viewer", "3D Room"};
+        for (int i = 0; i < 4; ++i)
         {
             bn::string<64> l = (i == _selected_index ? "> " : "  ");
             l += opts[i];
@@ -121,15 +121,16 @@ namespace str
         {
             bn::core::update();
             if (bn::keypad::up_pressed())
-                _selected_index = (_selected_index + 2) % 3;
+                _selected_index = (_selected_index + 3) % 4;
             if (bn::keypad::down_pressed())
-                _selected_index = (_selected_index + 1) % 3;
+                _selected_index = (_selected_index + 1) % 4;
             _update_display();
             if (bn::keypad::a_pressed())
             {
                 if (_selected_index == 0) return str::Scene::CHARACTER_SELECT;
                 if (_selected_index == 1) return str::Scene::CONTROLS;
-                return str::Scene::MODEL_VIEWER;
+                if (_selected_index == 2) return str::Scene::MODEL_VIEWER;
+                return str::Scene::ROOM_VIEWER;
             }
         }
     }
