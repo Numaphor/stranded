@@ -24,3 +24,5 @@ compile_commands.json
 .cache
 # OS specific files
 *.exe
+tools/mGBA-0.10.5-win64/nointro.sqlite3
+tools/mGBA-0.10.5-win64/qt.ini
