@@ -57,7 +57,11 @@
       "Bash(/c/Python314/python.exe:*)",
       "Bash(git checkout:*)",
       "Bash(git fetch:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(FILTER_BRANCH_SQUELCH_WARNING=1 git filter-branch:*)",
+      "Bash(git reset:*)",
+      "Bash(git rm:*)",
+      "Bash(git commit:*)"
     ]
   }
 }

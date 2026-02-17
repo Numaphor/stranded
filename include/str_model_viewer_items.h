@@ -10,7 +10,7 @@ namespace str
 
 constexpr fr::model_viewer_item viewer_items[] = {
     fr::model_viewer_item(fr::model_3d_items::player_car, "Player car", 200, 28672, 0, 40704),
-    fr::model_viewer_item(str::model_3d_items::blaster, "Blaster", 100, 28672, 0, 49152),
+    fr::model_viewer_item(str::model_3d_items::blaster, "Blaster", 100, 28672, 0, 32768),
 };
 
 constexpr int viewer_item_count = sizeof(viewer_items) / sizeof(viewer_items[0]);
