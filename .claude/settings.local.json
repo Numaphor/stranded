@@ -63,7 +63,15 @@
       "Bash(git rm:*)",
       "Bash(git commit:*)",
       "Bash(python tools/generate_room_obj.py:*)",
-      "Bash(git submodule update:*)"
+      "Bash(git submodule update:*)",
+      "Bash(/tmp/scale_furniture.py:*)",
+      "Bash(/tmp/scale_furniture2.py:*)",
+      "Bash(pip install:*)"
+    ],
+    "additionalDirectories": [
+      "\\tmp",
+      "d:\\repo\\stranded",
+      "d:\\repo\\stranded\\graphics\\sprite\\player"
     ]
   }
 }

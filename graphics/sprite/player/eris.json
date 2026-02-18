@@ -1,0 +1,33 @@
+{
+  "type": "sprite",
+  "height": 16,
+  "width": 16,
+  "frameTags": [
+      { "name": "Rotate", "from": 0, "to": 7, "direction": "forward" },
+      { "name": "Idle_Down", "from": 8, "to": 11, "direction": "forward" },
+      { "name": "Idle_Down_Side", "from": 12, "to": 15, "direction": "forward" },
+      { "name": "Idle_Side", "from": 16, "to": 19, "direction": "forward" },
+      { "name": "Idle_Up_Side", "from": 20, "to": 23, "direction": "forward" },
+      { "name": "Idle_Up", "from": 24, "to": 27, "direction": "forward" },
+      { "name": "Walk_Down", "from": 28, "to": 31, "direction": "forward" },
+      { "name": "Walk_Down_Side", "from": 32, "to": 35, "direction": "forward" },
+      { "name": "Walk_Side", "from": 36, "to": 39, "direction": "forward" },
+      { "name": "Walk_Up_Side", "from": 40, "to": 43, "direction": "forward" },
+      { "name": "Walk_Up", "from": 44, "to": 47, "direction": "forward" },
+      { "name": "Run_Down", "from": 48, "to": 53, "direction": "forward" },
+      { "name": "Run_Down_Side", "from": 54, "to": 59, "direction": "forward" },
+      { "name": "Run_Side", "from": 60, "to": 65, "direction": "forward" },
+      { "name": "Run_Up_Side", "from": 66, "to": 71, "direction": "forward" },
+      { "name": "Run_Up", "from": 72, "to": 77, "direction": "forward" },
+      { "name": "Interact_Down", "from": 78, "to": 81, "direction": "forward" },
+      { "name": "Interact_Down_Side", "from": 82, "to": 85, "direction": "forward" },
+      { "name": "Interact_Side", "from": 86, "to": 89, "direction": "forward" },
+      { "name": "Interact_Up_Side", "from": 90, "to": 93, "direction": "forward" },
+      { "name": "Interact_Up", "from": 94, "to": 97, "direction": "forward" },
+      { "name": "Jump_Down", "from": 98, "to": 102, "direction": "forward" },
+      { "name": "Jump_Down_Side", "from": 103, "to": 107, "direction": "forward" },
+      { "name": "Jump Side", "from": 108, "to": 112, "direction": "forward" },
+      { "name": "Jump Up Side", "from": 113, "to": 117, "direction": "forward" },
+      { "name": "Jump Up", "from": 118, "to": 122, "direction": "forward" }
+     ]
+}
