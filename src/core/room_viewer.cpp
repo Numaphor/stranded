@@ -17,10 +17,30 @@
 #include "fr_sin_cos.h"
 #include "models/str_model_3d_items_room.h"
 
+namespace {
+    constexpr int iso_phi = 6400;
+    constexpr int iso_theta = 59904;
+    constexpr int iso_psi = 6400;
+}
+
 namespace str
 {
 
 RoomViewer::RoomViewer() {}
+
+void RoomViewer::_compute_rotation(int phi)
+{
+    bn::fixed sp = fr::sin(phi), cp = fr::cos(phi);
+    bn::fixed st = fr::sin(iso_theta), ct = fr::cos(iso_theta);
+    bn::fixed ss = fr::sin(iso_psi),  cs = fr::cos(iso_psi);
+
+    _r00 = cp * ct;
+    _r01 = cp * st * ss - sp * cs;
+    _r10 = sp * ct;
+    _r11 = sp * st * ss + cp * cs;
+    _r20 = -st;
+    _r21 = ct * ss;
+}
 
 void RoomViewer::_set_player_anim(bool moving, int dir)
 {
@@ -74,7 +94,7 @@ void RoomViewer::_rotate_player_dir()
     _set_player_anim(_player_moving, _player_dir);
 }
 
-bn::fixed_point RoomViewer::_floor_to_screen(bn::fixed fx, bn::fixed fy, bn::fixed cam_y, int corner)
+bn::fixed_point RoomViewer::_floor_to_screen(bn::fixed fx, bn::fixed fy, bn::fixed cam_y)
 {
     bn::fixed world_x = _r00 * fx + _r01 * fy;
     bn::fixed world_y = _r10 * fx + _r11 * fy + 96;
@@ -83,17 +103,11 @@ bn::fixed_point RoomViewer::_floor_to_screen(bn::fixed fx, bn::fixed fy, bn::fix
     bn::fixed depth = cam_y - world_y;
     if(depth <= 0) depth = 1;
 
-    int angle = corner * 16384;
-    bn::fixed cf = fr::cos(angle);
-    bn::fixed sf = fr::sin(angle);
-
+    // Camera phi=0: vcx = world_x/16, vcy = world_z/16
     bn::fixed vrx = world_x / 16;
     bn::fixed vrz = world_z / 16;
 
-    bn::fixed vcx = vrx * cf + vrz * sf;
-    bn::fixed vcy = -(vrx * sf - vrz * cf);
-
-    return bn::fixed_point(vcx * 256 / depth * 16, vcy * 256 / depth * 16);
+    return bn::fixed_point(vrx * 256 / depth * 16, vrz * 256 / depth * 16);
 }
 
 void RoomViewer::_update_hud()
@@ -117,22 +131,10 @@ str::Scene RoomViewer::execute()
 
     room.set_position(fr::point_3d(0, 96, 16));
 
-    constexpr int iso_phi = 6400;
-    constexpr int iso_theta = 59904;
-    constexpr int iso_psi = 6400;
+    int effective_phi = iso_phi + _corner_index * 16384;
+    _compute_rotation(effective_phi);
 
-    bn::fixed sp = fr::sin(iso_phi),  cp = fr::cos(iso_phi);
-    bn::fixed st = fr::sin(iso_theta), ct = fr::cos(iso_theta);
-    bn::fixed ss = fr::sin(iso_psi),  cs = fr::cos(iso_psi);
-
-    _r00 = cp * ct;
-    _r01 = cp * st * ss - sp * cs;
-    _r10 = sp * ct;
-    _r11 = sp * st * ss + cp * cs;
-    _r20 = -st;
-    _r21 = ct * ss;
-
-    room.set_phi(iso_phi);
+    room.set_phi(effective_phi);
     room.set_theta(iso_theta);
     room.set_psi(iso_psi);
 
@@ -146,13 +148,13 @@ str::Scene RoomViewer::execute()
         _camera.set_position(get_cam_pos());
     };
 
-    _camera.set_phi(_corner_index * 16384);
+    _camera.set_phi(0);
     update_camera();
 
     _player_fx = 0;
     _player_fy = 0;
 
-    bn::fixed_point initial_pos = _floor_to_screen(_player_fx, _player_fy, cam_dist, _corner_index);
+    bn::fixed_point initial_pos = _floor_to_screen(_player_fx, _player_fy, cam_dist);
     _player_sprite = bn::sprite_items::eris.create_sprite(initial_pos.x(), initial_pos.y());
     _player_sprite->set_bg_priority(0);
     _set_player_anim(false, 0);
@@ -174,10 +176,19 @@ str::Scene RoomViewer::execute()
         if(bn::keypad::start_pressed())
         {
             _corner_index = (_corner_index + 1) % 4;
-            _camera.set_phi(_corner_index * 16384);
+
+            int eff_phi = iso_phi + _corner_index * 16384;
+            room.set_phi(eff_phi);
+            _compute_rotation(eff_phi);
+
+            bn::fixed new_fx = _player_fy;
+            bn::fixed new_fy = -_player_fx;
+            _player_fx = new_fx;
+            _player_fy = new_fy;
+
             _rotate_player_dir();
-            
-            bn::fixed_point pos = _floor_to_screen(_player_fx, _player_fy, cam_dist, _corner_index);
+
+            bn::fixed_point pos = _floor_to_screen(_player_fx, _player_fy, cam_dist);
             _player_sprite->set_position(pos);
         }
 
@@ -188,7 +199,7 @@ str::Scene RoomViewer::execute()
             if(cam_dist != old_dist)
             {
                 update_camera();
-                bn::fixed_point pos = _floor_to_screen(_player_fx, _player_fy, cam_dist, _corner_index);
+                bn::fixed_point pos = _floor_to_screen(_player_fx, _player_fy, cam_dist);
                 _player_sprite->set_position(pos);
             }
         }
@@ -242,7 +253,7 @@ str::Scene RoomViewer::execute()
             _player_fx = bn::min(bn::max(_player_fx + dfx, FLOOR_MIN), FLOOR_MAX);
             _player_fy = bn::min(bn::max(_player_fy + dfy, FLOOR_MIN), FLOOR_MAX);
             
-            bn::fixed_point pos = _floor_to_screen(_player_fx, _player_fy, cam_dist, _corner_index);
+            bn::fixed_point pos = _floor_to_screen(_player_fx, _player_fy, cam_dist);
             _player_sprite->set_position(pos);
         }
 

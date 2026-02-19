@@ -44,7 +44,8 @@ private:
     void _update_hud();
     void _set_player_anim(bool moving, int dir);
     void _rotate_player_dir();
-    bn::fixed_point _floor_to_screen(bn::fixed fx, bn::fixed fy, bn::fixed cam_y, int corner);
+    void _compute_rotation(int phi);
+    bn::fixed_point _floor_to_screen(bn::fixed fx, bn::fixed fy, bn::fixed cam_y);
 };
 
 }
