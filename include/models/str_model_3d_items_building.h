@@ -20,86 +20,87 @@ namespace str::model_3d_items
 
     // Building layout: 2 columns x 3 rows of rooms
     //
-    //        x=-60    x=0     x=60
-    // y=-90  +--------+--------+
+    //        x=-120   x=0     x=120
+    // y=-180 +--------+--------+
     //        | Room 0 | Room 1 |
-    // y=-30  +---||---+---||---+
+    // y=-60  +---||---+---||---+
     //        | Room 2 | Room 3 |
-    // y= 30  +---||---+---||---+
+    // y= 60  +---||---+---||---+
     //        | Room 4 | Room 5 |
-    // y= 90  +--------+--------+
+    // y= 180 +--------+--------+
     //
-    // Each room is 60x60 units. Wall height is 35 units.
+    // Each room is 120x120 units (same as original single room).
+    // Wall height is 50 units (same as original).
     // Doors (width 20) connect all adjacent rooms.
 
     constexpr inline fr::vertex_3d building_vertices[] = {
         // Floor grid (z=0), 3 columns x 4 rows = 12 vertices
-        fr::vertex_3d(-60.0, -90.0, 0.0),   //  0
-        fr::vertex_3d(  0.0, -90.0, 0.0),   //  1
-        fr::vertex_3d( 60.0, -90.0, 0.0),   //  2
-        fr::vertex_3d(-60.0, -30.0, 0.0),   //  3
-        fr::vertex_3d(  0.0, -30.0, 0.0),   //  4
-        fr::vertex_3d( 60.0, -30.0, 0.0),   //  5
-        fr::vertex_3d(-60.0,  30.0, 0.0),   //  6
-        fr::vertex_3d(  0.0,  30.0, 0.0),   //  7
-        fr::vertex_3d( 60.0,  30.0, 0.0),   //  8
-        fr::vertex_3d(-60.0,  90.0, 0.0),   //  9
-        fr::vertex_3d(  0.0,  90.0, 0.0),   // 10
-        fr::vertex_3d( 60.0,  90.0, 0.0),   // 11
+        fr::vertex_3d(-120.0, -180.0, 0.0),  //  0
+        fr::vertex_3d(   0.0, -180.0, 0.0),  //  1
+        fr::vertex_3d( 120.0, -180.0, 0.0),  //  2
+        fr::vertex_3d(-120.0,  -60.0, 0.0),  //  3
+        fr::vertex_3d(   0.0,  -60.0, 0.0),  //  4
+        fr::vertex_3d( 120.0,  -60.0, 0.0),  //  5
+        fr::vertex_3d(-120.0,   60.0, 0.0),  //  6
+        fr::vertex_3d(   0.0,   60.0, 0.0),  //  7
+        fr::vertex_3d( 120.0,   60.0, 0.0),  //  8
+        fr::vertex_3d(-120.0,  180.0, 0.0),  //  9
+        fr::vertex_3d(   0.0,  180.0, 0.0),  // 10
+        fr::vertex_3d( 120.0,  180.0, 0.0),  // 11
 
-        // Wall top grid (z=-35), 3 columns x 4 rows = 12 vertices
-        fr::vertex_3d(-60.0, -90.0, -35.0),  // 12
-        fr::vertex_3d(  0.0, -90.0, -35.0),  // 13
-        fr::vertex_3d( 60.0, -90.0, -35.0),  // 14
-        fr::vertex_3d(-60.0, -30.0, -35.0),  // 15
-        fr::vertex_3d(  0.0, -30.0, -35.0),  // 16
-        fr::vertex_3d( 60.0, -30.0, -35.0),  // 17
-        fr::vertex_3d(-60.0,  30.0, -35.0),  // 18
-        fr::vertex_3d(  0.0,  30.0, -35.0),  // 19
-        fr::vertex_3d( 60.0,  30.0, -35.0),  // 20
-        fr::vertex_3d(-60.0,  90.0, -35.0),  // 21
-        fr::vertex_3d(  0.0,  90.0, -35.0),  // 22
-        fr::vertex_3d( 60.0,  90.0, -35.0),  // 23
+        // Wall top grid (z=-50), 3 columns x 4 rows = 12 vertices
+        fr::vertex_3d(-120.0, -180.0, -50.0), // 12
+        fr::vertex_3d(   0.0, -180.0, -50.0), // 13
+        fr::vertex_3d( 120.0, -180.0, -50.0), // 14
+        fr::vertex_3d(-120.0,  -60.0, -50.0), // 15
+        fr::vertex_3d(   0.0,  -60.0, -50.0), // 16
+        fr::vertex_3d( 120.0,  -60.0, -50.0), // 17
+        fr::vertex_3d(-120.0,   60.0, -50.0), // 18
+        fr::vertex_3d(   0.0,   60.0, -50.0), // 19
+        fr::vertex_3d( 120.0,   60.0, -50.0), // 20
+        fr::vertex_3d(-120.0,  180.0, -50.0), // 21
+        fr::vertex_3d(   0.0,  180.0, -50.0), // 22
+        fr::vertex_3d( 120.0,  180.0, -50.0), // 23
 
         // Center wall (x=0) door edges at z=0
-        fr::vertex_3d(0.0, -70.0, 0.0),      // 24: door 0-1 edge
-        fr::vertex_3d(0.0, -50.0, 0.0),      // 25: door 0-1 edge
-        fr::vertex_3d(0.0, -10.0, 0.0),      // 26: door 2-3 edge
-        fr::vertex_3d(0.0,  10.0, 0.0),      // 27: door 2-3 edge
-        fr::vertex_3d(0.0,  50.0, 0.0),      // 28: door 4-5 edge
-        fr::vertex_3d(0.0,  70.0, 0.0),      // 29: door 4-5 edge
+        fr::vertex_3d(0.0, -130.0, 0.0),      // 24: door 0-1 edge
+        fr::vertex_3d(0.0, -110.0, 0.0),      // 25: door 0-1 edge
+        fr::vertex_3d(0.0,  -10.0, 0.0),      // 26: door 2-3 edge
+        fr::vertex_3d(0.0,   10.0, 0.0),      // 27: door 2-3 edge
+        fr::vertex_3d(0.0,  110.0, 0.0),      // 28: door 4-5 edge
+        fr::vertex_3d(0.0,  130.0, 0.0),      // 29: door 4-5 edge
 
-        // y=-30 wall door edges at z=0
-        fr::vertex_3d(-40.0, -30.0, 0.0),    // 30: door 0-2 edge
-        fr::vertex_3d(-20.0, -30.0, 0.0),    // 31: door 0-2 edge
-        fr::vertex_3d( 20.0, -30.0, 0.0),    // 32: door 1-3 edge
-        fr::vertex_3d( 40.0, -30.0, 0.0),    // 33: door 1-3 edge
+        // y=-60 wall door edges at z=0
+        fr::vertex_3d(-70.0, -60.0, 0.0),     // 30: door 0-2 edge
+        fr::vertex_3d(-50.0, -60.0, 0.0),     // 31: door 0-2 edge
+        fr::vertex_3d( 50.0, -60.0, 0.0),     // 32: door 1-3 edge
+        fr::vertex_3d( 70.0, -60.0, 0.0),     // 33: door 1-3 edge
 
-        // y=30 wall door edges at z=0
-        fr::vertex_3d(-40.0,  30.0, 0.0),    // 34: door 2-4 edge
-        fr::vertex_3d(-20.0,  30.0, 0.0),    // 35: door 2-4 edge
-        fr::vertex_3d( 20.0,  30.0, 0.0),    // 36: door 3-5 edge
-        fr::vertex_3d( 40.0,  30.0, 0.0),    // 37: door 3-5 edge
+        // y=60 wall door edges at z=0
+        fr::vertex_3d(-70.0,  60.0, 0.0),     // 34: door 2-4 edge
+        fr::vertex_3d(-50.0,  60.0, 0.0),     // 35: door 2-4 edge
+        fr::vertex_3d( 50.0,  60.0, 0.0),     // 36: door 3-5 edge
+        fr::vertex_3d( 70.0,  60.0, 0.0),     // 37: door 3-5 edge
 
-        // Center wall door edges at z=-35
-        fr::vertex_3d(0.0, -70.0, -35.0),    // 38
-        fr::vertex_3d(0.0, -50.0, -35.0),    // 39
-        fr::vertex_3d(0.0, -10.0, -35.0),    // 40
-        fr::vertex_3d(0.0,  10.0, -35.0),    // 41
-        fr::vertex_3d(0.0,  50.0, -35.0),    // 42
-        fr::vertex_3d(0.0,  70.0, -35.0),    // 43
+        // Center wall door edges at z=-50
+        fr::vertex_3d(0.0, -130.0, -50.0),    // 38
+        fr::vertex_3d(0.0, -110.0, -50.0),    // 39
+        fr::vertex_3d(0.0,  -10.0, -50.0),    // 40
+        fr::vertex_3d(0.0,   10.0, -50.0),    // 41
+        fr::vertex_3d(0.0,  110.0, -50.0),    // 42
+        fr::vertex_3d(0.0,  130.0, -50.0),    // 43
 
-        // y=-30 wall door edges at z=-35
-        fr::vertex_3d(-40.0, -30.0, -35.0),  // 44
-        fr::vertex_3d(-20.0, -30.0, -35.0),  // 45
-        fr::vertex_3d( 20.0, -30.0, -35.0),  // 46
-        fr::vertex_3d( 40.0, -30.0, -35.0),  // 47
+        // y=-60 wall door edges at z=-50
+        fr::vertex_3d(-70.0, -60.0, -50.0),   // 44
+        fr::vertex_3d(-50.0, -60.0, -50.0),   // 45
+        fr::vertex_3d( 50.0, -60.0, -50.0),   // 46
+        fr::vertex_3d( 70.0, -60.0, -50.0),   // 47
 
-        // y=30 wall door edges at z=-35
-        fr::vertex_3d(-40.0,  30.0, -35.0),  // 48
-        fr::vertex_3d(-20.0,  30.0, -35.0),  // 49
-        fr::vertex_3d( 20.0,  30.0, -35.0),  // 50
-        fr::vertex_3d( 40.0,  30.0, -35.0)   // 51
+        // y=60 wall door edges at z=-50
+        fr::vertex_3d(-70.0,  60.0, -50.0),   // 48
+        fr::vertex_3d(-50.0,  60.0, -50.0),   // 49
+        fr::vertex_3d( 50.0,  60.0, -50.0),   // 50
+        fr::vertex_3d( 70.0,  60.0, -50.0)    // 51
     };
 
     constexpr inline fr::face_3d building_faces[] = {
@@ -115,60 +116,60 @@ namespace str::model_3d_items
         fr::face_3d(building_vertices, fr::vertex_3d(0.0, 0.0, -1.0), 10, 11, 8, 7, 5, -1),    // Room 5
 
         // === OUTER WALLS (4 faces) ===
-        // North wall (y=-90), faces into building
+        // North wall (y=-180), faces into building
         fr::face_3d(building_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 0, 2, 14, 12, 6, -1),
-        // East wall (x=60), faces into building
+        // East wall (x=120), faces into building
         fr::face_3d(building_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 2, 11, 23, 14, 6, -1),
-        // South wall (y=90), faces into building
+        // South wall (y=180), faces into building
         fr::face_3d(building_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 9, 11, 23, 21, 6, -1),
-        // West wall (x=-60), faces into building
+        // West wall (x=-120), faces into building
         fr::face_3d(building_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 12, 21, 9, 0, 6, -1),
 
         // === CENTER WALL (x=0) - 6 sections x 2 sides = 12 faces ===
-        // Section y=[-90, -70]
+        // Section y=[-180, -130]
         fr::face_3d(building_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 1, 24, 38, 13, 7, -1),
         fr::face_3d(building_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 13, 38, 24, 1, 7, -1),
-        // Section y=[-50, -30]
+        // Section y=[-110, -60]
         fr::face_3d(building_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 25, 4, 16, 39, 7, -1),
         fr::face_3d(building_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 39, 16, 4, 25, 7, -1),
-        // Section y=[-30, -10]
+        // Section y=[-60, -10]
         fr::face_3d(building_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 4, 26, 40, 16, 7, -1),
         fr::face_3d(building_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 16, 40, 26, 4, 7, -1),
-        // Section y=[10, 30]
+        // Section y=[10, 60]
         fr::face_3d(building_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 27, 7, 19, 41, 7, -1),
         fr::face_3d(building_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 41, 19, 7, 27, 7, -1),
-        // Section y=[30, 50]
+        // Section y=[60, 110]
         fr::face_3d(building_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 7, 28, 42, 19, 7, -1),
         fr::face_3d(building_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 19, 42, 28, 7, 7, -1),
-        // Section y=[70, 90]
+        // Section y=[130, 180]
         fr::face_3d(building_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 29, 10, 22, 43, 7, -1),
         fr::face_3d(building_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 43, 22, 10, 29, 7, -1),
 
-        // === y=-30 WALL - 4 sections x 2 sides = 8 faces ===
-        // Section x=[-60, -40]
+        // === y=-60 WALL - 4 sections x 2 sides = 8 faces ===
+        // Section x=[-120, -70]
         fr::face_3d(building_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 3, 30, 44, 15, 7, -1),
         fr::face_3d(building_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 30, 3, 15, 44, 7, -1),
-        // Section x=[-20, 0]
+        // Section x=[-50, 0]
         fr::face_3d(building_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 31, 4, 16, 45, 7, -1),
         fr::face_3d(building_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 4, 31, 45, 16, 7, -1),
-        // Section x=[0, 20]
+        // Section x=[0, 50]
         fr::face_3d(building_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 4, 32, 46, 16, 7, -1),
         fr::face_3d(building_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 32, 4, 16, 46, 7, -1),
-        // Section x=[40, 60]
+        // Section x=[70, 120]
         fr::face_3d(building_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 33, 5, 17, 47, 7, -1),
         fr::face_3d(building_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 5, 33, 47, 17, 7, -1),
 
-        // === y=30 WALL - 4 sections x 2 sides = 8 faces ===
-        // Section x=[-60, -40]
+        // === y=60 WALL - 4 sections x 2 sides = 8 faces ===
+        // Section x=[-120, -70]
         fr::face_3d(building_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 6, 34, 48, 18, 7, -1),
         fr::face_3d(building_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 34, 6, 18, 48, 7, -1),
-        // Section x=[-20, 0]
+        // Section x=[-50, 0]
         fr::face_3d(building_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 35, 7, 19, 49, 7, -1),
         fr::face_3d(building_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 7, 35, 49, 19, 7, -1),
-        // Section x=[0, 20]
+        // Section x=[0, 50]
         fr::face_3d(building_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 7, 36, 50, 19, 7, -1),
         fr::face_3d(building_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 36, 7, 19, 50, 7, -1),
-        // Section x=[40, 60]
+        // Section x=[70, 120]
         fr::face_3d(building_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 37, 8, 20, 51, 7, -1),
         fr::face_3d(building_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 8, 37, 51, 20, 7, -1)
     };

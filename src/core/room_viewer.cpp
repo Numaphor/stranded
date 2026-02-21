@@ -61,22 +61,22 @@ namespace {
     };
 
     constexpr rect_bounds building_rooms[] = {
-        { -57, -3, -87, -33 },  // Room 0
-        {   3, 57, -87, -33 },  // Room 1
-        { -57, -3, -27,  27 },  // Room 2
-        {   3, 57, -27,  27 },  // Room 3
-        { -57, -3,  33,  87 },  // Room 4
-        {   3, 57,  33,  87 },  // Room 5
+        { -117, -3, -177, -63 },  // Room 0
+        {    3, 117, -177, -63 },  // Room 1
+        { -117, -3,  -57,  57 },  // Room 2
+        {    3, 117,  -57,  57 },  // Room 3
+        { -117, -3,   63, 177 },  // Room 4
+        {    3, 117,   63, 177 },  // Room 5
     };
 
     constexpr rect_bounds building_doors[] = {
-        { -5,  5, -68, -52 },   // Door between Room 0 & 1
-        { -5,  5,  -8,   8 },   // Door between Room 2 & 3
-        { -5,  5,  52,  68 },   // Door between Room 4 & 5
-        { -38, -22, -33, -27 }, // Door between Room 0 & 2
-        {  22,  38, -33, -27 }, // Door between Room 1 & 3
-        { -38, -22,  27,  33 }, // Door between Room 2 & 4
-        {  22,  38,  27,  33 }, // Door between Room 3 & 5
+        { -10,  10, -128, -112 },  // Door between Room 0 & 1
+        { -10,  10,   -8,    8 },  // Door between Room 2 & 3
+        { -10,  10,  112,  128 },  // Door between Room 4 & 5
+        { -68, -52,  -63,  -57 },  // Door between Room 0 & 2
+        {  52,  68,  -63,  -57 },  // Door between Room 1 & 3
+        { -68, -52,   57,   63 },  // Door between Room 2 & 4
+        {  52,  68,   57,   63 },  // Door between Room 3 & 5
     };
 
     int get_current_room_id(bn::fixed px, bn::fixed py)
@@ -189,7 +189,7 @@ str::Scene RoomViewer::execute()
 
     update_all_orientations();
 
-    bn::fixed cam_dist = 400;
+    bn::fixed cam_dist = 274;
 
     auto update_camera = [&]() {
         _camera.set_position(fr::point_3d(0, cam_dist, 0));
@@ -198,7 +198,7 @@ str::Scene RoomViewer::execute()
     _camera.set_phi(0);
     update_camera();
 
-    _player_fx = -30;
+    _player_fx = -60;
     _player_fy = 0;
     _player_fz = -10;
 
@@ -231,8 +231,8 @@ str::Scene RoomViewer::execute()
 
         {
             bn::fixed old_dist = cam_dist;
-            if(bn::keypad::l_held()) cam_dist = bn::max(bn::fixed(150), cam_dist - 3);
-            else if(bn::keypad::r_held()) cam_dist = bn::min(bn::fixed(600), cam_dist + 3);
+            if(bn::keypad::l_held()) cam_dist = bn::max(bn::fixed(100), cam_dist - 3);
+            else if(bn::keypad::r_held()) cam_dist = bn::min(bn::fixed(500), cam_dist + 3);
             if(cam_dist != old_dist)
             {
                 update_camera();
@@ -349,7 +349,7 @@ str::Scene RoomViewer::execute()
         }
         else
         {
-            tg.generate(0, -72, "BUILDING VIEWER", _text_sprites);
+            tg.generate(0, -72, "ROOM VIEWER", _text_sprites);
             tg.generate(0, 72, "L/R:Zoom START:Rotate B:Exit", _text_sprites);
         }
 
