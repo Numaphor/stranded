@@ -1,6 +1,9 @@
 """
 Convert Eris Esra 16x16 character template PNGs to Butano GBA BMP format.
 
+Optional tool for re-exporting player sprites when you have the template.
+Not used by the build. Update SOURCE_DIR below for your machine.
+
 Converts each sheet individually (Idle, Walk) without combining them.
 Replaces transparent pixels with magenta, builds exact palette, saves as
 4bpp indexed BMP (matching Butano's expected format).

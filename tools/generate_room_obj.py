@@ -1,330 +1,315 @@
 #!/usr/bin/env python3
-"""Generate 3D room models as separate OBJ + MTL files.
+"""Split a combined room OBJ into separate OBJ files.
 
-Creates three separate models:
-  - room_shell: walls, floor, baseboards, window
-  - table: table top + 4 legs (origin at table center)
-  - chair: seat + legs + back (origin at chair center)
+Edit obj/room.obj and obj/room.mtl as the single source of truth. Run this
+script to generate room_shell.obj, table.obj, chair.obj.
 
-All models share the same MTL file so their color indices
-are compatible when loaded into the engine.
+To regenerate C++ headers too, run tools/regenerate_room_models.py (it uses a
+shared palette and correct scales; RoomShell is written with flip_y so depth
+matches the engine).
 
-Output is compatible with obj_to_butano.py for conversion to
-Butano engine C++ header format.
+Splitting is done in two ways (in order):
+  1. By object: each "o Name" in room.obj becomes a file (e.g. "o RoomShell" -> room_shell.obj).
+  2. By material: if there is only one object, faces are split by usemtl:
+     - room_shell: floor_light, floor_dark, wall, wall_shadow, window_glass, window_frame, baseboard
+     - table: table_wood
+     - chair: chair_fabric, chair_frame
+  So a single "o Room" with usemtl tags still produces room_shell.obj, table.obj, chair.obj
+  (under 256 vertices total for the game).
+
+All output OBJs share the same MTL so color indices stay compatible for
+obj_to_butano.py and the engine.
 
 Usage:
-    python generate_room_obj.py [--output-dir DIR]
+    python generate_room_obj.py [--input-obj PATH] [--input-mtl PATH] [--output-dir DIR]
+
+Example:
+    # From repo root, default: obj/room.obj, obj/room.mtl -> obj/*.obj
+    python tools/generate_room_obj.py
+
+    # Custom paths
+    python tools/generate_room_obj.py --input-obj obj/room.obj --output-dir obj
 """
 
 import os
 import argparse
+import shutil
 
 
-class ObjBuilder:
-    """Builds OBJ geometry with material groups."""
-
-    def __init__(self):
-        self.vertices = []      # (x, y, z)
-        self.normals = []       # (nx, ny, nz)
-        self.faces = []         # (material, [v_indices], normal_index)
-        self._normal_map = {}   # (nx,ny,nz) -> index
-
-    def add_vertex(self, x, y, z):
-        """Add vertex, return 1-based index."""
-        self.vertices.append((x, y, z))
-        return len(self.vertices)
-
-    def _get_normal(self, nx, ny, nz):
-        """Get or create normal, return 1-based index."""
-        key = (round(nx, 6), round(ny, 6), round(nz, 6))
-        if key not in self._normal_map:
-            self.normals.append(key)
-            self._normal_map[key] = len(self.normals)
-        return self._normal_map[key]
-
-    def add_quad(self, material, v1, v2, v3, v4, nx, ny, nz):
-        """Add a quad face (4 vertices, CCW winding from outside).
-        v1-v4 are 1-based vertex indices."""
-        ni = self._get_normal(nx, ny, nz)
-        self.faces.append((material, [v1, v2, v3, v4], ni))
-
-    def add_box(self, material, x1, y1, z1, x2, y2, z2):
-        """Add an axis-aligned box. (x1,y1,z1) is min corner, (x2,y2,z2) is max.
-        Generates 6 quads with outward-facing normals (CCW from outside)."""
-        v = [
-            self.add_vertex(x1, y1, z1),  # 0: min corner
-            self.add_vertex(x2, y1, z1),  # 1
-            self.add_vertex(x2, y2, z1),  # 2
-            self.add_vertex(x1, y2, z1),  # 3
-            self.add_vertex(x1, y1, z2),  # 4: max Z
-            self.add_vertex(x2, y1, z2),  # 5
-            self.add_vertex(x2, y2, z2),  # 6
-            self.add_vertex(x1, y2, z2),  # 7
-        ]
-        self.add_quad(material, v[3], v[2], v[1], v[0], 0, 0, -1)
-        self.add_quad(material, v[4], v[5], v[6], v[7], 0, 0, 1)
-        self.add_quad(material, v[0], v[1], v[5], v[4], 0, -1, 0)
-        self.add_quad(material, v[2], v[3], v[7], v[6], 0, 1, 0)
-        self.add_quad(material, v[3], v[0], v[4], v[7], -1, 0, 0)
-        self.add_quad(material, v[1], v[2], v[6], v[5], 1, 0, 0)
-
-    def write_obj(self, path, mtl_name, object_name="Object"):
-        """Write OBJ file."""
-        with open(path, 'w') as f:
-            f.write(f"# Generated model: {object_name}\n")
-            f.write(f"mtllib {mtl_name}\n")
-            f.write(f"o {object_name}\n")
-
-            for x, y, z in self.vertices:
-                f.write(f"v {x:.6f} {y:.6f} {z:.6f}\n")
-
-            for nx, ny, nz in self.normals:
-                f.write(f"vn {nx:.6f} {ny:.6f} {nz:.6f}\n")
-
-            current_mtl = None
-            for material, verts, ni in self.faces:
-                if material != current_mtl:
-                    f.write(f"usemtl {material}\n")
-                    f.write("s off\n")
-                    current_mtl = material
-                vert_str = " ".join(f"{v}//{ni}" for v in verts)
-                f.write(f"f {vert_str}\n")
-
-
-ALL_MATERIALS = {
-    "floor_light":      (0.71, 0.52, 0.26),
-    "floor_dark":       (0.52, 0.32, 0.13),
-    "wall":             (0.90, 0.84, 0.71),
-    "wall_shadow":      (0.71, 0.65, 0.52),
-    "baseboard":        (0.39, 0.26, 0.13),
-    "table_wood":       (0.58, 0.39, 0.19),
-    "chair_frame":      (0.65, 0.45, 0.26),
-    "chair_fabric":     (0.26, 0.39, 0.58),
-    "window_glass":     (0.52, 0.71, 0.90),
-    "window_frame":     (0.32, 0.26, 0.19),
+# When splitting by material (single object), map usemtl names to output object.
+# Order defines output order. Unlisted materials go to room_shell.
+MATERIAL_TO_OBJECT = {
+    'room_shell': [
+        'floor_light', 'floor_dark', 'wall', 'wall_shadow',
+        'window_glass', 'window_frame', 'baseboard',
+    ],
+    'table': ['table_wood'],
+    'chair': ['chair_fabric', 'chair_frame'],
 }
 
-FLOOR_SIZE = 30.0
-WALL_HEIGHT = 25.0
 
-TABLE_X = 5.0
-TABLE_Z = 0.0
-TABLE_TOP_H = 10.0
-TABLE_W = 12.0
-TABLE_D = 8.0
-TABLE_TOP_THICK = 0.8
-LEG_SIZE = 0.8
-
-CHAIR_X = 5.0
-CHAIR_Z = 8.0
-SEAT_H = 7.0
-SEAT_W = 6.0
-SEAT_D = 6.0
-SEAT_THICK = 0.6
-CHAIR_LEG = 0.6
-BACK_H = 14.0
-BACK_THICK = 0.6
+def object_name_to_filename(name):
+    """Convert object name to OBJ filename (no extension)."""
+    s = name.strip().lower().replace(' ', '_').replace('-', '_')
+    # RoomShell -> room_shell for expected filenames
+    if s == 'roomshell':
+        return 'room_shell'
+    return s
 
 
-def write_mtl(path, materials):
-    """Write MTL file. materials is dict of name -> (r, g, b) in 0-1 float."""
-    with open(path, 'w') as f:
-        f.write("# Generated room materials\n")
-        for name, (r, g, b) in materials.items():
-            f.write(f"\nnewmtl {name}\n")
-            f.write(f"Kd {r:.3f} {g:.3f} {b:.3f}\n")
-            f.write(f"Ka 0.1 0.1 0.1\n")
-            f.write(f"d 1.0\n")
-            f.write(f"illum 1\n")
+def split_faces_by_material(faces):
+    """Group (material, face) list into (object_name, faces) by MATERIAL_TO_OBJECT.
+    object_name is PascalCase for the OBJ 'o' tag (RoomShell, Table, Chair).
+    """
+    mtl_to_obj = {}
+    for obj_key, mtls in MATERIAL_TO_OBJECT.items():
+        for m in mtls:
+            mtl_to_obj[m] = obj_key
+    # PascalCase for display
+    key_to_name = {'room_shell': 'RoomShell', 'table': 'Table', 'chair': 'Chair'}
+
+    groups = {}  # obj_key -> list of (material, face)
+    for material, face in faces:
+        obj_key = mtl_to_obj.get(material, 'room_shell')
+        groups.setdefault(obj_key, []).append((material, face))
+
+    return [(key_to_name[k], g) for k in ('room_shell', 'table', 'chair') if k in groups for g in [groups[k]]]
 
 
-def build_room_shell():
-    """Build the room shell: walls, floor, window. No furniture."""
-    obj = ObjBuilder()
+def parse_obj(path):
+    """Parse OBJ file. Returns (vertices, normals, objects).
 
-    PLANK_COUNT = 3
-    plank_width = (FLOOR_SIZE * 2) / PLANK_COUNT
-    for i in range(PLANK_COUNT):
-        mtl = "floor_light" if i % 2 == 0 else "floor_dark"
-        x1 = -FLOOR_SIZE + i * plank_width
-        x2 = x1 + plank_width
-        v1 = obj.add_vertex(x1, 0, -FLOOR_SIZE)
-        v2 = obj.add_vertex(x2, 0, -FLOOR_SIZE)
-        v3 = obj.add_vertex(x2, 0, FLOOR_SIZE)
-        v4 = obj.add_vertex(x1, 0, FLOOR_SIZE)
-        obj.add_quad(mtl, v1, v2, v3, v4, 0, -1, 0)
+    vertices: list of (x, y, z)
+    normals: list of (nx, ny, nz)
+    objects: list of (object_name, faces) where each face is
+             (material_name, [ (v_idx_1based, n_idx_1based), ... ])
+    """
+    vertices = []
+    normals = []
+    objects = []
+    current_obj_name = None
+    current_obj_faces = []
+    current_mtl = None
+    mtl_name = "room.mtl"
 
-    WIN_LEFT = -8.0
-    WIN_RIGHT = 8.0
-    WIN_BOTTOM = -8.0
-    WIN_TOP = -18.0
-    WIN_DEPTH = 1.0
+    with open(path, 'r', encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue
+            parts = line.split()
+            if not parts:
+                continue
 
-    v1 = obj.add_vertex(-FLOOR_SIZE, 0, -FLOOR_SIZE)
-    v2 = obj.add_vertex(WIN_LEFT, 0, -FLOOR_SIZE)
-    v3 = obj.add_vertex(WIN_LEFT, -WALL_HEIGHT, -FLOOR_SIZE)
-    v4 = obj.add_vertex(-FLOOR_SIZE, -WALL_HEIGHT, -FLOOR_SIZE)
-    obj.add_quad("wall", v4, v3, v2, v1, 0, 0, 1)
+            if parts[0] == 'mtllib':
+                mtl_name = parts[1] if len(parts) > 1 else "room.mtl"
+            elif parts[0] == 'v':
+                x, y, z = float(parts[1]), float(parts[2]), float(parts[3])
+                vertices.append((x, y, z))
+            elif parts[0] == 'vn':
+                nx, ny, nz = float(parts[1]), float(parts[2]), float(parts[3])
+                normals.append((nx, ny, nz))
+            elif parts[0] == 'o':
+                if current_obj_name is not None and current_obj_faces:
+                    objects.append((current_obj_name, current_obj_faces))
+                current_obj_name = parts[1] if len(parts) > 1 else "Object"
+                current_obj_faces = []
+            elif parts[0] == 'usemtl':
+                current_mtl = parts[1] if len(parts) > 1 else None
+            elif parts[0] == 'f':
+                face_verts = []
+                for vert_spec in parts[1:]:
+                    # Support v, v/vt, v/vt/vn, v//vn
+                    indices = vert_spec.split('/')
+                    v_idx = int(indices[0])  # 1-based
+                    n_idx = int(indices[2]) if len(indices) >= 3 and indices[2] else 0
+                    face_verts.append((v_idx, n_idx))
+                if face_verts and current_mtl is not None:
+                    current_obj_faces.append((current_mtl, face_verts))
+                elif face_verts:
+                    current_obj_faces.append(("default", face_verts))
 
-    v1 = obj.add_vertex(WIN_RIGHT, 0, -FLOOR_SIZE)
-    v2 = obj.add_vertex(FLOOR_SIZE, 0, -FLOOR_SIZE)
-    v3 = obj.add_vertex(FLOOR_SIZE, -WALL_HEIGHT, -FLOOR_SIZE)
-    v4 = obj.add_vertex(WIN_RIGHT, -WALL_HEIGHT, -FLOOR_SIZE)
-    obj.add_quad("wall", v4, v3, v2, v1, 0, 0, 1)
+        if current_obj_name is not None and current_obj_faces:
+            objects.append((current_obj_name, current_obj_faces))
 
-    v1 = obj.add_vertex(WIN_LEFT, 0, -FLOOR_SIZE)
-    v2 = obj.add_vertex(WIN_RIGHT, 0, -FLOOR_SIZE)
-    v3 = obj.add_vertex(WIN_RIGHT, WIN_BOTTOM, -FLOOR_SIZE)
-    v4 = obj.add_vertex(WIN_LEFT, WIN_BOTTOM, -FLOOR_SIZE)
-    obj.add_quad("wall_shadow", v4, v3, v2, v1, 0, 0, 1)
+    # If no "o" was ever seen, collect all faces then split by material
+    if not objects and (vertices or normals):
+        current_mtl = None
+        all_faces = []
+        with open(path, 'r', encoding='utf-8') as f:
+            for line in f:
+                parts = line.strip().split()
+                if not parts:
+                    continue
+                if parts[0] == 'usemtl':
+                    current_mtl = parts[1] if len(parts) > 1 else None
+                elif parts[0] == 'f':
+                    face_verts = []
+                    for vert_spec in parts[1:]:
+                        indices = vert_spec.split('/')
+                        v_idx = int(indices[0])
+                        n_idx = int(indices[2]) if len(indices) >= 3 and indices[2] else 0
+                        face_verts.append((v_idx, n_idx))
+                    if face_verts:
+                        all_faces.append((current_mtl or "default", face_verts))
+        if all_faces:
+            # Split by usemtl -> room_shell / table / chair
+            objects = split_faces_by_material(all_faces)
+            if not objects:
+                objects = [("Room", all_faces)]
 
-    v1 = obj.add_vertex(WIN_LEFT, WIN_TOP, -FLOOR_SIZE)
-    v2 = obj.add_vertex(WIN_RIGHT, WIN_TOP, -FLOOR_SIZE)
-    v3 = obj.add_vertex(WIN_RIGHT, -WALL_HEIGHT, -FLOOR_SIZE)
-    v4 = obj.add_vertex(WIN_LEFT, -WALL_HEIGHT, -FLOOR_SIZE)
-    obj.add_quad("wall", v4, v3, v2, v1, 0, 0, 1)
+    # If exactly one object and it's "Room", also split by material so we get 3 files
+    if len(objects) == 1 and objects[0][0] == "Room":
+        objects = split_faces_by_material(objects[0][1])
+        if not objects:
+            pass  # keep single Room
 
-    v1 = obj.add_vertex(WIN_LEFT, WIN_BOTTOM, -FLOOR_SIZE - WIN_DEPTH)
-    v2 = obj.add_vertex(WIN_RIGHT, WIN_BOTTOM, -FLOOR_SIZE - WIN_DEPTH)
-    v3 = obj.add_vertex(WIN_RIGHT, WIN_TOP, -FLOOR_SIZE - WIN_DEPTH)
-    v4 = obj.add_vertex(WIN_LEFT, WIN_TOP, -FLOOR_SIZE - WIN_DEPTH)
-    obj.add_quad("window_glass", v4, v3, v2, v1, 0, 0, 1)
-
-    v1 = obj.add_vertex(WIN_LEFT, WIN_BOTTOM, -FLOOR_SIZE)
-    v2 = obj.add_vertex(WIN_RIGHT, WIN_BOTTOM, -FLOOR_SIZE)
-    v3 = obj.add_vertex(WIN_RIGHT, WIN_BOTTOM, -FLOOR_SIZE - WIN_DEPTH)
-    v4 = obj.add_vertex(WIN_LEFT, WIN_BOTTOM, -FLOOR_SIZE - WIN_DEPTH)
-    obj.add_quad("window_frame", v1, v2, v3, v4, 0, 1, 0)
-
-    v1 = obj.add_vertex(WIN_LEFT, WIN_TOP, -FLOOR_SIZE)
-    v2 = obj.add_vertex(WIN_RIGHT, WIN_TOP, -FLOOR_SIZE)
-    v3 = obj.add_vertex(WIN_RIGHT, WIN_TOP, -FLOOR_SIZE - WIN_DEPTH)
-    v4 = obj.add_vertex(WIN_LEFT, WIN_TOP, -FLOOR_SIZE - WIN_DEPTH)
-    obj.add_quad("window_frame", v4, v3, v2, v1, 0, -1, 0)
-
-    v1 = obj.add_vertex(WIN_LEFT, WIN_BOTTOM, -FLOOR_SIZE)
-    v2 = obj.add_vertex(WIN_LEFT, WIN_TOP, -FLOOR_SIZE)
-    v3 = obj.add_vertex(WIN_LEFT, WIN_TOP, -FLOOR_SIZE - WIN_DEPTH)
-    v4 = obj.add_vertex(WIN_LEFT, WIN_BOTTOM, -FLOOR_SIZE - WIN_DEPTH)
-    obj.add_quad("window_frame", v1, v2, v3, v4, 1, 0, 0)
-
-    v1 = obj.add_vertex(WIN_RIGHT, WIN_BOTTOM, -FLOOR_SIZE)
-    v2 = obj.add_vertex(WIN_RIGHT, WIN_TOP, -FLOOR_SIZE)
-    v3 = obj.add_vertex(WIN_RIGHT, WIN_TOP, -FLOOR_SIZE - WIN_DEPTH)
-    v4 = obj.add_vertex(WIN_RIGHT, WIN_BOTTOM, -FLOOR_SIZE - WIN_DEPTH)
-    obj.add_quad("window_frame", v4, v3, v2, v1, -1, 0, 0)
-
-    v1 = obj.add_vertex(-FLOOR_SIZE, 0, -FLOOR_SIZE)
-    v2 = obj.add_vertex(-FLOOR_SIZE, 0, FLOOR_SIZE)
-    v3 = obj.add_vertex(-FLOOR_SIZE, -WALL_HEIGHT, FLOOR_SIZE)
-    v4 = obj.add_vertex(-FLOOR_SIZE, -WALL_HEIGHT, -FLOOR_SIZE)
-    obj.add_quad("wall", v1, v2, v3, v4, 1, 0, 0)
-
-    # ---- RIGHT WALL (at X = +FLOOR_SIZE, facing -X) ----
-    v1 = obj.add_vertex(FLOOR_SIZE, 0, -FLOOR_SIZE)
-    v2 = obj.add_vertex(FLOOR_SIZE, 0, FLOOR_SIZE)
-    v3 = obj.add_vertex(FLOOR_SIZE, -WALL_HEIGHT, FLOOR_SIZE)
-    v4 = obj.add_vertex(FLOOR_SIZE, -WALL_HEIGHT, -FLOOR_SIZE)
-    obj.add_quad("wall", v4, v3, v2, v1, -1, 0, 0)
-
-    # ---- FRONT WALL (at Z = +FLOOR_SIZE, facing -Z) ----
-    v1 = obj.add_vertex(-FLOOR_SIZE, 0, FLOOR_SIZE)
-    v2 = obj.add_vertex(FLOOR_SIZE, 0, FLOOR_SIZE)
-    v3 = obj.add_vertex(FLOOR_SIZE, -WALL_HEIGHT, FLOOR_SIZE)
-    v4 = obj.add_vertex(-FLOOR_SIZE, -WALL_HEIGHT, FLOOR_SIZE)
-    obj.add_quad("wall", v1, v2, v3, v4, 0, 0, -1)
-
-    return obj
+    return vertices, normals, objects, mtl_name
 
 
-def build_table():
-    """Build the table model, centered at its own origin."""
-    obj = ObjBuilder()
+def write_object_obj(path, object_name, vertices, normals, faces, mtl_name, center_at_origin=False, flip_y=False):
+    """Write one OBJ file with only used vertices/normals, renumbered.
+    If center_at_origin True, subtract centroid from vertices so mesh is in local space (for table/chair).
+    If flip_y True, negate Y (and reverse face winding) so engine gets correct depth sign (engine_z = obj_y*scale).
+    """
+    used_v = set()
+    used_n = set()
+    for _mtl, face in faces:
+        for v_idx, n_idx in face:
+            used_v.add(v_idx)
+            if n_idx > 0:
+                used_n.add(n_idx)
 
-    obj.add_box("table_wood",
-                -TABLE_W/2, -TABLE_TOP_H, -TABLE_D/2,
-                TABLE_W/2, -(TABLE_TOP_H - TABLE_TOP_THICK), TABLE_D/2)
+    v_list = sorted(used_v)
+    n_list = sorted(used_n)
 
-    for dx in [-1, 1]:
-        for dz in [-1, 1]:
-            lx = dx * (TABLE_W/2 - LEG_SIZE)
-            lz = dz * (TABLE_D/2 - LEG_SIZE)
-            obj.add_box("table_wood",
-                        lx - LEG_SIZE/2, -(TABLE_TOP_H - TABLE_TOP_THICK), lz - LEG_SIZE/2,
-                        lx + LEG_SIZE/2, 0, lz + LEG_SIZE/2)
+    # Optional: recenter at origin and/or flip Y for engine convention (engine_z = obj_y * scale)
+    tx, ty, tz = 0.0, 0.0, 0.0
+    if center_at_origin and v_list:
+        cx = sum(vertices[i - 1][0] for i in v_list) / len(v_list)
+        cy = sum(vertices[i - 1][1] for i in v_list) / len(v_list)
+        cz = sum(vertices[i - 1][2] for i in v_list) / len(v_list)
+        tx, ty, tz = -cx, -cy, -cz
+        flip_y = True  # table/chair: flip so they render right-side up
+    # RoomShell: flip_y only (no center) so depth becomes negative engine_z
 
-    return obj
+    v_old_to_new = {old: i for i, old in enumerate(v_list, start=1)}
+    n_old_to_new = {old: i for i, old in enumerate(n_list, start=1)}
 
+    with open(path, 'w', encoding='utf-8') as f:
+        f.write(f"# Generated from room.obj: {object_name}\n")
+        f.write(f"mtllib {mtl_name}\n")
+        f.write(f"o {object_name}\n")
+        for i in v_list:
+            x, y, z = vertices[i - 1]
+            y_out = -(y + ty) if flip_y else (y + ty)
+            f.write(f"v {x + tx:.6f} {y_out:.6f} {z + tz:.6f}\n")
+        for i in n_list:
+            nx, ny, nz = normals[i - 1]
+            ny_out = -ny if flip_y else ny
+            f.write(f"vn {nx:.6f} {ny_out:.6f} {nz:.6f}\n")
 
-def build_chair():
-    """Build the chair model, centered at its own origin."""
-    obj = ObjBuilder()
-
-    obj.add_box("chair_fabric",
-                -SEAT_W/2, -SEAT_H, -SEAT_D/2,
-                SEAT_W/2, -(SEAT_H - SEAT_THICK), SEAT_D/2)
-
-    for dx in [-1, 1]:
-        for dz in [-1, 1]:
-            lx = dx * (SEAT_W/2 - CHAIR_LEG)
-            lz = dz * (SEAT_D/2 - CHAIR_LEG)
-            obj.add_box("chair_frame",
-                        lx - CHAIR_LEG/2, -(SEAT_H - SEAT_THICK), lz - CHAIR_LEG/2,
-                        lx + CHAIR_LEG/2, 0, lz + CHAIR_LEG/2)
-
-    obj.add_box("chair_fabric",
-                -SEAT_W/2, -BACK_H, SEAT_D/2 - BACK_THICK,
-                SEAT_W/2, -SEAT_H, SEAT_D/2)
-
-    return obj
-
-
-def report(name, obj):
-    total_faces = len(obj.faces)
-    total_verts = len(obj.vertices)
-    quads = sum(1 for _, v, _ in obj.faces if len(v) == 4)
-    tris = total_faces - quads
-    print(f"  {name}: {total_verts} verts, {total_faces} faces ({quads} quads, {tris} tris)")
-    return total_verts, total_faces
+        current_mtl = None
+        for material, face in faces:
+            if material != current_mtl:
+                f.write(f"usemtl {material}\n")
+                f.write("s off\n")
+                current_mtl = material
+            order = reversed(face) if flip_y else face
+            vert_str = " ".join(
+                f"{v_old_to_new[v]}//{n_old_to_new.get(n, n_list[0] if n_list else 1)}"
+                for v, n in order
+            )
+            f.write(f"f {vert_str}\n")
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Generate room OBJ + MTL files')
-    parser.add_argument('--output-dir', default='.', help='Output directory')
+    parser = argparse.ArgumentParser(
+        description='Split room.obj into separate OBJ files by object name'
+    )
+    parser.add_argument(
+        '--input-obj',
+        default='obj/room.obj',
+        help='Input combined OBJ (default: obj/room.obj)',
+    )
+    parser.add_argument(
+        '--input-mtl',
+        default=None,
+        help='Input MTL file (default: same dir as input-obj, room.mtl)',
+    )
+    parser.add_argument(
+        '--output-dir',
+        default=None,
+        help='Output directory (default: same as input-obj directory)',
+    )
     args = parser.parse_args()
 
-    os.makedirs(args.output_dir, exist_ok=True)
+    input_obj = os.path.normpath(args.input_obj)
+    input_dir = os.path.dirname(input_obj)
+    if args.input_mtl is not None:
+        input_mtl = os.path.normpath(args.input_mtl)
+    else:
+        input_mtl = os.path.join(input_dir, 'room.mtl')
+    output_dir = os.path.normpath(args.output_dir) if args.output_dir else input_dir
 
-    mtl_name = 'room.mtl'
-    mtl_path = os.path.join(args.output_dir, mtl_name)
-    write_mtl(mtl_path, ALL_MATERIALS)
+    if not os.path.isfile(input_obj):
+        print(f"Error: input OBJ not found: {input_obj}")
+        return 1
 
-    models = {
-        'room_shell': (build_room_shell(), 'RoomShell'),
-        'table':      (build_table(), 'Table'),
-        'chair':      (build_chair(), 'Chair'),
-    }
+    vertices, normals, objects, mtl_name = parse_obj(input_obj)
+    if not objects:
+        print("Error: no objects found in OBJ (no 'o Name' groups or faces)")
+        return 1
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Copy MTL to output dir so mtllib works (skip if same path, e.g. file open in editor)
+    mtl_basename = os.path.basename(mtl_name)
+    dest_mtl = os.path.join(output_dir, mtl_basename)
+    if os.path.isfile(input_mtl):
+        if os.path.abspath(input_mtl) != os.path.abspath(dest_mtl):
+            shutil.copy2(input_mtl, dest_mtl)
+        print(f"  MTL: {dest_mtl}")
+    else:
+        print(f"  Warning: MTL not found ({input_mtl}), OBJs will reference {mtl_basename}")
 
     total_v = 0
     total_f = 0
-    print("Room models generated:")
-    for filename, (obj, obj_name) in models.items():
-        obj_path = os.path.join(args.output_dir, f'{filename}.obj')
-        obj.write_obj(obj_path, mtl_name, obj_name)
-        v, f = report(filename, obj)
-        total_v += v
-        total_f += f
-        print(f"    Written: {obj_path}")
+    input_abs = os.path.abspath(input_obj)
+    print("Split room models:")
+    for obj_name, faces in objects:
+        fname = object_name_to_filename(obj_name) + '.obj'
+        out_path = os.path.join(output_dir, fname)
+        if os.path.abspath(out_path) == input_abs:
+            out_path = os.path.join(output_dir, object_name_to_filename(obj_name) + '_out.obj')
+            print(f"  Warning: single object would overwrite input; writing to {os.path.basename(out_path)} instead.")
+            print("  To get room_shell.obj, table.obj, chair.obj (for game, under 256 verts):")
+            print('    Edit room.obj in your 3D editor and split into objects "RoomShell", "Table", "Chair".')
+        n_verts = len(vertices)
+        n_faces = sum(1 for _ in faces)
+        center = obj_name in ('Table', 'Chair')
+        # RoomShell: flip Y so depth is negative in engine (engine_z = obj_y*scale). Table/Chair: center + flip.
+        flip_y_room = obj_name == 'RoomShell'
+        write_object_obj(out_path, obj_name, vertices, normals, faces, mtl_basename,
+                         center_at_origin=center, flip_y=flip_y_room)
+        # Count actual verts used by this object
+        used_v = set()
+        for _mtl, face in faces:
+            for v_idx, _ in face:
+                used_v.add(v_idx)
+        total_v += len(used_v)
+        total_f += n_faces
+        print(f"    {fname}: {len(used_v)} verts, {n_faces} faces")
+        print(f"    Written: {out_path}")
 
-    print(f"  TOTAL: {total_v} verts, {total_f} faces")
-    print(f"  Materials: {len(ALL_MATERIALS)} / 10 max")
-    print(f"  MTL: {mtl_path}")
-
+    print(f"  Total: {len(objects)} objects, {total_v} verts (sum per object), {total_f} faces")
     if total_v > 256:
-        print(f"  WARNING: Combined vertex count {total_v} exceeds engine limit 256!")
+        print("  WARNING: Combined vertex count may exceed engine limit 256")
     if total_f > 176:
-        print(f"  WARNING: Combined face count {total_f} exceeds engine limit 176!")
+        print("  WARNING: Combined face count may exceed engine limit 176")
+
+    return 0
 
 
 if __name__ == '__main__':
-    main()
+    exit(main() or 0)

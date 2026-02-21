@@ -63,9 +63,10 @@ stranded/
 ├── butano/               # Butano engine library (git submodule)
 │   └── games/varooom-3d/ # 3D example — do not modify; we override in include/
 ├── tools/                # Development tools and utilities
-│   ├── generate_font.py
 │   ├── generate_room_obj.py  # Room OBJ generation (shell, table, chair)
-│   └── obj_to_butano.py     # OBJ → Butano model headers
+│   ├── regenerate_room_models.py  # Full pipeline: room.obj → headers (shared palette)
+│   ├── obj_to_butano.py     # OBJ → Butano model headers
+│   └── convert_eris_sprites.py  # Optional: Eris template PNG → BMP (update source path for your machine)
 ├── scripts/              # Build and utility scripts
 │   └── launch_emulator.js
 ├── .planning/             # Codebase and planning docs
@@ -170,7 +171,7 @@ stranded/
 **3D / Room viewer:**
 - Scene: `src/core/room_viewer.cpp`, `include/str_scene_room_viewer.h`
 - Models: `include/models/str_model_3d_items_*.h` (generated via `tools/obj_to_butano.py`)
-- Room geometry: `tools/generate_room_obj.py` → OBJ → Butano headers
+- Room geometry: run `tools/regenerate_room_models.py` to go from `obj/room.obj` to OBJs and headers (shared palette, correct depth sign and scales).
 
 **New Game System:**
 - Implementation: `src/core/[system].cpp`

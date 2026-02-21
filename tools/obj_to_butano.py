@@ -203,9 +203,9 @@ def format_fixed(value):
 
 
 def generate_header(name, vertices, faces, normals_list, material_order, materials_rgb, scale,
-                    emit_colors=True):
-    """Generate C++ header content."""
-
+                    emit_colors=True, namespace='str'):
+    """Generate C++ header content. namespace is 'str' or 'fr' for guard/namespace."""
+    ns_upper = namespace.upper()
     # Transform vertices
     transformed_verts = [transform_vertex(v, scale) for v in vertices]
 
@@ -214,8 +214,8 @@ def generate_header(name, vertices, faces, normals_list, material_order, materia
     for n_idx, n in enumerate(normals_list):
         transformed_normals[n_idx] = transform_normal(n)
 
-    # Build header guard
-    guard = f"STR_MODEL_3D_ITEMS_{name.upper()}_H"
+    # Build header guard (STR_MODEL_3D_ITEMS_* or FR_MODEL_3D_ITEMS_*)
+    guard = f"{ns_upper}_MODEL_3D_ITEMS_{name.upper()}_H"
 
     lines = []
     lines.append(f"#ifndef {guard}")
@@ -225,7 +225,7 @@ def generate_header(name, vertices, faces, normals_list, material_order, materia
     if emit_colors:
         lines.append('#include "bn_color.h"')
     lines.append("")
-    lines.append(f"namespace str::model_3d_items")
+    lines.append(f"namespace {namespace}::model_3d_items")
     lines.append("{")
 
     if emit_colors:
@@ -293,6 +293,8 @@ def main():
                              'Face color_index values will reference this palette.')
     parser.add_argument('--no-colors', action='store_true',
                         help='Do not emit the color array in the header (use when sharing a palette from another header)')
+    parser.add_argument('--namespace', type=str, default='str', choices=('str', 'fr'),
+                        help='C++ namespace and header guard prefix (default: str)')
     args = parser.parse_args()
 
     if args.name is None:
@@ -347,7 +349,7 @@ def main():
 
     # Generate header
     header = generate_header(args.name, vertices, all_faces, normals, material_order, materials_rgb, args.scale,
-                             emit_colors=not args.no_colors)
+                             emit_colors=not args.no_colors, namespace=args.namespace)
 
     # Write output
     os.makedirs(os.path.dirname(args.output) or '.', exist_ok=True)
