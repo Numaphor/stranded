@@ -103,8 +103,8 @@ namespace {
     //  |  R4  |  R5  |  row 2
     //  +------+------+
     //
-    // Each room is 120x120, local coords [-60,60] x [-60,60].
-    // Doors are at room edges (player local coord near ±55).
+    // Each room is 120x120, player confined to [-55,55] (FLOOR_MIN/MAX).
+    // Doors trigger when player crosses ±55 near center of a wall edge.
 
     constexpr int NUM_ROOMS = 6;
 
