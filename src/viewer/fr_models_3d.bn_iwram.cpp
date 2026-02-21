@@ -191,7 +191,7 @@ void models_3d::_process_models(const camera_3d& camera)
 
                 if(vr.safe_dot_product(normal) < 0) [[likely]]
                 {
-                    int projected_z = -vr.y().data();
+                    int projected_z = -vr.y().data() + model.depth_bias();
 
                     _valid_faces_info[valid_faces_count] = {
                         &face, projected_vertices, projected_z
@@ -292,20 +292,24 @@ void models_3d::_process_models(const camera_3d& camera)
 
         if(near_plane <= vcz) [[likely]]
         {
+            sprite_3d_item& sprite_item = sprite.item();
+            int px_size = sprite_item.pixel_size();
+            int canvas_size = px_size * 2;
+
             bn::fixed vrx = (sprite_position.x() - camera_position.x()) / 16;
             bn::fixed vrz = (sprite_position.z() - camera_position.z()) / 16;
             int vcx = (vrx.unsafe_multiplication(camera_u_x) + vrz.unsafe_multiplication(camera_u_z)).data();
 
             auto sprite_scale = int((div_lut_ptr[vcz >> 10] << (focal_length_shift - 8)) >> 3);
             auto scale = sprite_scale >> 3;
-            int sprite_x = ((vcx * scale) >> 16) + (display_width / 2) - 32;
+            int sprite_x = ((vcx * scale) >> 16) + (display_width / 2) - px_size;
 
-            if(sprite_x < display_width && sprite_x + 64 > 0) [[likely]]
+            if(sprite_x < display_width && sprite_x + canvas_size > 0) [[likely]]
             {
                 int vcy = -(vrx.unsafe_multiplication(camera_v_x) + vrz.unsafe_multiplication(camera_v_z)).data();
-                int sprite_y = ((vcy * scale) >> 16) + (display_height / 2) - 32;
+                int sprite_y = ((vcy * scale) >> 16) + (display_height / 2) - px_size;
 
-                if(sprite_y < display_height && sprite_y + 64 > 0) [[likely]]
+                if(sprite_y < display_height && sprite_y + canvas_size > 0) [[likely]]
                 {
                     bn::fixed affine_scale = bn::fixed::from_data(sprite_scale).unsafe_multiplication(sprite.scale());
 
@@ -319,21 +323,21 @@ void models_3d::_process_models(const camera_3d& camera)
                             rotation_angle -= 360;
                         }
 
-                        sprite_3d_item& sprite_item = sprite.item();
                         bn::sprite_affine_mat_ptr& affine_mat = sprite_item.affine_mat();
                         affine_mat.set_scale(affine_scale);
                         affine_mat.set_rotation_angle(rotation_angle);
+                        affine_mat.set_horizontal_flip(sprite.horizontal_flip());
 
                         int attr0 = bn::hw::sprites::first_attributes(
-                                    sprite_y, bn::sprite_shape::SQUARE, bn::bpp_mode::BPP_4, 1 << 8,
-                                    true, false, false, false);
+                                    sprite_y, bn::sprite_shape::SQUARE, bn::bpp_mode::BPP_4, 3 << 8,
+                                    false, false, false, false);
                         int attr1 = bn::hw::sprites::second_attributes(
-                                    sprite_x, bn::sprite_size::HUGE, sprite_item.affine_mat_id());
+                                    sprite_x, sprite_item.sprite_size(), sprite_item.affine_mat_id());
                         int attr2 = bn::hw::sprites::third_attributes(
                                     sprite_item.tiles_id(), sprite_item.palette_id(), 3);
 
                         visible_faces[visible_faces_count] = {
-                            nullptr, sprite_y, int16_t(attr0), int16_t(attr1), int16_t(attr2), 0
+                            nullptr, sprite_y, int16_t(attr0), int16_t(attr1), int16_t(attr2), int16_t(canvas_size)
                         };
 
                         _visible_face_projected_zs[visible_faces_count] = vcz;
@@ -571,8 +575,9 @@ void models_3d::_process_models(const camera_3d& camera)
         }
         else
         {
+            int sprite_px_size = visible_face.maximum_y ? visible_face.maximum_y : 64;
             int minimum_y = visible_face.top_index;
-            int maximum_y = minimum_y + 64;
+            int maximum_y = minimum_y + sprite_px_size;
 
             if(minimum_y < 0)
             {

@@ -79,6 +79,9 @@
 - Butano Asset Tools - Graphics/audio processing
 - mGBA - Development and testing emulator
 
+**3D (varooom-3d):**
+- Butano submodule provides `butano/games/varooom-3d/`. Stranded does not modify it; project overrides live in `include/` (fr_model_3d.h, fr_sprite_3d.h, fr_sprite_3d_item.h) and implementation in `src/viewer/`. See 3D_ENGINE.md and STRUCTURE.md.
+
 **Asset Processing:**
 - Butano graphics tool - BMP to GBA format conversion
 - Butano audio tool - Module music processing
@@ -91,4 +94,4 @@
 
 ---
 
-*Integration audit: 2026-02-09*
+*Integration audit: 2026-02-09. Updated 2026-02-21: varooom-3d and project overrides.*

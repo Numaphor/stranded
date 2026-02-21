@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
-"""Generate a 3D interior room as OBJ + MTL files.
+"""Generate 3D room models as separate OBJ + MTL files.
 
-Creates a cutaway diorama room with 2 walls (back + left), floor,
-baseboards, window, table, and chair. All geometry uses blocky
-low-poly shapes matching the varooom-3d model style.
+Creates three separate models:
+  - room_shell: walls, floor, baseboards, window
+  - table: table top + 4 legs (origin at table center)
+  - chair: seat + legs + back (origin at chair center)
+
+All models share the same MTL file so their color indices
+are compatible when loaded into the engine.
 
 Output is compatible with obj_to_butano.py for conversion to
 Butano engine C++ header format.
@@ -47,7 +51,6 @@ class ObjBuilder:
     def add_box(self, material, x1, y1, z1, x2, y2, z2):
         """Add an axis-aligned box. (x1,y1,z1) is min corner, (x2,y2,z2) is max.
         Generates 6 quads with outward-facing normals (CCW from outside)."""
-        # 8 vertices of the box
         v = [
             self.add_vertex(x1, y1, z1),  # 0: min corner
             self.add_vertex(x2, y1, z1),  # 1
@@ -58,25 +61,19 @@ class ObjBuilder:
             self.add_vertex(x2, y2, z2),  # 6
             self.add_vertex(x1, y2, z2),  # 7
         ]
-        # Bottom face (Z=z1, normal -Z) CCW from outside (looking from -Z)
         self.add_quad(material, v[3], v[2], v[1], v[0], 0, 0, -1)
-        # Top face (Z=z2, normal +Z) CCW from outside (looking from +Z)
         self.add_quad(material, v[4], v[5], v[6], v[7], 0, 0, 1)
-        # Front face (Y=y1, normal -Y)
         self.add_quad(material, v[0], v[1], v[5], v[4], 0, -1, 0)
-        # Back face (Y=y2, normal +Y)
         self.add_quad(material, v[2], v[3], v[7], v[6], 0, 1, 0)
-        # Left face (X=x1, normal -X)
         self.add_quad(material, v[3], v[0], v[4], v[7], -1, 0, 0)
-        # Right face (X=x2, normal +X)
         self.add_quad(material, v[1], v[2], v[6], v[5], 1, 0, 0)
 
-    def write_obj(self, path, mtl_name):
+    def write_obj(self, path, mtl_name, object_name="Object"):
         """Write OBJ file."""
         with open(path, 'w') as f:
-            f.write(f"# Generated room model\n")
+            f.write(f"# Generated model: {object_name}\n")
             f.write(f"mtllib {mtl_name}\n")
-            f.write(f"o Room\n")
+            f.write(f"o {object_name}\n")
 
             for x, y, z in self.vertices:
                 f.write(f"v {x:.6f} {y:.6f} {z:.6f}\n")
@@ -94,6 +91,41 @@ class ObjBuilder:
                 f.write(f"f {vert_str}\n")
 
 
+ALL_MATERIALS = {
+    "floor_light":      (0.71, 0.52, 0.26),
+    "floor_dark":       (0.52, 0.32, 0.13),
+    "wall":             (0.90, 0.84, 0.71),
+    "wall_shadow":      (0.71, 0.65, 0.52),
+    "baseboard":        (0.39, 0.26, 0.13),
+    "table_wood":       (0.58, 0.39, 0.19),
+    "chair_frame":      (0.65, 0.45, 0.26),
+    "chair_fabric":     (0.26, 0.39, 0.58),
+    "window_glass":     (0.52, 0.71, 0.90),
+    "window_frame":     (0.32, 0.26, 0.19),
+}
+
+FLOOR_SIZE = 30.0
+WALL_HEIGHT = 25.0
+
+TABLE_X = 5.0
+TABLE_Z = 0.0
+TABLE_TOP_H = 10.0
+TABLE_W = 12.0
+TABLE_D = 8.0
+TABLE_TOP_THICK = 0.8
+LEG_SIZE = 0.8
+
+CHAIR_X = 5.0
+CHAIR_Z = 8.0
+SEAT_H = 7.0
+SEAT_W = 6.0
+SEAT_D = 6.0
+SEAT_THICK = 0.6
+CHAIR_LEG = 0.6
+BACK_H = 14.0
+BACK_THICK = 0.6
+
+
 def write_mtl(path, materials):
     """Write MTL file. materials is dict of name -> (r, g, b) in 0-1 float."""
     with open(path, 'w') as f:
@@ -106,35 +138,10 @@ def write_mtl(path, materials):
             f.write(f"illum 1\n")
 
 
-def build_room():
-    """Build the room geometry and return ObjBuilder + materials dict."""
+def build_room_shell():
+    """Build the room shell: walls, floor, window. No furniture."""
     obj = ObjBuilder()
 
-    # Materials (muted colors, will be converted to GBA 5-bit RGB)
-    materials = {
-        "floor_light":      (0.71, 0.52, 0.26),   # warm medium brown
-        "floor_dark":       (0.52, 0.32, 0.13),   # darker wood plank
-        "wall":             (0.90, 0.84, 0.71),   # off-white/cream
-        "wall_shadow":      (0.71, 0.65, 0.52),   # darker cream
-        "baseboard":        (0.39, 0.26, 0.13),   # dark wood trim
-        "table_wood":       (0.58, 0.39, 0.19),   # medium-dark wood
-        "chair_frame":      (0.65, 0.45, 0.26),   # lighter wood
-        "chair_fabric":     (0.26, 0.39, 0.58),   # muted blue-grey
-        "window_glass":     (0.52, 0.71, 0.90),   # pale blue
-        "window_frame":     (0.32, 0.26, 0.19),   # dark frame
-    }
-
-    # Room dimensions (OBJ coordinates: Y-up, Z-forward)
-    # After axis swap in engine: X stays, Y becomes depth, Z becomes height
-    # IMPORTANT: In the engine, +Z projects DOWNWARD on screen.
-    # So we use NEGATIVE Y for "up" so that walls appear above the floor.
-    # Floor at Y=0, walls extend to Y=-WALL_HEIGHT (negative = up on screen).
-    FLOOR_SIZE = 30.0     # half-size, so floor is 60x60
-    WALL_HEIGHT = 25.0
-    WALL_THICK = 1.5
-
-    # ---- FLOOR ----
-    # Floor planks at Y=0, each overlapping neighbors by OVERLAP to prevent gaps
     PLANK_COUNT = 3
     plank_width = (FLOOR_SIZE * 2) / PLANK_COUNT
     for i in range(PLANK_COUNT):
@@ -147,141 +154,138 @@ def build_room():
         v4 = obj.add_vertex(x1, 0, FLOOR_SIZE)
         obj.add_quad(mtl, v1, v2, v3, v4, 0, -1, 0)
 
-    # ---- BACK WALL (at Z = -FLOOR_SIZE, facing +Z) ----
-    # Wall with window cutout. Walls go from Y=0 down to Y=-WALL_HEIGHT.
     WIN_LEFT = -8.0
     WIN_RIGHT = 8.0
-    WIN_BOTTOM = -8.0     # negative Y = up on screen
-    WIN_TOP = -18.0       # more negative = higher on screen
-    WIN_DEPTH = 1.0       # inset depth
+    WIN_BOTTOM = -8.0
+    WIN_TOP = -18.0
+    WIN_DEPTH = 1.0
 
-    # Back wall outer face - left of window
     v1 = obj.add_vertex(-FLOOR_SIZE, 0, -FLOOR_SIZE)
     v2 = obj.add_vertex(WIN_LEFT, 0, -FLOOR_SIZE)
     v3 = obj.add_vertex(WIN_LEFT, -WALL_HEIGHT, -FLOOR_SIZE)
     v4 = obj.add_vertex(-FLOOR_SIZE, -WALL_HEIGHT, -FLOOR_SIZE)
     obj.add_quad("wall", v4, v3, v2, v1, 0, 0, 1)
 
-    # Back wall - right of window
     v1 = obj.add_vertex(WIN_RIGHT, 0, -FLOOR_SIZE)
     v2 = obj.add_vertex(FLOOR_SIZE, 0, -FLOOR_SIZE)
     v3 = obj.add_vertex(FLOOR_SIZE, -WALL_HEIGHT, -FLOOR_SIZE)
     v4 = obj.add_vertex(WIN_RIGHT, -WALL_HEIGHT, -FLOOR_SIZE)
     obj.add_quad("wall", v4, v3, v2, v1, 0, 0, 1)
 
-    # Back wall - below window (between floor and window bottom)
     v1 = obj.add_vertex(WIN_LEFT, 0, -FLOOR_SIZE)
     v2 = obj.add_vertex(WIN_RIGHT, 0, -FLOOR_SIZE)
     v3 = obj.add_vertex(WIN_RIGHT, WIN_BOTTOM, -FLOOR_SIZE)
     v4 = obj.add_vertex(WIN_LEFT, WIN_BOTTOM, -FLOOR_SIZE)
     obj.add_quad("wall_shadow", v4, v3, v2, v1, 0, 0, 1)
 
-    # Back wall - above window
     v1 = obj.add_vertex(WIN_LEFT, WIN_TOP, -FLOOR_SIZE)
     v2 = obj.add_vertex(WIN_RIGHT, WIN_TOP, -FLOOR_SIZE)
     v3 = obj.add_vertex(WIN_RIGHT, -WALL_HEIGHT, -FLOOR_SIZE)
     v4 = obj.add_vertex(WIN_LEFT, -WALL_HEIGHT, -FLOOR_SIZE)
     obj.add_quad("wall", v4, v3, v2, v1, 0, 0, 1)
 
-    # Window inset - recessed glass pane
     v1 = obj.add_vertex(WIN_LEFT, WIN_BOTTOM, -FLOOR_SIZE - WIN_DEPTH)
     v2 = obj.add_vertex(WIN_RIGHT, WIN_BOTTOM, -FLOOR_SIZE - WIN_DEPTH)
     v3 = obj.add_vertex(WIN_RIGHT, WIN_TOP, -FLOOR_SIZE - WIN_DEPTH)
     v4 = obj.add_vertex(WIN_LEFT, WIN_TOP, -FLOOR_SIZE - WIN_DEPTH)
     obj.add_quad("window_glass", v4, v3, v2, v1, 0, 0, 1)
 
-    # Window frame - sill (bottom edge, faces downward in OBJ = upward on screen)
     v1 = obj.add_vertex(WIN_LEFT, WIN_BOTTOM, -FLOOR_SIZE)
     v2 = obj.add_vertex(WIN_RIGHT, WIN_BOTTOM, -FLOOR_SIZE)
     v3 = obj.add_vertex(WIN_RIGHT, WIN_BOTTOM, -FLOOR_SIZE - WIN_DEPTH)
     v4 = obj.add_vertex(WIN_LEFT, WIN_BOTTOM, -FLOOR_SIZE - WIN_DEPTH)
     obj.add_quad("window_frame", v1, v2, v3, v4, 0, 1, 0)
 
-    # Window frame - top (faces upward in OBJ = downward on screen, visible from above)
     v1 = obj.add_vertex(WIN_LEFT, WIN_TOP, -FLOOR_SIZE)
     v2 = obj.add_vertex(WIN_RIGHT, WIN_TOP, -FLOOR_SIZE)
     v3 = obj.add_vertex(WIN_RIGHT, WIN_TOP, -FLOOR_SIZE - WIN_DEPTH)
     v4 = obj.add_vertex(WIN_LEFT, WIN_TOP, -FLOOR_SIZE - WIN_DEPTH)
     obj.add_quad("window_frame", v4, v3, v2, v1, 0, -1, 0)
 
-    # Window frame - left side
     v1 = obj.add_vertex(WIN_LEFT, WIN_BOTTOM, -FLOOR_SIZE)
     v2 = obj.add_vertex(WIN_LEFT, WIN_TOP, -FLOOR_SIZE)
     v3 = obj.add_vertex(WIN_LEFT, WIN_TOP, -FLOOR_SIZE - WIN_DEPTH)
     v4 = obj.add_vertex(WIN_LEFT, WIN_BOTTOM, -FLOOR_SIZE - WIN_DEPTH)
     obj.add_quad("window_frame", v1, v2, v3, v4, 1, 0, 0)
 
-    # Window frame - right side
     v1 = obj.add_vertex(WIN_RIGHT, WIN_BOTTOM, -FLOOR_SIZE)
     v2 = obj.add_vertex(WIN_RIGHT, WIN_TOP, -FLOOR_SIZE)
     v3 = obj.add_vertex(WIN_RIGHT, WIN_TOP, -FLOOR_SIZE - WIN_DEPTH)
     v4 = obj.add_vertex(WIN_RIGHT, WIN_BOTTOM, -FLOOR_SIZE - WIN_DEPTH)
     obj.add_quad("window_frame", v4, v3, v2, v1, -1, 0, 0)
 
-    # ---- LEFT WALL (at X = -FLOOR_SIZE, facing +X) ----
     v1 = obj.add_vertex(-FLOOR_SIZE, 0, -FLOOR_SIZE)
     v2 = obj.add_vertex(-FLOOR_SIZE, 0, FLOOR_SIZE)
     v3 = obj.add_vertex(-FLOOR_SIZE, -WALL_HEIGHT, FLOOR_SIZE)
     v4 = obj.add_vertex(-FLOOR_SIZE, -WALL_HEIGHT, -FLOOR_SIZE)
     obj.add_quad("wall", v1, v2, v3, v4, 1, 0, 0)
 
-    # ---- TABLE ----
-    # Table centered around (5, 0, 0) in OBJ coords.
-    # Height goes NEGATIVE (up on screen).
-    TABLE_X = 5.0
-    TABLE_Z = 0.0
-    TABLE_TOP_H = 10.0    # distance from floor (positive value, used as negative Y)
-    TABLE_W = 12.0         # width (X)
-    TABLE_D = 8.0          # depth (Z)
-    TABLE_TOP_THICK = 0.8
-    LEG_SIZE = 0.8
+    # ---- RIGHT WALL (at X = +FLOOR_SIZE, facing -X) ----
+    v1 = obj.add_vertex(FLOOR_SIZE, 0, -FLOOR_SIZE)
+    v2 = obj.add_vertex(FLOOR_SIZE, 0, FLOOR_SIZE)
+    v3 = obj.add_vertex(FLOOR_SIZE, -WALL_HEIGHT, FLOOR_SIZE)
+    v4 = obj.add_vertex(FLOOR_SIZE, -WALL_HEIGHT, -FLOOR_SIZE)
+    obj.add_quad("wall", v4, v3, v2, v1, -1, 0, 0)
 
-    # Table top (Y from -TABLE_TOP_H to -(TABLE_TOP_H - THICK))
+    # ---- FRONT WALL (at Z = +FLOOR_SIZE, facing -Z) ----
+    v1 = obj.add_vertex(-FLOOR_SIZE, 0, FLOOR_SIZE)
+    v2 = obj.add_vertex(FLOOR_SIZE, 0, FLOOR_SIZE)
+    v3 = obj.add_vertex(FLOOR_SIZE, -WALL_HEIGHT, FLOOR_SIZE)
+    v4 = obj.add_vertex(-FLOOR_SIZE, -WALL_HEIGHT, FLOOR_SIZE)
+    obj.add_quad("wall", v1, v2, v3, v4, 0, 0, -1)
+
+    return obj
+
+
+def build_table():
+    """Build the table model, centered at its own origin."""
+    obj = ObjBuilder()
+
     obj.add_box("table_wood",
-                TABLE_X - TABLE_W/2, -TABLE_TOP_H, TABLE_Z - TABLE_D/2,
-                TABLE_X + TABLE_W/2, -(TABLE_TOP_H - TABLE_TOP_THICK), TABLE_Z + TABLE_D/2)
+                -TABLE_W/2, -TABLE_TOP_H, -TABLE_D/2,
+                TABLE_W/2, -(TABLE_TOP_H - TABLE_TOP_THICK), TABLE_D/2)
 
-    # Table legs (4 corners, from floor Y=0 down to table top)
     for dx in [-1, 1]:
         for dz in [-1, 1]:
-            lx = TABLE_X + dx * (TABLE_W/2 - LEG_SIZE)
-            lz = TABLE_Z + dz * (TABLE_D/2 - LEG_SIZE)
+            lx = dx * (TABLE_W/2 - LEG_SIZE)
+            lz = dz * (TABLE_D/2 - LEG_SIZE)
             obj.add_box("table_wood",
                         lx - LEG_SIZE/2, -(TABLE_TOP_H - TABLE_TOP_THICK), lz - LEG_SIZE/2,
                         lx + LEG_SIZE/2, 0, lz + LEG_SIZE/2)
 
-    # ---- CHAIR ----
-    # Chair positioned near the table, facing it (back away from table)
-    CHAIR_X = 5.0
-    CHAIR_Z = 8.0       # in front of table (OBJ +Z = engine +Y = closer to camera)
-    SEAT_H = 7.0        # seat height from floor
-    SEAT_W = 6.0
-    SEAT_D = 6.0
-    SEAT_THICK = 0.6
-    CHAIR_LEG = 0.6
-    BACK_H = 14.0       # top of chair back from floor
-    BACK_THICK = 0.6
+    return obj
 
-    # Chair seat
+
+def build_chair():
+    """Build the chair model, centered at its own origin."""
+    obj = ObjBuilder()
+
     obj.add_box("chair_fabric",
-                CHAIR_X - SEAT_W/2, -SEAT_H, CHAIR_Z - SEAT_D/2,
-                CHAIR_X + SEAT_W/2, -(SEAT_H - SEAT_THICK), CHAIR_Z + SEAT_D/2)
+                -SEAT_W/2, -SEAT_H, -SEAT_D/2,
+                SEAT_W/2, -(SEAT_H - SEAT_THICK), SEAT_D/2)
 
-    # Chair legs
     for dx in [-1, 1]:
         for dz in [-1, 1]:
-            lx = CHAIR_X + dx * (SEAT_W/2 - CHAIR_LEG)
-            lz = CHAIR_Z + dz * (SEAT_D/2 - CHAIR_LEG)
+            lx = dx * (SEAT_W/2 - CHAIR_LEG)
+            lz = dz * (SEAT_D/2 - CHAIR_LEG)
             obj.add_box("chair_frame",
                         lx - CHAIR_LEG/2, -(SEAT_H - SEAT_THICK), lz - CHAIR_LEG/2,
                         lx + CHAIR_LEG/2, 0, lz + CHAIR_LEG/2)
 
-    # Chair back (on the +Z side = away from table, person sitting faces -Z toward table)
     obj.add_box("chair_fabric",
-                CHAIR_X - SEAT_W/2, -BACK_H, CHAIR_Z + SEAT_D/2 - BACK_THICK,
-                CHAIR_X + SEAT_W/2, -SEAT_H, CHAIR_Z + SEAT_D/2)
+                -SEAT_W/2, -BACK_H, SEAT_D/2 - BACK_THICK,
+                SEAT_W/2, -SEAT_H, SEAT_D/2)
 
-    return obj, materials
+    return obj
+
+
+def report(name, obj):
+    total_faces = len(obj.faces)
+    total_verts = len(obj.vertices)
+    quads = sum(1 for _, v, _ in obj.faces if len(v) == 4)
+    tris = total_faces - quads
+    print(f"  {name}: {total_verts} verts, {total_faces} faces ({quads} quads, {tris} tris)")
+    return total_verts, total_faces
 
 
 def main():
@@ -289,34 +293,37 @@ def main():
     parser.add_argument('--output-dir', default='.', help='Output directory')
     args = parser.parse_args()
 
-    obj, materials = build_room()
-
-    obj_path = os.path.join(args.output_dir, 'room.obj')
-    mtl_path = os.path.join(args.output_dir, 'room.mtl')
-
     os.makedirs(args.output_dir, exist_ok=True)
-    write_mtl(mtl_path, materials)
-    obj.write_obj(obj_path, 'room.mtl')
 
-    # Budget report
-    total_faces = len(obj.faces)
-    total_verts = len(obj.vertices)
-    quads = sum(1 for _, v, _ in obj.faces if len(v) == 4)
-    tris = total_faces - quads
+    mtl_name = 'room.mtl'
+    mtl_path = os.path.join(args.output_dir, mtl_name)
+    write_mtl(mtl_path, ALL_MATERIALS)
 
-    print(f"Room model generated:")
-    print(f"  Vertices: {total_verts} / 256 max")
-    print(f"  Faces: {total_faces} ({quads} quads, {tris} tris) / 300 max")
-    print(f"  Materials: {len(materials)} / 10 max")
-    print(f"  Estimated visible faces (after backface culling): ~{total_faces // 2}")
-    print(f"  Written: {obj_path}, {mtl_path}")
+    models = {
+        'room_shell': (build_room_shell(), 'RoomShell'),
+        'table':      (build_table(), 'Table'),
+        'chair':      (build_chair(), 'Chair'),
+    }
 
-    if total_verts > 256:
-        print(f"  WARNING: Vertex count {total_verts} exceeds engine limit 256!")
-    if total_faces > 300:
-        print(f"  WARNING: Face count {total_faces} exceeds engine limit 300!")
-    if len(materials) > 10:
-        print(f"  WARNING: Material count {len(materials)} exceeds engine limit 10!")
+    total_v = 0
+    total_f = 0
+    print("Room models generated:")
+    for filename, (obj, obj_name) in models.items():
+        obj_path = os.path.join(args.output_dir, f'{filename}.obj')
+        obj.write_obj(obj_path, mtl_name, obj_name)
+        v, f = report(filename, obj)
+        total_v += v
+        total_f += f
+        print(f"    Written: {obj_path}")
+
+    print(f"  TOTAL: {total_v} verts, {total_f} faces")
+    print(f"  Materials: {len(ALL_MATERIALS)} / 10 max")
+    print(f"  MTL: {mtl_path}")
+
+    if total_v > 256:
+        print(f"  WARNING: Combined vertex count {total_v} exceeds engine limit 256!")
+    if total_f > 176:
+        print(f"  WARNING: Combined face count {total_f} exceeds engine limit 176!")
 
 
 if __name__ == '__main__':

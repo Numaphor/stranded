@@ -202,7 +202,8 @@ def format_fixed(value):
     return s
 
 
-def generate_header(name, vertices, faces, normals_list, material_order, materials_rgb, scale):
+def generate_header(name, vertices, faces, normals_list, material_order, materials_rgb, scale,
+                    emit_colors=True):
     """Generate C++ header content."""
 
     # Transform vertices
@@ -221,20 +222,21 @@ def generate_header(name, vertices, faces, normals_list, material_order, materia
     lines.append(f"#define {guard}")
     lines.append("")
     lines.append('#include "fr_model_3d_item.h"')
-    lines.append('#include "bn_color.h"')
+    if emit_colors:
+        lines.append('#include "bn_color.h"')
     lines.append("")
     lines.append(f"namespace str::model_3d_items")
     lines.append("{")
 
-    # Color palette
-    lines.append(f"    constexpr inline bn::color {name}_model_colors[] = {{")
-    for i, mtl_name in enumerate(material_order):
-        r, g, b = materials_rgb[mtl_name]
-        r5, g5, b5 = float_to_gba_color(r, g, b)
-        comma = "," if i < len(material_order) - 1 else ""
-        lines.append(f"        bn::color({r5}, {g5}, {b5}){comma}  // {mtl_name}: rgb({r:.3f}, {g:.3f}, {b:.3f})")
-    lines.append("    };")
-    lines.append("")
+    if emit_colors:
+        lines.append(f"    constexpr inline bn::color {name}_model_colors[] = {{")
+        for i, mtl_name in enumerate(material_order):
+            r, g, b = materials_rgb[mtl_name]
+            r5, g5, b5 = float_to_gba_color(r, g, b)
+            comma = "," if i < len(material_order) - 1 else ""
+            lines.append(f"        bn::color({r5}, {g5}, {b5}){comma}  // {mtl_name}: rgb({r:.3f}, {g:.3f}, {b:.3f})")
+        lines.append("    };")
+        lines.append("")
 
     # Vertices
     lines.append(f"    constexpr inline fr::vertex_3d {name}_vertices[] = {{")
@@ -286,6 +288,11 @@ def main():
     parser.add_argument('output', help='Output C++ header file')
     parser.add_argument('--scale', type=float, default=4.0, help='Coordinate scale factor (default: 4.0)')
     parser.add_argument('--name', type=str, default=None, help='Model name (default: derived from filename)')
+    parser.add_argument('--palette', type=str, default=None,
+                        help='Comma-separated material names defining the shared color palette order. '
+                             'Face color_index values will reference this palette.')
+    parser.add_argument('--no-colors', action='store_true',
+                        help='Do not emit the color array in the header (use when sharing a palette from another header)')
     args = parser.parse_args()
 
     if args.name is None:
@@ -298,11 +305,15 @@ def main():
     print(f"Parsed {len(vertices)} vertices, {len(normals)} normals, {len(materials_rgb)} materials")
 
     # Establish material order (color indices 0-9)
-    material_order = []
-    for mtl_name, _ in face_groups:
-        if mtl_name not in material_order:
-            material_order.append(mtl_name)
-    print(f"Material order: {material_order}")
+    if args.palette:
+        material_order = [m.strip() for m in args.palette.split(',')]
+        print(f"Using shared palette: {material_order}")
+    else:
+        material_order = []
+        for mtl_name, _ in face_groups:
+            if mtl_name not in material_order:
+                material_order.append(mtl_name)
+        print(f"Material order: {material_order}")
 
     if len(material_order) > 10:
         print(f"WARNING: {len(material_order)} materials exceeds max_colors=10, truncating")
@@ -335,7 +346,8 @@ def main():
         print(f"WARNING: {len(vertices)} vertices exceeds engine max_vertices=256")
 
     # Generate header
-    header = generate_header(args.name, vertices, all_faces, normals, material_order, materials_rgb, args.scale)
+    header = generate_header(args.name, vertices, all_faces, normals, material_order, materials_rgb, args.scale,
+                             emit_colors=not args.no_colors)
 
     # Write output
     os.makedirs(os.path.dirname(args.output) or '.', exist_ok=True)

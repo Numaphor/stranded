@@ -41,14 +41,14 @@
 ## Import Organization
 
 **Order:**
-1. Local headers (str_*.h)
-2. Butano engine headers (bn_*.h) 
+1. Project headers: `str_*.h`, `fr_*.h` (from `include/` — project 3D overrides and game headers)
+2. Butano engine headers (bn_*.h)
 3. Standard library headers (rare in this GBA project)
 4. Asset item headers (bn_sprite_items_*.h, bn_regular_bg_items_*.h)
 5. Common font headers (common_variable_8x8_sprite_font.h)
 
 **Path Aliases:**
-- No path aliases used; direct includes relative to project structure
+- No path aliases used; direct includes relative to project structure. `include/` is first in `INCLUDES`, so `#include "fr_model_3d.h"` resolves to project override, not butano/games/varooom-3d.
 
 ## Error Handling
 
@@ -113,4 +113,4 @@
 
 ---
 
-*Convention analysis: 2026-02-09*
+*Convention analysis: 2026-02-09. Updated 2026-02-21: include order for fr_* overrides.*
