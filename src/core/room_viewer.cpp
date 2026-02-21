@@ -19,9 +19,7 @@
 #include "fr_sin_cos.h"
 #include "fr_div_lut.h"
 #include "fr_constants_3d.h"
-#include "models/str_model_3d_items_room.h"
-#include "models/str_model_3d_items_table.h"
-#include "models/str_model_3d_items_chair.h"
+#include "models/str_model_3d_items_building.h"
 
 namespace {
     constexpr int iso_phi = 6400;
@@ -57,34 +55,42 @@ namespace {
         out[3] = { -c0y, c0x, c0z,  -c1y, c1x, c1z,  -c2y, c2x, c2z };
     }
 
-    constexpr bn::fixed TABLE_FX = 10;
-    constexpr bn::fixed TABLE_FY = 0;
-    constexpr bn::fixed CHAIR_FX = 10;
-    constexpr bn::fixed CHAIR_FY = 16;
-
-    constexpr bn::fixed TABLE_HW = 12;
-    constexpr bn::fixed TABLE_HD = 8;
-    constexpr bn::fixed CHAIR_HW = 6;
-    constexpr bn::fixed CHAIR_HD = 6;
-
-    constexpr bn::fixed FLOOR_MIN = -55;
-    constexpr bn::fixed FLOOR_MAX = 55;
-
-    struct floor_aabb
+    struct rect_bounds
     {
-        bn::fixed cx, cy, hw, hd;
+        bn::fixed min_x, max_x, min_y, max_y;
     };
 
-    constexpr floor_aabb furniture_boxes[] = {
-        { TABLE_FX, TABLE_FY, TABLE_HW, TABLE_HD },
-        { CHAIR_FX, CHAIR_FY, CHAIR_HW, CHAIR_HD },
+    constexpr rect_bounds building_rooms[] = {
+        { -57, -3, -87, -33 },  // Room 0
+        {   3, 57, -87, -33 },  // Room 1
+        { -57, -3, -27,  27 },  // Room 2
+        {   3, 57, -27,  27 },  // Room 3
+        { -57, -3,  33,  87 },  // Room 4
+        {   3, 57,  33,  87 },  // Room 5
     };
 
-    bool overlaps_any_furniture(bn::fixed px, bn::fixed py)
+    constexpr rect_bounds building_doors[] = {
+        { -5,  5, -68, -52 },   // Door between Room 0 & 1
+        { -5,  5,  -8,   8 },   // Door between Room 2 & 3
+        { -5,  5,  52,  68 },   // Door between Room 4 & 5
+        { -38, -22, -33, -27 }, // Door between Room 0 & 2
+        {  22,  38, -33, -27 }, // Door between Room 1 & 3
+        { -38, -22,  27,  33 }, // Door between Room 2 & 4
+        {  22,  38,  27,  33 }, // Door between Room 3 & 5
+    };
+
+    bool is_valid_building_position(bn::fixed px, bn::fixed py)
     {
-        for(const auto& box : furniture_boxes)
+        for(const auto& r : building_rooms)
         {
-            if(bn::abs(px - box.cx) < box.hw && bn::abs(py - box.cy) < box.hd)
+            if(px >= r.min_x && px <= r.max_x && py >= r.min_y && py <= r.max_y)
+            {
+                return true;
+            }
+        }
+        for(const auto& d : building_doors)
+        {
+            if(px >= d.min_x && px <= d.max_x && py >= d.min_y && py <= d.max_y)
             {
                 return true;
             }
@@ -148,15 +154,13 @@ str::Scene RoomViewer::execute()
 {
     bn::bg_palettes::set_transparent_color(bn::color(2, 2, 4));
 
-    _models.load_colors(str::model_3d_items::room_model_colors);
+    _models.load_colors(str::model_3d_items::building_model_colors);
 
-    fr::model_3d& room = _models.create_dynamic_model(str::model_3d_items::room);
-    fr::model_3d& table = _models.create_dynamic_model(str::model_3d_items::table);
-    fr::model_3d& chair = _models.create_dynamic_model(str::model_3d_items::chair);
+    fr::model_3d& building = _models.create_dynamic_model(str::model_3d_items::building);
 
-    fr::point_3d room_base_pos(0, 96, 16);
-    room.set_position(room_base_pos);
-    room.set_depth_bias(1000000);
+    fr::point_3d building_base_pos(0, 96, 16);
+    building.set_position(building_base_pos);
+    building.set_depth_bias(1000000);
 
     corner_matrix all_corners[4];
     compute_corner_matrices(all_corners);
@@ -170,17 +174,12 @@ str::Scene RoomViewer::execute()
 
     auto update_all_orientations = [&]() {
         const corner_matrix& cm = all_corners[_corner_index];
-        set_model_rotation(room, cm);
-        set_model_rotation(table, cm);
-        set_model_rotation(chair, cm);
-
-        table.set_position(room.transform(fr::vertex_3d(TABLE_FX, TABLE_FY, 0)));
-        chair.set_position(room.transform(fr::vertex_3d(CHAIR_FX, CHAIR_FY, 0)));
+        set_model_rotation(building, cm);
     };
 
     update_all_orientations();
 
-    bn::fixed cam_dist = 274;
+    bn::fixed cam_dist = 400;
 
     auto update_camera = [&]() {
         _camera.set_position(fr::point_3d(0, cam_dist, 0));
@@ -189,14 +188,14 @@ str::Scene RoomViewer::execute()
     _camera.set_phi(0);
     update_camera();
 
-    _player_fx = -20;
-    _player_fy = 20;
+    _player_fx = -30;
+    _player_fy = 0;
     _player_fz = -10;
 
     fr::sprite_3d_item player_sprite_item(bn::sprite_items::eris, 8);
     fr::sprite_3d& player_sprite = _models.create_sprite(player_sprite_item);
     player_sprite.set_scale(2);
-    player_sprite.set_position(room.transform(fr::vertex_3d(_player_fx, _player_fy, _player_fz)));
+    player_sprite.set_position(building.transform(fr::vertex_3d(_player_fx, _player_fy, _player_fz)));
 
     bn::sprite_text_generator tg(common::variable_8x8_sprite_font);
 
@@ -205,9 +204,7 @@ str::Scene RoomViewer::execute()
         if(bn::keypad::b_pressed())
         {
             _models.destroy_sprite(player_sprite);
-            _models.destroy_dynamic_model(chair);
-            _models.destroy_dynamic_model(table);
-            _models.destroy_dynamic_model(room);
+            _models.destroy_dynamic_model(building);
             _models.update(_camera);
             bn::core::update();
             return str::Scene::START;
@@ -218,14 +215,14 @@ str::Scene RoomViewer::execute()
             _corner_index = (_corner_index + 1) % 4;
             update_all_orientations();
             _rotate_player_dir(player_sprite);
-            player_sprite.set_position(room.transform(
+            player_sprite.set_position(building.transform(
                 fr::vertex_3d(_player_fx, _player_fy, _player_fz)));
         }
 
         {
             bn::fixed old_dist = cam_dist;
-            if(bn::keypad::l_held()) cam_dist = bn::max(bn::fixed(100), cam_dist - 3);
-            else if(bn::keypad::r_held()) cam_dist = bn::min(bn::fixed(500), cam_dist + 3);
+            if(bn::keypad::l_held()) cam_dist = bn::max(bn::fixed(150), cam_dist - 3);
+            else if(bn::keypad::r_held()) cam_dist = bn::min(bn::fixed(600), cam_dist + 3);
             if(cam_dist != old_dist)
             {
                 update_camera();
@@ -292,34 +289,32 @@ str::Scene RoomViewer::execute()
             else if(_corner_index == 2) { dfx = -base_dx; dfy = -base_dy; }
             else if(_corner_index == 3) { dfx = -base_dy; dfy = base_dx;  }
 
-            bn::fixed new_fx = bn::clamp(_player_fx + dfx, FLOOR_MIN, FLOOR_MAX);
-            bn::fixed new_fy = bn::clamp(_player_fy + dfy, FLOOR_MIN, FLOOR_MAX);
+            bn::fixed new_fx = _player_fx + dfx;
+            bn::fixed new_fy = _player_fy + dfy;
 
-            if(!overlaps_any_furniture(new_fx, new_fy))
+            if(is_valid_building_position(new_fx, new_fy))
             {
                 _player_fx = new_fx;
                 _player_fy = new_fy;
             }
             else
             {
-                bn::fixed slide_fx = bn::clamp(_player_fx + dfx, FLOOR_MIN, FLOOR_MAX);
-                bn::fixed slide_fy = _player_fy;
-                if(!overlaps_any_furniture(slide_fx, slide_fy))
+                bn::fixed slide_fx = _player_fx + dfx;
+                if(is_valid_building_position(slide_fx, _player_fy))
                 {
                     _player_fx = slide_fx;
                 }
                 else
                 {
-                    slide_fx = _player_fx;
-                    slide_fy = bn::clamp(_player_fy + dfy, FLOOR_MIN, FLOOR_MAX);
-                    if(!overlaps_any_furniture(slide_fx, slide_fy))
+                    bn::fixed slide_fy = _player_fy + dfy;
+                    if(is_valid_building_position(_player_fx, slide_fy))
                     {
                         _player_fy = slide_fy;
                     }
                 }
             }
 
-            player_sprite.set_position(room.transform(
+            player_sprite.set_position(building.transform(
                 fr::vertex_3d(_player_fx, _player_fy, _player_fz)));
         }
 
@@ -339,15 +334,23 @@ str::Scene RoomViewer::execute()
 
             bn::string<32> line2;
             bn::ostringstream stream2(line2);
-            const corner_matrix& cm = all_corners[_corner_index];
-            stream2 << "C:" << _corner_index
-                    << " R00:" << cm.r00
-                    << " R10:" << cm.r10;
+            int room_id = -1;
+            for(int i = 0; i < 6; ++i)
+            {
+                const auto& r = building_rooms[i];
+                if(_player_fx >= r.min_x && _player_fx <= r.max_x &&
+                   _player_fy >= r.min_y && _player_fy <= r.max_y)
+                {
+                    room_id = i;
+                    break;
+                }
+            }
+            stream2 << "Room:" << room_id << " C:" << _corner_index;
             tg.generate(0, 72, line2, _text_sprites);
         }
         else
         {
-            tg.generate(0, -72, "ROOM VIEWER", _text_sprites);
+            tg.generate(0, -72, "BUILDING VIEWER", _text_sprites);
             tg.generate(0, 72, "L/R:Zoom START:Rotate B:Exit", _text_sprites);
         }
 
