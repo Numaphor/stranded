@@ -105,6 +105,8 @@ namespace str::model_3d_items
     constexpr inline fr::face_3d building_faces[] = {
         // === FLOORS (6 faces) ===
         // Normal (0,0,-1) = floor visible from above
+        // Vertex order: clockwise quad when viewed from above (top-left, top-right, bottom-right, bottom-left)
+        // where top/bottom refers to the y-axis direction in the floor plane
         fr::face_3d(building_vertices, fr::vertex_3d(0.0, 0.0, -1.0), 3, 4, 1, 0, 0, -1),      // Room 0
         fr::face_3d(building_vertices, fr::vertex_3d(0.0, 0.0, -1.0), 4, 5, 2, 1, 1, -1),      // Room 1
         fr::face_3d(building_vertices, fr::vertex_3d(0.0, 0.0, -1.0), 6, 7, 4, 3, 2, -1),      // Room 2

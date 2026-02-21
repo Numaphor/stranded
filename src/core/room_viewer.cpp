@@ -79,14 +79,24 @@ namespace {
         {  22,  38,  27,  33 }, // Door between Room 3 & 5
     };
 
-    bool is_valid_building_position(bn::fixed px, bn::fixed py)
+    int get_current_room_id(bn::fixed px, bn::fixed py)
     {
-        for(const auto& r : building_rooms)
+        for(int i = 0; i < 6; ++i)
         {
+            const auto& r = building_rooms[i];
             if(px >= r.min_x && px <= r.max_x && py >= r.min_y && py <= r.max_y)
             {
-                return true;
+                return i;
             }
+        }
+        return -1;
+    }
+
+    bool is_valid_building_position(bn::fixed px, bn::fixed py)
+    {
+        if(get_current_room_id(px, py) >= 0)
+        {
+            return true;
         }
         for(const auto& d : building_doors)
         {
@@ -334,18 +344,7 @@ str::Scene RoomViewer::execute()
 
             bn::string<32> line2;
             bn::ostringstream stream2(line2);
-            int room_id = -1;
-            for(int i = 0; i < 6; ++i)
-            {
-                const auto& r = building_rooms[i];
-                if(_player_fx >= r.min_x && _player_fx <= r.max_x &&
-                   _player_fy >= r.min_y && _player_fy <= r.max_y)
-                {
-                    room_id = i;
-                    break;
-                }
-            }
-            stream2 << "Room:" << room_id << " C:" << _corner_index;
+            stream2 << "Room:" << get_current_room_id(_player_fx, _player_fy) << " C:" << _corner_index;
             tg.generate(0, 72, line2, _text_sprites);
         }
         else
