@@ -169,36 +169,36 @@ namespace {
         int col = room_col(current_room);
         int row = room_row(current_room);
 
-        // East door: player at x > 55, center of room (|y| < 10)
+        // East door: player at x >= 55, center of room (|y| < 10)
         // Only col 0 has an east neighbor (col 1)
-        if(col == 0 && local_x > 55 && local_y > -10 && local_y < 10)
+        if(col == 0 && local_x >= 55 && local_y > -10 && local_y < 10)
         {
             new_local_x = -55;
             new_local_y = local_y;
             return room_id_from_grid(1, row);
         }
 
-        // West door: player at x < -55, center of room (|y| < 10)
+        // West door: player at x <= -55, center of room (|y| < 10)
         // Only col 1 has a west neighbor (col 0)
-        if(col == 1 && local_x < -55 && local_y > -10 && local_y < 10)
+        if(col == 1 && local_x <= -55 && local_y > -10 && local_y < 10)
         {
             new_local_x = 55;
             new_local_y = local_y;
             return room_id_from_grid(0, row);
         }
 
-        // South door: player at y > 55, center of room (|x| < 10)
+        // South door: player at y >= 55, center of room (|x| < 10)
         // Only rows 0,1 have a south neighbor
-        if(row < 2 && local_y > 55 && local_x > -10 && local_x < 10)
+        if(row < 2 && local_y >= 55 && local_x > -10 && local_x < 10)
         {
             new_local_x = local_x;
             new_local_y = -55;
             return room_id_from_grid(col, row + 1);
         }
 
-        // North door: player at y < -55, center of room (|x| < 10)
+        // North door: player at y <= -55, center of room (|x| < 10)
         // Only rows 1,2 have a north neighbor
-        if(row > 0 && local_y < -55 && local_x > -10 && local_x < 10)
+        if(row > 0 && local_y <= -55 && local_x > -10 && local_x < 10)
         {
             new_local_x = local_x;
             new_local_y = 55;
