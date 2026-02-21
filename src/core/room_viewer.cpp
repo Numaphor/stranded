@@ -207,6 +207,20 @@ namespace {
 
         return -1;
     }
+
+    const fr::model_3d_item& get_room_model(int room_id)
+    {
+        switch(room_id)
+        {
+            case 0:  return str::model_3d_items::room_0;
+            case 1:  return str::model_3d_items::room_1;
+            case 2:  return str::model_3d_items::room_2;
+            case 3:  return str::model_3d_items::room_3;
+            case 4:  return str::model_3d_items::room_4;
+            case 5:  return str::model_3d_items::room_5;
+            default: return str::model_3d_items::room_0;
+        }
+    }
 }
 
 namespace str
@@ -267,13 +281,13 @@ str::Scene RoomViewer::execute()
     int current_room = 0;
     _models.load_colors(bn::span<const bn::color>(room_palettes[current_room], 9));
 
-    fr::model_3d& room = _models.create_dynamic_model(str::model_3d_items::room);
+    fr::model_3d* room_ptr = &_models.create_dynamic_model(get_room_model(current_room));
     fr::model_3d& table = _models.create_dynamic_model(str::model_3d_items::table);
     fr::model_3d& chair = _models.create_dynamic_model(str::model_3d_items::chair);
 
     fr::point_3d room_base_pos(0, 96, 16);
-    room.set_position(room_base_pos);
-    room.set_depth_bias(1000000);
+    room_ptr->set_position(room_base_pos);
+    room_ptr->set_depth_bias(1000000);
 
     corner_matrix all_corners[4];
     compute_corner_matrices(all_corners);
@@ -287,12 +301,12 @@ str::Scene RoomViewer::execute()
 
     auto update_all_orientations = [&]() {
         const corner_matrix& cm = all_corners[_corner_index];
-        set_model_rotation(room, cm);
+        set_model_rotation(*room_ptr, cm);
         set_model_rotation(table, cm);
         set_model_rotation(chair, cm);
 
-        table.set_position(room.transform(fr::vertex_3d(TABLE_FX, TABLE_FY, 0)));
-        chair.set_position(room.transform(fr::vertex_3d(CHAIR_FX, CHAIR_FY, 0)));
+        table.set_position(room_ptr->transform(fr::vertex_3d(TABLE_FX, TABLE_FY, 0)));
+        chair.set_position(room_ptr->transform(fr::vertex_3d(CHAIR_FX, CHAIR_FY, 0)));
     };
 
     update_all_orientations();
@@ -313,7 +327,7 @@ str::Scene RoomViewer::execute()
     fr::sprite_3d_item player_sprite_item(bn::sprite_items::eris, 8);
     fr::sprite_3d& player_sprite = _models.create_sprite(player_sprite_item);
     player_sprite.set_scale(2);
-    player_sprite.set_position(room.transform(fr::vertex_3d(_player_fx, _player_fy, _player_fz)));
+    player_sprite.set_position(room_ptr->transform(fr::vertex_3d(_player_fx, _player_fy, _player_fz)));
 
     bn::sprite_text_generator tg(common::variable_8x8_sprite_font);
 
@@ -324,7 +338,7 @@ str::Scene RoomViewer::execute()
             _models.destroy_sprite(player_sprite);
             _models.destroy_dynamic_model(chair);
             _models.destroy_dynamic_model(table);
-            _models.destroy_dynamic_model(room);
+            _models.destroy_dynamic_model(*room_ptr);
             _models.update(_camera);
             bn::core::update();
             return str::Scene::START;
@@ -335,7 +349,7 @@ str::Scene RoomViewer::execute()
             _corner_index = (_corner_index + 1) % 4;
             update_all_orientations();
             _rotate_player_dir(player_sprite);
-            player_sprite.set_position(room.transform(
+            player_sprite.set_position(room_ptr->transform(
                 fr::vertex_3d(_player_fx, _player_fy, _player_fz)));
         }
 
@@ -446,9 +460,15 @@ str::Scene RoomViewer::execute()
                 _player_fx = new_local_x;
                 _player_fy = new_local_y;
                 _models.load_colors(bn::span<const bn::color>(room_palettes[current_room], 9));
+                // Swap room model to match new room's door configuration
+                _models.destroy_dynamic_model(*room_ptr);
+                room_ptr = &_models.create_dynamic_model(get_room_model(current_room));
+                room_ptr->set_position(room_base_pos);
+                room_ptr->set_depth_bias(1000000);
+                update_all_orientations();
             }
 
-            player_sprite.set_position(room.transform(
+            player_sprite.set_position(room_ptr->transform(
                 fr::vertex_3d(_player_fx, _player_fy, _player_fz)));
         }
 
