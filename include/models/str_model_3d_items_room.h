@@ -70,7 +70,8 @@ namespace str::model_3d_items
         fr::vertex_3d(-60.0, -60.0, 0.0),
         fr::vertex_3d(-60.0, 60.0, 0.0),
         fr::vertex_3d(-60.0, 60.0, -50.0),
-        fr::vertex_3d(-60.0, -60.0, -50.0)
+        fr::vertex_3d(-60.0, -60.0, -50.0),
+        fr::vertex_3d(60.0, 60.0, -50.0)
     };
 
     constexpr inline fr::face_3d room_faces[] = {
@@ -86,7 +87,9 @@ namespace str::model_3d_items
         fr::face_3d(room_vertices, fr::vertex_3d(0.0, 0.0, -1.0), 36, 37, 38, 39, 5, -1),
         fr::face_3d(room_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 43, 42, 41, 40, 5, -1),
         fr::face_3d(room_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 44, 45, 46, 47, 5, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 51, 50, 49, 48, 2, -1)
+        fr::face_3d(room_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 51, 50, 49, 48, 2, -1),
+        fr::face_3d(room_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 9, 10, 52, 18, 2, -1),
+        fr::face_3d(room_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 3, 10, 52, 50, 2, -1)
     };
 
     constexpr inline fr::model_3d_item room(room_vertices, room_faces);

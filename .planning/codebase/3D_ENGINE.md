@@ -18,7 +18,7 @@ Engine Z  →  screen vertical (up/down, positive Z = lower on screen)
 
 ### OBJ File Mapping
 
-When importing from OBJ files, axes are swapped:
+When importing from OBJ files (via `tools/update_room_models.py`), axes are swapped:
 
 ```
 OBJ X  →  Engine X

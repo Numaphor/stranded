@@ -6,7 +6,7 @@ adjacent triangle pairs into quads, and outputs a constexpr C++ header
 compatible with varooom-3d's fr::model_3d_item format.
 
 Usage:
-    python obj_to_butano.py <input.obj> <input.mtl> <output.h> [--scale N] [--name NAME]
+    python obj_to_header.py <input.obj> <input.mtl> <output.h> [--scale N] [--name NAME]
 """
 
 import sys
@@ -167,21 +167,23 @@ def merge_triangles_to_quads(faces_with_normals, normals_list):
     return result
 
 
-def transform_vertex(v, scale):
+def transform_vertex(v, scale, flip_z=False):
     """Transform OBJ vertex to engine coordinates.
 
     OBJ: Y-up, Z-forward
     Engine: Y-depth (camera looks along -Y), Z-up
-    Transform: engine_x = obj_x, engine_y = obj_z, engine_z = obj_y
+    Transform: engine_x = obj_x, engine_y = obj_z, engine_z = obj_y (or -obj_y if flip_z)
     """
     x, y, z = v
-    return (x * scale, z * scale, y * scale)
+    z_out = (-y if flip_z else y) * scale
+    return (x * scale, z * scale, z_out)
 
 
-def transform_normal(n):
+def transform_normal(n, flip_z=False):
     """Transform OBJ normal to engine coordinates (same axis swap, no scale)."""
     x, y, z = n
-    return normalize((x, z, y))
+    ny_out = -y if flip_z else y
+    return normalize((x, z, ny_out))
 
 
 def float_to_gba_color(r, g, b):
@@ -203,16 +205,16 @@ def format_fixed(value):
 
 
 def generate_header(name, vertices, faces, normals_list, material_order, materials_rgb, scale,
-                    emit_colors=True, namespace='str'):
+                    emit_colors=True, namespace='str', flip_z=False):
     """Generate C++ header content. namespace is 'str' or 'fr' for guard/namespace."""
     ns_upper = namespace.upper()
     # Transform vertices
-    transformed_verts = [transform_vertex(v, scale) for v in vertices]
+    transformed_verts = [transform_vertex(v, scale, flip_z=flip_z) for v in vertices]
 
     # Transform normals
     transformed_normals = {}
     for n_idx, n in enumerate(normals_list):
-        transformed_normals[n_idx] = transform_normal(n)
+        transformed_normals[n_idx] = transform_normal(n, flip_z=flip_z)
 
     # Build header guard (STR_MODEL_3D_ITEMS_* or FR_MODEL_3D_ITEMS_*)
     guard = f"{ns_upper}_MODEL_3D_ITEMS_{name.upper()}_H"
@@ -254,18 +256,21 @@ def generate_header(name, vertices, faces, normals_list, material_order, materia
         nx, ny, nz = normal
         comma = "," if i < len(faces) - 1 else ""
 
-        # Reverse vertex order: OBJ CCW + axis swap → need CW for engine rasterizer
-        if len(verts) == 4:
-            rv = list(reversed(verts))
+        # Y↔Z swap flips handedness (det=-1) → reverse winding for CW.
+        # --flip-z adds a second reflection (det=+1 overall) → keep original winding.
+        if flip_z:
+            fv = list(verts)
+        else:
+            fv = list(reversed(verts))
+        if len(fv) == 4:
             lines.append(
                 f"        fr::face_3d({name}_vertices, fr::vertex_3d({format_fixed(nx)}, {format_fixed(ny)}, {format_fixed(nz)}), "
-                f"{rv[0]}, {rv[1]}, {rv[2]}, {rv[3]}, {color_idx}, -1){comma}"
+                f"{fv[0]}, {fv[1]}, {fv[2]}, {fv[3]}, {color_idx}, -1){comma}"
             )
         else:
-            rv = list(reversed(verts))
             lines.append(
                 f"        fr::face_3d({name}_vertices, fr::vertex_3d({format_fixed(nx)}, {format_fixed(ny)}, {format_fixed(nz)}), "
-                f"{rv[0]}, {rv[1]}, {rv[2]}, {color_idx}, -1){comma}"
+                f"{fv[0]}, {fv[1]}, {fv[2]}, {color_idx}, -1){comma}"
             )
     lines.append("    };")
     lines.append("")
@@ -295,6 +300,8 @@ def main():
                         help='Do not emit the color array in the header (use when sharing a palette from another header)')
     parser.add_argument('--namespace', type=str, default='str', choices=('str', 'fr'),
                         help='C++ namespace and header guard prefix (default: str)')
+    parser.add_argument('--flip-z', action='store_true',
+                        help='Negate OBJ Y in transform (engine Z) so model renders right-side up when engine Z is down')
     args = parser.parse_args()
 
     if args.name is None:
@@ -349,7 +356,7 @@ def main():
 
     # Generate header
     header = generate_header(args.name, vertices, all_faces, normals, material_order, materials_rgb, args.scale,
-                             emit_colors=not args.no_colors, namespace=args.namespace)
+                             emit_colors=not args.no_colors, namespace=args.namespace, flip_z=args.flip_z)
 
     # Write output
     os.makedirs(os.path.dirname(args.output) or '.', exist_ok=True)
