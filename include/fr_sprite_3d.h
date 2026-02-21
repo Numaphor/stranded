@@ -67,16 +67,16 @@ public:
 
    constexpr void set_theta(bn::fixed theta)
     {
-        if(theta > 0xFFFF)
+        if(theta >= 0x10000)
         {
-            theta -= 0xFFFF;
+            theta -= 0x10000;
         }
         else if(theta < 0)
         {
-            theta += 0xFFFF;
+            theta += 0x10000;
         }
 
-        BN_ASSERT(theta >= 0 && theta <= 0xFFFF, "Invalid theta: ", theta);
+        BN_ASSERT(theta >= 0 && theta < 0x10000, "Invalid theta: ", theta);
 
         int old_angle = _theta.shift_integer();
         int new_angle = theta.shift_integer();
