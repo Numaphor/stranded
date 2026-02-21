@@ -148,32 +148,23 @@ namespace str::model_3d_items
     // ---------------------------------------------------------------
 
     // Room 0 (col=0, row=0): east door, south door, north solid, west solid
-    // Each wall has inward + outward faces for visibility from all camera angles.
-    // Outward face: reversed vertex order + flipped normal.
+    // All faces use inward-facing normals only (engine rotates normals for dynamic models).
     constexpr inline fr::face_3d room_0_faces[] = {
         fr::face_3d(room_vertices, fr::vertex_3d(0.0, 0.0, -1.0), 3, 2, 1, 0, 0, -1),
         fr::face_3d(room_vertices, fr::vertex_3d(0.0, 0.0, -1.0), 7, 6, 5, 4, 1, -1),
         fr::face_3d(room_vertices, fr::vertex_3d(0.0, 0.0, -1.0), 11, 10, 9, 8, 0, -1),
-        // North solid (inward + outward)
+        // North solid
         fr::face_3d(room_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 12, 13, 14, 15, 2, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 15, 14, 13, 12, 2, -1),
-        // South door (inward + outward)
+        // South door
         fr::face_3d(room_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 32, 33, 34, 35, 2, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 35, 34, 33, 32, 2, -1),
         fr::face_3d(room_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 36, 37, 38, 39, 2, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 39, 38, 37, 36, 2, -1),
         fr::face_3d(room_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 40, 41, 42, 43, 5, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 43, 42, 41, 40, 5, -1),
-        // West solid (inward + outward)
+        // West solid
         fr::face_3d(room_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 44, 45, 46, 47, 2, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 47, 46, 45, 44, 2, -1),
-        // East door (inward + outward)
+        // East door
         fr::face_3d(room_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 64, 65, 66, 67, 2, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 67, 66, 65, 64, 2, -1),
         fr::face_3d(room_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 68, 69, 70, 71, 2, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 71, 70, 69, 68, 2, -1),
         fr::face_3d(room_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 72, 73, 74, 75, 5, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 75, 74, 73, 72, 5, -1),
     };
     constexpr inline fr::model_3d_item room_0(room_vertices, room_0_faces);
 
@@ -182,26 +173,18 @@ namespace str::model_3d_items
         fr::face_3d(room_vertices, fr::vertex_3d(0.0, 0.0, -1.0), 3, 2, 1, 0, 0, -1),
         fr::face_3d(room_vertices, fr::vertex_3d(0.0, 0.0, -1.0), 7, 6, 5, 4, 1, -1),
         fr::face_3d(room_vertices, fr::vertex_3d(0.0, 0.0, -1.0), 11, 10, 9, 8, 0, -1),
-        // North solid (inward + outward)
+        // North solid
         fr::face_3d(room_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 12, 13, 14, 15, 2, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 15, 14, 13, 12, 2, -1),
-        // South door (inward + outward)
+        // South door
         fr::face_3d(room_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 32, 33, 34, 35, 2, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 35, 34, 33, 32, 2, -1),
         fr::face_3d(room_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 36, 37, 38, 39, 2, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 39, 38, 37, 36, 2, -1),
         fr::face_3d(room_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 40, 41, 42, 43, 5, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 43, 42, 41, 40, 5, -1),
-        // West door (inward + outward)
+        // West door
         fr::face_3d(room_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 48, 49, 50, 51, 2, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 51, 50, 49, 48, 2, -1),
         fr::face_3d(room_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 52, 53, 54, 55, 2, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 55, 54, 53, 52, 2, -1),
         fr::face_3d(room_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 56, 57, 58, 59, 5, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 59, 58, 57, 56, 5, -1),
-        // East solid (inward + outward)
+        // East solid
         fr::face_3d(room_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 60, 61, 62, 63, 2, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 63, 62, 61, 60, 2, -1),
     };
     constexpr inline fr::model_3d_item room_1(room_vertices, room_1_faces);
 
@@ -210,30 +193,20 @@ namespace str::model_3d_items
         fr::face_3d(room_vertices, fr::vertex_3d(0.0, 0.0, -1.0), 3, 2, 1, 0, 0, -1),
         fr::face_3d(room_vertices, fr::vertex_3d(0.0, 0.0, -1.0), 7, 6, 5, 4, 1, -1),
         fr::face_3d(room_vertices, fr::vertex_3d(0.0, 0.0, -1.0), 11, 10, 9, 8, 0, -1),
-        // North door (inward + outward)
+        // North door
         fr::face_3d(room_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 16, 17, 18, 19, 2, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 19, 18, 17, 16, 2, -1),
         fr::face_3d(room_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 20, 21, 22, 23, 2, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 23, 22, 21, 20, 2, -1),
         fr::face_3d(room_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 24, 25, 26, 27, 5, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 27, 26, 25, 24, 5, -1),
-        // South door (inward + outward)
+        // South door
         fr::face_3d(room_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 32, 33, 34, 35, 2, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 35, 34, 33, 32, 2, -1),
         fr::face_3d(room_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 36, 37, 38, 39, 2, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 39, 38, 37, 36, 2, -1),
         fr::face_3d(room_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 40, 41, 42, 43, 5, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 43, 42, 41, 40, 5, -1),
-        // West solid (inward + outward)
+        // West solid
         fr::face_3d(room_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 44, 45, 46, 47, 2, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 47, 46, 45, 44, 2, -1),
-        // East door (inward + outward)
+        // East door
         fr::face_3d(room_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 64, 65, 66, 67, 2, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 67, 66, 65, 64, 2, -1),
         fr::face_3d(room_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 68, 69, 70, 71, 2, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 71, 70, 69, 68, 2, -1),
         fr::face_3d(room_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 72, 73, 74, 75, 5, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 75, 74, 73, 72, 5, -1),
     };
     constexpr inline fr::model_3d_item room_2(room_vertices, room_2_faces);
 
@@ -242,30 +215,20 @@ namespace str::model_3d_items
         fr::face_3d(room_vertices, fr::vertex_3d(0.0, 0.0, -1.0), 3, 2, 1, 0, 0, -1),
         fr::face_3d(room_vertices, fr::vertex_3d(0.0, 0.0, -1.0), 7, 6, 5, 4, 1, -1),
         fr::face_3d(room_vertices, fr::vertex_3d(0.0, 0.0, -1.0), 11, 10, 9, 8, 0, -1),
-        // North door (inward + outward)
+        // North door
         fr::face_3d(room_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 16, 17, 18, 19, 2, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 19, 18, 17, 16, 2, -1),
         fr::face_3d(room_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 20, 21, 22, 23, 2, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 23, 22, 21, 20, 2, -1),
         fr::face_3d(room_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 24, 25, 26, 27, 5, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 27, 26, 25, 24, 5, -1),
-        // South door (inward + outward)
+        // South door
         fr::face_3d(room_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 32, 33, 34, 35, 2, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 35, 34, 33, 32, 2, -1),
         fr::face_3d(room_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 36, 37, 38, 39, 2, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 39, 38, 37, 36, 2, -1),
         fr::face_3d(room_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 40, 41, 42, 43, 5, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 43, 42, 41, 40, 5, -1),
-        // West door (inward + outward)
+        // West door
         fr::face_3d(room_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 48, 49, 50, 51, 2, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 51, 50, 49, 48, 2, -1),
         fr::face_3d(room_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 52, 53, 54, 55, 2, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 55, 54, 53, 52, 2, -1),
         fr::face_3d(room_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 56, 57, 58, 59, 5, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 59, 58, 57, 56, 5, -1),
-        // East solid (inward + outward)
+        // East solid
         fr::face_3d(room_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 60, 61, 62, 63, 2, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 63, 62, 61, 60, 2, -1),
     };
     constexpr inline fr::model_3d_item room_3(room_vertices, room_3_faces);
 
@@ -274,26 +237,18 @@ namespace str::model_3d_items
         fr::face_3d(room_vertices, fr::vertex_3d(0.0, 0.0, -1.0), 3, 2, 1, 0, 0, -1),
         fr::face_3d(room_vertices, fr::vertex_3d(0.0, 0.0, -1.0), 7, 6, 5, 4, 1, -1),
         fr::face_3d(room_vertices, fr::vertex_3d(0.0, 0.0, -1.0), 11, 10, 9, 8, 0, -1),
-        // North door (inward + outward)
+        // North door
         fr::face_3d(room_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 16, 17, 18, 19, 2, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 19, 18, 17, 16, 2, -1),
         fr::face_3d(room_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 20, 21, 22, 23, 2, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 23, 22, 21, 20, 2, -1),
         fr::face_3d(room_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 24, 25, 26, 27, 5, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 27, 26, 25, 24, 5, -1),
-        // South solid (inward + outward)
+        // South solid
         fr::face_3d(room_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 28, 29, 30, 31, 2, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 31, 30, 29, 28, 2, -1),
-        // West solid (inward + outward)
+        // West solid
         fr::face_3d(room_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 44, 45, 46, 47, 2, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 47, 46, 45, 44, 2, -1),
-        // East door (inward + outward)
+        // East door
         fr::face_3d(room_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 64, 65, 66, 67, 2, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 67, 66, 65, 64, 2, -1),
         fr::face_3d(room_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 68, 69, 70, 71, 2, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 71, 70, 69, 68, 2, -1),
         fr::face_3d(room_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 72, 73, 74, 75, 5, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 75, 74, 73, 72, 5, -1),
     };
     constexpr inline fr::model_3d_item room_4(room_vertices, room_4_faces);
 
@@ -302,26 +257,18 @@ namespace str::model_3d_items
         fr::face_3d(room_vertices, fr::vertex_3d(0.0, 0.0, -1.0), 3, 2, 1, 0, 0, -1),
         fr::face_3d(room_vertices, fr::vertex_3d(0.0, 0.0, -1.0), 7, 6, 5, 4, 1, -1),
         fr::face_3d(room_vertices, fr::vertex_3d(0.0, 0.0, -1.0), 11, 10, 9, 8, 0, -1),
-        // North door (inward + outward)
+        // North door
         fr::face_3d(room_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 16, 17, 18, 19, 2, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 19, 18, 17, 16, 2, -1),
         fr::face_3d(room_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 20, 21, 22, 23, 2, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 23, 22, 21, 20, 2, -1),
         fr::face_3d(room_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 24, 25, 26, 27, 5, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 27, 26, 25, 24, 5, -1),
-        // South solid (inward + outward)
+        // South solid
         fr::face_3d(room_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 28, 29, 30, 31, 2, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 31, 30, 29, 28, 2, -1),
-        // West door (inward + outward)
+        // West door
         fr::face_3d(room_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 48, 49, 50, 51, 2, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 51, 50, 49, 48, 2, -1),
         fr::face_3d(room_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 52, 53, 54, 55, 2, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 55, 54, 53, 52, 2, -1),
         fr::face_3d(room_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 56, 57, 58, 59, 5, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 59, 58, 57, 56, 5, -1),
-        // East solid (inward + outward)
+        // East solid
         fr::face_3d(room_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 60, 61, 62, 63, 2, -1),
-        fr::face_3d(room_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 63, 62, 61, 60, 2, -1),
     };
     constexpr inline fr::model_3d_item room_5(room_vertices, room_5_faces);
 
