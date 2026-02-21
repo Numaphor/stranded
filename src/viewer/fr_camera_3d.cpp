@@ -29,11 +29,11 @@ void camera_3d::set_phi(bn::fixed phi)
 {
     if(phi > 0xFFFF)
     {
-        phi -= 0xFFFF;
+        phi -= 0x10000;
     }
     else if(phi < 0)
     {
-        phi += 0xFFFF;
+        phi += 0x10000;
     }
 
     BN_ASSERT(phi >= 0 && phi <= 0xFFFF, "Invalid phi: ", phi);

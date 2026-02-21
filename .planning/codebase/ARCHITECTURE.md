@@ -17,9 +17,9 @@
 
 **Presentation Layer:**
 - Purpose: Scene management, UI rendering, and visual effects
-- Location: `src/core/scenes.cpp`, `include/str_scene_*.h`
-- Contains: Start screen, Menu, Controls, World scenes
-- Depends on: Butano rendering engine, input system
+- Location: `src/core/scenes.cpp`, `src/core/room_viewer.cpp`, `include/str_scene_*.h`
+- Contains: Start screen, Menu, Controls, World scenes, **Room Viewer** (3D isometric room with walk-around, furniture hitboxes)
+- Depends on: Butano rendering engine, input system, 3D pipeline (`src/viewer/`, `include/fr_*.h`)
 - Used by: Main game loop
 
 **Game Logic Layer:**
@@ -38,10 +38,10 @@
 
 **Engine Abstraction Layer:**
 - Purpose: Hardware-specific optimizations and rendering pipeline
-- Location: `butano/` library integration
-- Contains: Sprite management, background rendering, audio
+- Location: `butano/` library; **3D:** project `src/viewer/` + `include/fr_*.h` overrides (varooom-3d extended without modifying submodule)
+- Contains: Sprite management, background rendering, audio; 3D: camera, model_3d/sprite_3d, depth-sorted drawing, perspective projection
 - Depends on: GBA hardware, devkitARM toolchain
-- Used by: All game components
+- Used by: All game components; Room Viewer uses 3D pipeline exclusively
 
 ## Data Flow
 
@@ -76,8 +76,13 @@
 
 **Scene System:**
 - Purpose: Encapsulate game states and transitions
-- Examples: `src/core/scenes.cpp` (Menu, Start, Controls, World)
+- Examples: `src/core/scenes.cpp` (Menu, Start, Controls, World), `src/core/room_viewer.cpp` (Room Viewer)
 - Pattern: State pattern with execute() methods returning next scene
+
+**3D Pipeline (Room Viewer):**
+- Purpose: Isometric 3D room with depth-sorted models and sprite_3d player
+- Location: `src/core/room_viewer.cpp`, `src/viewer/fr_models_3d*.cpp`, `include/fr_*.h` (overrides)
+- Pattern: fr::model_3d (room shell, table, chair) + fr::sprite_3d (player); depth_bias on room shell; furniture AABB hitboxes and slide-on-collide movement
 
 **Hitbox System:**
 - Purpose: Collision detection between game objects
@@ -97,9 +102,9 @@
 - Responsibilities: Initialize Butano, run scene loop, handle global state
 
 **Scene Entry Points:**
-- Location: `src/core/scenes.cpp` (Menu, Start, Controls, World classes)
+- Location: `src/core/scenes.cpp` (Menu, Start, Controls, World), `src/core/room_viewer.cpp` (Room Viewer)
 - Triggers: Scene transitions from main loop
-- Responsibilities: Scene-specific initialization, input handling, render loop
+- Responsibilities: Scene-specific initialization, input handling, render loop; Room Viewer also runs 3D update/draw and collision
 
 **World Entry Point:**
 - Location: `src/core/world.cpp` (World::execute method)
@@ -126,4 +131,4 @@
 
 ---
 
-*Architecture analysis: 2026-02-09*
+*Architecture analysis: 2026-02-09. Updated 2026-02-21: Room Viewer scene, 3D pipeline, include overrides.*

@@ -1,6 +1,6 @@
 # 3D Engine Reference
 
-The 3D engine is adapted from **varooom-3d** (`butano/games/varooom-3d/`). This document covers the rendering pipeline, coordinate system, and how to set up isometric camera views on the GBA (240x160).
+The 3D engine is adapted from **varooom-3d** (`butano/games/varooom-3d/`). Stranded keeps the **butano submodule clean**: we do not modify varooom-3d files. Instead we use **project copies** of 3D sources in `src/viewer/` and **header overrides** in `include/` (see "Source Files" and "Stranded Extensions" below). This document covers the rendering pipeline, coordinate system, and isometric room viewer setup on the GBA (240x160).
 
 ---
 
@@ -180,9 +180,27 @@ The engine uses **perspective projection**, not orthographic. True sprite-based 
 
 ## Source Files
 
+Stranded uses **project** paths so the butano submodule is unchanged. `Makefile` has `INCLUDES := include butano/common/include butano/games/varooom-3d/include`, so `include/` is resolved first.
+
 | File | Contents |
 |------|----------|
-| `butano/games/varooom-3d/include/fr_model_3d.h` | Rotation matrix construction (`update()`), vertex transform (`rotate()`, `transform()`) |
-| `butano/games/varooom-3d/src/fr_models_3d.bn_iwram.cpp` | Camera-space transform, perspective projection, screen coordinate calculation |
-| `butano/games/varooom-3d/src/fr_camera_3d.cpp` | Camera phi → u/v basis vectors |
-| `butano/games/varooom-3d/include/fr_camera_3d.h` | Camera class definition, default position (0, 256, 0) |
+| `include/fr_model_3d.h` | **Project override.** Rotation matrix (`update()`), vertex transform (`rotate()`, `transform()`), `set_rotation_matrix()`, **depth_bias** for room shell sort order. |
+| `include/fr_sprite_3d.h` | **Project override.** Sprite 3D transform; **horizontal_flip** for left-facing player. |
+| `include/fr_sprite_3d_item.h` | **Project override.** **pixel_size**, **sprite_size**; supports 8/16/32/64 px sprites (not only 64). |
+| `src/viewer/fr_models_3d.bn_iwram.cpp` | **Project copy.** Camera-space transform, perspective projection, depth sort (uses model `depth_bias()`), sprite_3d rendering (size, double-size, flip). |
+| `src/viewer/fr_models_3d.cpp` | **Project copy.** Model/sprite list management, draw order. |
+| `src/viewer/fr_camera_3d.cpp` | Camera phi → u/v basis vectors. |
+| `include/fr_models_3d.h` | Models 3D manager (from common/varooom-3d). |
+| `include/fr_camera_3d.h` | Camera class, default position (0, 256, 0) — from varooom-3d include. |
+
+## Stranded Extensions
+
+- **fr_model_3d:** `depth_bias()` / `set_depth_bias(int)` — room shell uses a large bias so it always draws behind furniture and player in depth sort.
+- **fr_sprite_3d_item:** `pixel_size()`, `sprite_size()`; 8/16/32/64 px square sprites (eris 16×16 with double-size flag in rendering).
+- **fr_sprite_3d:** `horizontal_flip()` / `set_horizontal_flip(bool)` — avoids negative scale assert when facing left.
+- **Room viewer:** Scene in `src/core/room_viewer.cpp`; room/table/chair models in `include/models/str_model_3d_items_*.h`; furniture AABB hitboxes and slide-on-collide movement.
+- **Submodule hygiene:** `butano/games/varooom-3d/include/` is left at upstream; all extensions live in `include/` and `src/viewer/`.
+
+---
+
+*3D engine reference. Updated 2026-02-21: project paths, Stranded extensions, submodule hygiene.*

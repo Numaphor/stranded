@@ -7,50 +7,122 @@
 #include "bn_sprite_text_generator.h"
 #include "bn_fixed.h"
 #include "bn_math.h"
+#include "bn_algorithm.h"
+#include "bn_assert.h"
 #include "bn_string.h"
 #include "bn_sstream.h"
+#include "bn_log.h"
 #include "bn_sprite_items_eris.h"
-#include "bn_sprite_animate_actions.h"
 
 #include "common_variable_8x8_sprite_font.h"
 
 #include "fr_sin_cos.h"
+#include "fr_div_lut.h"
+#include "fr_constants_3d.h"
 #include "models/str_model_3d_items_room.h"
+#include "models/str_model_3d_items_table.h"
+#include "models/str_model_3d_items_chair.h"
+
+namespace {
+    constexpr int iso_phi = 6400;
+    constexpr int iso_theta = 59904;
+    constexpr int iso_psi = 6400;
+
+    struct corner_matrix
+    {
+        bn::fixed r00, r01, r02;
+        bn::fixed r10, r11, r12;
+        bn::fixed r20, r21, r22;
+    };
+
+    void compute_corner_matrices(corner_matrix out[4])
+    {
+        bn::fixed sp = fr::sin(iso_phi), cp = fr::cos(iso_phi);
+        bn::fixed st = fr::sin(iso_theta), ct = fr::cos(iso_theta);
+        bn::fixed ss = fr::sin(iso_psi),  cs = fr::cos(iso_psi);
+
+        bn::fixed c0x = cp * ct;
+        bn::fixed c0y = cp * st * ss - sp * cs;
+        bn::fixed c0z = cp * st * cs + sp * ss;
+        bn::fixed c1x = sp * ct;
+        bn::fixed c1y = sp * st * ss + cp * cs;
+        bn::fixed c1z = sp * st * cs - cp * ss;
+        bn::fixed c2x = -st;
+        bn::fixed c2y = ct * ss;
+        bn::fixed c2z = ct * cs;
+
+        out[0] = { c0x, c0y, c0z,  c1x, c1y, c1z,  c2x, c2y, c2z };
+        out[1] = { c0y, -c0x, c0z,  c1y, -c1x, c1z,  c2y, -c2x, c2z };
+        out[2] = { -c0x, -c0y, c0z,  -c1x, -c1y, c1z,  -c2x, -c2y, c2z };
+        out[3] = { -c0y, c0x, c0z,  -c1y, c1x, c1z,  -c2y, c2x, c2z };
+    }
+
+    constexpr bn::fixed TABLE_FX = 10;
+    constexpr bn::fixed TABLE_FY = 0;
+    constexpr bn::fixed CHAIR_FX = 10;
+    constexpr bn::fixed CHAIR_FY = 16;
+
+    constexpr bn::fixed TABLE_HW = 12;
+    constexpr bn::fixed TABLE_HD = 8;
+    constexpr bn::fixed CHAIR_HW = 6;
+    constexpr bn::fixed CHAIR_HD = 6;
+
+    constexpr bn::fixed FLOOR_MIN = -55;
+    constexpr bn::fixed FLOOR_MAX = 55;
+
+    struct floor_aabb
+    {
+        bn::fixed cx, cy, hw, hd;
+    };
+
+    constexpr floor_aabb furniture_boxes[] = {
+        { TABLE_FX, TABLE_FY, TABLE_HW, TABLE_HD },
+        { CHAIR_FX, CHAIR_FY, CHAIR_HW, CHAIR_HD },
+    };
+
+    bool overlaps_any_furniture(bn::fixed px, bn::fixed py)
+    {
+        for(const auto& box : furniture_boxes)
+        {
+            if(bn::abs(px - box.cx) < box.hw && bn::abs(py - box.cy) < box.hd)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+}
 
 namespace str
 {
 
 RoomViewer::RoomViewer() {}
 
-void RoomViewer::_set_player_anim(bool moving, int dir)
+void RoomViewer::_update_player_anim_tiles(fr::sprite_3d_item& item, bool moving, int dir)
 {
-    if(_player_moving == moving && _player_dir == dir && _player_anim.has_value())
-    {
-        return; // no change needed
-    }
-
-    _player_moving = moving;
-    _player_dir = dir;
-
-    // Frame indices in combined eris sheet (4 frames each):
-    // Idle: down=8, down_side=12, side=16, up_side=20, up=24
-    // Walk: down=28, down_side=32, side=36, up_side=40, up=44
-    // dir: 0=down, 1=down_side, 2=side, 3=up_side, 4=up
     constexpr int idle_bases[] = {8, 12, 16, 20, 24};
     constexpr int walk_bases[] = {28, 32, 36, 40, 44};
+    constexpr int frames_per_anim = 4;
+    constexpr int anim_speed = 8;
+
+    if(_player_moving != moving || _player_dir != dir)
+    {
+        _player_moving = moving;
+        _player_dir = dir;
+        _anim_frame_counter = 0;
+    }
+
     int base_frame = moving ? walk_bases[dir] : idle_bases[dir];
+    int frame_in_anim = (_anim_frame_counter / anim_speed) % frames_per_anim;
+    int tile_index = base_frame + frame_in_anim;
 
-    const bn::sprite_tiles_item& tiles = bn::sprite_items::eris.tiles_item();
+    item.tiles().set_tiles_ref(bn::sprite_items::eris.tiles_item(), tile_index);
 
-    _player_anim = bn::create_sprite_animate_action_forever(
-        *_player_sprite, 8, tiles,
-        base_frame, base_frame + 1, base_frame + 2, base_frame + 3);
+    ++_anim_frame_counter;
 }
 
-void RoomViewer::_rotate_player_dir()
+void RoomViewer::_rotate_player_dir(fr::sprite_3d& sprite)
 {
-    // Convert (dir, facing_left) to 8-direction index (CW from down)
-    // 0=down, 1=down-right, 2=right, 3=up-right, 4=up, 5=up-left, 6=left, 7=down-left
     int eight_dir;
     if(_player_facing_left && _player_dir >= 1 && _player_dir <= 3)
     {
@@ -69,42 +141,7 @@ void RoomViewer::_rotate_player_dir()
     _player_dir = dir_from_8[eight_dir];
     _player_facing_left = flip_from_8[eight_dir];
 
-    _player_sprite->set_horizontal_flip(_player_facing_left);
-    _player_anim.reset();
-    _set_player_anim(_player_moving, _player_dir);
-}
-
-bn::fixed_point RoomViewer::_floor_to_screen(bn::fixed fx, bn::fixed fy, bn::fixed cam_y, int corner)
-{
-    bn::fixed world_x = _r00 * fx + _r01 * fy;
-    bn::fixed world_y = _r10 * fx + _r11 * fy + 96;
-    bn::fixed world_z = _r20 * fx + _r21 * fy + 16;
-
-    bn::fixed depth = cam_y - world_y;
-    if(depth <= 0) depth = 1;
-
-    int angle = corner * 16384;
-    bn::fixed cf = fr::cos(angle);
-    bn::fixed sf = fr::sin(angle);
-
-    bn::fixed vrx = world_x / 16;
-    bn::fixed vrz = world_z / 16;
-
-    bn::fixed vcx = vrx * cf + vrz * sf;
-    bn::fixed vcy = -(vrx * sf - vrz * cf);
-
-    return bn::fixed_point(vcx * 256 / depth * 16, vcy * 256 / depth * 16);
-}
-
-void RoomViewer::_update_hud()
-{
-    _text_sprites.clear();
-    bn::sprite_text_generator tg(common::variable_8x8_sprite_font);
-    tg.set_center_alignment();
-    tg.set_bg_priority(0);
-
-    tg.generate(0, -72, "3D ROOM", _text_sprites);
-    tg.generate(0, 72, "D-PAD:Move  L/R:Zoom  B:Back", _text_sprites);
+    sprite.set_horizontal_flip(_player_facing_left);
 }
 
 str::Scene RoomViewer::execute()
@@ -114,48 +151,52 @@ str::Scene RoomViewer::execute()
     _models.load_colors(str::model_3d_items::room_model_colors);
 
     fr::model_3d& room = _models.create_dynamic_model(str::model_3d_items::room);
+    fr::model_3d& table = _models.create_dynamic_model(str::model_3d_items::table);
+    fr::model_3d& chair = _models.create_dynamic_model(str::model_3d_items::chair);
 
-    room.set_position(fr::point_3d(0, 96, 16));
+    fr::point_3d room_base_pos(0, 96, 16);
+    room.set_position(room_base_pos);
+    room.set_depth_bias(1000000);
 
-    constexpr int iso_phi = 6400;
-    constexpr int iso_theta = 59904;
-    constexpr int iso_psi = 6400;
+    corner_matrix all_corners[4];
+    compute_corner_matrices(all_corners);
 
-    bn::fixed sp = fr::sin(iso_phi),  cp = fr::cos(iso_phi);
-    bn::fixed st = fr::sin(iso_theta), ct = fr::cos(iso_theta);
-    bn::fixed ss = fr::sin(iso_psi),  cs = fr::cos(iso_psi);
+    auto set_model_rotation = [](fr::model_3d& m, const corner_matrix& cm) {
+        m.set_rotation_matrix(
+            cm.r00, cm.r01, cm.r02,
+            cm.r10, cm.r11, cm.r12,
+            cm.r20, cm.r21, cm.r22);
+    };
 
-    _r00 = cp * ct;
-    _r01 = cp * st * ss - sp * cs;
-    _r10 = sp * ct;
-    _r11 = sp * st * ss + cp * cs;
-    _r20 = -st;
-    _r21 = ct * ss;
+    auto update_all_orientations = [&]() {
+        const corner_matrix& cm = all_corners[_corner_index];
+        set_model_rotation(room, cm);
+        set_model_rotation(table, cm);
+        set_model_rotation(chair, cm);
 
-    room.set_phi(iso_phi);
-    room.set_theta(iso_theta);
-    room.set_psi(iso_psi);
+        table.set_position(room.transform(fr::vertex_3d(TABLE_FX, TABLE_FY, 0)));
+        chair.set_position(room.transform(fr::vertex_3d(CHAIR_FX, CHAIR_FY, 0)));
+    };
+
+    update_all_orientations();
 
     bn::fixed cam_dist = 274;
 
-    auto get_cam_pos = [&]() {
-        return fr::point_3d(0, cam_dist, 0);
-    };
-
     auto update_camera = [&]() {
-        _camera.set_position(get_cam_pos());
+        _camera.set_position(fr::point_3d(0, cam_dist, 0));
     };
 
-    _camera.set_phi(_corner_index * 16384);
+    _camera.set_phi(0);
     update_camera();
 
-    _player_fx = 0;
-    _player_fy = 0;
+    _player_fx = -20;
+    _player_fy = 20;
+    _player_fz = -10;
 
-    bn::fixed_point initial_pos = _floor_to_screen(_player_fx, _player_fy, cam_dist, _corner_index);
-    _player_sprite = bn::sprite_items::eris.create_sprite(initial_pos.x(), initial_pos.y());
-    _player_sprite->set_bg_priority(0);
-    _set_player_anim(false, 0);
+    fr::sprite_3d_item player_sprite_item(bn::sprite_items::eris, 8);
+    fr::sprite_3d& player_sprite = _models.create_sprite(player_sprite_item);
+    player_sprite.set_scale(2);
+    player_sprite.set_position(room.transform(fr::vertex_3d(_player_fx, _player_fy, _player_fz)));
 
     bn::sprite_text_generator tg(common::variable_8x8_sprite_font);
 
@@ -163,8 +204,9 @@ str::Scene RoomViewer::execute()
     {
         if(bn::keypad::b_pressed())
         {
-            _player_anim.reset();
-            _player_sprite.reset();
+            _models.destroy_sprite(player_sprite);
+            _models.destroy_dynamic_model(chair);
+            _models.destroy_dynamic_model(table);
             _models.destroy_dynamic_model(room);
             _models.update(_camera);
             bn::core::update();
@@ -174,11 +216,10 @@ str::Scene RoomViewer::execute()
         if(bn::keypad::start_pressed())
         {
             _corner_index = (_corner_index + 1) % 4;
-            _camera.set_phi(_corner_index * 16384);
-            _rotate_player_dir();
-            
-            bn::fixed_point pos = _floor_to_screen(_player_fx, _player_fy, cam_dist, _corner_index);
-            _player_sprite->set_position(pos);
+            update_all_orientations();
+            _rotate_player_dir(player_sprite);
+            player_sprite.set_position(room.transform(
+                fr::vertex_3d(_player_fx, _player_fy, _player_fz)));
         }
 
         {
@@ -188,8 +229,6 @@ str::Scene RoomViewer::execute()
             if(cam_dist != old_dist)
             {
                 update_camera();
-                bn::fixed_point pos = _floor_to_screen(_player_fx, _player_fy, cam_dist, _corner_index);
-                _player_sprite->set_position(pos);
             }
         }
 
@@ -202,58 +241,91 @@ str::Scene RoomViewer::execute()
         int dir = _player_dir;
         bool facing_left = _player_facing_left;
         bn::fixed dfx = 0, dfy = 0;
+        bn::fixed screen_dx = 0, screen_dy = 0;
 
-        if(bn::keypad::down_held())
+        if(bn::keypad::up_held())
         {
-            dfy += 1;
-            dir = 0;
+            screen_dy = -1;
             moving = true;
         }
-        else if(bn::keypad::up_held())
+        else if(bn::keypad::down_held())
         {
-            dfy -= 1;
-            dir = 4;
+            screen_dy = 1;
             moving = true;
         }
 
         if(bn::keypad::left_held())
         {
-            dfx -= 1;
-            facing_left = true;
-            if(!moving) dir = 2;
-            else if(dir == 0) dir = 1;
-            else dir = 3;
+            screen_dx = -1;
             moving = true;
         }
         else if(bn::keypad::right_held())
         {
-            dfx += 1;
-            facing_left = false;
-            if(!moving) dir = 2;
-            else if(dir == 0) dir = 1;
-            else dir = 3;
+            screen_dx = 1;
             moving = true;
         }
 
         if(moving)
         {
-            constexpr bn::fixed FLOOR_MIN = -55;
-            constexpr bn::fixed FLOOR_MAX = 55;
-            _player_fx = bn::min(bn::max(_player_fx + dfx, FLOOR_MIN), FLOOR_MAX);
-            _player_fy = bn::min(bn::max(_player_fy + dfy, FLOOR_MIN), FLOOR_MAX);
-            
-            bn::fixed_point pos = _floor_to_screen(_player_fx, _player_fy, cam_dist, _corner_index);
-            _player_sprite->set_position(pos);
+            if(screen_dx == 0 && screen_dy == 1)       { dir = 0; facing_left = false; }
+            else if(screen_dx == 0 && screen_dy == -1)  { dir = 4; facing_left = false; }
+            else if(screen_dx == 1 && screen_dy == 0)   { dir = 2; facing_left = false; }
+            else if(screen_dx == -1 && screen_dy == 0)  { dir = 2; facing_left = true;  }
+            else if(screen_dx == 1 && screen_dy == 1)   { dir = 1; facing_left = false; }
+            else if(screen_dx == -1 && screen_dy == 1)  { dir = 1; facing_left = true;  }
+            else if(screen_dx == 1 && screen_dy == -1)  { dir = 3; facing_left = false; }
+            else if(screen_dx == -1 && screen_dy == -1) { dir = 3; facing_left = true;  }
+
+            bn::fixed speed_factor = 1;
+            if(screen_dx != 0 && screen_dy != 0)
+            {
+                speed_factor = bn::fixed(0.707);
+            }
+            screen_dx *= speed_factor;
+            screen_dy *= speed_factor;
+
+            bn::fixed base_dx = screen_dx + screen_dy;
+            bn::fixed base_dy = screen_dy - screen_dx;
+
+            if(_corner_index == 0)      { dfx = base_dx;  dfy = base_dy;  }
+            else if(_corner_index == 1) { dfx = base_dy;  dfy = -base_dx; }
+            else if(_corner_index == 2) { dfx = -base_dx; dfy = -base_dy; }
+            else if(_corner_index == 3) { dfx = -base_dy; dfy = base_dx;  }
+
+            bn::fixed new_fx = bn::clamp(_player_fx + dfx, FLOOR_MIN, FLOOR_MAX);
+            bn::fixed new_fy = bn::clamp(_player_fy + dfy, FLOOR_MIN, FLOOR_MAX);
+
+            if(!overlaps_any_furniture(new_fx, new_fy))
+            {
+                _player_fx = new_fx;
+                _player_fy = new_fy;
+            }
+            else
+            {
+                bn::fixed slide_fx = bn::clamp(_player_fx + dfx, FLOOR_MIN, FLOOR_MAX);
+                bn::fixed slide_fy = _player_fy;
+                if(!overlaps_any_furniture(slide_fx, slide_fy))
+                {
+                    _player_fx = slide_fx;
+                }
+                else
+                {
+                    slide_fx = _player_fx;
+                    slide_fy = bn::clamp(_player_fy + dfy, FLOOR_MIN, FLOOR_MAX);
+                    if(!overlaps_any_furniture(slide_fx, slide_fy))
+                    {
+                        _player_fy = slide_fy;
+                    }
+                }
+            }
+
+            player_sprite.set_position(room.transform(
+                fr::vertex_3d(_player_fx, _player_fy, _player_fz)));
         }
 
-        _player_sprite->set_horizontal_flip(facing_left);
+        player_sprite.set_horizontal_flip(facing_left);
         _player_facing_left = facing_left;
-        _set_player_anim(moving, dir);
-
-        if(_player_anim.has_value())
-        {
-            _player_anim->update();
-        }
+        _update_player_anim_tiles(player_sprite_item, moving, dir);
 
         _text_sprites.clear();
         tg.set_center_alignment();
@@ -262,12 +334,15 @@ str::Scene RoomViewer::execute()
         {
             bn::string<32> line1;
             bn::ostringstream stream1(line1);
-            stream1 << "F:" << _player_fx.integer() << "," << _player_fy.integer();
+            stream1 << "F:" << _player_fx.integer() << "," << _player_fy.integer() << " D:" << _player_dir;
             tg.generate(0, -72, line1, _text_sprites);
 
             bn::string<32> line2;
             bn::ostringstream stream2(line2);
-            stream2 << "C:" << _corner_index << " D:" << cam_dist.integer();
+            const corner_matrix& cm = all_corners[_corner_index];
+            stream2 << "C:" << _corner_index
+                    << " R00:" << cm.r00
+                    << " R10:" << cm.r10;
             tg.generate(0, 72, line2, _text_sprites);
         }
         else
