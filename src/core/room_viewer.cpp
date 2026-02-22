@@ -27,6 +27,7 @@ namespace {
     constexpr int iso_phi = 6400;
     constexpr int iso_theta = 59904;
     constexpr int iso_psi = 6400;
+    constexpr int NUM_ROOMS = 6;
 
     struct corner_matrix
     {
@@ -69,27 +70,171 @@ namespace {
 
     constexpr bn::fixed FLOOR_MIN = -55;
     constexpr bn::fixed FLOOR_MAX = 55;
+    constexpr bn::fixed DOOR_HALF_WIDTH = 10;
+    // Movement is frame-compensated, so keep a lower per-step speed target.
+    constexpr bn::fixed MOVE_SPEED = bn::fixed(0.5);
 
-    struct floor_aabb
+    enum decor_flags
     {
-        bn::fixed cx, cy, hw, hd;
+        decor_none = 0,
+        decor_table = 1 << 0,
+        decor_chair = 1 << 1,
     };
 
-    constexpr floor_aabb furniture_boxes[] = {
-        { TABLE_FX, TABLE_FY, TABLE_HW, TABLE_HD },
-        { CHAIR_FX, CHAIR_FY, CHAIR_HW, CHAIR_HD },
+    constexpr int room_decor_flags[NUM_ROOMS] = {
+        decor_table | decor_chair, // Room 0: TC
+        decor_none,                // Room 1: W
+        decor_table,               // Room 2: T
+        decor_chair,               // Room 3: CW
+        decor_table,               // Room 4: T
+        decor_chair,               // Room 5: C
     };
 
-    bool overlaps_any_furniture(bn::fixed px, bn::fixed py)
+    bool overlaps_any_furniture(int room_id, bn::fixed px, bn::fixed py)
     {
-        for(const auto& box : furniture_boxes)
+        int decor = room_decor_flags[room_id];
+
+        if(decor & decor_table)
         {
-            if(bn::abs(px - box.cx) < box.hw && bn::abs(py - box.cy) < box.hd)
-            {
+            if(bn::abs(px - TABLE_FX) < TABLE_HW && bn::abs(py - TABLE_FY) < TABLE_HD)
                 return true;
-            }
         }
+
+        if(decor & decor_chair)
+        {
+            if(bn::abs(px - CHAIR_FX) < CHAIR_HW && bn::abs(py - CHAIR_FY) < CHAIR_HD)
+                return true;
+        }
+
         return false;
+    }
+
+    // Building layout: 2 columns x 3 rows
+    //
+    //   col 0   col 1
+    //  +------+------+
+    //  |  R0  |  R1  |  row 0
+    //  +--||--+--||--+
+    //  |  R2  |  R3  |  row 1
+    //  +--||--+--||--+
+    //  |  R4  |  R5  |  row 2
+    //  +------+------+
+    //
+    // Each room is 120x120, player confined to [-55,55] (FLOOR_MIN/MAX).
+    // Doors trigger when player crosses ±55 near center of a wall edge.
+
+    // Per-room color palettes (same structure as room_model_colors but with unique floor colors)
+    constexpr inline bn::color room_palettes[NUM_ROOMS][9] = {
+        { // Room 0 - warm brown floor (same as original)
+            bn::color(22, 16, 8), bn::color(16, 10, 4),
+            bn::color(28, 26, 22), bn::color(22, 20, 16),
+            bn::color(16, 22, 28), bn::color(10, 8, 6),
+            bn::color(18, 12, 6), bn::color(8, 12, 18), bn::color(20, 14, 8)
+        },
+        { // Room 1 - blue-gray floor
+            bn::color(12, 14, 22), bn::color(8, 10, 16),
+            bn::color(28, 26, 22), bn::color(22, 20, 16),
+            bn::color(16, 22, 28), bn::color(10, 8, 6),
+            bn::color(18, 12, 6), bn::color(8, 12, 18), bn::color(20, 14, 8)
+        },
+        { // Room 2 - green floor
+            bn::color(10, 20, 10), bn::color(6, 14, 6),
+            bn::color(28, 26, 22), bn::color(22, 20, 16),
+            bn::color(16, 22, 28), bn::color(10, 8, 6),
+            bn::color(18, 12, 6), bn::color(8, 12, 18), bn::color(20, 14, 8)
+        },
+        { // Room 3 - terra cotta floor
+            bn::color(22, 10, 8), bn::color(16, 6, 4),
+            bn::color(28, 26, 22), bn::color(22, 20, 16),
+            bn::color(16, 22, 28), bn::color(10, 8, 6),
+            bn::color(18, 12, 6), bn::color(8, 12, 18), bn::color(20, 14, 8)
+        },
+        { // Room 4 - purple floor
+            bn::color(16, 10, 20), bn::color(10, 6, 14),
+            bn::color(28, 26, 22), bn::color(22, 20, 16),
+            bn::color(16, 22, 28), bn::color(10, 8, 6),
+            bn::color(18, 12, 6), bn::color(8, 12, 18), bn::color(20, 14, 8)
+        },
+        { // Room 5 - teal floor
+            bn::color(8, 18, 20), bn::color(4, 12, 14),
+            bn::color(28, 26, 22), bn::color(22, 20, 16),
+            bn::color(16, 22, 28), bn::color(10, 8, 6),
+            bn::color(18, 12, 6), bn::color(8, 12, 18), bn::color(20, 14, 8)
+        }
+    };
+
+    // Door transition info: which direction, which neighbor room
+    // Doors are at the edges of local room space:
+    //   North door (y near -55): go to row-1 (same column)
+    //   South door (y near +55): go to row+1 (same column)
+    //   West door (x near -55):  go to col-1 (same row) -- but only col0->col1 via center wall
+    //   East door (x near +55):  go to col+1 (same row) -- but only col0->col1 via center wall
+    //
+    // In our 2x3 grid (col, row): R0=(0,0), R1=(1,0), R2=(0,1), R3=(1,1), R4=(0,2), R5=(1,2)
+
+    int room_col(int room_id) { return room_id % 2; }
+    int room_row(int room_id) { return room_id / 2; }
+    int room_id_from_grid(int col, int row) { return row * 2 + col; }
+
+    // Check if a door transition should occur and return the new room id (-1 if no transition)
+    // Also sets new_local_x/y for the player position in the new room
+    int check_door_transition(int current_room, bn::fixed local_x, bn::fixed local_y,
+                              bn::fixed& new_local_x, bn::fixed& new_local_y)
+    {
+        int col = room_col(current_room);
+        int row = room_row(current_room);
+
+        // East door: player at x >= FLOOR_MAX, within door zone (|y| <= DOOR_HALF_WIDTH)
+        // Only col 0 has an east neighbor (col 1)
+        if(col == 0 && local_x >= FLOOR_MAX && bn::abs(local_y) <= DOOR_HALF_WIDTH)
+        {
+            new_local_x = FLOOR_MIN;
+            new_local_y = local_y;
+            return room_id_from_grid(1, row);
+        }
+
+        // West door: player at x <= FLOOR_MIN, within door zone (|y| <= DOOR_HALF_WIDTH)
+        // Only col 1 has a west neighbor (col 0)
+        if(col == 1 && local_x <= FLOOR_MIN && bn::abs(local_y) <= DOOR_HALF_WIDTH)
+        {
+            new_local_x = FLOOR_MAX;
+            new_local_y = local_y;
+            return room_id_from_grid(0, row);
+        }
+
+        // South door: player at y >= FLOOR_MAX, within door zone (|x| <= DOOR_HALF_WIDTH)
+        // Only rows 0,1 have a south neighbor
+        if(row < 2 && local_y >= FLOOR_MAX && bn::abs(local_x) <= DOOR_HALF_WIDTH)
+        {
+            new_local_x = local_x;
+            new_local_y = FLOOR_MIN;
+            return room_id_from_grid(col, row + 1);
+        }
+
+        // North door: player at y <= FLOOR_MIN, within door zone (|x| <= DOOR_HALF_WIDTH)
+        // Only rows 1,2 have a north neighbor
+        if(row > 0 && local_y <= FLOOR_MIN && bn::abs(local_x) <= DOOR_HALF_WIDTH)
+        {
+            new_local_x = local_x;
+            new_local_y = FLOOR_MAX;
+            return room_id_from_grid(col, row - 1);
+        }
+
+        return -1;
+    }
+
+    const fr::model_3d_item& get_room_model(int room_id)
+    {
+        switch(room_id)
+        {
+            case 0:  return str::model_3d_items::room_0;
+            case 1:  return str::model_3d_items::room_1;
+            case 2:  return str::model_3d_items::room_2;
+            case 3:  return str::model_3d_items::room_3;
+            case 4:  return str::model_3d_items::room_4;
+            case 5:  return str::model_3d_items::room_5;
+            default: return str::model_3d_items::room_0;
+        }
     }
 }
 
@@ -98,7 +243,7 @@ namespace str
 
 RoomViewer::RoomViewer() {}
 
-void RoomViewer::_update_player_anim_tiles(fr::sprite_3d_item& item, bool moving, int dir)
+void RoomViewer::_update_player_anim_tiles(fr::sprite_3d_item& item, bool moving, int dir, int elapsed_frames)
 {
     constexpr int idle_bases[] = {8, 12, 16, 20, 24};
     constexpr int walk_bases[] = {28, 32, 36, 40, 44};
@@ -118,7 +263,7 @@ void RoomViewer::_update_player_anim_tiles(fr::sprite_3d_item& item, bool moving
 
     item.tiles().set_tiles_ref(bn::sprite_items::eris.tiles_item(), tile_index);
 
-    ++_anim_frame_counter;
+    _anim_frame_counter += elapsed_frames;
 }
 
 void RoomViewer::_rotate_player_dir(fr::sprite_3d& sprite)
@@ -148,15 +293,16 @@ str::Scene RoomViewer::execute()
 {
     bn::bg_palettes::set_transparent_color(bn::color(2, 2, 4));
 
-    _models.load_colors(str::model_3d_items::room_model_colors);
+    int current_room = 0;
+    _models.load_colors(bn::span<const bn::color>(room_palettes[current_room], 9));
 
-    fr::model_3d& room = _models.create_dynamic_model(str::model_3d_items::room);
-    fr::model_3d& table = _models.create_dynamic_model(str::model_3d_items::table);
-    fr::model_3d& chair = _models.create_dynamic_model(str::model_3d_items::chair);
+    fr::model_3d* room_ptr = &_models.create_dynamic_model(get_room_model(current_room));
+    fr::model_3d* table_ptr = nullptr;
+    fr::model_3d* chair_ptr = nullptr;
 
     fr::point_3d room_base_pos(0, 96, 16);
-    room.set_position(room_base_pos);
-    room.set_depth_bias(1000000);
+    room_ptr->set_position(room_base_pos);
+    room_ptr->set_mode(fr::model_3d::layering_mode::room_perspective);
 
     corner_matrix all_corners[4];
     compute_corner_matrices(all_corners);
@@ -168,16 +314,55 @@ str::Scene RoomViewer::execute()
             cm.r20, cm.r21, cm.r22);
     };
 
-    auto update_all_orientations = [&]() {
-        const corner_matrix& cm = all_corners[_corner_index];
-        set_model_rotation(room, cm);
-        set_model_rotation(table, cm);
-        set_model_rotation(chair, cm);
+    auto ensure_decor_models = [&]() {
+        int decor = room_decor_flags[current_room];
 
-        table.set_position(room.transform(fr::vertex_3d(TABLE_FX, TABLE_FY, 0)));
-        chair.set_position(room.transform(fr::vertex_3d(CHAIR_FX, CHAIR_FY, 0)));
+        bool needs_table = decor & decor_table;
+        if(needs_table)
+        {
+            if(!table_ptr)
+            {
+                table_ptr = &_models.create_dynamic_model(str::model_3d_items::table);
+            }
+        }
+        else if(table_ptr)
+        {
+            _models.destroy_dynamic_model(*table_ptr);
+            table_ptr = nullptr;
+        }
+
+        bool needs_chair = decor & decor_chair;
+        if(needs_chair)
+        {
+            if(!chair_ptr)
+            {
+                chair_ptr = &_models.create_dynamic_model(str::model_3d_items::chair);
+            }
+        }
+        else if(chair_ptr)
+        {
+            _models.destroy_dynamic_model(*chair_ptr);
+            chair_ptr = nullptr;
+        }
     };
 
+    auto update_all_orientations = [&]() {
+        const corner_matrix& cm = all_corners[_corner_index];
+        set_model_rotation(*room_ptr, cm);
+        if(table_ptr)
+        {
+            set_model_rotation(*table_ptr, cm);
+            table_ptr->set_position(room_ptr->transform(fr::vertex_3d(TABLE_FX, TABLE_FY, 0)));
+        }
+
+        if(chair_ptr)
+        {
+            set_model_rotation(*chair_ptr, cm);
+            chair_ptr->set_position(room_ptr->transform(fr::vertex_3d(CHAIR_FX, CHAIR_FY, 0)));
+        }
+    };
+
+    ensure_decor_models();
     update_all_orientations();
 
     bn::fixed cam_dist = 274;
@@ -196,18 +381,31 @@ str::Scene RoomViewer::execute()
     fr::sprite_3d_item player_sprite_item(bn::sprite_items::eris, 8);
     fr::sprite_3d& player_sprite = _models.create_sprite(player_sprite_item);
     player_sprite.set_scale(2);
-    player_sprite.set_position(room.transform(fr::vertex_3d(_player_fx, _player_fy, _player_fz)));
+    player_sprite.set_position(room_ptr->transform(fr::vertex_3d(_player_fx, _player_fy, _player_fz)));
 
     bn::sprite_text_generator tg(common::variable_8x8_sprite_font);
 
     while(true)
     {
+        int elapsed_frames = bn::core::last_missed_frames() + 1;
+        elapsed_frames = bn::clamp(elapsed_frames, 1, 4);
+
         if(bn::keypad::b_pressed())
         {
+            if(chair_ptr)
+            {
+                _models.destroy_dynamic_model(*chair_ptr);
+                chair_ptr = nullptr;
+            }
+
+            if(table_ptr)
+            {
+                _models.destroy_dynamic_model(*table_ptr);
+                table_ptr = nullptr;
+            }
+
             _models.destroy_sprite(player_sprite);
-            _models.destroy_dynamic_model(chair);
-            _models.destroy_dynamic_model(table);
-            _models.destroy_dynamic_model(room);
+            _models.destroy_dynamic_model(*room_ptr);
             _models.update(_camera);
             bn::core::update();
             return str::Scene::START;
@@ -218,7 +416,7 @@ str::Scene RoomViewer::execute()
             _corner_index = (_corner_index + 1) % 4;
             update_all_orientations();
             _rotate_player_dir(player_sprite);
-            player_sprite.set_position(room.transform(
+            player_sprite.set_position(room_ptr->transform(
                 fr::vertex_3d(_player_fx, _player_fy, _player_fz)));
         }
 
@@ -292,40 +490,65 @@ str::Scene RoomViewer::execute()
             else if(_corner_index == 2) { dfx = -base_dx; dfy = -base_dy; }
             else if(_corner_index == 3) { dfx = -base_dy; dfy = base_dx;  }
 
-            bn::fixed new_fx = bn::clamp(_player_fx + dfx, FLOOR_MIN, FLOOR_MAX);
-            bn::fixed new_fy = bn::clamp(_player_fy + dfy, FLOOR_MIN, FLOOR_MAX);
+            dfx *= MOVE_SPEED;
+            dfy *= MOVE_SPEED;
 
-            if(!overlaps_any_furniture(new_fx, new_fy))
+            for(int step = 0; step < elapsed_frames; ++step)
             {
-                _player_fx = new_fx;
-                _player_fy = new_fy;
-            }
-            else
-            {
-                bn::fixed slide_fx = bn::clamp(_player_fx + dfx, FLOOR_MIN, FLOOR_MAX);
-                bn::fixed slide_fy = _player_fy;
-                if(!overlaps_any_furniture(slide_fx, slide_fy))
+                bn::fixed new_fx = bn::clamp(_player_fx + dfx, FLOOR_MIN, FLOOR_MAX);
+                bn::fixed new_fy = bn::clamp(_player_fy + dfy, FLOOR_MIN, FLOOR_MAX);
+
+                if(!overlaps_any_furniture(current_room, new_fx, new_fy))
                 {
-                    _player_fx = slide_fx;
+                    _player_fx = new_fx;
+                    _player_fy = new_fy;
                 }
                 else
                 {
-                    slide_fx = _player_fx;
-                    slide_fy = bn::clamp(_player_fy + dfy, FLOOR_MIN, FLOOR_MAX);
-                    if(!overlaps_any_furniture(slide_fx, slide_fy))
+                    bn::fixed slide_fx = bn::clamp(_player_fx + dfx, FLOOR_MIN, FLOOR_MAX);
+                    bn::fixed slide_fy = _player_fy;
+                    if(!overlaps_any_furniture(current_room, slide_fx, slide_fy))
                     {
-                        _player_fy = slide_fy;
+                        _player_fx = slide_fx;
                     }
+                    else
+                    {
+                        slide_fx = _player_fx;
+                        slide_fy = bn::clamp(_player_fy + dfy, FLOOR_MIN, FLOOR_MAX);
+                        if(!overlaps_any_furniture(current_room, slide_fx, slide_fy))
+                        {
+                            _player_fy = slide_fy;
+                        }
+                    }
+                }
+
+                // Check for room transition via doors.
+                bn::fixed new_local_x, new_local_y;
+                int next_room = check_door_transition(current_room, _player_fx, _player_fy,
+                                                      new_local_x, new_local_y);
+                if(next_room >= 0 && next_room != current_room)
+                {
+                    current_room = next_room;
+                    _player_fx = new_local_x;
+                    _player_fy = new_local_y;
+                    _models.load_colors(bn::span<const bn::color>(room_palettes[current_room], 9));
+                    // Swap room model to match new room's door configuration.
+                    _models.destroy_dynamic_model(*room_ptr);
+                    room_ptr = &_models.create_dynamic_model(get_room_model(current_room));
+                    room_ptr->set_position(room_base_pos);
+                    room_ptr->set_mode(fr::model_3d::layering_mode::room_perspective);
+                    ensure_decor_models();
+                    update_all_orientations();
                 }
             }
 
-            player_sprite.set_position(room.transform(
+            player_sprite.set_position(room_ptr->transform(
                 fr::vertex_3d(_player_fx, _player_fy, _player_fz)));
         }
 
         player_sprite.set_horizontal_flip(facing_left);
         _player_facing_left = facing_left;
-        _update_player_anim_tiles(player_sprite_item, moving, dir);
+        _update_player_anim_tiles(player_sprite_item, moving, dir, elapsed_frames);
 
         _text_sprites.clear();
         tg.set_center_alignment();
@@ -339,10 +562,7 @@ str::Scene RoomViewer::execute()
 
             bn::string<32> line2;
             bn::ostringstream stream2(line2);
-            const corner_matrix& cm = all_corners[_corner_index];
-            stream2 << "C:" << _corner_index
-                    << " R00:" << cm.r00
-                    << " R10:" << cm.r10;
+            stream2 << "Room:" << current_room << " C:" << _corner_index;
             tg.generate(0, 72, line2, _text_sprites);
         }
         else
