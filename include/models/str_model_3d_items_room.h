@@ -77,25 +77,25 @@ namespace str::model_3d_items
 
         // --- South wall (y=60, inward normal 0,-1,0) ---
         // Solid variant
-        fr::vertex_3d(-60.0,  60.0,   0.0),  // 28
-        fr::vertex_3d( 60.0,  60.0,   0.0),  // 29
-        fr::vertex_3d( 60.0,  60.0, -50.0),  // 30
-        fr::vertex_3d(-60.0,  60.0, -50.0),  // 31
+        fr::vertex_3d(-60.0,  60.0, -50.0),  // 28
+        fr::vertex_3d( 60.0,  60.0, -50.0),  // 29
+        fr::vertex_3d( 60.0,  60.0,   0.0),  // 30
+        fr::vertex_3d(-60.0,  60.0,   0.0),  // 31
         // Door variant: left section
-        fr::vertex_3d(-60.0,  60.0,   0.0),  // 32
-        fr::vertex_3d(-10.0,  60.0,   0.0),  // 33
-        fr::vertex_3d(-10.0,  60.0, -50.0),  // 34
-        fr::vertex_3d(-60.0,  60.0, -50.0),  // 35
+        fr::vertex_3d(-60.0,  60.0, -50.0),  // 32
+        fr::vertex_3d(-10.0,  60.0, -50.0),  // 33
+        fr::vertex_3d(-10.0,  60.0,   0.0),  // 34
+        fr::vertex_3d(-60.0,  60.0,   0.0),  // 35
         // Door variant: right section
-        fr::vertex_3d( 10.0,  60.0,   0.0),  // 36
-        fr::vertex_3d( 60.0,  60.0,   0.0),  // 37
-        fr::vertex_3d( 60.0,  60.0, -50.0),  // 38
-        fr::vertex_3d( 10.0,  60.0, -50.0),  // 39
+        fr::vertex_3d( 10.0,  60.0, -50.0),  // 36
+        fr::vertex_3d( 60.0,  60.0, -50.0),  // 37
+        fr::vertex_3d( 60.0,  60.0,   0.0),  // 38
+        fr::vertex_3d( 10.0,  60.0,   0.0),  // 39
         // Door variant: lintel
-        fr::vertex_3d(-10.0,  60.0, -35.0),  // 40
-        fr::vertex_3d( 10.0,  60.0, -35.0),  // 41
-        fr::vertex_3d( 10.0,  60.0, -50.0),  // 42
-        fr::vertex_3d(-10.0,  60.0, -50.0),  // 43
+        fr::vertex_3d(-10.0,  60.0, -50.0),  // 40
+        fr::vertex_3d( 10.0,  60.0, -50.0),  // 41
+        fr::vertex_3d( 10.0,  60.0, -35.0),  // 42
+        fr::vertex_3d(-10.0,  60.0, -35.0),  // 43
 
         // --- West wall (x=-60, inward normal 1,0,0) ---
         // Solid variant
