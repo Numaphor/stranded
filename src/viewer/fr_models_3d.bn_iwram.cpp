@@ -232,10 +232,17 @@ void models_3d::_process_models(const camera_3d& camera)
 
                         if(model.mode() == model_3d::layering_mode::room_perspective)
                         {
-                            // Keep room shell generally behind entities, but allow front door frames
-                            // to overlay the player for doorway depth cues.
-                            bool front_door_frame = face.color_index() == 8 && centroid.y() > model.position().y();
-                            projected_z += front_door_frame ? room_front_layer_bias : room_back_layer_bias;
+                            // Keep room shell generally behind entities, but allow the front
+                            // shell (walls/windows/door frame) to overlay the player.
+                            int color_index = face.color_index();
+                            bool shell_surface = color_index >= 6 && color_index <= 8;
+                            const point_3d& local_centroid = face.centroid().point();
+                            point_3d floor_centroid = model.transform(
+                                vertex_3d(local_centroid.x(), local_centroid.y(), 0));
+                            bool front_shell_surface = shell_surface &&
+                                normal.y() > 0 &&
+                                floor_centroid.y() > model.position().y();
+                            projected_z += front_shell_surface ? room_front_layer_bias : room_back_layer_bias;
                         }
 
                         _valid_faces_info[valid_faces_count] = {
