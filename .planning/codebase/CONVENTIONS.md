@@ -1,116 +1,54 @@
 # Coding Conventions
 
-**Analysis Date:** 2026-02-09
+Analysis date: 2026-02-09
+Last updated: 2026-02-22
 
-## Naming Patterns
+## Naming
 
-**Files:**
-- Snake case for source files: `player.cpp`, `enemy.cpp`, `scene_world.cpp`
-- Headers match source files: `str_player.h`, `str_enemy.h`
-- Prefix with `str_` for project-specific headers
-- GBA asset items use snake_case with underscores: `bn_sprite_items_hero.h`
+- Files: snake_case (`room_viewer.cpp`, `world_state.cpp`).
+- Game headers: `str_*.h` prefix.
+- 3D override headers: `fr_*.h` prefix.
+- Classes/types: PascalCase (`RoomViewer`, `WorldStateManager`).
+- Functions/locals: snake_case.
+- Private members: leading underscore (`_corner_index`).
+- Constants: `SCREAMING_SNAKE_CASE` for compile-time constants.
 
-**Functions:**
-- Snake case: `get_roll_offset()`, `_update_display()`, `_handle_input()`
-- Private methods prefixed with underscore: `_init_worlds()`, `_update_display()`
-- Public methods use clear action verbs: `execute()`, `spawn()`, `update()`
+## Include Style
 
-**Variables:**
-- Snake case for local variables: `_selected_index`, `frames_remaining`
-- Constants use SCREAMING_SNAKE_CASE: `PLAYER_ROLL_SPEED`, `MAP_COLUMNS`
-- Private member variables prefixed with underscore: `_worlds`, `_text_sprites`
+Common pattern:
 
-**Types:**
-- PascalCase for classes: `Player`, `Enemy`, `World`, `Menu`
-- PascalCase for structs: `WorldData`, `DialogOption`, `EnemyDot`
-- PascalCase for enums: `Scene`, `ENEMY_TYPE`, `WEAPON_TYPE`
-- Strongly typed enums preferred: `enum class Direction`
+1. matching project header first
+2. Butano `bn_*` headers
+3. project/engine helpers (`fr_*`, models, shared assets)
 
-## Code Style
+Practical rule: keep `include/` definitions authoritative for `fr_*` types.
 
-**Formatting:**
-- No explicit formatting tool detected (no .clang-format, .editorconfig found)
-- 4-space indentation observed in source files
-- Opening braces on same line for functions/classes
-- Opening braces on new line for control flow (if, for, while)
+## Formatting and Control Flow
 
-**Linting:**
-- No explicit linting configuration detected
-- Butano engine likely provides its own style guidelines through the engine's API
-
-## Import Organization
-
-**Order:**
-1. Project headers: `str_*.h`, `fr_*.h` (from `include/` — project 3D overrides and game headers)
-2. Butano engine headers (bn_*.h)
-3. Standard library headers (rare in this GBA project)
-4. Asset item headers (bn_sprite_items_*.h, bn_regular_bg_items_*.h)
-5. Common font headers (common_variable_8x8_sprite_font.h)
-
-**Path Aliases:**
-- No path aliases used; direct includes relative to project structure. `include/` is first in `INCLUDES`, so `#include "fr_model_3d.h"` resolves to project override, not butano/games/varooom-3d.
+- 4-space indentation.
+- Braces on next line for blocks.
+- Keep gameplay loops explicit and branch-readable.
+- Use small helper lambdas in scene functions when it reduces repetition.
 
 ## Error Handling
 
-**Patterns:**
-- Uses Butano's assert system (`BN_ASSERT`) for runtime checks
-- No exceptions (GBA doesn't support C++ exceptions well)
-- Optional values use `bn::optional<T>` type from Butano
-- Return-based error handling for functions that can fail
-- Friend class pattern for controlled access to private members
+- Use `BN_ASSERT(...)` for invalid states and bounds.
+- Avoid exception-based flow.
+- Prefer deterministic fallbacks over silent failure.
 
-## Logging
+## Logging and Debug
 
-**Framework:** Butano's `bn::core::log()` for debug output
+- Use Butano logging (`bn::core::log()` / related debug logs) for emulator diagnostics.
+- Keep debug HUD text in scene-local code paths.
 
-**Patterns:**
-- Debug output sent to emulator's log window
-- No visible logging in production builds
-- Emulator-specific debugging (mGBA log window support)
+## Documentation and Comments
 
-## Comments
+- Comment when math, transforms, or hardware constraints are not obvious.
+- Keep comments short and behavior-focused.
+- Update `.planning/` docs when constants or runtime behavior change.
 
-**When to Comment:**
-- Complex mathematical calculations (camera movement, momentum)
-- State transition logic and game mechanics
-- Memory management considerations (unique_ptr usage)
-- Performance-critical sections
-- Platform-specific GBA limitations
+## Current Hotspots to Handle Carefully
 
-**Doc Comments:**
-- Class-level documentation with purpose and inheritance requirements
-- Method-level comments for public APIs
-- Friend class declarations documented with access reason
-- Header files contain extensive class documentation
-
-## Function Design
-
-**Size:** Functions tend to be small and focused (10-30 lines typical)
-- Large functions broken into smaller helper methods
-- Update methods often handle input, then update display separately
-
-**Parameters:** 
-- Reference parameters for modifying caller values: `execute(int &wid, bn::fixed_point &sl)`
-- Pass by value for small types (int, bn::fixed)
-- Const references for large objects
-
-**Return Values:**
-- Enum values for state transitions: `str::Scene Menu::execute()`
-- Boolean returns for success/failure
-- Butano types for engine resources
-
-## Module Design
-
-**Exports:**
-- Header files declare public interfaces
-- Implementation in corresponding .cpp files
-- Clear separation between interface and implementation
-
-**Barrel Files:**
-- `str_scene.h` contains common scene enum used across the project
-- `str_constants.h` centralizes all game constants
-- No other barrel files observed
-
----
-
-*Convention analysis: 2026-02-09. Updated 2026-02-21: include order for fr_* overrides.*
+- `src/core/world.cpp`: large control loop; changes should be incremental.
+- `src/core/room_viewer.cpp`: camera/view transform logic and input mapping are tightly coupled.
+- `src/viewer/fr_models_3d.bn_iwram.cpp`: performance-critical path.

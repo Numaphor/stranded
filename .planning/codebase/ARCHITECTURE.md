@@ -1,134 +1,71 @@
 # Architecture
 
-**Analysis Date:** 2026-02-09
+Analysis date: 2026-02-09
+Last updated: 2026-02-22
 
-## Pattern Overview
+## High-level Pattern
 
-**Overall:** Scene-based Game Architecture with Entity-Component Pattern
+- Scene-driven application flow from `src/main.cpp`.
+- Each scene exposes `execute()` and returns the next `str::Scene` value.
+- Core gameplay lives in the world scene (`src/core/world.cpp`).
+- Specialized 3D scenes (`room_viewer`, `model_viewer`) use the custom viewer pipeline in `src/viewer/`.
 
-**Key Characteristics:**
-- Scene-driven flow with centralized state management
-- Entity-based actor system with inheritance hierarchy
-- State machine pattern for player and enemy behaviors
-- Component-based design for reusable game systems
-- Hardware-optimized rendering pipeline for GBA constraints
+## Layered View
 
-## Layers
+### Presentation Layer
 
-**Presentation Layer:**
-- Purpose: Scene management, UI rendering, and visual effects
-- Location: `src/core/scenes.cpp`, `src/core/room_viewer.cpp`, `include/str_scene_*.h`
-- Contains: Start screen, Menu, Controls, World scenes, **Room Viewer** (3D isometric room with walk-around, furniture hitboxes)
-- Depends on: Butano rendering engine, input system, 3D pipeline (`src/viewer/`, `include/fr_*.h`)
-- Used by: Main game loop
+- Files: `src/core/scenes.cpp`, `src/core/model_viewer.cpp`, `src/core/room_viewer.cpp`
+- Responsibilities: input routing, UI text/sprites, scene-local rendering behavior.
 
-**Game Logic Layer:**
-- Purpose: Core game mechanics, rules, and entity behaviors
-- Location: `src/actors/`, `src/core/`
-- Contains: Player, Enemy, NPC classes, collision, movement
-- Depends on: Entity base classes, state machines
-- Used by: World scene
+### Gameplay Layer
 
-**Data Management Layer:**
-- Purpose: Game state persistence, world state management
-- Location: `src/core/world_state.cpp`, `include/str_world_state.h`
-- Contains: Save/load functionality, world-specific data
-- Depends on: SRAM storage, entity positions
-- Used by: World scene
+- Files: `src/actors/*`, `src/core/world.cpp`, `src/core/collision.cpp`, `src/core/movement.cpp`, `src/core/quest.cpp`
+- Responsibilities: movement, combat, AI, interactions, progression.
 
-**Engine Abstraction Layer:**
-- Purpose: Hardware-specific optimizations and rendering pipeline
-- Location: `butano/` library; **3D:** project `src/viewer/` + `include/fr_*.h` overrides (varooom-3d extended without modifying submodule)
-- Contains: Sprite management, background rendering, audio; 3D: camera, model_3d/sprite_3d, depth-sorted drawing, perspective projection
-- Depends on: GBA hardware, devkitARM toolchain
-- Used by: All game components; Room Viewer uses 3D pipeline exclusively
+### State Layer
 
-## Data Flow
+- Files: `src/core/world_state.cpp`, `include/str_world_state.h`
+- Responsibilities: persistent world/session state between scene transitions.
 
-**Scene Transitions:**
+### Engine Integration Layer
 
-1. Main loop reads Scene enum and instantiates appropriate scene
-2. Scene executes and returns next Scene enum
-3. Main loop destroys current scene and creates new one
-4. State (spawn location, world ID) passed between scenes
+- Files: `src/viewer/*`, `include/fr_*.h`, Butano submodule
+- Responsibilities: rendering primitives, fixed-point math, hardware abstraction.
 
-**Game Loop Update:**
+## Scene Flow
 
-1. `bn::core::update()` processes hardware input
-2. Player movement system updates position and state
-3. Enemy AI updates based on player position
-4. Collision detection handles interactions
-5. Rendering system updates sprites and backgrounds
-6. Camera system follows player with lookahead
+Current scene loop in `src/main.cpp`:
 
-**State Management:**
-- Global state managed by `WorldStateManager` singleton
-- Player state through `PlayerMovement` state machine
-- Enemy state through `EnemyStateMachine`
-- Scene state through enum-based navigation
+1. `START`
+2. `CHARACTER_SELECT`
+3. `CONTROLS`
+4. `MENU`
+5. `WORLD`
+6. Optional viewers: `MODEL_VIEWER`, `ROOM_VIEWER`
 
-## Key Abstractions
+The loop creates a scene object, executes it, reads the returned scene enum, and switches again.
 
-**Entity Base Class:**
-- Purpose: Common interface for all game objects
-- Examples: `src/actors/player.cpp`, `src/actors/enemy.cpp`, `src/actors/npc.cpp`
-- Pattern: Inheritance with virtual methods for update and render
+## Room Viewer Architecture
 
-**Scene System:**
-- Purpose: Encapsulate game states and transitions
-- Examples: `src/core/scenes.cpp` (Menu, Start, Controls, World), `src/core/room_viewer.cpp` (Room Viewer)
-- Pattern: State pattern with execute() methods returning next scene
+- Scene entrypoint: `str::RoomViewer::execute()`.
+- Models: room shell + optional decor (table/chair), created as dynamic `fr::model_3d` objects.
+- Player: `fr::sprite_3d` using Eris sprite sheet.
+- Camera: fixed phi (`0`), adjustable distance via `L/R`.
+- Navigation: six connected rooms in a 2x3 grid with door transitions.
+- Corner view switching:
+  - `START` triggers a smooth corner transition.
+  - Transition interpolates a view angle and updates model rotation each frame.
+  - Movement is paused during transition, then `_corner_index` advances and facing is remapped.
 
-**3D Pipeline (Room Viewer):**
-- Purpose: Isometric 3D room with depth-sorted models and sprite_3d player
-- Location: `src/core/room_viewer.cpp`, `src/viewer/fr_models_3d*.cpp`, `include/fr_*.h` (overrides)
-- Pattern: fr::model_3d (room shell, table, chair) + fr::sprite_3d (player); depth_bias on room shell; furniture AABB hitboxes and slide-on-collide movement
+## Important Abstractions
 
-**Hitbox System:**
-- Purpose: Collision detection between game objects
-- Examples: `src/core/collision.cpp`, `include/str_hitbox.h`
-- Pattern: Component-based collision with AABB detection
+- `str::Scene` enum for scene switching.
+- `fr::model_3d` and `fr::sprite_3d` for 3D model/sprite projection.
+- `fr::models_3d` as scene-local 3D object manager.
+- `WorldStateManager` for shared progress/state.
 
-**State Machine Pattern:**
-- Purpose: Manage complex entity behaviors
-- Examples: Player states (IDLE, WALKING, ROLLING, ATTACKING)
-- Pattern: Enum-based states with transition logic
+## Current Architectural Risks
 
-## Entry Points
-
-**Main Entry Point:**
-- Location: `src/main.cpp`
-- Triggers: GBA boot sequence
-- Responsibilities: Initialize Butano, run scene loop, handle global state
-
-**Scene Entry Points:**
-- Location: `src/core/scenes.cpp` (Menu, Start, Controls, World), `src/core/room_viewer.cpp` (Room Viewer)
-- Triggers: Scene transitions from main loop
-- Responsibilities: Scene-specific initialization, input handling, render loop; Room Viewer also runs 3D update/draw and collision
-
-**World Entry Point:**
-- Location: `src/core/world.cpp` (World::execute method)
-- Triggers: Transition from Menu scene
-- Responsibilities: Initialize game world, spawn entities, run game loop
-
-## Error Handling
-
-**Strategy:** Assertions with graceful degradation
-
-**Patterns:**
-- Butano assertions for critical failures
-- State validation in entity updates
-- Collision bounds checking
-- Resource cleanup in destructors
-
-## Cross-Cutting Concerns
-
-**Logging:** Butano's `bn::core::log()` for debug output
-
-**Validation:** Hitbox boundary checks, state transitions
-
-**Authentication:** Not applicable (single-player game)
-
----
-
-*Architecture analysis: 2026-02-09. Updated 2026-02-21: Room Viewer scene, 3D pipeline, include overrides.*
+- `world.cpp` remains a large, multi-responsibility execution loop.
+- Scene objects are mostly stack-owned, but viewers still use manual `new/delete` in `src/main.cpp`.
+- Automated project-level tests are not yet wired into the workflow.
