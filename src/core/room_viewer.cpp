@@ -28,6 +28,8 @@ namespace {
     constexpr int iso_theta = 59904;
     constexpr int iso_psi = 6400;
     constexpr int NUM_ROOMS = 6;
+    constexpr int QUARTER_TURN_ANGLE = 16384;
+    constexpr int CORNER_TURN_DURATION_FRAMES = 20;
 
     struct corner_matrix
     {
@@ -35,6 +37,24 @@ namespace {
         bn::fixed r10, r11, r12;
         bn::fixed r20, r21, r22;
     };
+
+    int normalize_angle(int angle)
+    {
+        return int(unsigned(angle) & 0xFFFF);
+    }
+
+    corner_matrix rotate_corner_matrix(const corner_matrix& base, int angle)
+    {
+        int normalized_angle = normalize_angle(angle);
+        bn::fixed s = fr::sin(normalized_angle);
+        bn::fixed c = fr::cos(normalized_angle);
+
+        return {
+            base.r00 * c - base.r01 * s, base.r00 * s + base.r01 * c, base.r02,
+            base.r10 * c - base.r11 * s, base.r10 * s + base.r11 * c, base.r12,
+            base.r20 * c - base.r21 * s, base.r20 * s + base.r21 * c, base.r22
+        };
+    }
 
     void compute_corner_matrices(corner_matrix out[4])
     {
@@ -306,6 +326,13 @@ str::Scene RoomViewer::execute()
 
     corner_matrix all_corners[4];
     compute_corner_matrices(all_corners);
+    const corner_matrix base_corner = all_corners[0];
+
+    int current_view_angle = -_corner_index * QUARTER_TURN_ANGLE;
+    bool corner_transition_active = false;
+    int corner_transition_elapsed = 0;
+    int corner_transition_start_angle = current_view_angle;
+    int corner_transition_target_angle = current_view_angle;
 
     auto set_model_rotation = [](fr::model_3d& m, const corner_matrix& cm) {
         m.set_rotation_matrix(
@@ -347,7 +374,7 @@ str::Scene RoomViewer::execute()
     };
 
     auto update_all_orientations = [&]() {
-        const corner_matrix& cm = all_corners[_corner_index];
+        corner_matrix cm = rotate_corner_matrix(base_corner, current_view_angle);
         set_model_rotation(*room_ptr, cm);
         if(table_ptr)
         {
@@ -411,13 +438,12 @@ str::Scene RoomViewer::execute()
             return str::Scene::START;
         }
 
-        if(bn::keypad::start_pressed())
+        if(bn::keypad::start_pressed() && !corner_transition_active)
         {
-            _corner_index = (_corner_index + 1) % 4;
-            update_all_orientations();
-            _rotate_player_dir(player_sprite);
-            player_sprite.set_position(room_ptr->transform(
-                fr::vertex_3d(_player_fx, _player_fy, _player_fz)));
+            corner_transition_active = true;
+            corner_transition_elapsed = 0;
+            corner_transition_start_angle = current_view_angle;
+            corner_transition_target_angle = current_view_angle - QUARTER_TURN_ANGLE;
         }
 
         {
@@ -435,29 +461,56 @@ str::Scene RoomViewer::execute()
             _debug_mode = !_debug_mode;
         }
 
+        if(corner_transition_active)
+        {
+            corner_transition_elapsed += elapsed_frames;
+
+            if(corner_transition_elapsed >= CORNER_TURN_DURATION_FRAMES)
+            {
+                corner_transition_active = false;
+                _corner_index = (_corner_index + 1) % 4;
+                current_view_angle = -_corner_index * QUARTER_TURN_ANGLE;
+                _rotate_player_dir(player_sprite);
+            }
+            else
+            {
+                bn::fixed transition_progress = bn::fixed(corner_transition_elapsed) / CORNER_TURN_DURATION_FRAMES;
+                bn::fixed eased_progress = transition_progress * transition_progress *
+                                           (bn::fixed(3) - bn::fixed(2) * transition_progress);
+                bn::fixed interpolated_angle = bn::fixed(corner_transition_start_angle) +
+                                               bn::fixed(corner_transition_target_angle - corner_transition_start_angle) *
+                                               eased_progress;
+                current_view_angle = interpolated_angle.round_integer();
+            }
+
+            update_all_orientations();
+            player_sprite.set_position(room_ptr->transform(
+                fr::vertex_3d(_player_fx, _player_fy, _player_fz)));
+        }
+
         bool moving = false;
         int dir = _player_dir;
         bool facing_left = _player_facing_left;
         bn::fixed dfx = 0, dfy = 0;
         bn::fixed screen_dx = 0, screen_dy = 0;
 
-        if(bn::keypad::up_held())
+        if(!corner_transition_active && bn::keypad::up_held())
         {
             screen_dy = -1;
             moving = true;
         }
-        else if(bn::keypad::down_held())
+        else if(!corner_transition_active && bn::keypad::down_held())
         {
             screen_dy = 1;
             moving = true;
         }
 
-        if(bn::keypad::left_held())
+        if(!corner_transition_active && bn::keypad::left_held())
         {
             screen_dx = -1;
             moving = true;
         }
-        else if(bn::keypad::right_held())
+        else if(!corner_transition_active && bn::keypad::right_held())
         {
             screen_dx = 1;
             moving = true;
