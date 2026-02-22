@@ -198,8 +198,8 @@ void models_3d::_process_models(const camera_3d& camera)
                     if(model.mode() == model_3d::layering_mode::room_perspective)
                     {
                         // Room perspective rule:
-                        // - floor and upper-half walls: behind entities
-                        // - lower-half walls: in front of entities
+                        // - floor and back-half walls (centroid at or behind model.position().y() along depth): behind entities
+                        // - front-half walls (centroid closer to the camera along depth): in front of entities
                         // color 0/1 are room floor materials.
                         if(face.color_index() <= 1 || centroid.y() <= model.position().y())
                         {

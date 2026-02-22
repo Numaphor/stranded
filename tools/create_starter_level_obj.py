@@ -212,8 +212,6 @@ def _add_quad(local_vertices, local_faces, material, normal, quad):
 
 def _add_quad_double_sided(local_vertices, local_faces, material, normal, quad):
     _add_quad(local_vertices, local_faces, material, normal, quad)
-    inv = (-normal[0], -normal[1], -normal[2])
-    _add_quad(local_vertices, local_faces, material, inv, [quad[3], quad[2], quad[1], quad[0]])
 
 
 def _add_wall(local_vertices, local_faces, wall_name, has_door):
