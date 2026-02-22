@@ -6,93 +6,91 @@
 namespace str::model_3d_items
 {
     constexpr inline fr::vertex_3d chair_vertices[] = {
-        fr::vertex_3d(-6.3, -7.245, -4.2),
-        fr::vertex_3d(6.3, -7.245, -4.2),
-        fr::vertex_3d(6.3, -7.245, -2.94),
-        fr::vertex_3d(-6.3, -7.245, -2.94),
-        fr::vertex_3d(-6.3, 5.355, -4.2),
-        fr::vertex_3d(6.3, 5.355, -4.2),
-        fr::vertex_3d(6.3, 5.355, -2.94),
-        fr::vertex_3d(-6.3, 5.355, -2.94),
-        fr::vertex_3d(-5.67, -6.615, -2.94),
-        fr::vertex_3d(-4.41, -6.615, -2.94),
-        fr::vertex_3d(-4.41, -6.615, 10.5),
-        fr::vertex_3d(-5.67, -6.615, 10.5),
-        fr::vertex_3d(-5.67, -5.355, -2.94),
-        fr::vertex_3d(-4.41, -5.355, -2.94),
-        fr::vertex_3d(-4.41, -5.355, 10.5),
-        fr::vertex_3d(-5.67, -5.355, 10.5),
-        fr::vertex_3d(-5.67, 3.465, -2.94),
-        fr::vertex_3d(-4.41, 3.465, -2.94),
-        fr::vertex_3d(-4.41, 3.465, 10.5),
-        fr::vertex_3d(-5.67, 3.465, 10.5),
-        fr::vertex_3d(-5.67, 4.725, -2.94),
-        fr::vertex_3d(-4.41, 4.725, -2.94),
-        fr::vertex_3d(-4.41, 4.725, 10.5),
-        fr::vertex_3d(-5.67, 4.725, 10.5),
-        fr::vertex_3d(4.41, -6.615, -2.94),
-        fr::vertex_3d(5.67, -6.615, -2.94),
-        fr::vertex_3d(5.67, -6.615, 10.5),
-        fr::vertex_3d(4.41, -6.615, 10.5),
-        fr::vertex_3d(4.41, -5.355, -2.94),
-        fr::vertex_3d(5.67, -5.355, -2.94),
-        fr::vertex_3d(5.67, -5.355, 10.5),
-        fr::vertex_3d(4.41, -5.355, 10.5),
-        fr::vertex_3d(4.41, 3.465, -2.94),
-        fr::vertex_3d(5.67, 3.465, -2.94),
-        fr::vertex_3d(5.67, 3.465, 10.5),
-        fr::vertex_3d(4.41, 3.465, 10.5),
-        fr::vertex_3d(4.41, 4.725, -2.94),
-        fr::vertex_3d(5.67, 4.725, -2.94),
-        fr::vertex_3d(5.67, 4.725, 10.5),
-        fr::vertex_3d(4.41, 4.725, 10.5),
-        fr::vertex_3d(-6.3, 4.095, -18.9),
-        fr::vertex_3d(6.3, 4.095, -18.9),
-        fr::vertex_3d(6.3, 4.095, -4.2),
-        fr::vertex_3d(-6.3, 4.095, -4.2),
-        fr::vertex_3d(-6.3, 5.355, -18.9),
-        fr::vertex_3d(6.3, 5.355, -18.9),
-        fr::vertex_3d(6.3, 5.355, -4.2),
-        fr::vertex_3d(-6.3, 5.355, -4.2)
+        fr::vertex_3d(-6.3, -7.245, -4.2),  // 0
+        fr::vertex_3d(6.3, -7.245, -4.2),  // 1
+        fr::vertex_3d(6.3, -7.245, -2.94),  // 2
+        fr::vertex_3d(-6.3, -7.245, -2.94),  // 3
+        fr::vertex_3d(-6.3, 5.355, -2.94),  // 4
+        fr::vertex_3d(6.3, 5.355, -2.94),  // 5
+        fr::vertex_3d(6.3, 5.355, -4.2),  // 6
+        fr::vertex_3d(-6.3, 5.355, -4.2),  // 7
+        fr::vertex_3d(-5.67, -6.615, -2.94),  // 8
+        fr::vertex_3d(-4.41, -6.615, -2.94),  // 9
+        fr::vertex_3d(-4.41, -6.615, 10.5),  // 10
+        fr::vertex_3d(-5.67, -6.615, 10.5),  // 11
+        fr::vertex_3d(-5.67, -5.355, 10.5),  // 12
+        fr::vertex_3d(-4.41, -5.355, 10.5),  // 13
+        fr::vertex_3d(-4.41, -5.355, -2.94),  // 14
+        fr::vertex_3d(-5.67, -5.355, -2.94),  // 15
+        fr::vertex_3d(-5.67, 3.465, -2.94),  // 16
+        fr::vertex_3d(-4.41, 3.465, -2.94),  // 17
+        fr::vertex_3d(-4.41, 3.465, 10.5),  // 18
+        fr::vertex_3d(-5.67, 3.465, 10.5),  // 19
+        fr::vertex_3d(-5.67, 4.725, 10.5),  // 20
+        fr::vertex_3d(-4.41, 4.725, 10.5),  // 21
+        fr::vertex_3d(-4.41, 4.725, -2.94),  // 22
+        fr::vertex_3d(-5.67, 4.725, -2.94),  // 23
+        fr::vertex_3d(4.41, -6.615, -2.94),  // 24
+        fr::vertex_3d(5.67, -6.615, -2.94),  // 25
+        fr::vertex_3d(5.67, -6.615, 10.5),  // 26
+        fr::vertex_3d(4.41, -6.615, 10.5),  // 27
+        fr::vertex_3d(4.41, -5.355, 10.5),  // 28
+        fr::vertex_3d(5.67, -5.355, 10.5),  // 29
+        fr::vertex_3d(5.67, -5.355, -2.94),  // 30
+        fr::vertex_3d(4.41, -5.355, -2.94),  // 31
+        fr::vertex_3d(4.41, 3.465, -2.94),  // 32
+        fr::vertex_3d(5.67, 3.465, -2.94),  // 33
+        fr::vertex_3d(5.67, 3.465, 10.5),  // 34
+        fr::vertex_3d(4.41, 3.465, 10.5),  // 35
+        fr::vertex_3d(4.41, 4.725, 10.5),  // 36
+        fr::vertex_3d(5.67, 4.725, 10.5),  // 37
+        fr::vertex_3d(5.67, 4.725, -2.94),  // 38
+        fr::vertex_3d(4.41, 4.725, -2.94),  // 39
+        fr::vertex_3d(-6.3, 4.095, -18.9),  // 40
+        fr::vertex_3d(6.3, 4.095, -18.9),  // 41
+        fr::vertex_3d(6.3, 4.095, -4.2),  // 42
+        fr::vertex_3d(-6.3, 4.095, -4.2),  // 43
+        fr::vertex_3d(6.3, 5.355, -18.9),  // 44
+        fr::vertex_3d(-6.3, 5.355, -18.9)  // 45
     };
 
     constexpr inline fr::face_3d chair_faces[] = {
         fr::face_3d(chair_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 0, 1, 2, 3, 7, -1),
-        fr::face_3d(chair_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 7, 6, 5, 4, 7, -1),
-        fr::face_3d(chair_vertices, fr::vertex_3d(0.0, 0.0, -1.0), 4, 5, 1, 0, 7, -1),
-        fr::face_3d(chair_vertices, fr::vertex_3d(0.0, 0.0, 1.0), 6, 7, 3, 2, 7, -1),
-        fr::face_3d(chair_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 7, 4, 0, 3, 7, -1),
-        fr::face_3d(chair_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 5, 6, 2, 1, 7, -1),
-        fr::face_3d(chair_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 8, 9, 10, 11, 8, -1),
-        fr::face_3d(chair_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 15, 14, 13, 12, 8, -1),
-        fr::face_3d(chair_vertices, fr::vertex_3d(0.0, 0.0, -1.0), 12, 13, 9, 8, 8, -1),
-        fr::face_3d(chair_vertices, fr::vertex_3d(0.0, 0.0, 1.0), 14, 15, 11, 10, 8, -1),
-        fr::face_3d(chair_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 15, 12, 8, 11, 8, -1),
-        fr::face_3d(chair_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 13, 14, 10, 9, 8, -1),
-        fr::face_3d(chair_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 16, 17, 18, 19, 8, -1),
-        fr::face_3d(chair_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 23, 22, 21, 20, 8, -1),
-        fr::face_3d(chair_vertices, fr::vertex_3d(0.0, 0.0, -1.0), 20, 21, 17, 16, 8, -1),
-        fr::face_3d(chair_vertices, fr::vertex_3d(0.0, 0.0, 1.0), 22, 23, 19, 18, 8, -1),
-        fr::face_3d(chair_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 23, 20, 16, 19, 8, -1),
-        fr::face_3d(chair_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 21, 22, 18, 17, 8, -1),
-        fr::face_3d(chair_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 24, 25, 26, 27, 8, -1),
-        fr::face_3d(chair_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 31, 30, 29, 28, 8, -1),
-        fr::face_3d(chair_vertices, fr::vertex_3d(0.0, 0.0, -1.0), 28, 29, 25, 24, 8, -1),
-        fr::face_3d(chair_vertices, fr::vertex_3d(0.0, 0.0, 1.0), 30, 31, 27, 26, 8, -1),
-        fr::face_3d(chair_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 31, 28, 24, 27, 8, -1),
-        fr::face_3d(chair_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 29, 30, 26, 25, 8, -1),
-        fr::face_3d(chair_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 32, 33, 34, 35, 8, -1),
-        fr::face_3d(chair_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 39, 38, 37, 36, 8, -1),
-        fr::face_3d(chair_vertices, fr::vertex_3d(0.0, 0.0, -1.0), 36, 37, 33, 32, 8, -1),
-        fr::face_3d(chair_vertices, fr::vertex_3d(0.0, 0.0, 1.0), 38, 39, 35, 34, 8, -1),
-        fr::face_3d(chair_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 39, 36, 32, 35, 8, -1),
-        fr::face_3d(chair_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 37, 38, 34, 33, 8, -1),
+        fr::face_3d(chair_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 4, 5, 6, 7, 7, -1),
+        fr::face_3d(chair_vertices, fr::vertex_3d(0.0, 0.0, -1.0), 7, 6, 1, 0, 7, -1),
+        fr::face_3d(chair_vertices, fr::vertex_3d(0.0, 0.0, 1.0), 5, 4, 3, 2, 7, -1),
+        fr::face_3d(chair_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 4, 7, 0, 3, 7, -1),
+        fr::face_3d(chair_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 6, 5, 2, 1, 7, -1),
         fr::face_3d(chair_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 40, 41, 42, 43, 7, -1),
-        fr::face_3d(chair_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 47, 46, 45, 44, 7, -1),
-        fr::face_3d(chair_vertices, fr::vertex_3d(0.0, 0.0, -1.0), 44, 45, 41, 40, 7, -1),
-        fr::face_3d(chair_vertices, fr::vertex_3d(0.0, 0.0, 1.0), 46, 47, 43, 42, 7, -1),
-        fr::face_3d(chair_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 47, 44, 40, 43, 7, -1),
-        fr::face_3d(chair_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 45, 46, 42, 41, 7, -1)
+        fr::face_3d(chair_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 7, 6, 44, 45, 7, -1),
+        fr::face_3d(chair_vertices, fr::vertex_3d(0.0, 0.0, -1.0), 45, 44, 41, 40, 7, -1),
+        fr::face_3d(chair_vertices, fr::vertex_3d(0.0, 0.0, 1.0), 6, 7, 43, 42, 7, -1),
+        fr::face_3d(chair_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 7, 45, 40, 43, 7, -1),
+        fr::face_3d(chair_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 44, 6, 42, 41, 7, -1),
+        fr::face_3d(chair_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 8, 9, 10, 11, 8, -1),
+        fr::face_3d(chair_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 12, 13, 14, 15, 8, -1),
+        fr::face_3d(chair_vertices, fr::vertex_3d(0.0, 0.0, -1.0), 15, 14, 9, 8, 8, -1),
+        fr::face_3d(chair_vertices, fr::vertex_3d(0.0, 0.0, 1.0), 13, 12, 11, 10, 8, -1),
+        fr::face_3d(chair_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 12, 15, 8, 11, 8, -1),
+        fr::face_3d(chair_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 14, 13, 10, 9, 8, -1),
+        fr::face_3d(chair_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 16, 17, 18, 19, 8, -1),
+        fr::face_3d(chair_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 20, 21, 22, 23, 8, -1),
+        fr::face_3d(chair_vertices, fr::vertex_3d(0.0, 0.0, -1.0), 23, 22, 17, 16, 8, -1),
+        fr::face_3d(chair_vertices, fr::vertex_3d(0.0, 0.0, 1.0), 21, 20, 19, 18, 8, -1),
+        fr::face_3d(chair_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 20, 23, 16, 19, 8, -1),
+        fr::face_3d(chair_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 22, 21, 18, 17, 8, -1),
+        fr::face_3d(chair_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 24, 25, 26, 27, 8, -1),
+        fr::face_3d(chair_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 28, 29, 30, 31, 8, -1),
+        fr::face_3d(chair_vertices, fr::vertex_3d(0.0, 0.0, -1.0), 31, 30, 25, 24, 8, -1),
+        fr::face_3d(chair_vertices, fr::vertex_3d(0.0, 0.0, 1.0), 29, 28, 27, 26, 8, -1),
+        fr::face_3d(chair_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 28, 31, 24, 27, 8, -1),
+        fr::face_3d(chair_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 30, 29, 26, 25, 8, -1),
+        fr::face_3d(chair_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 32, 33, 34, 35, 8, -1),
+        fr::face_3d(chair_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 36, 37, 38, 39, 8, -1),
+        fr::face_3d(chair_vertices, fr::vertex_3d(0.0, 0.0, -1.0), 39, 38, 33, 32, 8, -1),
+        fr::face_3d(chair_vertices, fr::vertex_3d(0.0, 0.0, 1.0), 37, 36, 35, 34, 8, -1),
+        fr::face_3d(chair_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 36, 39, 32, 35, 8, -1),
+        fr::face_3d(chair_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 38, 37, 34, 33, 8, -1)
     };
 
     constexpr inline fr::model_3d_item chair(chair_vertices, chair_faces);

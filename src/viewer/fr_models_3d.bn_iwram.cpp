@@ -35,6 +35,8 @@ namespace
 {
     constexpr int fixed_precision = 18;
     using fixed = bn::fixed_t<fixed_precision>;
+    constexpr int room_back_layer_bias = 1000000;
+    constexpr int room_front_layer_bias = -1000000;
 }
 
 void models_3d::_process_models(const camera_3d& camera)
@@ -192,6 +194,22 @@ void models_3d::_process_models(const camera_3d& camera)
                 if(vr.safe_dot_product(normal) < 0) [[likely]]
                 {
                     int projected_z = -vr.y().data() + model.depth_bias();
+
+                    if(model.mode() == model_3d::layering_mode::room_perspective)
+                    {
+                        // Room perspective rule:
+                        // - floor and upper-half walls: behind entities
+                        // - lower-half walls: in front of entities
+                        // color 0/1 are room floor materials.
+                        if(face.color_index() <= 1 || centroid.y() <= model.position().y())
+                        {
+                            projected_z += room_back_layer_bias;
+                        }
+                        else
+                        {
+                            projected_z += room_front_layer_bias;
+                        }
+                    }
 
                     _valid_faces_info[valid_faces_count] = {
                         &face, projected_vertices, projected_z

@@ -2,7 +2,9 @@
  * Copyright (c) 2020-2026 Gustavo Valiente gustavo.valiente@protonmail.com
  * zlib License, see LICENSE file.
  *
- * Stranded extension: depth_bias for room shell (always sort behind entities).
+ * Stranded extensions:
+ * - depth_bias for model-level depth tuning.
+ * - layering_mode for room-shell perspective layering.
  */
 
 #ifndef FR_MODEL_3D_H
@@ -20,6 +22,12 @@ class model_3d : public bn::intrusive_list_node_type
 {
 
 public:
+    enum class layering_mode
+    {
+        none,
+        room_perspective
+    };
+
     constexpr explicit model_3d(const model_3d_item& item) :
         _item(item)
     {
@@ -228,6 +236,16 @@ public:
         _depth_bias = bias;
     }
 
+    [[nodiscard]] constexpr layering_mode mode() const
+    {
+        return _mode;
+    }
+
+    constexpr void set_mode(layering_mode mode)
+    {
+        _mode = mode;
+    }
+
 private:
     const model_3d_item& _item;
     point_3d _position;
@@ -254,6 +272,7 @@ private:
     bn::fixed _yx_yy;
     bn::fixed _zx_zy;
     int _depth_bias = 0;
+    layering_mode _mode = layering_mode::none;
     bool _update = true;
 };
 
