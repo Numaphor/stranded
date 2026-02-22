@@ -6,6 +6,8 @@
 #ifndef FR_MODELS_3D_H
 #define FR_MODELS_3D_H
 
+#include <cstdint>
+
 #include "bn_pool.h"
 #include "bn_intrusive_list.h"
 
@@ -51,8 +53,9 @@ public:
     void update(const camera_3d& camera);
 
 private:
-    static constexpr int _max_models = constants_3d::max_static_models + constants_3d::max_dynamic_models;
-    static constexpr int _max_vertices = 256;
+    static constexpr int _max_dynamic_models = 8;
+    static constexpr int _max_models = constants_3d::max_static_models + _max_dynamic_models;
+    static constexpr int _max_vertices = 512;
     static constexpr int _max_faces = 300;
 
     static_assert(_max_faces <= bn::numeric_limits<uint16_t>::max());
@@ -93,8 +96,9 @@ private:
     int _static_vertices_count = 0;
     int _static_faces_count = 0;
 
-    bn::pool<model_3d, constants_3d::max_dynamic_models> _dynamic_models_pool;
+    bn::pool<model_3d, _max_dynamic_models> _dynamic_models_pool;
     bn::intrusive_list<model_3d> _dynamic_models_list;
+    uint16_t _dynamic_models_generation = 0;
     bn::pool<sprite_3d, constants_3d::max_sprites> _sprites_pool;
     bn::intrusive_list<sprite_3d> _sprites_list;
 
@@ -102,6 +106,16 @@ private:
     shape_groups _shape_groups;
     int _vertices_count = 0;
     int _faces_count = 0;
+    bool _geometry_cache_valid = false;
+    point_3d _cached_camera_position;
+    bn::fixed _cached_camera_phi;
+    const model_3d_item** _cached_static_model_items_ptr = nullptr;
+    int _cached_static_models_count = 0;
+    uint16_t _cached_dynamic_models_generation = 0;
+    const model_3d* _cached_dynamic_models[_max_dynamic_models] = {};
+    uint16_t _cached_dynamic_model_versions[_max_dynamic_models] = {};
+    int _cached_dynamic_models_count = 0;
+    int _cached_geometry_visible_faces_count = 0;
 
     #if FR_LOG_POLYGONS_PER_SECOND
         int _total_faces_count = 0;

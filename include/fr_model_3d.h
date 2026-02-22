@@ -10,6 +10,8 @@
 #ifndef FR_MODEL_3D_H
 #define FR_MODEL_3D_H
 
+#include <cstdint>
+
 #include "bn_intrusive_list.h"
 
 #include "fr_sin_cos.h"
@@ -45,7 +47,11 @@ public:
 
     constexpr void set_position(const point_3d& position)
     {
-        _position = position;
+        if(_position != position)
+        {
+            _position = position;
+            _touch();
+        }
     }
 
     [[nodiscard]] constexpr bn::fixed scale() const
@@ -57,7 +63,11 @@ public:
     {
         BN_ASSERT(scale > 0, "Invalid scale: ", scale);
 
-        _scale = scale;
+        if(_scale != scale)
+        {
+            _scale = scale;
+            _touch();
+        }
     }
 
     [[nodiscard]] constexpr bn::fixed phi() const
@@ -87,6 +97,7 @@ public:
             _phi_sin = sin(new_angle);
             _phi_cos = cos(new_angle);
             _update = true;
+            _touch();
         }
     }
 
@@ -117,6 +128,7 @@ public:
             _theta_sin = sin(new_angle);
             _theta_cos = cos(new_angle);
             _update = true;
+            _touch();
         }
     }
 
@@ -147,6 +159,7 @@ public:
             _psi_sin = sin(new_angle);
             _psi_cos = cos(new_angle);
             _update = true;
+            _touch();
         }
     }
 
@@ -224,6 +237,7 @@ public:
         _yx_yy = yx.unsafe_multiplication(yy);
         _zx_zy = zx.unsafe_multiplication(zy);
         _update = false;
+        _touch();
     }
 
     [[nodiscard]] constexpr int depth_bias() const
@@ -233,7 +247,11 @@ public:
 
     constexpr void set_depth_bias(int bias)
     {
-        _depth_bias = bias;
+        if(_depth_bias != bias)
+        {
+            _depth_bias = bias;
+            _touch();
+        }
     }
 
     [[nodiscard]] constexpr layering_mode mode() const
@@ -243,7 +261,30 @@ public:
 
     constexpr void set_mode(layering_mode mode)
     {
-        _mode = mode;
+        if(_mode != mode)
+        {
+            _mode = mode;
+            _touch();
+        }
+    }
+
+    [[nodiscard]] constexpr bool double_sided() const
+    {
+        return _double_sided;
+    }
+
+    constexpr void set_double_sided(bool double_sided)
+    {
+        if(_double_sided != double_sided)
+        {
+            _double_sided = double_sided;
+            _touch();
+        }
+    }
+
+    [[nodiscard]] constexpr uint16_t version() const
+    {
+        return _version;
     }
 
 private:
@@ -273,7 +314,19 @@ private:
     bn::fixed _zx_zy;
     int _depth_bias = 0;
     layering_mode _mode = layering_mode::none;
+    bool _double_sided = false;
     bool _update = true;
+    uint16_t _version = 1;
+
+    constexpr void _touch()
+    {
+        ++_version;
+
+        if(! _version)
+        {
+            _version = 1;
+        }
+    }
 };
 
 }

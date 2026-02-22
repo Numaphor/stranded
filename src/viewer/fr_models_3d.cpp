@@ -36,6 +36,7 @@ void models_3d::set_static_model_items(const model_3d_item** static_model_items_
     BN_ASSERT(_faces_count <= _max_faces, "There's no space for more faces");
 
     _static_model_items_ptr = static_model_items_ptr;
+    _geometry_cache_valid = false;
 }
 
 model_3d& models_3d::create_dynamic_model(const model_3d_item& model_item)
@@ -50,6 +51,8 @@ model_3d& models_3d::create_dynamic_model(const model_3d_item& model_item)
     _dynamic_models_list.push_back(result);
     _vertices_count += model_vertices_count;
     _faces_count += model_faces_count;
+    ++_dynamic_models_generation;
+    _geometry_cache_valid = false;
     return result;
 }
 
@@ -60,6 +63,8 @@ void models_3d::destroy_dynamic_model(model_3d& model)
     _faces_count -= model_item.faces().size();
     _dynamic_models_list.erase(model);
     _dynamic_models_pool.destroy(model);
+    ++_dynamic_models_generation;
+    _geometry_cache_valid = false;
 }
 
 sprite_3d& models_3d::create_sprite(sprite_3d_item& sprite_item)

@@ -2,13 +2,19 @@
 """Generate canonical obj/level.obj as the single source of truth.
 
 Output object contract:
-- Building: structural shell only (floors + walls + doors)
 - Room0..Room5: explicit per-room shell meshes with decor instances baked in
 """
 
 from __future__ import annotations
 
 import os
+import sys
+
+
+# Allow importing model_utils from same directory.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from model_utils import parse_obj_multi
 
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -22,11 +28,20 @@ ROOM_NAMES = ["Room0", "Room1", "Room2", "Room3", "Room4", "Room5"]
 # 2x3 building layout in room ids.
 ROOM_CENTERS_OBJ = {
     0: (-30.0, -60.0),
-    1: (30.0, -60.0),
+    1: (37.5, -67.5),
     2: (-30.0, 0.0),
     3: (30.0, 0.0),
     4: (-30.0, 60.0),
-    5: (30.0, 60.0),
+    5: (37.5, 67.5),
+}
+
+ROOM_WORLD_SCALE = {
+    0: 1.0,
+    1: 1.25,
+    2: 1.0,
+    3: 1.0,
+    4: 1.0,
+    5: 1.25,
 }
 
 # R0 TC, R1 W, R2 T, R3 CW, R4 T, R5 C
@@ -52,6 +67,88 @@ ROOM_DOOR_WALLS = {
     4: {"east", "north"},
     5: {"west", "north"},
 }
+
+
+def _room_col(room_id: int) -> int:
+    return room_id % 2
+
+
+def _room_row(room_id: int) -> int:
+    return room_id // 2
+
+
+def _room_id(col: int, row: int) -> int:
+    return row * 2 + col
+
+
+def _neighbor_room_for_wall(room_id: int, wall_name: str) -> int | None:
+    col = _room_col(room_id)
+    row = _room_row(room_id)
+
+    if wall_name == "east":
+        return _room_id(col + 1, row) if col < 1 else None
+    if wall_name == "west":
+        return _room_id(col - 1, row) if col > 0 else None
+    if wall_name == "south":
+        return _room_id(col, row + 1) if row < 2 else None
+    if wall_name == "north":
+        return _room_id(col, row - 1) if row > 0 else None
+
+    raise ValueError(f"Unknown wall '{wall_name}'")
+
+
+def _build_door_alignment_targets() -> dict[tuple[int, int], float]:
+    """Per connected room pair, choose a shared world-space door center.
+
+    We use midpoint targets so big/small room doors visually line up from both sides.
+    """
+    targets: dict[tuple[int, int], float] = {}
+
+    for room_id, walls in ROOM_DOOR_WALLS.items():
+        for wall_name in walls:
+            neighbor_room = _neighbor_room_for_wall(room_id, wall_name)
+            if neighbor_room is None:
+                raise ValueError(
+                    f"Door config invalid: room {room_id} wall '{wall_name}' has no neighbor"
+                )
+
+            pair = tuple(sorted((room_id, neighbor_room)))
+            if pair in targets:
+                continue
+
+            rx, rz = ROOM_CENTERS_OBJ[room_id]
+            nx, nz = ROOM_CENTERS_OBJ[neighbor_room]
+
+            if wall_name in {"east", "west"}:
+                targets[pair] = (rz + nz) * 0.5
+            else:
+                targets[pair] = (rx + nx) * 0.5
+
+    return targets
+
+
+def _door_center_local(room_id: int, wall_name: str, pair_targets: dict[tuple[int, int], float]) -> float:
+    neighbor_room = _neighbor_room_for_wall(room_id, wall_name)
+    if neighbor_room is None:
+        return 0.0
+
+    pair = tuple(sorted((room_id, neighbor_room)))
+    target_world = pair_targets[pair]
+    room_center_x, room_center_z = ROOM_CENTERS_OBJ[room_id]
+    room_scale = ROOM_WORLD_SCALE[room_id]
+
+    if wall_name in {"east", "west"}:
+        local_offset = (target_world - room_center_z) / room_scale
+    else:
+        local_offset = (target_world - room_center_x) / room_scale
+
+    local_half = DOOR_HALF_WORLD / room_scale
+    if abs(local_offset) + local_half > ROOM_HALF:
+        raise ValueError(
+            f"Door center out of bounds: room {room_id} wall '{wall_name}' offset={local_offset:.3f}"
+        )
+
+    return local_offset
 
 # Building vertices from building.h (engine coordinates)
 BUILDING_ENGINE_VERTS = [
@@ -127,8 +224,9 @@ OBJ_NORMAL_TO_ENGINE = {
 # Room shell dimensions in canonical OBJ space.
 ROOM_HALF = 30.0
 ROOM_WALL_TOP = 25.0
-DOOR_HALF = 5.0
+DOOR_HALF_WORLD = 5.0
 DOOR_TOP = 17.5
+DOUBLE_SIDED_ROOM_SURFACES = True
 
 WINDOW_BOTTOM = 10.0
 WINDOW_TOP = 18.0
@@ -175,6 +273,68 @@ def read_existing_obj(path: str):
     return vertices, faces
 
 
+def extract_centered_furniture_from_level(level_path: str, room_id: int, materials: set[str]):
+    vertices, _normals, objects, _mtl = parse_obj_multi(level_path)
+    room_name = ROOM_NAMES[room_id]
+    room_groups = objects.get(room_name)
+    if room_groups is None:
+        raise ValueError(f"Missing {room_name} in {level_path}")
+
+    cx, cz = ROOM_CENTERS_OBJ[room_id]
+    room_scale = ROOM_WORLD_SCALE[room_id]
+    local_vertices = []
+    remap = {}
+    faces = []
+    seen_faces = set()
+
+    def _canonical_cycle(indices):
+        if not indices:
+            return tuple()
+        rotations = [tuple(indices[i:] + indices[:i]) for i in range(len(indices))]
+        return min(rotations)
+
+    for material_name, group_faces in room_groups:
+        if material_name not in materials:
+            continue
+
+        for face_verts, normal_idx in group_faces:
+            converted_face = []
+            for global_v_idx in face_verts:
+                mapped_idx = remap.get(global_v_idx)
+                if mapped_idx is None:
+                    vx, vy, vz = vertices[global_v_idx]
+                    mapped_idx = len(local_vertices)
+                    local_vertices.append((
+                        (vx - cx) / room_scale,
+                        vy / room_scale,
+                        (vz - cz) / room_scale,
+                    ))
+                    remap[global_v_idx] = mapped_idx
+
+                n_idx = (normal_idx + 1) if normal_idx is not None else 1
+                converted_face.append((mapped_idx + 1, n_idx))
+
+            if len(converted_face) >= 3:
+                v_indices = [v_idx for v_idx, _n_idx in converted_face]
+                # Deduplicate by geometric polygon only (ignore winding/normal).
+                # This prevents recursive growth when templates are re-extracted
+                # from level.obj without standalone chair/table OBJ sources.
+                key = (material_name, tuple(sorted(v_indices)))
+
+                if key in seen_faces:
+                    continue
+
+                seen_faces.add(key)
+                faces.append((material_name, converted_face))
+
+    if not faces:
+        raise ValueError(
+            f"No furniture geometry found in {room_name} for materials {sorted(materials)}"
+        )
+
+    return center_vertices(local_vertices, faces), faces
+
+
 def center_vertices(vertices, faces):
     used = sorted({v_idx - 1 for _mtl, fv in faces for v_idx, _n_idx in fv})
     if not used:
@@ -216,44 +376,51 @@ def _add_quad_double_sided(local_vertices, local_faces, material, normal, quad):
     _add_quad(local_vertices, local_faces, material, inv, [quad[3], quad[2], quad[1], quad[0]])
 
 
-def _add_wall(local_vertices, local_faces, wall_name, has_door):
+def _add_room_surface(local_vertices, local_faces, material, normal, quad):
+    if DOUBLE_SIDED_ROOM_SURFACES:
+        _add_quad_double_sided(local_vertices, local_faces, material, normal, quad)
+    else:
+        _add_quad(local_vertices, local_faces, material, normal, quad)
+
+
+def _add_wall(local_vertices, local_faces, wall_name, has_door, door_center=0.0, door_half=DOOR_HALF_WORLD):
     x0, x1 = -ROOM_HALF, ROOM_HALF
     z0, z1 = -ROOM_HALF, ROOM_HALF
     y0, y1 = 0.0, ROOM_WALL_TOP
-    ds0, ds1 = -DOOR_HALF, DOOR_HALF
+    ds0, ds1 = door_center - door_half, door_center + door_half
 
     if wall_name == "north":
         normal = (0, 1, 0)
         if has_door:
-            _add_quad_double_sided(local_vertices, local_faces, "wall", normal, [(x0, y0, z0), (ds0, y0, z0), (ds0, y1, z0), (x0, y1, z0)])
-            _add_quad_double_sided(local_vertices, local_faces, "wall", normal, [(ds1, y0, z0), (x1, y0, z0), (x1, y1, z0), (ds1, y1, z0)])
-            _add_quad_double_sided(local_vertices, local_faces, "door_frame", normal, [(ds0, DOOR_TOP, z0), (ds1, DOOR_TOP, z0), (ds1, y1, z0), (ds0, y1, z0)])
+            _add_room_surface(local_vertices, local_faces, "wall", normal, [(x0, y0, z0), (ds0, y0, z0), (ds0, y1, z0), (x0, y1, z0)])
+            _add_room_surface(local_vertices, local_faces, "wall", normal, [(ds1, y0, z0), (x1, y0, z0), (x1, y1, z0), (ds1, y1, z0)])
+            _add_room_surface(local_vertices, local_faces, "door_frame", normal, [(ds0, DOOR_TOP, z0), (ds1, DOOR_TOP, z0), (ds1, y1, z0), (ds0, y1, z0)])
         else:
-            _add_quad_double_sided(local_vertices, local_faces, "wall", normal, [(x0, y0, z0), (x1, y0, z0), (x1, y1, z0), (x0, y1, z0)])
+            _add_room_surface(local_vertices, local_faces, "wall", normal, [(x0, y0, z0), (x1, y0, z0), (x1, y1, z0), (x0, y1, z0)])
     elif wall_name == "south":
         normal = (0, -1, 0)
         if has_door:
-            _add_quad_double_sided(local_vertices, local_faces, "wall", normal, [(x0, y1, z1), (ds0, y1, z1), (ds0, y0, z1), (x0, y0, z1)])
-            _add_quad_double_sided(local_vertices, local_faces, "wall", normal, [(ds1, y1, z1), (x1, y1, z1), (x1, y0, z1), (ds1, y0, z1)])
-            _add_quad_double_sided(local_vertices, local_faces, "door_frame", normal, [(ds0, y1, z1), (ds1, y1, z1), (ds1, DOOR_TOP, z1), (ds0, DOOR_TOP, z1)])
+            _add_room_surface(local_vertices, local_faces, "wall", normal, [(x0, y1, z1), (ds0, y1, z1), (ds0, y0, z1), (x0, y0, z1)])
+            _add_room_surface(local_vertices, local_faces, "wall", normal, [(ds1, y1, z1), (x1, y1, z1), (x1, y0, z1), (ds1, y0, z1)])
+            _add_room_surface(local_vertices, local_faces, "door_frame", normal, [(ds0, y1, z1), (ds1, y1, z1), (ds1, DOOR_TOP, z1), (ds0, DOOR_TOP, z1)])
         else:
-            _add_quad_double_sided(local_vertices, local_faces, "wall", normal, [(x0, y1, z1), (x1, y1, z1), (x1, y0, z1), (x0, y0, z1)])
+            _add_room_surface(local_vertices, local_faces, "wall", normal, [(x0, y1, z1), (x1, y1, z1), (x1, y0, z1), (x0, y0, z1)])
     elif wall_name == "west":
         normal = (1, 0, 0)
         if has_door:
-            _add_quad_double_sided(local_vertices, local_faces, "wall", normal, [(x0, y1, z0), (x0, y1, ds0), (x0, y0, ds0), (x0, y0, z0)])
-            _add_quad_double_sided(local_vertices, local_faces, "wall", normal, [(x0, y1, ds1), (x0, y1, z1), (x0, y0, z1), (x0, y0, ds1)])
-            _add_quad_double_sided(local_vertices, local_faces, "door_frame", normal, [(x0, y1, ds0), (x0, y1, ds1), (x0, DOOR_TOP, ds1), (x0, DOOR_TOP, ds0)])
+            _add_room_surface(local_vertices, local_faces, "wall", normal, [(x0, y1, z0), (x0, y1, ds0), (x0, y0, ds0), (x0, y0, z0)])
+            _add_room_surface(local_vertices, local_faces, "wall", normal, [(x0, y1, ds1), (x0, y1, z1), (x0, y0, z1), (x0, y0, ds1)])
+            _add_room_surface(local_vertices, local_faces, "door_frame", normal, [(x0, y1, ds0), (x0, y1, ds1), (x0, DOOR_TOP, ds1), (x0, DOOR_TOP, ds0)])
         else:
-            _add_quad_double_sided(local_vertices, local_faces, "wall", normal, [(x0, y1, z0), (x0, y1, z1), (x0, y0, z1), (x0, y0, z0)])
+            _add_room_surface(local_vertices, local_faces, "wall", normal, [(x0, y1, z0), (x0, y1, z1), (x0, y0, z1), (x0, y0, z0)])
     elif wall_name == "east":
         normal = (-1, 0, 0)
         if has_door:
-            _add_quad_double_sided(local_vertices, local_faces, "wall", normal, [(x1, y0, z0), (x1, y0, ds0), (x1, y1, ds0), (x1, y1, z0)])
-            _add_quad_double_sided(local_vertices, local_faces, "wall", normal, [(x1, y0, ds1), (x1, y0, z1), (x1, y1, z1), (x1, y1, ds1)])
-            _add_quad_double_sided(local_vertices, local_faces, "door_frame", normal, [(x1, DOOR_TOP, ds0), (x1, DOOR_TOP, ds1), (x1, y1, ds1), (x1, y1, ds0)])
+            _add_room_surface(local_vertices, local_faces, "wall", normal, [(x1, y0, z0), (x1, y0, ds0), (x1, y1, ds0), (x1, y1, z0)])
+            _add_room_surface(local_vertices, local_faces, "wall", normal, [(x1, y0, ds1), (x1, y0, z1), (x1, y1, z1), (x1, y1, ds1)])
+            _add_room_surface(local_vertices, local_faces, "door_frame", normal, [(x1, DOOR_TOP, ds0), (x1, DOOR_TOP, ds1), (x1, y1, ds1), (x1, y1, ds0)])
         else:
-            _add_quad_double_sided(local_vertices, local_faces, "wall", normal, [(x1, y0, z0), (x1, y0, z1), (x1, y1, z1), (x1, y1, z0)])
+            _add_room_surface(local_vertices, local_faces, "wall", normal, [(x1, y0, z0), (x1, y0, z1), (x1, y1, z1), (x1, y1, z0)])
     else:
         raise ValueError(f"Unknown wall '{wall_name}'")
 
@@ -265,16 +432,14 @@ def _add_window_faces(local_vertices, local_faces, wall):
         v1 = (WINDOW_HALF_SPAN, WINDOW_BOTTOM, z)
         v2 = (WINDOW_HALF_SPAN, WINDOW_TOP, z)
         v3 = (-WINDOW_HALF_SPAN, WINDOW_TOP, z)
-        _add_quad(local_vertices, local_faces, "reserved", (0, 1, 0), [v0, v1, v2, v3])
-        _add_quad(local_vertices, local_faces, "reserved", (0, -1, 0), [v3, v2, v1, v0])
+        _add_room_surface(local_vertices, local_faces, "reserved", (0, 1, 0), [v0, v1, v2, v3])
     elif wall == "east":
         x = ROOM_HALF - WINDOW_INSET
         v0 = (x, WINDOW_BOTTOM, -WINDOW_HALF_SPAN)
         v1 = (x, WINDOW_BOTTOM, WINDOW_HALF_SPAN)
         v2 = (x, WINDOW_TOP, WINDOW_HALF_SPAN)
         v3 = (x, WINDOW_TOP, -WINDOW_HALF_SPAN)
-        _add_quad(local_vertices, local_faces, "reserved", (-1, 0, 0), [v0, v1, v2, v3])
-        _add_quad(local_vertices, local_faces, "reserved", (1, 0, 0), [v3, v2, v1, v0])
+        _add_room_surface(local_vertices, local_faces, "reserved", (-1, 0, 0), [v0, v1, v2, v3])
     else:
         raise ValueError(f"Unsupported window wall '{wall}'")
 
@@ -298,20 +463,23 @@ def _add_instance_faces(local_vertices, local_faces, source_vertices, source_fac
         local_faces.append((material_name, eng_normal, indices))
 
 
-def _build_room_mesh(room_id, table_vertices, table_faces, chair_vertices, chair_faces):
+def _build_room_mesh(room_id, table_vertices, table_faces, chair_vertices, chair_faces, door_centers):
     local_vertices = []
     local_faces = []
 
-    # Three floor strips so floor_dark can remain the center strip.
-    _add_quad(local_vertices, local_faces, "floor_light", (0, 0, -1), [(-30, 0, 30), (-10, 0, 30), (-10, 0, -30), (-30, 0, -30)])
-    _add_quad(local_vertices, local_faces, "floor_dark", (0, 0, -1), [(-10, 0, 30), (10, 0, 30), (10, 0, -30), (-10, 0, -30)])
-    _add_quad(local_vertices, local_faces, "floor_light", (0, 0, -1), [(10, 0, 30), (30, 0, 30), (30, 0, -30), (10, 0, -30)])
+    _add_quad(local_vertices, local_faces, "floor_dark", (0, 0, -1), [(-30, 0, 30), (30, 0, 30), (30, 0, -30), (-30, 0, -30)])
 
     door_walls = ROOM_DOOR_WALLS[room_id]
-    _add_wall(local_vertices, local_faces, "north", "north" in door_walls)
-    _add_wall(local_vertices, local_faces, "south", "south" in door_walls)
-    _add_wall(local_vertices, local_faces, "west", "west" in door_walls)
-    _add_wall(local_vertices, local_faces, "east", "east" in door_walls)
+    room_scale = ROOM_WORLD_SCALE[room_id]
+    door_half_local = DOOR_HALF_WORLD / room_scale
+    _add_wall(local_vertices, local_faces, "north", "north" in door_walls,
+              door_centers.get("north", 0.0), door_half_local)
+    _add_wall(local_vertices, local_faces, "south", "south" in door_walls,
+              door_centers.get("south", 0.0), door_half_local)
+    _add_wall(local_vertices, local_faces, "west", "west" in door_walls,
+              door_centers.get("west", 0.0), door_half_local)
+    _add_wall(local_vertices, local_faces, "east", "east" in door_walls,
+              door_centers.get("east", 0.0), door_half_local)
 
     if "window" in ROOM_DECOR[room_id]:
         window_wall = WINDOW_WALL_BY_ROOM.get(room_id)
@@ -345,7 +513,6 @@ def main():
 
     all_vertices = []
     object_faces = {
-        "Building": [],
         "Room0": [],
         "Room1": [],
         "Room2": [],
@@ -354,19 +521,34 @@ def main():
         "Room5": [],
     }
 
-    # Building (structure only).
-    building_obj_verts = [engine_to_obj(*v, BUILDING_SCALE) for v in BUILDING_ENGINE_VERTS]
-    building_offset = len(all_vertices)
-    all_vertices.extend(building_obj_verts)
-    for mtl, eng_normal, vert_indices in BUILDING_FACES:
-        object_faces["Building"].append((mtl, eng_normal, [building_offset + i for i in vert_indices]))
-        get_normal_idx(eng_normal)
-
     # Template furniture meshes (centered around local origin).
-    table_verts_raw, table_faces = read_existing_obj(os.path.join(OBJ_DIR, "table.obj"))
-    chair_verts_raw, chair_faces = read_existing_obj(os.path.join(OBJ_DIR, "chair.obj"))
-    table_centered = center_vertices(table_verts_raw, table_faces)
-    chair_centered = center_vertices(chair_verts_raw, chair_faces)
+    table_obj_path = os.path.join(OBJ_DIR, "table.obj")
+    chair_obj_path = os.path.join(OBJ_DIR, "chair.obj")
+    if os.path.isfile(table_obj_path) and os.path.isfile(chair_obj_path):
+        table_verts_raw, table_faces = read_existing_obj(table_obj_path)
+        chair_verts_raw, chair_faces = read_existing_obj(chair_obj_path)
+        table_centered = center_vertices(table_verts_raw, table_faces)
+        chair_centered = center_vertices(chair_verts_raw, chair_faces)
+    else:
+        level_obj_path = os.path.join(OBJ_DIR, "level.obj")
+        table_centered, table_faces = extract_centered_furniture_from_level(
+            level_obj_path,
+            room_id=0,
+            materials={"table_wood"},
+        )
+        chair_centered, chair_faces = extract_centered_furniture_from_level(
+            level_obj_path,
+            room_id=0,
+            materials={"chair_fabric", "chair_frame"},
+        )
+    door_pair_targets = _build_door_alignment_targets()
+
+    door_centers_by_room = {}
+    for room_id in range(6):
+        room_centers = {}
+        for wall_name in ROOM_DOOR_WALLS[room_id]:
+            room_centers[wall_name] = _door_center_local(room_id, wall_name, door_pair_targets)
+        door_centers_by_room[room_id] = room_centers
 
     # Explicit room meshes.
     for room_id, room_name in enumerate(ROOM_NAMES):
@@ -376,9 +558,14 @@ def main():
             table_faces,
             chair_centered,
             chair_faces,
+            door_centers_by_room[room_id],
         )
         cx, cz = ROOM_CENTERS_OBJ[room_id]
-        world_vertices = [(x + cx, y, z + cz) for x, y, z in local_vertices]
+        room_scale = ROOM_WORLD_SCALE[room_id]
+        world_vertices = [
+            (x * room_scale + cx, y * room_scale, z * room_scale + cz)
+            for x, y, z in local_vertices
+        ]
         base = len(all_vertices)
         all_vertices.extend(world_vertices)
 
@@ -386,7 +573,7 @@ def main():
             object_faces[room_name].append((mtl, eng_normal, [base + i for i in local_indices]))
             get_normal_idx(eng_normal)
 
-    ordered_objects = ["Building", *ROOM_NAMES]
+    ordered_objects = list(ROOM_NAMES)
 
     with open(out_path, "w") as output:
         output.write("# Level model - canonical single source\n")

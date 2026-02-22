@@ -3,8 +3,7 @@
 
 Input contract:
 - level.obj is the single source of truth and contains:
-  Building, Room0..Room5
-- Building is structural-only.
+  Room0..Room5
 - Room0..Room5 are explicit room meshes (including decor in source OBJ).
 - Table/Chair runtime headers are extracted from level.obj room decor geometry.
 """
@@ -56,6 +55,19 @@ ROOM_PALETTE = [
     "table_wood", "chair_fabric", "chair_frame",
 ]
 
+# Runtime room-viewer palette contract (indices consumed by room_viewer.cpp):
+# 0..5: room-specific floor tint
+# 6: wall
+# 7: window (reserved)
+# 8: door_frame
+# 9: furniture
+ROOM_VIEWER_PALETTE = [
+    "room0_floor", "room1_floor", "room2_floor",
+    "room3_floor", "room4_floor", "room5_floor",
+    "wall", "reserved", "door_frame", "table_wood",
+]
+FURNITURE_RUNTIME_MATERIAL = "table_wood"
+
 # Runtime room models stay structural-only; furniture is drawn via dynamic models.
 ROOM_RUNTIME_MATERIALS = {
     "floor_light", "floor_dark", "wall", "wall_shadow", "reserved", "door_frame",
@@ -69,15 +81,15 @@ BUILDING_PALETTE = [
 
 ROOM_NAMES = ["Room0", "Room1", "Room2", "Room3", "Room4", "Room5"]
 ROOM_CPP_NAMES = ["room_0", "room_1", "room_2", "room_3", "room_4", "room_5"]
-REQUIRED_OBJECTS = {"Building", *ROOM_NAMES}
+REQUIRED_OBJECTS = set(ROOM_NAMES)
 
 ROOM_CENTERS = {
     0: (-30.0, -60.0),
-    1: (30.0, -60.0),
+    1: (37.5, -67.5),
     2: (-30.0, 0.0),
     3: (30.0, 0.0),
     4: (-30.0, 60.0),
-    5: (30.0, 60.0),
+    5: (37.5, 67.5),
 }
 
 # Locked decor specification.
@@ -116,6 +128,20 @@ ROOM_DOOR_WALLS = {
 }
 
 
+def remap_room_material_to_runtime_palette(material_name, room_id):
+    if material_name in {"floor_light", "floor_dark"}:
+        return f"room{room_id}_floor"
+    if material_name in {"wall", "wall_shadow"}:
+        return "wall"
+    if material_name == "reserved":
+        return "reserved"
+    if material_name == "door_frame":
+        return "door_frame"
+    if material_name in {"table_wood", "chair_fabric", "chair_frame"}:
+        return FURNITURE_RUNTIME_MATERIAL
+    raise ValueError(f"Unsupported room runtime material remap: {material_name}")
+
+
 def _vertex_key(vertex):
     return (round(vertex[0], 5), round(vertex[1], 5), round(vertex[2], 5))
 
@@ -140,26 +166,25 @@ def validate_level_objects(objects):
 
 
 def build_room_geometry(vertices, objects):
-    shared_room_vertices = []
-    vertex_index_by_key = {}
-    room_material_faces = {
-        cpp_name: {material: [] for material in ROOM_PALETTE}
-        for cpp_name in ROOM_CPP_NAMES
-    }
-
-    def get_vertex_index(local_vertex):
-        key = _vertex_key(local_vertex)
-        existing = vertex_index_by_key.get(key)
-        if existing is not None:
-            return existing
-        new_index = len(shared_room_vertices)
-        shared_room_vertices.append(local_vertex)
-        vertex_index_by_key[key] = new_index
-        return new_index
+    room_vertices_by_cpp = {}
+    room_face_groups = {}
 
     for room_id, room_name in enumerate(ROOM_NAMES):
         cpp_name = ROOM_CPP_NAMES[room_id]
         center_x, center_z = ROOM_CENTERS[room_id]
+        room_vertices = []
+        vertex_index_by_key = {}
+        room_material_faces = {material: [] for material in ROOM_PALETTE}
+
+        def get_vertex_index(local_vertex):
+            key = _vertex_key(local_vertex)
+            existing = vertex_index_by_key.get(key)
+            if existing is not None:
+                return existing
+            new_index = len(room_vertices)
+            room_vertices.append(local_vertex)
+            vertex_index_by_key[key] = new_index
+            return new_index
 
         for material_name, faces in objects[room_name]:
             if material_name not in ROOM_RUNTIME_MATERIALS:
@@ -178,21 +203,21 @@ def build_room_geometry(vertices, objects):
                     continue
 
                 final_normal_idx = normal_idx if normal_idx is not None else 0
-                room_material_faces[cpp_name][material_name].append((local_indices, final_normal_idx))
+                room_material_faces[material_name].append((local_indices, final_normal_idx))
 
-    room_face_groups = {}
-    for cpp_name in ROOM_CPP_NAMES:
         groups = []
         for material_name in ROOM_PALETTE:
-            faces = room_material_faces[cpp_name][material_name]
+            faces = room_material_faces[material_name]
             if faces:
                 groups.append((material_name, faces))
+
+        room_vertices_by_cpp[cpp_name] = room_vertices
         room_face_groups[cpp_name] = groups
 
-    return shared_room_vertices, room_face_groups
+    return room_vertices_by_cpp, room_face_groups
 
 
-def validate_room_windows(room_face_groups, room_vertices):
+def validate_room_windows(room_face_groups, room_vertices_by_cpp):
     expected_window_rooms = {room_id for room_id, tokens in ROOM_DECOR_SPEC.items() if "window" in tokens}
 
     for room_id, cpp_name in enumerate(ROOM_CPP_NAMES):
@@ -207,6 +232,7 @@ def validate_room_windows(room_face_groups, room_vertices):
     # Validate window wall targets via room-local centroids of reserved faces.
     for room_id, target_wall in WINDOW_WALL_TARGETS.items():
         cpp_name = ROOM_CPP_NAMES[room_id]
+        room_vertices = room_vertices_by_cpp[cpp_name]
         reserved_faces = []
         for material_name, faces in room_face_groups[cpp_name]:
             if material_name == "reserved":
@@ -270,34 +296,38 @@ def validate_room_decor_source(objects):
 
 def generate_room_header(vertices, normals, objects, materials_rgb):
     validate_room_decor_source(objects)
-    room_vertices, room_face_groups = build_room_geometry(vertices, objects)
-    print(f"  shared room vertices: {len(room_vertices)}")
-    if len(room_vertices) > 256:
-        print(f"  WARNING: {len(room_vertices)} vertices exceeds 256 limit")
+    room_vertices_by_cpp, room_face_groups = build_room_geometry(vertices, objects)
 
-    validate_room_windows(room_face_groups, room_vertices)
+    validate_room_windows(room_face_groups, room_vertices_by_cpp)
 
     room_faces = {}
-    for cpp_name in ROOM_CPP_NAMES:
+    for room_id, cpp_name in enumerate(ROOM_CPP_NAMES):
         faces = prepare_faces(room_face_groups[cpp_name], ROOM_PALETTE, normals)
-        room_faces[cpp_name] = faces
-        print(f"  {cpp_name}: {len(faces)} faces")
-        if len(faces) > 176:
+        runtime_faces = [
+            (remap_room_material_to_runtime_palette(material_name, room_id), face_vertices, normal_idx)
+            for material_name, face_vertices, normal_idx in faces
+        ]
+        room_faces[cpp_name] = runtime_faces
+        vertex_count = len(room_vertices_by_cpp[cpp_name])
+        print(f"  {cpp_name}: {vertex_count} vertices, {len(runtime_faces)} faces")
+        if vertex_count > 256:
+            print("    WARNING: exceeds 256 vertex limit")
+        if len(runtime_faces) > 176:
             print("    WARNING: exceeds 176 face limit")
 
     body_lines = []
-    body_lines.extend(generate_color_lines("room", ROOM_PALETTE, materials_rgb))
-    body_lines.append("")
-    body_lines.extend(generate_vertex_lines("room", room_vertices, ROOM_SCALE, flip_z=True))
+    body_lines.extend(generate_color_lines("room", ROOM_VIEWER_PALETTE, materials_rgb))
     body_lines.append("")
 
     for cpp_name in ROOM_CPP_NAMES:
         faces = room_faces[cpp_name]
-        body_lines.extend(generate_face_lines(cpp_name, "room", faces, normals, ROOM_PALETTE, flip_z=True))
-        body_lines.append(f"    constexpr inline fr::model_3d_item {cpp_name}(room_vertices, {cpp_name}_faces);")
+        body_lines.extend(generate_vertex_lines(cpp_name, room_vertices_by_cpp[cpp_name], ROOM_SCALE, flip_z=True))
+        body_lines.append("")
+        body_lines.extend(generate_face_lines(cpp_name, cpp_name, faces, normals, ROOM_VIEWER_PALETTE, flip_z=True))
+        body_lines.append(f"    constexpr inline fr::model_3d_item {cpp_name}({cpp_name}_vertices, {cpp_name}_faces);")
         body_lines.append("")
 
-    body_lines.append("    constexpr inline fr::model_3d_item room(room_vertices, room_0_faces);")
+    body_lines.append("    constexpr inline fr::model_3d_item room(room_0_vertices, room_0_faces);")
     return generate_header_wrapper("STR_MODEL_3D_ITEMS_ROOM_H", "str", body_lines, emit_colors=True)
 
 
@@ -369,12 +399,44 @@ def generate_furniture_header(vertices, normals, face_groups, model_name, guard)
         remapped_groups.append((material_name, remapped_faces))
 
     all_faces = prepare_faces(remapped_groups, ROOM_PALETTE, normals)
+    runtime_faces = [
+        (FURNITURE_RUNTIME_MATERIAL, face_vertices, normal_idx)
+        for _material_name, face_vertices, normal_idx in all_faces
+    ]
+
+    if model_name == "chair":
+        # The backrest panel is a thin single surface in source geometry.
+        # Mirror only that panel to avoid see-through without doubling whole chair fill cost.
+        normal_to_index = {
+            (round(nx, 5), round(ny, 5), round(nz, 5)): idx
+            for idx, (nx, ny, nz) in enumerate(normals)
+        }
+
+        backrest_panel_index = -1
+        backrest_vertices = {40, 41, 42, 43}
+
+        for index, (_material_name, face_vertices, _normal_idx) in enumerate(runtime_faces):
+            if len(face_vertices) == 4 and set(face_vertices) == backrest_vertices:
+                backrest_panel_index = index
+                break
+
+        if backrest_panel_index >= 0:
+            material_name, face_vertices, normal_idx = runtime_faces[backrest_panel_index]
+            nx, ny, nz = normals[normal_idx]
+            opposite_idx = normal_to_index.get(
+                (round(-nx, 5), round(-ny, 5), round(-nz, 5)),
+                normal_idx,
+            )
+            runtime_faces.append((material_name, list(reversed(face_vertices)), opposite_idx))
+
     print(f"  {model_name}: {len(unique_verts)} vertices, {len(all_faces)} faces")
 
     body_lines = []
     body_lines.extend(generate_vertex_lines(model_name, unique_verts, FURNITURE_SCALE, flip_z=True))
     body_lines.append("")
-    body_lines.extend(generate_face_lines(model_name, model_name, all_faces, normals, ROOM_PALETTE, flip_z=True))
+    body_lines.extend(generate_face_lines(
+        model_name, model_name, runtime_faces, normals, ROOM_VIEWER_PALETTE, flip_z=True
+    ))
     body_lines.append("")
     body_lines.append(f"    constexpr inline fr::model_3d_item {model_name}({model_name}_vertices, {model_name}_faces);")
 
@@ -553,10 +615,6 @@ def main():
     room_header = generate_room_header(vertices, normals, objects, materials_rgb)
     write_header(os.path.join(args.output_dir, "str_model_3d_items_room.h"), room_header)
 
-    print("\n=== Building header ===")
-    building_header = generate_building_header(vertices, normals, objects, materials_rgb)
-    write_header(os.path.join(args.output_dir, "str_model_3d_items_building.h"), building_header)
-
     print("\n=== Table header ===")
     table_vertices, table_normals, table_groups = load_centered_furniture_from_level(
         vertices,
@@ -620,11 +678,10 @@ def main():
 
     print("\n=== Summary ===")
     print(f"  Room palette: {len(ROOM_PALETTE)} colors")
-    print(f"  Building palette: {len(BUILDING_PALETTE)} colors")
     if args.skip_standalone:
-        print("  Generated: room, building, table, chair headers")
+        print("  Generated: room, table, chair headers")
     else:
-        print("  Generated: room, building, table, chair, blaster, player_car headers")
+        print("  Generated: room, table, chair, blaster, player_car headers")
     print("  Furniture source: extracted from level.obj room meshes")
     print("\nLevel headers generated. Rebuild the project.")
     return 0

@@ -59,244 +59,296 @@ void models_3d::_process_models(const camera_3d& camera)
     bn::fixed camera_u_z = camera.u().z();
     bn::fixed camera_v_x = camera.v().x();
     bn::fixed camera_v_z = camera.v().z();
-    int global_vertex_index = 0;
-    int valid_faces_count = 0;
-
-    // Project static models:
-
-    FR_PROFILER_START("static_project");
-
-    for(int static_model_index = _static_models_count - 1; static_model_index >= 0; --static_model_index)
-    {
-        const model_3d_item* model_item = _static_model_items_ptr[static_model_index];
-        const vertex_3d* model_vertices = model_item->vertices().data();
-        point_2d* projected_vertices = _projected_vertices + global_vertex_index;
-        int model_vertices_count = model_item->vertices().size();
-        bool valid_model = true;
-
-        for(int index = 0; index < model_vertices_count; ++index)
-        {
-            const point_3d& model_point = model_vertices[index].point();
-            bn::fixed vry = model_point.y() - camera_position.y();
-            int vcz = -vry.data();
-
-            if(near_plane <= vcz) [[likely]]
-            {
-                bn::fixed vrx = (model_point.x() - camera_position.x()) / 16;
-                bn::fixed vrz = (model_point.z() - camera_position.z()) / 16;
-                int vcx = (vrx.unsafe_multiplication(camera_u_x) + vrz.unsafe_multiplication(camera_u_z)).data();
-                int vcy = -(vrx.unsafe_multiplication(camera_v_x) + vrz.unsafe_multiplication(camera_v_z)).data();
-
-                // int scale = (1 << (focal_length_shift + 16 + 4)) / vcz;
-                auto scale = int((div_lut_ptr[vcz >> 10] << (focal_length_shift - 8)) >> 6);
-
-                *projected_vertices = {
-                    int16_t(((vcx * scale) >> 16) + (display_width / 2)),
-                    int16_t(((vcy * scale) >> 16) + (display_height / 2))
-                };
-
-                ++projected_vertices;
-            }
-            else
-            {
-                valid_model = false;
-                break;
-            }
-        }
-
-        if(valid_model) [[likely]]
-        {
-            const face_3d* model_faces = model_item->faces().data();
-            int model_faces_count = model_item->faces().size();
-            projected_vertices = _projected_vertices + global_vertex_index;
-
-            for(int index = model_faces_count - 1; index >= 0; --index)
-            {
-                const face_3d& face = model_faces[index];
-                const point_3d& centroid = face.centroid().point();
-                const point_3d& normal = face.normal().point();
-                point_3d vr = centroid - camera_position;
-
-                if(vr.safe_dot_product(normal) < 0) [[likely]]
-                {
-                    int projected_z = -vr.y().data();
-
-                    _valid_faces_info[valid_faces_count] = {
-                        &face, projected_vertices, projected_z
-                    };
-
-                    ++valid_faces_count;
-                }
-            }
-
-            global_vertex_index += model_vertices_count;
-        }
-    }
-
-    FR_PROFILER_STOP();
-
-    // Project dynamic models:
-
-    FR_PROFILER_START("dynamic_project");
-
-    for(model_3d& model : _dynamic_models_list)
-    {
-        const model_3d_item& model_item = model.item();
-        const vertex_3d* model_vertices = model_item.vertices().data();
-        point_2d* projected_vertices = _projected_vertices + global_vertex_index;
-        int model_vertices_count = model_item.vertices().size();
-        bool valid_model = true;
-        model.update();
-
-        for(int index = 0; index < model_vertices_count; ++index)
-        {
-            point_3d model_point = model.transform(model_vertices[index]);
-            bn::fixed vry = model_point.y() - camera_position.y();
-            int vcz = -vry.data();
-
-            if(near_plane <= vcz) [[likely]]
-            {
-                bn::fixed vrx = (model_point.x() - camera_position.x()) / 16;
-                bn::fixed vrz = (model_point.z() - camera_position.z()) / 16;
-                int vcx = (vrx.unsafe_multiplication(camera_u_x) + vrz.unsafe_multiplication(camera_u_z)).data();
-                int vcy = -(vrx.unsafe_multiplication(camera_v_x) + vrz.unsafe_multiplication(camera_v_z)).data();
-
-                // int scale = (1 << (focal_length_shift + 16 + 4)) / vcz;
-                auto scale = int((div_lut_ptr[vcz >> 10] << (focal_length_shift - 8)) >> 6);
-
-                *projected_vertices = {
-                    int16_t(((vcx * scale) >> 16) + (display_width / 2)),
-                    int16_t(((vcy * scale) >> 16) + (display_height / 2))
-                };
-
-                ++projected_vertices;
-            }
-            else
-            {
-                valid_model = false;
-                break;
-            }
-        }
-
-        if(valid_model) [[likely]]
-        {
-            const face_3d* model_faces = model_item.faces().data();
-            int model_faces_count = model_item.faces().size();
-            projected_vertices = _projected_vertices + global_vertex_index;
-
-            for(int index = model_faces_count - 1; index >= 0; --index)
-            {
-                const face_3d& face = model_faces[index];
-                point_3d centroid = model.transform(face.centroid());
-                point_3d normal = model.rotate(face.normal());
-                point_3d vr = centroid - camera_position;
-
-                if(vr.safe_dot_product(normal) < 0) [[likely]]
-                {
-                    int projected_z = -vr.y().data() + model.depth_bias();
-
-                    if(model.mode() == model_3d::layering_mode::room_perspective)
-                    {
-                        // Room perspective rule:
-                        // - floor and back-half walls (centroid at or behind model.position().y() along depth): behind entities
-                        // - front-half walls (centroid closer to the camera along depth): in front of entities
-                        // color 0/1 are room floor materials.
-                        if(face.color_index() <= 1 || centroid.y() <= model.position().y())
-                        {
-                            projected_z += room_back_layer_bias;
-                        }
-                        else
-                        {
-                            projected_z += room_front_layer_bias;
-                        }
-                    }
-
-                    _valid_faces_info[valid_faces_count] = {
-                        &face, projected_vertices, projected_z
-                    };
-
-                    ++valid_faces_count;
-                }
-            }
-
-            global_vertex_index += model_vertices_count;
-        }
-    }
-
-    FR_PROFILER_STOP();
-
-    // Cull valid faces:
-
     visible_face_info* visible_faces = _visible_faces_info;
     int visible_faces_count = 0;
+    bool geometry_cache_hit = false;
 
-    FR_PROFILER_START("cull_valid_faces");
-
-    for(int face_index = valid_faces_count - 1; face_index >= 0; --face_index)
+    if(_geometry_cache_valid && _cached_static_model_items_ptr == _static_model_items_ptr &&
+       _cached_static_models_count == _static_models_count &&
+       _cached_dynamic_models_generation == _dynamic_models_generation &&
+       _cached_camera_position == camera_position && _cached_camera_phi == camera_phi)
     {
-        const valid_face_info& valid_face = _valid_faces_info[face_index];
-        const face_3d* face = valid_face.face;
-        const point_2d* projected_vertices = valid_face.projected_vertices;
-        const point_2d& pv0 = projected_vertices[face->first_vertex_index()];
-        const point_2d& pv1 = projected_vertices[face->second_vertex_index()];
-        const point_2d& pv2 = projected_vertices[face->third_vertex_index()];
-        const point_2d& pv3 = projected_vertices[face->fourth_vertex_index()];
-        int16_t minimum_x = pv0.x;
-        int16_t maximum_x = minimum_x;
+        int cached_dynamic_index = 0;
+        geometry_cache_hit = true;
 
-        auto min_max_x = [&minimum_x, &maximum_x](int16_t value)
+        for(const model_3d& model : _dynamic_models_list)
         {
-            if(value < minimum_x)
+            if(cached_dynamic_index >= _cached_dynamic_models_count ||
+               _cached_dynamic_models[cached_dynamic_index] != &model ||
+               _cached_dynamic_model_versions[cached_dynamic_index] != model.version())
             {
-                minimum_x = value;
+                geometry_cache_hit = false;
+                break;
             }
-            else if(value > maximum_x)
-            {
-                maximum_x = value;
-            }
-        };
 
-        min_max_x(pv1.x);
-        min_max_x(pv2.x);
-        min_max_x(pv3.x);
+            ++cached_dynamic_index;
+        }
 
-        if(minimum_x < display_width && maximum_x >= 0) [[likely]]
+        if(geometry_cache_hit && cached_dynamic_index != _cached_dynamic_models_count)
         {
-            int16_t minimum_y = pv0.y;
-            int16_t maximum_y = minimum_y;
-            int top_index = 0;
+            geometry_cache_hit = false;
+        }
+    }
 
-            auto min_max_y = [&minimum_y, &maximum_y, &top_index](int index, int16_t value)
+    if(! geometry_cache_hit)
+    {
+        int global_vertex_index = 0;
+        int valid_faces_count = 0;
+
+        // Project static models:
+
+        FR_PROFILER_START("static_project");
+
+        for(int static_model_index = _static_models_count - 1; static_model_index >= 0; --static_model_index)
+        {
+            const model_3d_item* model_item = _static_model_items_ptr[static_model_index];
+            const vertex_3d* model_vertices = model_item->vertices().data();
+            point_2d* projected_vertices = _projected_vertices + global_vertex_index;
+            int model_vertices_count = model_item->vertices().size();
+            bool valid_model = true;
+
+            for(int index = 0; index < model_vertices_count; ++index)
             {
-                if(value < minimum_y)
+                const point_3d& model_point = model_vertices[index].point();
+                bn::fixed vry = model_point.y() - camera_position.y();
+                int vcz = -vry.data();
+
+                if(near_plane <= vcz) [[likely]]
                 {
-                    top_index = index;
-                    minimum_y = value;
+                    bn::fixed vrx = (model_point.x() - camera_position.x()) / 16;
+                    bn::fixed vrz = (model_point.z() - camera_position.z()) / 16;
+                    int vcx = (vrx.unsafe_multiplication(camera_u_x) + vrz.unsafe_multiplication(camera_u_z)).data();
+                    int vcy = -(vrx.unsafe_multiplication(camera_v_x) + vrz.unsafe_multiplication(camera_v_z)).data();
+
+                    // int scale = (1 << (focal_length_shift + 16 + 4)) / vcz;
+                    auto scale = int((div_lut_ptr[vcz >> 10] << (focal_length_shift - 8)) >> 6);
+
+                    *projected_vertices = {
+                        int16_t(((vcx * scale) >> 16) + (display_width / 2)),
+                        int16_t(((vcy * scale) >> 16) + (display_height / 2))
+                    };
+
+                    ++projected_vertices;
                 }
-                else if(value > maximum_y)
+                else
                 {
-                    maximum_y = value;
+                    valid_model = false;
+                    break;
+                }
+            }
+
+            if(valid_model) [[likely]]
+            {
+                const face_3d* model_faces = model_item->faces().data();
+                int model_faces_count = model_item->faces().size();
+                projected_vertices = _projected_vertices + global_vertex_index;
+
+                for(int index = model_faces_count - 1; index >= 0; --index)
+                {
+                    const face_3d& face = model_faces[index];
+                    const point_3d& centroid = face.centroid().point();
+                    const point_3d& normal = face.normal().point();
+                    point_3d vr = centroid - camera_position;
+
+                    if(vr.safe_dot_product(normal) < 0) [[likely]]
+                    {
+                        int projected_z = -vr.y().data();
+
+                        _valid_faces_info[valid_faces_count] = {
+                            &face, projected_vertices, projected_z
+                        };
+
+                        ++valid_faces_count;
+                    }
+                }
+
+                global_vertex_index += model_vertices_count;
+            }
+        }
+
+        FR_PROFILER_STOP();
+
+        // Project dynamic models:
+
+        FR_PROFILER_START("dynamic_project");
+
+        for(model_3d& model : _dynamic_models_list)
+        {
+            const model_3d_item& model_item = model.item();
+            const vertex_3d* model_vertices = model_item.vertices().data();
+            point_2d* projected_vertices = _projected_vertices + global_vertex_index;
+            int model_vertices_count = model_item.vertices().size();
+            bool valid_model = true;
+            bool model_double_sided = model.double_sided();
+            model.update();
+
+            for(int index = 0; index < model_vertices_count; ++index)
+            {
+                point_3d model_point = model.transform(model_vertices[index]);
+                bn::fixed vry = model_point.y() - camera_position.y();
+                int vcz = -vry.data();
+
+                if(near_plane <= vcz) [[likely]]
+                {
+                    bn::fixed vrx = (model_point.x() - camera_position.x()) / 16;
+                    bn::fixed vrz = (model_point.z() - camera_position.z()) / 16;
+                    int vcx = (vrx.unsafe_multiplication(camera_u_x) + vrz.unsafe_multiplication(camera_u_z)).data();
+                    int vcy = -(vrx.unsafe_multiplication(camera_v_x) + vrz.unsafe_multiplication(camera_v_z)).data();
+
+                    // int scale = (1 << (focal_length_shift + 16 + 4)) / vcz;
+                    auto scale = int((div_lut_ptr[vcz >> 10] << (focal_length_shift - 8)) >> 6);
+
+                    *projected_vertices = {
+                        int16_t(((vcx * scale) >> 16) + (display_width / 2)),
+                        int16_t(((vcy * scale) >> 16) + (display_height / 2))
+                    };
+
+                    ++projected_vertices;
+                }
+                else
+                {
+                    valid_model = false;
+                    break;
+                }
+            }
+
+            if(valid_model) [[likely]]
+            {
+                const face_3d* model_faces = model_item.faces().data();
+                int model_faces_count = model_item.faces().size();
+                projected_vertices = _projected_vertices + global_vertex_index;
+
+                for(int index = model_faces_count - 1; index >= 0; --index)
+                {
+                    const face_3d& face = model_faces[index];
+                    point_3d centroid = model.transform(face.centroid());
+                    point_3d normal = model.rotate(face.normal());
+                    point_3d vr = centroid - camera_position;
+                    bool front_facing = vr.safe_dot_product(normal) < 0;
+
+                    if(model_double_sided || front_facing) [[likely]]
+                    {
+                        int projected_z = -vr.y().data() + model.depth_bias();
+
+                        if(model.mode() == model_3d::layering_mode::room_perspective)
+                        {
+                            // Keep room shell generally behind entities, but allow front door frames
+                            // to overlay the player for doorway depth cues.
+                            bool front_door_frame = face.color_index() == 8 && centroid.y() > model.position().y();
+                            projected_z += front_door_frame ? room_front_layer_bias : room_back_layer_bias;
+                        }
+
+                        _valid_faces_info[valid_faces_count] = {
+                            &face, projected_vertices, projected_z
+                        };
+
+                        ++valid_faces_count;
+                    }
+                }
+
+                global_vertex_index += model_vertices_count;
+            }
+        }
+
+        FR_PROFILER_STOP();
+
+        // Cull valid faces:
+
+        FR_PROFILER_START("cull_valid_faces");
+
+        for(int face_index = valid_faces_count - 1; face_index >= 0; --face_index)
+        {
+            const valid_face_info& valid_face = _valid_faces_info[face_index];
+            const face_3d* face = valid_face.face;
+            const point_2d* projected_vertices = valid_face.projected_vertices;
+            const point_2d& pv0 = projected_vertices[face->first_vertex_index()];
+            const point_2d& pv1 = projected_vertices[face->second_vertex_index()];
+            const point_2d& pv2 = projected_vertices[face->third_vertex_index()];
+            const point_2d& pv3 = projected_vertices[face->fourth_vertex_index()];
+            int16_t minimum_x = pv0.x;
+            int16_t maximum_x = minimum_x;
+
+            auto min_max_x = [&minimum_x, &maximum_x](int16_t value)
+            {
+                if(value < minimum_x)
+                {
+                    minimum_x = value;
+                }
+                else if(value > maximum_x)
+                {
+                    maximum_x = value;
                 }
             };
 
-            min_max_y(1, pv1.y);
-            min_max_y(2, pv2.y);
-            min_max_y(3, pv3.y);
+            min_max_x(pv1.x);
+            min_max_x(pv2.x);
+            min_max_x(pv3.x);
 
-            if(minimum_y < display_height && maximum_y >= 0)
+            if(minimum_x < display_width && maximum_x >= 0) [[likely]]
             {
-                visible_faces[visible_faces_count] = {
-                    &valid_face, top_index, minimum_x, maximum_x, minimum_y, maximum_y
+                int16_t minimum_y = pv0.y;
+                int16_t maximum_y = minimum_y;
+                int top_index = 0;
+
+                auto min_max_y = [&minimum_y, &maximum_y, &top_index](int index, int16_t value)
+                {
+                    if(value < minimum_y)
+                    {
+                        top_index = index;
+                        minimum_y = value;
+                    }
+                    else if(value > maximum_y)
+                    {
+                        maximum_y = value;
+                    }
                 };
 
-                _visible_face_projected_zs[visible_faces_count] = valid_face.projected_z;
-                _visible_face_indexes[visible_faces_count] = visible_faces_count;
-                ++visible_faces_count;
+                min_max_y(1, pv1.y);
+                min_max_y(2, pv2.y);
+                min_max_y(3, pv3.y);
+
+                if(minimum_y < display_height && maximum_y >= 0)
+                {
+                    visible_faces[visible_faces_count] = {
+                        &valid_face, top_index, minimum_x, maximum_x, minimum_y, maximum_y
+                    };
+
+                    _visible_face_projected_zs[visible_faces_count] = valid_face.projected_z;
+                    _visible_face_indexes[visible_faces_count] = visible_faces_count;
+                    ++visible_faces_count;
+                }
             }
         }
-    }
 
-    FR_PROFILER_STOP();
+        FR_PROFILER_STOP();
+
+        _cached_camera_position = camera_position;
+        _cached_camera_phi = camera_phi;
+        _cached_static_model_items_ptr = _static_model_items_ptr;
+        _cached_static_models_count = _static_models_count;
+        _cached_dynamic_models_generation = _dynamic_models_generation;
+        _cached_geometry_visible_faces_count = visible_faces_count;
+
+        int cached_dynamic_index = 0;
+        for(const model_3d& model : _dynamic_models_list)
+        {
+            _cached_dynamic_models[cached_dynamic_index] = &model;
+            _cached_dynamic_model_versions[cached_dynamic_index] = model.version();
+            ++cached_dynamic_index;
+        }
+
+        _cached_dynamic_models_count = cached_dynamic_index;
+        _geometry_cache_valid = true;
+    }
+    else
+    {
+        visible_faces_count = _cached_geometry_visible_faces_count;
+
+        for(int visible_face_index = 0; visible_face_index < visible_faces_count; ++visible_face_index)
+        {
+            _visible_face_indexes[visible_face_index] = visible_face_index;
+        }
+    }
 
     // Project and cull sprites:
 
@@ -530,7 +582,17 @@ void models_3d::_process_models(const camera_3d& camera)
 
                     while(y <= bottom_y)
                     {
-                        hlines[y] = { xl.shift_integer(), xr.shift_integer() };
+                        int hline_xl = xl.shift_integer();
+                        int hline_xr = xr.shift_integer();
+
+                        if(hline_xl > hline_xr)
+                        {
+                            int temp = hline_xl;
+                            hline_xl = hline_xr;
+                            hline_xr = temp;
+                        }
+
+                        hlines[y] = { hline_xl, hline_xr };
                         xl += left_delta;
                         xr += right_delta;
                         ++y;
@@ -584,7 +646,17 @@ void models_3d::_process_models(const camera_3d& camera)
             }
             else
             {
-                hlines[minimum_y] = { minimum_x, maximum_x };
+                int hline_xl = minimum_x;
+                int hline_xr = maximum_x;
+
+                if(hline_xl > hline_xr)
+                {
+                    int temp = hline_xl;
+                    hline_xl = hline_xr;
+                    hline_xr = temp;
+                }
+
+                hlines[minimum_y] = { hline_xl, hline_xr };
             }
 
             int width = maximum_x - minimum_x + 1;
