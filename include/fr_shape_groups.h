@@ -57,8 +57,8 @@ public:
 
 private:
     static constexpr int _max_palettes = 8;
-    // Increased to avoid per-scanline overflow when room shells are double-sided.
-    static constexpr int _max_hdma_sprites = 40;
+    // Increased to avoid per-scanline overflow when multiple room shells overlap.
+    static constexpr int _max_hdma_sprites = 48;
     static constexpr int _hdma_source_size = (bn::display::height() + 1) * 4 * _max_hdma_sprites;
 
     class color_tiles

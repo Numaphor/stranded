@@ -49,6 +49,7 @@ void models_3d::_process_models(const camera_3d& camera)
     // These arrays use BN_DATA_EWRAM_BSS to avoid IWRAM overflow.
     // Stranded uses more IWRAM static code/data than varooom-3d standalone.
     static BN_DATA_EWRAM_BSS point_2d _projected_vertices[_max_vertices];
+    static BN_DATA_EWRAM_BSS bool _projected_vertices_valid[_max_vertices];
     static BN_DATA_EWRAM_BSS valid_face_info _valid_faces_info[_max_faces];
     static BN_DATA_EWRAM_BSS int _visible_face_projected_zs[_max_faces];
     static BN_DATA_EWRAM_BSS uint16_t _visible_face_indexes[_max_faces];
@@ -104,16 +105,18 @@ void models_3d::_process_models(const camera_3d& camera)
             const model_3d_item* model_item = _static_model_items_ptr[static_model_index];
             const vertex_3d* model_vertices = model_item->vertices().data();
             point_2d* projected_vertices = _projected_vertices + global_vertex_index;
+            bool* projected_vertices_valid = _projected_vertices_valid + global_vertex_index;
             int model_vertices_count = model_item->vertices().size();
-            bool valid_model = true;
 
             for(int index = 0; index < model_vertices_count; ++index)
             {
                 const point_3d& model_point = model_vertices[index].point();
                 bn::fixed vry = model_point.y() - camera_position.y();
                 int vcz = -vry.data();
+                bool vertex_valid = near_plane <= vcz;
+                projected_vertices_valid[index] = vertex_valid;
 
-                if(near_plane <= vcz) [[likely]]
+                if(vertex_valid) [[likely]]
                 {
                     bn::fixed vrx = (model_point.x() - camera_position.x()) / 16;
                     bn::fixed vrz = (model_point.z() - camera_position.z()) / 16;
@@ -123,29 +126,29 @@ void models_3d::_process_models(const camera_3d& camera)
                     // int scale = (1 << (focal_length_shift + 16 + 4)) / vcz;
                     auto scale = int((div_lut_ptr[vcz >> 10] << (focal_length_shift - 8)) >> 6);
 
-                    *projected_vertices = {
+                    projected_vertices[index] = {
                         int16_t(((vcx * scale) >> 16) + (display_width / 2)),
                         int16_t(((vcy * scale) >> 16) + (display_height / 2))
                     };
-
-                    ++projected_vertices;
-                }
-                else
-                {
-                    valid_model = false;
-                    break;
                 }
             }
 
-            if(valid_model) [[likely]]
-            {
-                const face_3d* model_faces = model_item->faces().data();
-                int model_faces_count = model_item->faces().size();
-                projected_vertices = _projected_vertices + global_vertex_index;
+            const face_3d* model_faces = model_item->faces().data();
+            int model_faces_count = model_item->faces().size();
 
-                for(int index = model_faces_count - 1; index >= 0; --index)
+            for(int index = model_faces_count - 1; index >= 0; --index)
+            {
+                const face_3d& face = model_faces[index];
+                int first_vertex_index = face.first_vertex_index();
+                int second_vertex_index = face.second_vertex_index();
+                int third_vertex_index = face.third_vertex_index();
+                int fourth_vertex_index = face.fourth_vertex_index();
+
+                if(projected_vertices_valid[first_vertex_index] &&
+                   projected_vertices_valid[second_vertex_index] &&
+                   projected_vertices_valid[third_vertex_index] &&
+                   projected_vertices_valid[fourth_vertex_index])
                 {
-                    const face_3d& face = model_faces[index];
                     const point_3d& centroid = face.centroid().point();
                     const point_3d& normal = face.normal().point();
                     point_3d vr = centroid - camera_position;
@@ -161,9 +164,9 @@ void models_3d::_process_models(const camera_3d& camera)
                         ++valid_faces_count;
                     }
                 }
-
-                global_vertex_index += model_vertices_count;
             }
+
+            global_vertex_index += model_vertices_count;
         }
 
         FR_PROFILER_STOP();
@@ -177,8 +180,8 @@ void models_3d::_process_models(const camera_3d& camera)
             const model_3d_item& model_item = model.item();
             const vertex_3d* model_vertices = model_item.vertices().data();
             point_2d* projected_vertices = _projected_vertices + global_vertex_index;
+            bool* projected_vertices_valid = _projected_vertices_valid + global_vertex_index;
             int model_vertices_count = model_item.vertices().size();
-            bool valid_model = true;
             bool model_double_sided = model.double_sided();
             model.update();
 
@@ -187,8 +190,10 @@ void models_3d::_process_models(const camera_3d& camera)
                 point_3d model_point = model.transform(model_vertices[index]);
                 bn::fixed vry = model_point.y() - camera_position.y();
                 int vcz = -vry.data();
+                bool vertex_valid = near_plane <= vcz;
+                projected_vertices_valid[index] = vertex_valid;
 
-                if(near_plane <= vcz) [[likely]]
+                if(vertex_valid) [[likely]]
                 {
                     bn::fixed vrx = (model_point.x() - camera_position.x()) / 16;
                     bn::fixed vrz = (model_point.z() - camera_position.z()) / 16;
@@ -198,29 +203,29 @@ void models_3d::_process_models(const camera_3d& camera)
                     // int scale = (1 << (focal_length_shift + 16 + 4)) / vcz;
                     auto scale = int((div_lut_ptr[vcz >> 10] << (focal_length_shift - 8)) >> 6);
 
-                    *projected_vertices = {
+                    projected_vertices[index] = {
                         int16_t(((vcx * scale) >> 16) + (display_width / 2)),
                         int16_t(((vcy * scale) >> 16) + (display_height / 2))
                     };
-
-                    ++projected_vertices;
-                }
-                else
-                {
-                    valid_model = false;
-                    break;
                 }
             }
 
-            if(valid_model) [[likely]]
-            {
-                const face_3d* model_faces = model_item.faces().data();
-                int model_faces_count = model_item.faces().size();
-                projected_vertices = _projected_vertices + global_vertex_index;
+            const face_3d* model_faces = model_item.faces().data();
+            int model_faces_count = model_item.faces().size();
 
-                for(int index = model_faces_count - 1; index >= 0; --index)
+            for(int index = model_faces_count - 1; index >= 0; --index)
+            {
+                const face_3d& face = model_faces[index];
+                int first_vertex_index = face.first_vertex_index();
+                int second_vertex_index = face.second_vertex_index();
+                int third_vertex_index = face.third_vertex_index();
+                int fourth_vertex_index = face.fourth_vertex_index();
+
+                if(projected_vertices_valid[first_vertex_index] &&
+                   projected_vertices_valid[second_vertex_index] &&
+                   projected_vertices_valid[third_vertex_index] &&
+                   projected_vertices_valid[fourth_vertex_index])
                 {
-                    const face_3d& face = model_faces[index];
                     point_3d centroid = model.transform(face.centroid());
                     point_3d normal = model.rotate(face.normal());
                     point_3d vr = centroid - camera_position;
@@ -252,9 +257,9 @@ void models_3d::_process_models(const camera_3d& camera)
                         ++valid_faces_count;
                     }
                 }
-
-                global_vertex_index += model_vertices_count;
             }
+
+            global_vertex_index += model_vertices_count;
         }
 
         FR_PROFILER_STOP();
