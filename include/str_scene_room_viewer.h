@@ -23,7 +23,7 @@ public:
     str::Scene execute();
 
 private:
-    bn::vector<bn::sprite_ptr, 32> _text_sprites;
+    bn::vector<bn::sprite_ptr, 64> _text_sprites;
     fr::camera_3d _camera;
     fr::models_3d _models;
 

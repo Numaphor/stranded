@@ -12,6 +12,7 @@
 #include "bn_string.h"
 #include "bn_sstream.h"
 #include "bn_log.h"
+#include "bn_profiler.h"
 #include "bn_sprite_items_eris.h"
 
 #include "common_variable_8x8_sprite_font.h"
@@ -382,6 +383,7 @@ str::Scene RoomViewer::execute()
     fr::model_3d* transition_chair_ptr = nullptr;
 
     fr::point_3d room_base_pos(0, 96, 16);
+    bool player_sprite_created = false;
 
     corner_matrix all_corners[4];
     compute_corner_matrices(all_corners);
@@ -434,33 +436,73 @@ str::Scene RoomViewer::execute()
             room_base_pos.z() + rz);
     };
 
+    auto try_create_dynamic_model = [&](const fr::model_3d_item& model_item) -> fr::model_3d* {
+        int reserved_vertices = player_sprite_created ? 0 : 1;
+        int model_vertices_count = model_item.vertices().size();
+
+        if(_models.vertices_count() + model_vertices_count + reserved_vertices > fr::models_3d::max_vertices())
+        {
+            return nullptr;
+        }
+
+        return &_models.create_dynamic_model(model_item);
+    };
+
     auto sync_room_models = [&]() {
         bool changed = false;
+        bool should_exist[NUM_ROOMS] = {};
 
         for(int room_id = 0; room_id < NUM_ROOMS; ++room_id)
         {
-            bool should_exist = room_id == current_room || rooms_are_adjacent(current_room, room_id);
+            should_exist[room_id] = room_id == current_room || rooms_are_adjacent(current_room, room_id);
 
-            if(should_exist)
-            {
-                if(!room_models[room_id])
-                {
-                    room_models[room_id] = &_models.create_dynamic_model(get_room_model(room_id));
-                    changed = true;
-                }
-
-                room_models[room_id]->set_mode(
-                    room_id == current_room ? fr::model_3d::layering_mode::room_perspective :
-                                              fr::model_3d::layering_mode::none);
-                room_models[room_id]->set_depth_bias(
-                    room_id == current_room ? 0 : ADJACENT_ROOM_DEPTH_BIAS);
-                room_models[room_id]->set_double_sided(false);
-            }
-            else if(room_models[room_id])
+            if(!should_exist[room_id] && room_models[room_id])
             {
                 _models.destroy_dynamic_model(*room_models[room_id]);
                 room_models[room_id] = nullptr;
                 changed = true;
+            }
+        }
+
+        auto ensure_room_model = [&](int room_id) {
+            if(!should_exist[room_id])
+            {
+                return;
+            }
+
+            fr::model_3d* room_model = room_models[room_id];
+
+            if(!room_model)
+            {
+                room_model = try_create_dynamic_model(get_room_model(room_id));
+                room_models[room_id] = room_model;
+
+                if(room_model)
+                {
+                    changed = true;
+                }
+                else
+                {
+                    return;
+                }
+            }
+
+            room_model->set_mode(
+                room_id == current_room ? fr::model_3d::layering_mode::room_perspective :
+                                          fr::model_3d::layering_mode::none);
+            room_model->set_depth_bias(
+                room_id == current_room ? 0 : ADJACENT_ROOM_DEPTH_BIAS);
+            room_model->set_double_sided(false);
+        };
+
+        // Current room first, then adjacent rooms while budget allows.
+        ensure_room_model(current_room);
+
+        for(int room_id = 0; room_id < NUM_ROOMS; ++room_id)
+        {
+            if(room_id != current_room)
+            {
+                ensure_room_model(room_id);
             }
         }
 
@@ -476,12 +518,15 @@ str::Scene RoomViewer::execute()
         {
             if(!room_table_ptr)
             {
-                room_table_ptr = &_models.create_dynamic_model(str::model_3d_items::table);
+                room_table_ptr = try_create_dynamic_model(str::model_3d_items::table);
             }
 
-            room_table_ptr->set_mode(fr::model_3d::layering_mode::none);
-            room_table_ptr->set_depth_bias(depth_bias);
-            room_table_ptr->set_double_sided(false);
+            if(room_table_ptr)
+            {
+                room_table_ptr->set_mode(fr::model_3d::layering_mode::none);
+                room_table_ptr->set_depth_bias(depth_bias);
+                room_table_ptr->set_double_sided(false);
+            }
         }
         else if(room_table_ptr)
         {
@@ -494,12 +539,15 @@ str::Scene RoomViewer::execute()
         {
             if(!room_chair_ptr)
             {
-                room_chair_ptr = &_models.create_dynamic_model(str::model_3d_items::chair);
+                room_chair_ptr = try_create_dynamic_model(str::model_3d_items::chair);
             }
 
-            room_chair_ptr->set_mode(fr::model_3d::layering_mode::none);
-            room_chair_ptr->set_depth_bias(depth_bias);
-            room_chair_ptr->set_double_sided(false);
+            if(room_chair_ptr)
+            {
+                room_chair_ptr->set_mode(fr::model_3d::layering_mode::none);
+                room_chair_ptr->set_depth_bias(depth_bias);
+                room_chair_ptr->set_double_sided(false);
+            }
         }
         else if(room_chair_ptr)
         {
@@ -621,6 +669,7 @@ str::Scene RoomViewer::execute()
 
     fr::sprite_3d_item player_sprite_item(bn::sprite_items::eris, 8);
     fr::sprite_3d& player_sprite = _models.create_sprite(player_sprite_item);
+    player_sprite_created = true;
     player_sprite.set_scale(2);
 
     auto update_player_sprite_position = [&]() {
@@ -650,8 +699,13 @@ str::Scene RoomViewer::execute()
     int text_dir = 0;
     int text_room = -1;
     int text_corner = -1;
+    int text_fps = -1;
+    int text_vertices = -1;
+    int current_fps = 60;
+    int fps_sample_updates = 0;
+    int fps_sample_refreshes = 0;
 
-    auto refresh_overlay_text = [&](int room_id) {
+    auto refresh_overlay_text = [&](int room_id, int fps, int vertices_count) {
         _text_sprites.clear();
 
         if(_debug_mode)
@@ -667,29 +721,56 @@ str::Scene RoomViewer::execute()
             bn::string<32> line2;
             bn::ostringstream stream2(line2);
             stream2 << "Room:" << room_id << " C:" << _corner_index;
-            tg.generate(0, 72, line2, _text_sprites);
+            tg.generate(0, -60, line2, _text_sprites);
+
+            bn::string<32> line3;
+            bn::ostringstream stream3(line3);
+            stream3 << "FPS:" << fps << " V:" << vertices_count << "/" << fr::models_3d::max_vertices();
+            tg.generate(0, -48, line3, _text_sprites);
+
+            #if BN_CFG_PROFILER_ENABLED
+                tg.generate(0, 72, "SEL+START:Profiler B:Exit", _text_sprites);
+            #else
+                tg.generate(0, 72, "Profiler:OFF B:Exit", _text_sprites);
+            #endif
 
             text_fx = current_fx;
             text_fy = current_fy;
             text_dir = _player_dir;
             text_room = room_id;
             text_corner = _corner_index;
+            text_fps = fps;
+            text_vertices = vertices_count;
         }
         else
         {
             tg.generate(0, -72, "ROOM VIEWER", _text_sprites);
             tg.generate(0, 72, "L/R:Zoom START:Rotate B:Exit", _text_sprites);
+
+            text_fps = fps;
+            text_vertices = vertices_count;
         }
 
         text_debug_mode = _debug_mode;
     };
 
-    refresh_overlay_text(current_room);
+    BN_PROFILER_RESET();
+    refresh_overlay_text(current_room, current_fps, _models.vertices_count());
 
     while(true)
     {
-        int elapsed_frames = bn::core::last_missed_frames() + 1;
-        elapsed_frames = bn::clamp(elapsed_frames, 1, 4);
+        int frame_cost = bn::core::last_missed_frames() + 1;
+        fps_sample_updates += 1;
+        fps_sample_refreshes += frame_cost;
+
+        if(fps_sample_refreshes >= 60)
+        {
+            current_fps = (60 * fps_sample_updates + (fps_sample_refreshes / 2)) / fps_sample_refreshes;
+            fps_sample_updates = 0;
+            fps_sample_refreshes = 0;
+        }
+
+        int elapsed_frames = bn::clamp(frame_cost, 1, 4);
 
         if(bn::keypad::b_pressed())
         {
@@ -707,10 +788,19 @@ str::Scene RoomViewer::execute()
                 }
             }
 
+            BN_PROFILER_START("room_models_update");
             _models.update(_camera);
+            BN_PROFILER_STOP();
             bn::core::update();
             return str::Scene::START;
         }
+
+        #if BN_CFG_PROFILER_ENABLED
+            if(_debug_mode && bn::keypad::select_held() && bn::keypad::start_pressed())
+            {
+                bn::profiler::show();
+            }
+        #endif
 
         if(bn::keypad::start_pressed() && !corner_transition_active && !door_transition_active)
         {
@@ -927,13 +1017,16 @@ str::Scene RoomViewer::execute()
         _update_player_anim_tiles(player_sprite_item, moving || door_transition_active, dir, elapsed_frames);
 
         bool text_dirty = _debug_mode != text_debug_mode;
+        int current_vertices = _models.vertices_count();
+
         if(_debug_mode)
         {
             int current_fx = _player_fx.integer();
             int current_fy = _player_fy.integer();
 
             if(current_fx != text_fx || current_fy != text_fy ||
-               _player_dir != text_dir || current_room != text_room || _corner_index != text_corner)
+               _player_dir != text_dir || current_room != text_room || _corner_index != text_corner ||
+               current_fps != text_fps || current_vertices != text_vertices)
             {
                 text_dirty = true;
             }
@@ -941,10 +1034,12 @@ str::Scene RoomViewer::execute()
 
         if(text_dirty)
         {
-            refresh_overlay_text(current_room);
+            refresh_overlay_text(current_room, current_fps, current_vertices);
         }
 
+        BN_PROFILER_START("room_models_update");
         _models.update(_camera);
+        BN_PROFILER_STOP();
         bn::core::update();
     }
 }

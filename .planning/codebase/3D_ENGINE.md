@@ -1,6 +1,6 @@
 # 3D Engine Reference
 
-Last updated: 2026-02-22
+Last updated: 2026-02-23
 
 ## Scope
 
@@ -38,6 +38,12 @@ For a model vertex:
 6. Depth-sort and rasterize.
 
 Order is rotate -> scale -> translate.
+
+## Runtime Limits
+
+- Max vertices: `100`
+- Max faces: `300`
+- `RoomViewer` applies a runtime budget check and skips optional dynamic models when adding them would exceed `100` vertices.
 
 ## Project Extensions (Important)
 

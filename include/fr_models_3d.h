@@ -52,10 +52,20 @@ public:
 
     void update(const camera_3d& camera);
 
+    [[nodiscard]] int vertices_count() const
+    {
+        return _vertices_count;
+    }
+
+    [[nodiscard]] static constexpr int max_vertices()
+    {
+        return _max_vertices;
+    }
+
 private:
     static constexpr int _max_dynamic_models = 8;
     static constexpr int _max_models = constants_3d::max_static_models + _max_dynamic_models;
-    static constexpr int _max_vertices = 512;
+    static constexpr int _max_vertices = 100;
     static constexpr int _max_faces = 300;
 
     static_assert(_max_faces <= bn::numeric_limits<uint16_t>::max());

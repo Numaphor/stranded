@@ -76,8 +76,8 @@ def main():
 
     if len(all_faces) > 300:
         print(f"WARNING: {len(all_faces)} faces exceeds engine max_faces=300")
-    if len(vertices) > 256:
-        print(f"WARNING: {len(vertices)} vertices exceeds engine max_vertices=256")
+    if len(vertices) > 100:
+        print(f"WARNING: {len(vertices)} vertices exceeds engine max_vertices=100")
 
     # Generate header
     ns_upper = args.namespace.upper()

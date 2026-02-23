@@ -310,8 +310,8 @@ def generate_room_header(vertices, normals, objects, materials_rgb):
         room_faces[cpp_name] = runtime_faces
         vertex_count = len(room_vertices_by_cpp[cpp_name])
         print(f"  {cpp_name}: {vertex_count} vertices, {len(runtime_faces)} faces")
-        if vertex_count > 256:
-            print("    WARNING: exceeds 256 vertex limit")
+        if vertex_count > 100:
+            print("    WARNING: exceeds 100 vertex limit")
         if len(runtime_faces) > 176:
             print("    WARNING: exceeds 176 face limit")
 
