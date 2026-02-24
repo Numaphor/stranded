@@ -146,6 +146,67 @@ def _vertex_key(vertex):
     return (round(vertex[0], 5), round(vertex[1], 5), round(vertex[2], 5))
 
 
+def dedupe_room_runtime_faces(room_vertices, runtime_faces, normals):
+    """Drop duplicate coplanar quads with opposite winding.
+
+    Some source room meshes include both windings for the same polygon. Keep
+    one face per (material, vertex set), preferring the normal that points
+    toward the room interior center to avoid scanline artifacts in the 3D
+    rasterizer.
+    """
+    if not runtime_faces:
+        return runtime_faces
+
+    min_x = min(v[0] for v in room_vertices)
+    max_x = max(v[0] for v in room_vertices)
+    min_y = min(v[1] for v in room_vertices)
+    max_y = max(v[1] for v in room_vertices)
+    min_z = min(v[2] for v in room_vertices)
+    max_z = max(v[2] for v in room_vertices)
+    room_center = (
+        (min_x + max_x) / 2,
+        (min_y + max_y) / 2,
+        (min_z + max_z) / 2,
+    )
+
+    grouped = {}
+    for material_name, face_vertices, normal_idx in runtime_faces:
+        key = (material_name, tuple(sorted(face_vertices)))
+        grouped.setdefault(key, []).append((face_vertices, normal_idx))
+
+    deduped = []
+    for (material_name, _vertex_set), candidates in grouped.items():
+        if len(candidates) == 1:
+            face_vertices, normal_idx = candidates[0]
+            deduped.append((material_name, face_vertices, normal_idx))
+            continue
+
+        best_face_vertices = None
+        best_normal_idx = None
+        best_score = None
+
+        for face_vertices, normal_idx in candidates:
+            cx = sum(room_vertices[v][0] for v in face_vertices) / len(face_vertices)
+            cy = sum(room_vertices[v][1] for v in face_vertices) / len(face_vertices)
+            cz = sum(room_vertices[v][2] for v in face_vertices) / len(face_vertices)
+            to_center = (
+                room_center[0] - cx,
+                room_center[1] - cy,
+                room_center[2] - cz,
+            )
+            nx, ny, nz = normals[normal_idx]
+            score = nx * to_center[0] + ny * to_center[1] + nz * to_center[2]
+
+            if best_score is None or score > best_score:
+                best_score = score
+                best_face_vertices = face_vertices
+                best_normal_idx = normal_idx
+
+        deduped.append((material_name, best_face_vertices, best_normal_idx))
+
+    return deduped
+
+
 def validate_decor_targets():
     for room_id, wall in WINDOW_WALL_TARGETS.items():
         if wall in ROOM_DOOR_WALLS.get(room_id, set()):
@@ -307,6 +368,7 @@ def generate_room_header(vertices, normals, objects, materials_rgb):
             (remap_room_material_to_runtime_palette(material_name, room_id), face_vertices, normal_idx)
             for material_name, face_vertices, normal_idx in faces
         ]
+        runtime_faces = dedupe_room_runtime_faces(room_vertices_by_cpp[cpp_name], runtime_faces, normals)
         room_faces[cpp_name] = runtime_faces
         vertex_count = len(room_vertices_by_cpp[cpp_name])
         print(f"  {cpp_name}: {vertex_count} vertices, {len(runtime_faces)} faces")

@@ -45,21 +45,13 @@ namespace str::model_3d_items
     constexpr inline fr::face_3d room_0_faces[] = {
         fr::face_3d(room_0_vertices, fr::vertex_3d(0.0, 0.0, -1.0), 0, 1, 2, 3, 0, -1),
         fr::face_3d(room_0_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 3, 2, 4, 5, 6, -1),
-        fr::face_3d(room_0_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 5, 4, 2, 3, 6, -1),
         fr::face_3d(room_0_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 6, 7, 8, 0, 6, -1),
-        fr::face_3d(room_0_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 0, 8, 7, 6, 6, -1),
         fr::face_3d(room_0_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 9, 10, 1, 11, 6, -1),
-        fr::face_3d(room_0_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 11, 1, 10, 9, 6, -1),
         fr::face_3d(room_0_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 5, 6, 0, 3, 6, -1),
-        fr::face_3d(room_0_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 3, 0, 6, 5, 6, -1),
         fr::face_3d(room_0_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 2, 14, 15, 4, 6, -1),
-        fr::face_3d(room_0_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 4, 15, 14, 2, 6, -1),
         fr::face_3d(room_0_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 16, 1, 10, 17, 6, -1),
-        fr::face_3d(room_0_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 17, 10, 1, 16, 6, -1),
         fr::face_3d(room_0_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 7, 9, 12, 13, 8, -1),
-        fr::face_3d(room_0_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 13, 12, 9, 7, 8, -1),
-        fr::face_3d(room_0_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 18, 19, 17, 15, 8, -1),
-        fr::face_3d(room_0_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 15, 17, 19, 18, 8, -1)
+        fr::face_3d(room_0_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 18, 19, 17, 15, 8, -1)
     };
     constexpr inline fr::model_3d_item room_0(room_0_vertices, room_0_faces);
 
@@ -93,23 +85,14 @@ namespace str::model_3d_items
     constexpr inline fr::face_3d room_1_faces[] = {
         fr::face_3d(room_1_vertices, fr::vertex_3d(0.0, 0.0, -1.0), 0, 1, 2, 3, 1, -1),
         fr::face_3d(room_1_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 3, 2, 4, 5, 6, -1),
-        fr::face_3d(room_1_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 5, 4, 2, 3, 6, -1),
         fr::face_3d(room_1_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 6, 7, 8, 0, 6, -1),
-        fr::face_3d(room_1_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 0, 8, 7, 6, 6, -1),
         fr::face_3d(room_1_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 9, 10, 1, 11, 6, -1),
-        fr::face_3d(room_1_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 11, 1, 10, 9, 6, -1),
         fr::face_3d(room_1_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 5, 14, 15, 3, 6, -1),
-        fr::face_3d(room_1_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 3, 15, 14, 5, 6, -1),
         fr::face_3d(room_1_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 16, 6, 0, 17, 6, -1),
-        fr::face_3d(room_1_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 17, 0, 6, 16, 6, -1),
         fr::face_3d(room_1_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 2, 1, 10, 4, 6, -1),
-        fr::face_3d(room_1_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 4, 10, 1, 2, 6, -1),
         fr::face_3d(room_1_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 20, 21, 22, 23, 7, -1),
-        fr::face_3d(room_1_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 23, 22, 21, 20, 7, -1),
         fr::face_3d(room_1_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 7, 9, 12, 13, 8, -1),
-        fr::face_3d(room_1_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 13, 12, 9, 7, 8, -1),
-        fr::face_3d(room_1_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 14, 16, 18, 19, 8, -1),
-        fr::face_3d(room_1_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 19, 18, 16, 14, 8, -1)
+        fr::face_3d(room_1_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 14, 16, 18, 19, 8, -1)
     };
     constexpr inline fr::model_3d_item room_1(room_1_vertices, room_1_faces);
 
@@ -145,25 +128,15 @@ namespace str::model_3d_items
     constexpr inline fr::face_3d room_2_faces[] = {
         fr::face_3d(room_2_vertices, fr::vertex_3d(0.0, 0.0, -1.0), 0, 1, 2, 3, 2, -1),
         fr::face_3d(room_2_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 3, 4, 5, 6, 6, -1),
-        fr::face_3d(room_2_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 6, 5, 4, 3, 6, -1),
         fr::face_3d(room_2_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 7, 2, 8, 9, 6, -1),
-        fr::face_3d(room_2_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 9, 8, 2, 7, 6, -1),
         fr::face_3d(room_2_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 12, 13, 14, 0, 6, -1),
-        fr::face_3d(room_2_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 0, 14, 13, 12, 6, -1),
         fr::face_3d(room_2_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 15, 16, 1, 17, 6, -1),
-        fr::face_3d(room_2_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 17, 1, 16, 15, 6, -1),
         fr::face_3d(room_2_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 6, 12, 0, 3, 6, -1),
-        fr::face_3d(room_2_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 3, 0, 12, 6, 6, -1),
         fr::face_3d(room_2_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 2, 20, 21, 8, 6, -1),
-        fr::face_3d(room_2_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 8, 21, 20, 2, 6, -1),
         fr::face_3d(room_2_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 22, 1, 16, 23, 6, -1),
-        fr::face_3d(room_2_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 23, 16, 1, 22, 6, -1),
         fr::face_3d(room_2_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 10, 11, 9, 5, 8, -1),
-        fr::face_3d(room_2_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 5, 9, 11, 10, 8, -1),
         fr::face_3d(room_2_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 13, 15, 18, 19, 8, -1),
-        fr::face_3d(room_2_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 19, 18, 15, 13, 8, -1),
-        fr::face_3d(room_2_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 24, 25, 23, 21, 8, -1),
-        fr::face_3d(room_2_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 21, 23, 25, 24, 8, -1)
+        fr::face_3d(room_2_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 24, 25, 23, 21, 8, -1)
     };
     constexpr inline fr::model_3d_item room_2(room_2_vertices, room_2_faces);
 
@@ -203,27 +176,16 @@ namespace str::model_3d_items
     constexpr inline fr::face_3d room_3_faces[] = {
         fr::face_3d(room_3_vertices, fr::vertex_3d(0.0, 0.0, -1.0), 0, 1, 2, 3, 3, -1),
         fr::face_3d(room_3_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 3, 4, 5, 6, 6, -1),
-        fr::face_3d(room_3_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 6, 5, 4, 3, 6, -1),
         fr::face_3d(room_3_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 7, 2, 8, 9, 6, -1),
-        fr::face_3d(room_3_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 9, 8, 2, 7, 6, -1),
         fr::face_3d(room_3_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 12, 13, 14, 0, 6, -1),
-        fr::face_3d(room_3_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 0, 14, 13, 12, 6, -1),
         fr::face_3d(room_3_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 15, 16, 1, 17, 6, -1),
-        fr::face_3d(room_3_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 17, 1, 16, 15, 6, -1),
         fr::face_3d(room_3_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 6, 20, 21, 3, 6, -1),
-        fr::face_3d(room_3_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 3, 21, 20, 6, 6, -1),
         fr::face_3d(room_3_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 22, 12, 0, 23, 6, -1),
-        fr::face_3d(room_3_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 23, 0, 12, 22, 6, -1),
         fr::face_3d(room_3_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 2, 1, 16, 8, 6, -1),
-        fr::face_3d(room_3_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 8, 16, 1, 2, 6, -1),
         fr::face_3d(room_3_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 26, 27, 28, 29, 7, -1),
-        fr::face_3d(room_3_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 29, 28, 27, 26, 7, -1),
         fr::face_3d(room_3_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 10, 11, 9, 5, 8, -1),
-        fr::face_3d(room_3_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 5, 9, 11, 10, 8, -1),
         fr::face_3d(room_3_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 13, 15, 18, 19, 8, -1),
-        fr::face_3d(room_3_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 19, 18, 15, 13, 8, -1),
-        fr::face_3d(room_3_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 20, 22, 24, 25, 8, -1),
-        fr::face_3d(room_3_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 25, 24, 22, 20, 8, -1)
+        fr::face_3d(room_3_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 20, 22, 24, 25, 8, -1)
     };
     constexpr inline fr::model_3d_item room_3(room_3_vertices, room_3_faces);
 
@@ -253,21 +215,13 @@ namespace str::model_3d_items
     constexpr inline fr::face_3d room_4_faces[] = {
         fr::face_3d(room_4_vertices, fr::vertex_3d(0.0, 0.0, -1.0), 0, 1, 2, 3, 4, -1),
         fr::face_3d(room_4_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 3, 4, 5, 6, 6, -1),
-        fr::face_3d(room_4_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 6, 5, 4, 3, 6, -1),
         fr::face_3d(room_4_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 7, 2, 8, 9, 6, -1),
-        fr::face_3d(room_4_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 9, 8, 2, 7, 6, -1),
         fr::face_3d(room_4_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 12, 13, 1, 0, 6, -1),
-        fr::face_3d(room_4_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 0, 1, 13, 12, 6, -1),
         fr::face_3d(room_4_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 6, 12, 0, 3, 6, -1),
-        fr::face_3d(room_4_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 3, 0, 12, 6, 6, -1),
         fr::face_3d(room_4_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 2, 14, 15, 8, 6, -1),
-        fr::face_3d(room_4_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 8, 15, 14, 2, 6, -1),
         fr::face_3d(room_4_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 16, 1, 13, 17, 6, -1),
-        fr::face_3d(room_4_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 17, 13, 1, 16, 6, -1),
         fr::face_3d(room_4_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 10, 11, 9, 5, 8, -1),
-        fr::face_3d(room_4_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 5, 9, 11, 10, 8, -1),
-        fr::face_3d(room_4_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 18, 19, 17, 15, 8, -1),
-        fr::face_3d(room_4_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 15, 17, 19, 18, 8, -1)
+        fr::face_3d(room_4_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 18, 19, 17, 15, 8, -1)
     };
     constexpr inline fr::model_3d_item room_4(room_4_vertices, room_4_faces);
 
@@ -297,21 +251,13 @@ namespace str::model_3d_items
     constexpr inline fr::face_3d room_5_faces[] = {
         fr::face_3d(room_5_vertices, fr::vertex_3d(0.0, 0.0, -1.0), 0, 1, 2, 3, 5, -1),
         fr::face_3d(room_5_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 3, 4, 5, 6, 6, -1),
-        fr::face_3d(room_5_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 6, 5, 4, 3, 6, -1),
         fr::face_3d(room_5_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 7, 2, 8, 9, 6, -1),
-        fr::face_3d(room_5_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 9, 8, 2, 7, 6, -1),
         fr::face_3d(room_5_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 12, 13, 1, 0, 6, -1),
-        fr::face_3d(room_5_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 0, 1, 13, 12, 6, -1),
         fr::face_3d(room_5_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 6, 14, 15, 3, 6, -1),
-        fr::face_3d(room_5_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 3, 15, 14, 6, 6, -1),
         fr::face_3d(room_5_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 16, 12, 0, 17, 6, -1),
-        fr::face_3d(room_5_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 17, 0, 12, 16, 6, -1),
         fr::face_3d(room_5_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 2, 1, 13, 8, 6, -1),
-        fr::face_3d(room_5_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 8, 13, 1, 2, 6, -1),
         fr::face_3d(room_5_vertices, fr::vertex_3d(0.0, 1.0, 0.0), 10, 11, 9, 5, 8, -1),
-        fr::face_3d(room_5_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 5, 9, 11, 10, 8, -1),
-        fr::face_3d(room_5_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 14, 16, 18, 19, 8, -1),
-        fr::face_3d(room_5_vertices, fr::vertex_3d(-1.0, 0.0, 0.0), 19, 18, 16, 14, 8, -1)
+        fr::face_3d(room_5_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 14, 16, 18, 19, 8, -1)
     };
     constexpr inline fr::model_3d_item room_5(room_5_vertices, room_5_faces);
 

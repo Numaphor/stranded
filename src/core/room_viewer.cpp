@@ -5,6 +5,8 @@
 #include "bn_bg_palettes.h"
 #include "bn_color.h"
 #include "bn_sprite_text_generator.h"
+#include "bn_sprite_affine_mat_ptr.h"
+#include "bn_affine_mat_attributes.h"
 #include "bn_fixed.h"
 #include "bn_math.h"
 #include "bn_algorithm.h"
@@ -13,7 +15,12 @@
 #include "bn_sstream.h"
 #include "bn_log.h"
 #include "bn_profiler.h"
+#include "bn_point.h"
 #include "bn_sprite_items_eris.h"
+#include "bn_sprite_items_escaping_criticism_wall_bottom.h"
+#include "bn_sprite_items_escaping_criticism_wall_top.h"
+#include "bn_sprite_items_mr_and_mrs_andrews_wall_bottom.h"
+#include "bn_sprite_items_mr_and_mrs_andrews_wall_top.h"
 
 #include "common_variable_8x8_sprite_font.h"
 
@@ -31,6 +38,9 @@ namespace {
     constexpr int NUM_ROOMS = 6;
     constexpr int QUARTER_TURN_ANGLE = 16384;
     constexpr int CORNER_TURN_DURATION_FRAMES = 20;
+    constexpr bn::fixed AUTO_CORNER_AXIS_THRESHOLD = 28;
+    constexpr bn::fixed AUTO_CORNER_SWITCH_ADVANTAGE = 10;
+    constexpr int START_RECENTER_AUTO_PAUSE_FRAMES = 30;
     constexpr int ADJACENT_ROOM_DEPTH_BIAS = 1500000;
     constexpr int TRANSITION_DECOR_DEPTH_BIAS = ADJACENT_ROOM_DEPTH_BIAS;
 
@@ -85,6 +95,19 @@ namespace {
     constexpr bn::fixed TABLE_FY = 0;
     constexpr bn::fixed CHAIR_FX = 10;
     constexpr bn::fixed CHAIR_FY = 16;
+    // Textured-polygon painting quads (room-local coordinates):
+    // A on back wall (Y = +58), B on right wall (X = +58).
+    // A (back wall): mr_and_mrs_andrews (192x112, landscape)
+    // B (right wall): escaping_criticism (80x100, portrait)
+    constexpr bn::fixed PAINTING_A_HALF_WIDTH = 12;
+    constexpr bn::fixed PAINTING_A_HALF_HEIGHT = 7;
+    constexpr bn::fixed PAINTING_B_HALF_WIDTH = bn::fixed(9.6);
+    constexpr bn::fixed PAINTING_B_HALF_HEIGHT = 12;
+    constexpr bn::fixed PAINTING_Z_CENTER = -24;
+    constexpr bn::fixed PAINTING_A_CENTER_X = -34;
+    constexpr bn::fixed PAINTING_A_WALL_Y = 58;
+    constexpr bn::fixed PAINTING_B_WALL_X = 58;
+    constexpr bn::fixed PAINTING_B_CENTER_Y = -34;
 
     constexpr bn::fixed TABLE_HW = 12;
     constexpr bn::fixed TABLE_HD = 8;
@@ -97,6 +120,151 @@ namespace {
     // Movement is frame-compensated, so keep a lower per-step speed target.
     constexpr bn::fixed MOVE_SPEED = bn::fixed(0.5);
     constexpr int DOOR_TRANSITION_DURATION_FRAMES = 16;
+
+    class textured_triangle
+    {
+    public:
+        explicit textured_triangle(const bn::sprite_item& sprite_item) :
+            _sprite(sprite_item.create_sprite(0, 0)),
+            _affine_mat(bn::sprite_affine_mat_ptr::create()),
+            _half_size(sprite_item.shape_size().width() / 2)
+        {
+            _sprite.set_affine_mat(_affine_mat);
+            _sprite.set_bg_priority(3);
+            _sprite.set_visible(false);
+        }
+
+        void set_visible(bool visible)
+        {
+            _sprite.set_visible(visible);
+        }
+
+        void set_points(const bn::point& p0, const bn::point& p1, const bn::point& p2)
+        {
+            _p0 = p0;
+            _p1 = p1;
+            _p2 = p2;
+            _update();
+        }
+
+    private:
+        bn::sprite_ptr _sprite;
+        bn::sprite_affine_mat_ptr _affine_mat;
+        bn::point _p0;
+        bn::point _p1;
+        bn::point _p2;
+        int _half_size;
+
+        void _update()
+        {
+            switch(_half_size)
+            {
+                case 4:
+                    _update_impl<4>();
+                    break;
+
+                case 8:
+                    _update_impl<8>();
+                    break;
+
+                case 16:
+                    _update_impl<16>();
+                    break;
+
+                case 32:
+                    _update_impl<32>();
+                    break;
+
+                default:
+                    BN_ERROR("Invalid textured triangle half size: ", _half_size);
+                    break;
+            }
+        }
+
+        template<int half_size>
+        void _update_impl()
+        {
+            int x0 = _p0.x();
+            int y0 = _p0.y();
+            int x1 = _p1.x();
+            int y1 = _p1.y();
+            int x2 = _p2.x();
+            int y2 = _p2.y();
+            int affine_divisor = x0 * y1 - x0 * y2 - x1 * y0 + x1 * y2 + x2 * y0 - x2 * y1;
+
+            // Keep a stable triangle winding so the transparent half of the
+            // texture doesn't flip into view when projected winding changes.
+            if(affine_divisor > 0)
+            {
+                bn::swap(x1, x2);
+                bn::swap(y1, y2);
+                affine_divisor = x0 * y1 - x0 * y2 - x1 * y0 + x1 * y2 + x2 * y0 - x2 * y1;
+            }
+
+            // Very thin/skewed screen-space triangles explode affine params and cause scanline artifacts.
+            int abs_affine_divisor = affine_divisor >= 0 ? affine_divisor : -affine_divisor;
+
+            if(! affine_divisor || abs_affine_divisor < 32)
+            {
+                _sprite.set_visible(false);
+                return;
+            }
+
+            int pa = (-512 * half_size * y1 + 512 * half_size * y2 + 256 * y1 - 256 * y2) / affine_divisor;
+            int pb = (256 * (2 * half_size * x1 - 2 * half_size * x2 - x1 + x2)) / affine_divisor;
+            int pc = (-512 * half_size * y0 + 512 * half_size * y1 + 256 * y0 - 256 * y1) / affine_divisor;
+            int pd = (256 * (2 * half_size * x0 - 2 * half_size * x1 - x0 + x1)) / affine_divisor;
+            bn::affine_mat_attributes attributes;
+            attributes.unsafe_set_register_values(pa, pb, pc, pd);
+            _affine_mat.set_attributes(attributes);
+
+            int u0 = -half_size;
+            int v0 = half_size;
+            int u1 = half_size;
+            int v1 = half_size;
+            int u2 = half_size;
+            int v2 = -half_size;
+
+            int u0v1 = u0 * v1;
+            int u0v2 = u0 * v2;
+            int u1v0 = u1 * v0;
+            int u1v2 = u1 * v2;
+            int u2v0 = u2 * v0;
+            int u2v1 = u2 * v1;
+
+            int delta_x = (u0v1 * x2) + (u2v0 * x1) + (x0 * u1v2) - (x0 * u2v1) - (u1v0 * x2) - (u0v2 * x1);
+            int delta_y = (u0v1 * y2) + (y1 * u2v0) + (y0 * u1v2) - (y0 * u2v1) - (u1v0 * y2) - (u0v2 * y1);
+            int position_divisor = u0v1 + u2v0 + u1v2 - u2v1 - u1v0 - u0v2;
+            _sprite.set_position(delta_x / position_divisor, delta_y / position_divisor);
+            _sprite.set_visible(true);
+        }
+    };
+
+    class textured_quad
+    {
+    public:
+        textured_quad(const bn::sprite_item& top_item, const bn::sprite_item& bottom_item) :
+            _top(top_item),
+            _bottom(bottom_item)
+        {
+        }
+
+        void set_visible(bool visible)
+        {
+            _top.set_visible(visible);
+            _bottom.set_visible(visible);
+        }
+
+        void set_points(const bn::point& p0, const bn::point& p1, const bn::point& p2, const bn::point& p3)
+        {
+            _top.set_points(p2, p3, p0);
+            _bottom.set_points(p0, p1, p2);
+        }
+
+    private:
+        textured_triangle _top;
+        textured_triangle _bottom;
+    };
 
     enum decor_flags
     {
@@ -316,6 +484,124 @@ namespace {
             default: return str::model_3d_items::room_0;
         }
     }
+
+    bn::fixed corner_depth_score(int corner, bn::fixed local_x, bn::fixed local_y)
+    {
+        switch(corner)
+        {
+            case 0:
+                return -local_x - local_y;
+
+            case 1:
+                return -local_x + local_y;
+
+            case 2:
+                return local_x + local_y;
+
+            default:
+                return local_x - local_y;
+        }
+    }
+
+    int auto_corner_for_position(bn::fixed local_x, bn::fixed local_y, int current_corner)
+    {
+        bn::fixed abs_x = bn::abs(local_x);
+        bn::fixed abs_y = bn::abs(local_y);
+
+        // Only change view when player commits into a corner on both axes.
+        if(abs_x < AUTO_CORNER_AXIS_THRESHOLD || abs_y < AUTO_CORNER_AXIS_THRESHOLD)
+        {
+            return current_corner;
+        }
+
+        int candidate_corner;
+        if(local_x <= 0)
+        {
+            candidate_corner = local_y <= 0 ? 0 : 1;
+        }
+        else
+        {
+            candidate_corner = local_y <= 0 ? 3 : 2;
+        }
+
+        if(candidate_corner == current_corner)
+        {
+            return current_corner;
+        }
+
+        bn::fixed candidate_depth = corner_depth_score(candidate_corner, local_x, local_y);
+        bn::fixed current_depth = corner_depth_score(current_corner, local_x, local_y);
+
+        if(candidate_depth >= current_depth + AUTO_CORNER_SWITCH_ADVANTAGE)
+        {
+            return candidate_corner;
+        }
+
+        return current_corner;
+    }
+
+    int corner_turn_step_toward(int from_corner, int to_corner)
+    {
+        int clockwise_steps = (to_corner - from_corner + 4) % 4;
+        int counterclockwise_steps = (from_corner - to_corner + 4) % 4;
+
+        if(clockwise_steps == 0)
+        {
+            return 0;
+        }
+
+        return clockwise_steps <= counterclockwise_steps ? 1 : -1;
+    }
+
+    int shortest_corner_turns(int from_corner, int to_corner)
+    {
+        int clockwise_steps = (to_corner - from_corner + 4) % 4;
+
+        if(clockwise_steps > 2)
+        {
+            return clockwise_steps - 4;
+        }
+
+        return clockwise_steps;
+    }
+
+    int eight_dir_from_player_facing(int player_dir, bool player_facing_left)
+    {
+        if(player_facing_left && player_dir >= 1 && player_dir <= 3)
+        {
+            return 8 - player_dir;
+        }
+
+        return player_dir;
+    }
+
+    int north_aligned_corner_from_facing(int current_corner, int player_dir, bool player_facing_left)
+    {
+        static constexpr int dir_x_from_8[] = {0, 1, 1, 1, 0, -1, -1, -1};
+        static constexpr int dir_y_from_8[] = {1, 1, 0, -1, -1, -1, 0, 1};
+
+        int eight_dir = eight_dir_from_player_facing(player_dir, player_facing_left);
+        int best_corner = current_corner;
+        int best_score = -9999;
+        int best_turn_distance = 9999;
+
+        for(int corner = 0; corner < 4; ++corner)
+        {
+            int quarter_turns = shortest_corner_turns(current_corner, corner);
+            int rotated_eight_dir = int(unsigned(eight_dir - 2 * quarter_turns) & 7);
+            int score = -dir_y_from_8[rotated_eight_dir] * 10 - int_abs(dir_x_from_8[rotated_eight_dir]);
+            int turn_distance = int_abs(quarter_turns);
+
+            if(score > best_score || (score == best_score && turn_distance < best_turn_distance))
+            {
+                best_score = score;
+                best_turn_distance = turn_distance;
+                best_corner = corner;
+            }
+        }
+
+        return best_corner;
+    }
 }
 
 namespace str
@@ -346,19 +632,9 @@ void RoomViewer::_update_player_anim_tiles(fr::sprite_3d_item& item, bool moving
     _anim_frame_counter += elapsed_frames;
 }
 
-void RoomViewer::_rotate_player_dir(fr::sprite_3d& sprite)
+void RoomViewer::_rotate_player_dir(fr::sprite_3d& sprite, int quarter_turns)
 {
-    int eight_dir;
-    if(_player_facing_left && _player_dir >= 1 && _player_dir <= 3)
-    {
-        eight_dir = 8 - _player_dir;
-    }
-    else
-    {
-        eight_dir = _player_dir;
-    }
-
-    eight_dir = (eight_dir + 6) % 8;
+    int eight_dir = int(unsigned(eight_dir_from_player_facing(_player_dir, _player_facing_left) - 2 * quarter_turns) & 7);
 
     static constexpr int dir_from_8[] = {0, 1, 2, 3, 4, 3, 2, 1};
     static constexpr bool flip_from_8[] = {false, false, false, false, false, true, true, true};
@@ -392,6 +668,9 @@ str::Scene RoomViewer::execute()
     int current_view_angle = -_corner_index * QUARTER_TURN_ANGLE;
     bool corner_transition_active = false;
     int corner_transition_elapsed = 0;
+    int corner_transition_turns = 0;
+    int corner_transition_duration_frames = CORNER_TURN_DURATION_FRAMES;
+    int auto_corner_pause_frames = 0;
     int corner_transition_start_angle = current_view_angle;
     int corner_transition_target_angle = current_view_angle;
     bn::fixed world_anchor_x = room_center_x(current_room);
@@ -492,7 +771,7 @@ str::Scene RoomViewer::execute()
                                           fr::model_3d::layering_mode::none);
             room_model->set_depth_bias(
                 room_id == current_room ? 0 : ADJACENT_ROOM_DEPTH_BIAS);
-            room_model->set_double_sided(false);
+            room_model->set_double_sided(room_id == current_room);
         };
 
         // Current room first, then adjacent rooms while budget allows.
@@ -672,6 +951,8 @@ str::Scene RoomViewer::execute()
     player_sprite_created = true;
     player_sprite.set_scale(2);
 
+    update_all_orientations();
+
     auto update_player_sprite_position = [&]() {
         corner_matrix cm = rotate_corner_matrix(base_corner, current_view_angle);
         bn::fixed player_global_x = room_center_x(current_room) + _player_fx - world_anchor_x;
@@ -687,7 +968,160 @@ str::Scene RoomViewer::execute()
             transform_global_point(cm, player_global_x, player_global_y, _player_fz));
     };
 
+    textured_quad painting_a_quad(
+        bn::sprite_items::mr_and_mrs_andrews_wall_top,
+        bn::sprite_items::mr_and_mrs_andrews_wall_bottom);
+    textured_quad painting_b_quad(
+        bn::sprite_items::escaping_criticism_wall_top,
+        bn::sprite_items::escaping_criticism_wall_bottom);
+
+    auto project_point_to_screen = [&](const fr::point_3d& point, bn::point& output) {
+        constexpr int focal_length_shift = fr::constants_3d::focal_length_shift;
+        constexpr int near_plane = 24 * 256 * 16;
+
+        const fr::point_3d& camera_position = _camera.position();
+        bn::fixed vry = point.y() - camera_position.y();
+        int vcz = -vry.data();
+
+        if(vcz < near_plane)
+        {
+            return false;
+        }
+
+        bn::fixed vrx = (point.x() - camera_position.x()) / 16;
+        bn::fixed vrz = (point.z() - camera_position.z()) / 16;
+        int vcx = (vrx.unsafe_multiplication(_camera.u().x()) + vrz.unsafe_multiplication(_camera.u().z())).data();
+        int vcy = -(vrx.unsafe_multiplication(_camera.v().x()) + vrz.unsafe_multiplication(_camera.v().z())).data();
+
+        int scale = int((fr::div_lut_ptr[vcz >> 10] << (focal_length_shift - 8)) >> 6);
+        output.set_x((vcx * scale) >> 16);
+        output.set_y((vcy * scale) >> 16);
+        return true;
+    };
+
+    auto update_painting_quads = [&]() {
+        corner_matrix cm = rotate_corner_matrix(base_corner, current_view_angle);
+
+        auto local_point_to_view = [&](bn::fixed local_x, bn::fixed local_y, bn::fixed local_z) {
+            return transform_global_point(cm,
+                                          room_center_x(current_room) + local_x - world_anchor_x,
+                                          room_center_y(current_room) + local_y - world_anchor_y,
+                                          local_z);
+        };
+
+        auto local_vector_to_view = [&](bn::fixed local_x, bn::fixed local_y, bn::fixed local_z) {
+            return fr::point_3d(local_x * cm.r00 + local_y * cm.r01 + local_z * cm.r02,
+                                local_x * cm.r10 + local_y * cm.r11 + local_z * cm.r12,
+                                local_x * cm.r20 + local_y * cm.r21 + local_z * cm.r22);
+        };
+
+        auto is_front_facing = [&](const fr::point_3d& center, const fr::point_3d& normal) {
+            fr::point_3d to_camera(_camera.position().x() - center.x(),
+                                   _camera.position().y() - center.y(),
+                                   _camera.position().z() - center.z());
+            bn::fixed facing_dot = normal.x() * to_camera.x() +
+                                   normal.y() * to_camera.y() +
+                                   normal.z() * to_camera.z();
+            // Require a small positive margin so near-grazing views don't leak through double walls.
+            return facing_dot > bn::fixed(2);
+        };
+
+        auto quad_projection_is_stable = [&](const bn::point& p0, const bn::point& p1,
+                                             const bn::point& p2, const bn::point& p3) {
+            constexpr int max_abs_x = 168;
+            constexpr int max_abs_y = 128;
+            auto point_in_safe_range = [&](const bn::point& p) {
+                return int_abs(p.x()) <= max_abs_x && int_abs(p.y()) <= max_abs_y;
+            };
+
+            if(! point_in_safe_range(p0) || ! point_in_safe_range(p1) ||
+               ! point_in_safe_range(p2) || ! point_in_safe_range(p3))
+            {
+                return false;
+            }
+
+            auto tri_area2 = [](const bn::point& a, const bn::point& b, const bn::point& c) {
+                return (b.x() - a.x()) * (c.y() - a.y()) - (b.y() - a.y()) * (c.x() - a.x());
+            };
+
+            int area_bottom = tri_area2(p0, p1, p2);
+            int area_top = tri_area2(p0, p2, p3);
+
+            if(int_abs(area_bottom) < 120 || int_abs(area_top) < 120)
+            {
+                return false;
+            }
+
+            return (area_bottom > 0) == (area_top > 0);
+        };
+
+        bn::fixed a_z_top = PAINTING_Z_CENTER + PAINTING_A_HALF_HEIGHT;
+        bn::fixed a_z_bottom = PAINTING_Z_CENTER - PAINTING_A_HALF_HEIGHT;
+        bn::fixed b_z_top = PAINTING_Z_CENTER - PAINTING_B_HALF_HEIGHT;
+        bn::fixed b_z_bottom = PAINTING_Z_CENTER + PAINTING_B_HALF_HEIGHT;
+
+        // Painting A: on back wall (constant Y).
+        bn::fixed a_left_x = PAINTING_A_CENTER_X - PAINTING_A_HALF_WIDTH;
+        bn::fixed a_right_x = PAINTING_A_CENTER_X + PAINTING_A_HALF_WIDTH;
+
+        fr::point_3d a0 = local_point_to_view(a_left_x, PAINTING_A_WALL_Y, a_z_bottom);
+        fr::point_3d a1 = local_point_to_view(a_right_x, PAINTING_A_WALL_Y, a_z_bottom);
+        fr::point_3d a2 = local_point_to_view(a_right_x, PAINTING_A_WALL_Y, a_z_top);
+        fr::point_3d a3 = local_point_to_view(a_left_x, PAINTING_A_WALL_Y, a_z_top);
+
+        fr::point_3d a_center = local_point_to_view(PAINTING_A_CENTER_X, PAINTING_A_WALL_Y, PAINTING_Z_CENTER);
+        fr::point_3d a_normal = local_vector_to_view(0, -1, 0);  // south wall interior normal
+
+        bn::point a0_screen, a1_screen, a2_screen, a3_screen;
+        bool a_visible = is_front_facing(a_center, a_normal) &&
+                         project_point_to_screen(a0, a0_screen) &&
+                         project_point_to_screen(a1, a1_screen) &&
+                         project_point_to_screen(a2, a2_screen) &&
+                         project_point_to_screen(a3, a3_screen) &&
+                         quad_projection_is_stable(a0_screen, a1_screen, a2_screen, a3_screen);
+
+        if(a_visible)
+        {
+            // Rotate Andrews 180 degrees in-place (Escaping stays unchanged).
+            painting_a_quad.set_points(a2_screen, a3_screen, a0_screen, a1_screen);
+        }
+        else
+        {
+            painting_a_quad.set_visible(false);
+        }
+
+        // Painting B: on right wall (constant X).
+        bn::fixed b_low_y = PAINTING_B_CENTER_Y - PAINTING_B_HALF_WIDTH;
+        bn::fixed b_high_y = PAINTING_B_CENTER_Y + PAINTING_B_HALF_WIDTH;
+
+        fr::point_3d b0 = local_point_to_view(PAINTING_B_WALL_X, b_low_y, b_z_bottom);
+        fr::point_3d b1 = local_point_to_view(PAINTING_B_WALL_X, b_high_y, b_z_bottom);
+        fr::point_3d b2 = local_point_to_view(PAINTING_B_WALL_X, b_high_y, b_z_top);
+        fr::point_3d b3 = local_point_to_view(PAINTING_B_WALL_X, b_low_y, b_z_top);
+
+        fr::point_3d b_center = local_point_to_view(PAINTING_B_WALL_X, PAINTING_B_CENTER_Y, PAINTING_Z_CENTER);
+        fr::point_3d b_normal = local_vector_to_view(-1, 0, 0);  // east wall interior normal
+
+        bn::point b0_screen, b1_screen, b2_screen, b3_screen;
+        bool b_visible = is_front_facing(b_center, b_normal) &&
+                         project_point_to_screen(b0, b0_screen) &&
+                         project_point_to_screen(b1, b1_screen) &&
+                         project_point_to_screen(b2, b2_screen) &&
+                         project_point_to_screen(b3, b3_screen) &&
+                         quad_projection_is_stable(b0_screen, b1_screen, b2_screen, b3_screen);
+
+        if(b_visible)
+        {
+            painting_b_quad.set_points(b0_screen, b1_screen, b2_screen, b3_screen);
+        }
+        else
+        {
+            painting_b_quad.set_visible(false);
+        }
+    };
+
     update_player_sprite_position();
+    update_painting_quads();
 
     bn::sprite_text_generator tg(common::variable_8x8_sprite_font);
     tg.set_center_alignment();
@@ -745,7 +1179,7 @@ str::Scene RoomViewer::execute()
         else
         {
             tg.generate(0, -72, "ROOM VIEWER", _text_sprites);
-            tg.generate(0, 72, "L/R:Zoom START:Rotate B:Exit", _text_sprites);
+            tg.generate(0, 72, "L/R:Zoom START:North B:Exit", _text_sprites);
 
             text_fps = fps;
             text_vertices = vertices_count;
@@ -802,12 +1236,44 @@ str::Scene RoomViewer::execute()
             }
         #endif
 
-        if(bn::keypad::start_pressed() && !corner_transition_active && !door_transition_active)
+        if(auto_corner_pause_frames > 0)
         {
-            corner_transition_active = true;
-            corner_transition_elapsed = 0;
-            corner_transition_start_angle = current_view_angle;
-            corner_transition_target_angle = current_view_angle - QUARTER_TURN_ANGLE;
+            --auto_corner_pause_frames;
+        }
+
+        if(!corner_transition_active && !door_transition_active)
+        {
+            if(bn::keypad::start_pressed() && !bn::keypad::select_held())
+            {
+                int north_corner = north_aligned_corner_from_facing(_corner_index, _player_dir, _player_facing_left);
+                int turn_steps = shortest_corner_turns(_corner_index, north_corner);
+
+                if(turn_steps != 0)
+                {
+                    corner_transition_active = true;
+                    corner_transition_elapsed = 0;
+                    corner_transition_turns = turn_steps;
+                    corner_transition_duration_frames = CORNER_TURN_DURATION_FRAMES * int_abs(turn_steps);
+                    corner_transition_start_angle = current_view_angle;
+                    corner_transition_target_angle = current_view_angle - QUARTER_TURN_ANGLE * corner_transition_turns;
+                    auto_corner_pause_frames = START_RECENTER_AUTO_PAUSE_FRAMES;
+                }
+            }
+            else if(auto_corner_pause_frames == 0)
+            {
+                int desired_corner = auto_corner_for_position(_player_fx, _player_fy, _corner_index);
+                int turn_step = corner_turn_step_toward(_corner_index, desired_corner);
+
+                if(turn_step != 0)
+                {
+                    corner_transition_active = true;
+                    corner_transition_elapsed = 0;
+                    corner_transition_turns = turn_step;
+                    corner_transition_duration_frames = CORNER_TURN_DURATION_FRAMES;
+                    corner_transition_start_angle = current_view_angle;
+                    corner_transition_target_angle = current_view_angle - QUARTER_TURN_ANGLE * corner_transition_turns;
+                }
+            }
         }
 
         {
@@ -829,16 +1295,16 @@ str::Scene RoomViewer::execute()
         {
             corner_transition_elapsed += elapsed_frames;
 
-            if(corner_transition_elapsed >= CORNER_TURN_DURATION_FRAMES)
+            if(corner_transition_elapsed >= corner_transition_duration_frames)
             {
                 corner_transition_active = false;
-                _corner_index = (_corner_index + 1) % 4;
+                _corner_index = (_corner_index + corner_transition_turns + 8) % 4;
                 current_view_angle = -_corner_index * QUARTER_TURN_ANGLE;
-                _rotate_player_dir(player_sprite);
+                _rotate_player_dir(player_sprite, corner_transition_turns);
             }
             else
             {
-                bn::fixed transition_progress = bn::fixed(corner_transition_elapsed) / CORNER_TURN_DURATION_FRAMES;
+                bn::fixed transition_progress = bn::fixed(corner_transition_elapsed) / corner_transition_duration_frames;
                 bn::fixed eased_progress = transition_progress * transition_progress *
                                            (bn::fixed(3) - bn::fixed(2) * transition_progress);
                 bn::fixed interpolated_angle = bn::fixed(corner_transition_start_angle) +
@@ -1011,6 +1477,7 @@ str::Scene RoomViewer::execute()
         }
 
         update_player_sprite_position();
+        update_painting_quads();
 
         player_sprite.set_horizontal_flip(facing_left);
         _player_facing_left = facing_left;
