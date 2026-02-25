@@ -20,6 +20,7 @@ The output ROM is named after the workspace directory (e.g. `workspace.gba` in C
 
 - **Use `VisualBoyAdvance`** (`/usr/bin/VisualBoyAdvance`) — it works reliably in this headless VM.
 - **Do NOT use `mgba-qt`** — it has an OpenGL compositing bug in this VM environment that renders a blank screen even with software fallback. The ROM loads (title bar shows "ROM TITLE" and FPS) but the display widget never paints.
+- VBA opens **fullscreen by default** (configured in `~/.vba/VisualBoyAdvance.cfg` with `fullScreen=1`).
 - Launch: `DISPLAY=:1 /usr/bin/VisualBoyAdvance /workspace/workspace.gba &`
 - ALSA audio errors are harmless (no sound card in the VM).
 
@@ -37,19 +38,23 @@ The output ROM is named after the workspace directory (e.g. `workspace.gba` in C
 
 ### GDB debugging
 
-VBA supports remote GDB debugging via its `-G tcp` flag:
+VBA supports remote GDB debugging via its `-G tcp` flag. A convenience script `gba-debug.gdb` is provided in the project root.
 
 ```bash
 # Terminal 1: launch emulator with GDB server on port 55555
 DISPLAY=:1 /usr/bin/VisualBoyAdvance -G tcp /workspace/workspace.gba &
 
-# Terminal 2: connect debugger (use workspace.elf for symbols)
+# Terminal 2: connect debugger using the convenience script
+gdb-multiarch -x gba-debug.gdb /workspace/workspace.elf
+
+# Or connect manually
 gdb-multiarch -ex "set architecture arm" -ex "target remote localhost:55555" /workspace/workspace.elf
 ```
 
 - The ELF file with debug symbols is at `/workspace/workspace.elf` (produced by `make`).
-- The "Unknown packet vCont?" warnings are harmless — VBA's GDB stub is older and doesn't support all modern GDB protocol extensions, but breakpoints, stepping, register/memory inspection all work.
-- mGBA also has `-g` for GDB on port 2345, but its GDB stub hangs during stepping in this VM environment. Use VBA for debugging.
+- **"Unknown packet vCont?" warnings are harmless** — VBA's GDB stub is older and doesn't support all modern GDB protocol extensions. Breakpoints, single-stepping (`stepi`), register/memory inspection, disassembly, and backtraces all work.
+- **`continue` does not work in batch mode** — VBA's stub starts the target running on connect, so `continue` reports "Cannot execute this command while the target is running." Use `stepi` for batch-mode debugging. In interactive mode, `continue` works normally after an `interrupt`.
+- mGBA also has `-g` for GDB on port 2345 and works for basic connections, but has protocol incompatibilities with GDB 15+. Use VBA for debugging.
 
 ### Lint / static analysis
 
