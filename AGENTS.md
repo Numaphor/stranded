@@ -35,6 +35,22 @@ The output ROM is named after the workspace directory (e.g. `workspace.gba` in C
 | A | L shoulder |
 | S | R shoulder |
 
+### GDB debugging
+
+VBA supports remote GDB debugging via its `-G tcp` flag:
+
+```bash
+# Terminal 1: launch emulator with GDB server on port 55555
+DISPLAY=:1 /usr/bin/VisualBoyAdvance -G tcp /workspace/workspace.gba &
+
+# Terminal 2: connect debugger (use workspace.elf for symbols)
+gdb-multiarch -ex "set architecture arm" -ex "target remote localhost:55555" /workspace/workspace.elf
+```
+
+- The ELF file with debug symbols is at `/workspace/workspace.elf` (produced by `make`).
+- The "Unknown packet vCont?" warnings are harmless — VBA's GDB stub is older and doesn't support all modern GDB protocol extensions, but breakpoints, stepping, register/memory inspection all work.
+- mGBA also has `-g` for GDB on port 2345, but its GDB stub hangs during stepping in this VM environment. Use VBA for debugging.
+
 ### Lint / static analysis
 
 There is no linter or static analysis configured. The compiler warnings from `make` serve as the primary code quality check.
