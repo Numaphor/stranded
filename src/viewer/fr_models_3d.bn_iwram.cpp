@@ -28,6 +28,10 @@
         } while(false)
 #endif
 
+#ifndef FR_MAX_RENDER_VISIBLE_FACES
+    #define FR_MAX_RENDER_VISIBLE_FACES 0
+#endif
+
 namespace fr
 {
 
@@ -457,7 +461,16 @@ void models_3d::_process_models(const camera_3d& camera)
 
     _shape_groups.enable_drawing();
 
-    for(int visible_face_index = visible_faces_count - 1; visible_face_index >= 0; --visible_face_index)
+    int faces_to_render = visible_faces_count;
+
+    if(FR_MAX_RENDER_VISIBLE_FACES > 0 && faces_to_render > FR_MAX_RENDER_VISIBLE_FACES)
+    {
+        faces_to_render = FR_MAX_RENDER_VISIBLE_FACES;
+    }
+
+    for(int rendered_faces = 0, visible_face_index = visible_faces_count - 1;
+        rendered_faces < faces_to_render;
+        ++rendered_faces, --visible_face_index)
     {
         const visible_face_info& visible_face = visible_faces[_visible_face_indexes[visible_face_index]];
 

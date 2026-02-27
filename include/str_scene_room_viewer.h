@@ -39,7 +39,6 @@ private:
     bn::fixed _player_fz = 0;
 
     void _update_player_anim_tiles(fr::sprite_3d_item& item, bool moving, int dir, int elapsed_frames);
-    void _rotate_player_dir(fr::sprite_3d& sprite, int quarter_turns);
 };
 
 }
