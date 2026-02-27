@@ -12,6 +12,7 @@ build/
 # temp files and demos  
 /tmp/
 *.tmp
+stranded-*.png
 
 # IDE specific files
 .vscode/

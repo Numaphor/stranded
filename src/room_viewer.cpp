@@ -46,6 +46,7 @@ namespace {
     constexpr int START_RECENTER_AUTO_PAUSE_FRAMES = 30;
     constexpr int ADJACENT_ROOM_DEPTH_BIAS = 1500000;
     constexpr int TRANSITION_DECOR_DEPTH_BIAS = ADJACENT_ROOM_DEPTH_BIAS;
+    constexpr bool ENABLE_PAINTING_QUADS = true;
 
     struct corner_matrix
     {
@@ -356,13 +357,6 @@ namespace {
     int int_abs(int value)
     {
         return value >= 0 ? value : -value;
-    }
-
-    bool rooms_are_adjacent(int first_room, int second_room)
-    {
-        int col_diff = int_abs(room_col(first_room) - room_col(second_room));
-        int row_diff = int_abs(room_row(first_room) - room_row(second_room));
-        return col_diff + row_diff == 1;
     }
 
     // Runtime room vertices are emitted with ROOM_SCALE=2 (generate_level_headers.py).
@@ -772,17 +766,34 @@ str::Scene RoomViewer::execute()
     auto sync_room_models = [&]() {
         bool changed = false;
         bool should_exist[NUM_ROOMS] = {};
+        auto preferred_neighbor_room = [&](int room_id) {
+            switch(_corner_index)
+            {
+                case 0:
+                    return neighbor_room_for_door(room_id, door_direction::north);
+
+                case 1:
+                    return neighbor_room_for_door(room_id, door_direction::west);
+
+                case 2:
+                    return neighbor_room_for_door(room_id, door_direction::south);
+
+                default:
+                    return neighbor_room_for_door(room_id, door_direction::east);
+            }
+        };
+        int current_preferred_neighbor = preferred_neighbor_room(current_room);
 
         for(int room_id = 0; room_id < NUM_ROOMS; ++room_id)
         {
-            bool around_current = room_id == current_room || rooms_are_adjacent(current_room, room_id);
+            bool around_current = room_id == current_room || room_id == current_preferred_neighbor;
             bool around_transition_target = false;
 
             if(door_transition_active)
             {
-                around_transition_target =
-                    room_id == door_transition_target_room ||
-                    rooms_are_adjacent(door_transition_target_room, room_id);
+                int transition_preferred_neighbor = preferred_neighbor_room(door_transition_target_room);
+                around_transition_target = room_id == door_transition_target_room ||
+                                           room_id == transition_preferred_neighbor;
             }
 
             should_exist[room_id] = around_current || around_transition_target;
@@ -823,10 +834,7 @@ str::Scene RoomViewer::execute()
                                           fr::model_3d::layering_mode::none);
             room_model->set_depth_bias(
                 room_id == current_room ? 0 : ADJACENT_ROOM_DEPTH_BIAS);
-            bool current_or_transition_room =
-                room_id == current_room ||
-                (door_transition_active && room_id == door_transition_target_room);
-            room_model->set_double_sided(current_or_transition_room);
+            room_model->set_double_sided(false);
         };
 
         // Current room first, then adjacent rooms while budget allows.
@@ -984,14 +992,21 @@ str::Scene RoomViewer::execute()
         }
     };
 
+    bool paintings_need_update = ENABLE_PAINTING_QUADS;
+    auto update_orientations_and_paintings = [&]() {
+        update_all_orientations();
+        paintings_need_update = ENABLE_PAINTING_QUADS;
+    };
+
     sync_room_models();
     ensure_decor_models();
-    update_all_orientations();
+    update_orientations_and_paintings();
 
     bn::fixed cam_dist = 274;
 
     auto update_camera = [&]() {
         _camera.set_position(fr::point_3d(0, cam_dist, 0));
+        paintings_need_update = ENABLE_PAINTING_QUADS;
     };
 
     _camera.set_phi(0);
@@ -1006,7 +1021,7 @@ str::Scene RoomViewer::execute()
     player_sprite_created = true;
     player_sprite.set_scale(2);
 
-    update_all_orientations();
+    update_orientations_and_paintings();
 
     auto update_player_sprite_position = [&]() {
         corner_matrix cm = rotate_corner_matrix(base_corner, current_view_angle);
@@ -1181,7 +1196,12 @@ str::Scene RoomViewer::execute()
     };
 
     update_player_sprite_position();
-    update_painting_quads();
+
+    if(paintings_need_update)
+    {
+        update_painting_quads();
+        paintings_need_update = false;
+    }
 
     bn::sprite_text_generator tg(common::variable_8x8_sprite_font);
     tg.set_center_alignment();
@@ -1421,7 +1441,7 @@ str::Scene RoomViewer::execute()
                 current_view_angle = interpolated_angle.round_integer();
             }
 
-            update_all_orientations();
+            update_orientations_and_paintings();
         }
 
         if(door_transition_active)
@@ -1444,7 +1464,7 @@ str::Scene RoomViewer::execute()
                 door_transition_furniture_room = -1;
                 sync_room_models();
                 ensure_decor_models();
-                update_all_orientations();
+                update_orientations_and_paintings();
             }
             else
             {
@@ -1459,7 +1479,7 @@ str::Scene RoomViewer::execute()
                     (door_transition_target_anchor_x - door_transition_start_anchor_x) * eased_progress;
                 world_anchor_y = door_transition_start_anchor_y +
                     (door_transition_target_anchor_y - door_transition_start_anchor_y) * eased_progress;
-                update_all_orientations();
+                update_orientations_and_paintings();
             }
         }
 
@@ -1562,7 +1582,7 @@ str::Scene RoomViewer::execute()
                     // Avoid seeing current-room decor through walls during camera interpolation.
                     clear_room_decor_models(table_ptr, chair_ptr);
 
-                    update_all_orientations();
+                    update_orientations_and_paintings();
 
                     door_transition_active = true;
                     door_transition_elapsed = 0;
@@ -1587,7 +1607,12 @@ str::Scene RoomViewer::execute()
         }
 
         update_player_sprite_position();
-        update_painting_quads();
+
+        if(paintings_need_update)
+        {
+            update_painting_quads();
+            paintings_need_update = false;
+        }
 
         player_sprite.set_horizontal_flip(facing_left);
         _player_facing_left = facing_left;
