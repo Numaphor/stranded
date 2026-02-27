@@ -60,17 +60,16 @@ ROOM_PALETTE = [
 # 6: wall
 # 7: window (reserved)
 # 8: door_frame
-# 9: furniture
+# 9: table_wood (furniture light)
 ROOM_VIEWER_PALETTE = [
     "room0_floor", "room1_floor", "room2_floor",
     "room3_floor", "room4_floor", "room5_floor",
     "wall", "reserved", "door_frame", "table_wood",
 ]
-FURNITURE_RUNTIME_MATERIAL = "table_wood"
 
 # Runtime room models stay structural-only; furniture is drawn via dynamic models.
 ROOM_RUNTIME_MATERIALS = {
-    "floor_light", "floor_dark", "wall", "wall_shadow", "reserved", "door_frame",
+    "floor_light", "floor_dark", "wall", "reserved", "door_frame",
 }
 
 BUILDING_PALETTE = [
@@ -104,7 +103,7 @@ ROOM_DECOR_SPEC = {
 
 FURNITURE_SPEC = {
     "table": {
-        "materials": {"table_wood"},
+        "materials": {"table_wood", "wall_shadow"},
         "rooms": [room_id for room_id, tokens in ROOM_DECOR_SPEC.items() if "table" in tokens],
     },
     "chair": {
@@ -138,8 +137,16 @@ def remap_room_material_to_runtime_palette(material_name, room_id):
     if material_name == "door_frame":
         return "door_frame"
     if material_name in {"table_wood", "chair_fabric", "chair_frame"}:
-        return FURNITURE_RUNTIME_MATERIAL
+        return "table_wood"
     raise ValueError(f"Unsupported room runtime material remap: {material_name}")
+
+
+def remap_furniture_material_to_runtime_palette(material_name):
+    if material_name in {"table_wood", "chair_fabric"}:
+        return "table_wood"
+    if material_name in {"chair_frame", "wall_shadow", "door_frame"}:
+        return "door_frame"
+    raise ValueError(f"Unsupported furniture runtime material remap: {material_name}")
 
 
 def _vertex_key(vertex):
@@ -205,6 +212,98 @@ def dedupe_room_runtime_faces(room_vertices, runtime_faces, normals):
         deduped.append((material_name, best_face_vertices, best_normal_idx))
 
     return deduped
+
+
+def trim_room_runtime_floor(room_vertices, runtime_faces, floor_material):
+    """Clamp floor faces to the interior wall footprint at floor height.
+
+    Source room meshes intentionally include floor underlap outside the inner
+    wall shell. In the room viewer's open-front camera, that underlap can
+    become visible at the wall edges. Keep the floor within wall bounds.
+    """
+    if not runtime_faces:
+        return room_vertices, runtime_faces
+
+    floor_line_tolerance = 0.001
+    structural_materials = {"wall", "door_frame", "reserved"}
+    boundary_points = []
+
+    for material_name, face_vertices, _normal_idx in runtime_faces:
+        if material_name not in structural_materials:
+            continue
+
+        for vertex_index in face_vertices:
+            vx, vy, vz = room_vertices[vertex_index]
+            if abs(vy) <= floor_line_tolerance:
+                boundary_points.append((vx, vz))
+
+    if not boundary_points:
+        return room_vertices, runtime_faces
+
+    min_x = min(point[0] for point in boundary_points)
+    max_x = max(point[0] for point in boundary_points)
+    min_z = min(point[1] for point in boundary_points)
+    max_z = max(point[1] for point in boundary_points)
+
+    if min_x >= max_x or min_z >= max_z:
+        return room_vertices, runtime_faces
+
+    non_floor_vertices = set()
+    for material_name, face_vertices, _normal_idx in runtime_faces:
+        if material_name != floor_material:
+            non_floor_vertices.update(face_vertices)
+
+    adjusted_vertices = list(room_vertices)
+    replacement_map = {}
+    adjusted_faces = []
+    changed = False
+
+    for material_name, face_vertices, normal_idx in runtime_faces:
+        if material_name != floor_material:
+            adjusted_faces.append((material_name, face_vertices, normal_idx))
+            continue
+
+        adjusted_face_vertices = list(face_vertices)
+
+        for index, vertex_index in enumerate(face_vertices):
+            vx, vy, vz = room_vertices[vertex_index]
+
+            if abs(vy) > floor_line_tolerance:
+                continue
+
+            clamped_x = max(min_x, min(max_x, vx))
+            clamped_z = max(min_z, min(max_z, vz))
+
+            if abs(clamped_x - vx) <= floor_line_tolerance and abs(clamped_z - vz) <= floor_line_tolerance:
+                continue
+
+            changed = True
+            replacement_key = (
+                vertex_index,
+                round(clamped_x, 5),
+                round(vy, 5),
+                round(clamped_z, 5),
+            )
+            mapped_index = replacement_map.get(replacement_key)
+
+            if mapped_index is None:
+                if vertex_index in non_floor_vertices:
+                    mapped_index = len(adjusted_vertices)
+                    adjusted_vertices.append((clamped_x, vy, clamped_z))
+                else:
+                    mapped_index = vertex_index
+                    adjusted_vertices[mapped_index] = (clamped_x, vy, clamped_z)
+
+                replacement_map[replacement_key] = mapped_index
+
+            adjusted_face_vertices[index] = mapped_index
+
+        adjusted_faces.append((material_name, adjusted_face_vertices, normal_idx))
+
+    if changed:
+        return adjusted_vertices, adjusted_faces
+
+    return room_vertices, runtime_faces
 
 
 def validate_decor_targets():
@@ -368,7 +467,13 @@ def generate_room_header(vertices, normals, objects, materials_rgb):
             (remap_room_material_to_runtime_palette(material_name, room_id), face_vertices, normal_idx)
             for material_name, face_vertices, normal_idx in faces
         ]
-        runtime_faces = dedupe_room_runtime_faces(room_vertices_by_cpp[cpp_name], runtime_faces, normals)
+        room_vertices, runtime_faces = trim_room_runtime_floor(
+            room_vertices_by_cpp[cpp_name],
+            runtime_faces,
+            floor_material=f"room{room_id}_floor",
+        )
+        room_vertices_by_cpp[cpp_name] = room_vertices
+        runtime_faces = dedupe_room_runtime_faces(room_vertices, runtime_faces, normals)
         room_faces[cpp_name] = runtime_faces
         vertex_count = len(room_vertices_by_cpp[cpp_name])
         print(f"  {cpp_name}: {vertex_count} vertices, {len(runtime_faces)} faces")
@@ -462,8 +567,8 @@ def generate_furniture_header(vertices, normals, face_groups, model_name, guard)
 
     all_faces = prepare_faces(remapped_groups, ROOM_PALETTE, normals)
     runtime_faces = [
-        (FURNITURE_RUNTIME_MATERIAL, face_vertices, normal_idx)
-        for _material_name, face_vertices, normal_idx in all_faces
+        (remap_furniture_material_to_runtime_palette(material_name), face_vertices, normal_idx)
+        for material_name, face_vertices, normal_idx in all_faces
     ]
 
     if model_name == "chair":

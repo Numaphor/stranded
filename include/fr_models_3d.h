@@ -40,6 +40,11 @@ public:
         _shape_groups.set_fade(color, intensity);
     }
 
+    void set_shape_oam_start_index(int oam_start_index)
+    {
+        _shape_groups.set_oam_start_index(oam_start_index);
+    }
+
     void set_static_model_items(const model_3d_item** static_model_items_ptr, int static_models_count);
 
     [[nodiscard]] model_3d& create_dynamic_model(const model_3d_item& model_item);
@@ -62,10 +67,20 @@ public:
         return _max_vertices;
     }
 
+    [[nodiscard]] int max_hlines_last_frame() const
+    {
+        return _shape_groups.max_hlines_last_frame();
+    }
+
+    [[nodiscard]] static constexpr int required_reserved_sprite_handles()
+    {
+        return shape_groups::required_reserved_sprite_handles();
+    }
+
 private:
-    static constexpr int _max_dynamic_models = 8;
+    static constexpr int _max_dynamic_models = 12;
     static constexpr int _max_models = constants_3d::max_static_models + _max_dynamic_models;
-    static constexpr int _max_vertices = 100;
+    static constexpr int _max_vertices = 256;
     static constexpr int _max_faces = 300;
 
     static_assert(_max_faces <= bn::numeric_limits<uint16_t>::max());

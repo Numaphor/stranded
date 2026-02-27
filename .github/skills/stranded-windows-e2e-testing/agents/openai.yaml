@@ -1,0 +1,4 @@
+interface:
+  display_name: "Stranded E2E Testing"
+  short_description: "Windows ARM64 mGBA screenshot-based E2E workflow"
+  default_prompt: "Use $stranded-windows-e2e-testing to run the local Windows ARM64 mGBA screenshot-grounded E2E flow for this repo."

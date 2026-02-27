@@ -4,8 +4,10 @@
 #include "bn_keypad.h"
 #include "bn_bg_palettes.h"
 #include "bn_color.h"
+#include "bn_sprites.h"
 #include "bn_sprite_text_generator.h"
 #include "bn_sprite_affine_mat_ptr.h"
+#include "bn_sprite_ptr.h"
 #include "bn_affine_mat_attributes.h"
 #include "bn_fixed.h"
 #include "bn_math.h"
@@ -30,6 +32,7 @@
 #include "models/str_model_3d_items_room.h"
 #include "models/str_model_3d_items_table.h"
 #include "models/str_model_3d_items_chair.h"
+#include "../butano/butano/hw/include/bn_hw_sprites.h"
 
 namespace {
     constexpr int iso_phi = 6400;
@@ -99,14 +102,13 @@ namespace {
     // A on back wall (Y = +58), B on right wall (X = +58).
     // A (back wall): mr_and_mrs_andrews (192x112, landscape)
     // B (right wall): escaping_criticism (80x100, portrait)
-    constexpr bn::fixed PAINTING_A_HALF_WIDTH = 12;
-    constexpr bn::fixed PAINTING_A_HALF_HEIGHT = 7;
-    constexpr bn::fixed PAINTING_B_HALF_WIDTH = bn::fixed(9.6);
-    constexpr bn::fixed PAINTING_B_HALF_HEIGHT = 12;
+    constexpr bn::fixed PAINTING_A_HALF_WIDTH = bn::fixed(14.4);
+    constexpr bn::fixed PAINTING_A_HALF_HEIGHT = bn::fixed(8.4);
+    constexpr bn::fixed PAINTING_B_HALF_WIDTH = bn::fixed(8.0);
+    constexpr bn::fixed PAINTING_B_HALF_HEIGHT = bn::fixed(10.0);
     constexpr bn::fixed PAINTING_Z_CENTER = -24;
-    constexpr bn::fixed PAINTING_A_CENTER_X = -34;
-    constexpr bn::fixed PAINTING_A_WALL_Y = 58;
-    constexpr bn::fixed PAINTING_B_WALL_X = 58;
+    constexpr bn::fixed PAINTING_WALL_INSET = bn::fixed(0.2);
+    constexpr bn::fixed PAINTING_A_CENTER_X = -38;
     constexpr bn::fixed PAINTING_B_CENTER_Y = -34;
 
     constexpr bn::fixed TABLE_HW = 12;
@@ -120,6 +122,15 @@ namespace {
     // Movement is frame-compensated, so keep a lower per-step speed target.
     constexpr bn::fixed MOVE_SPEED = bn::fixed(0.5);
     constexpr int DOOR_TRANSITION_DURATION_FRAMES = 16;
+    constexpr int SPAWN_CORNER_INDEX = 2;
+    constexpr int SPAWN_PLAYER_DIR = 3;
+    constexpr bool SPAWN_PLAYER_FACING_LEFT = false;
+    constexpr int SPAWN_ROOM_ID = 1;
+    constexpr int SHAPE_OAM_START_INDEX = 64;
+    constexpr int SHAPE_RESERVED_HANDLES = fr::models_3d::required_reserved_sprite_handles();
+    constexpr int ROOM_VIEWER_RESERVED_HANDLES = 0;
+    static_assert(ROOM_VIEWER_RESERVED_HANDLES <= bn::hw::sprites::count(),
+                  "Room viewer reserved handles overflow OAM");
 
     class textured_triangle
     {
@@ -130,7 +141,8 @@ namespace {
             _half_size(sprite_item.shape_size().width() / 2)
         {
             _sprite.set_affine_mat(_affine_mat);
-            _sprite.set_bg_priority(3);
+            // Keep paintings above room HDMA sprites without needing manual OAM writes.
+            _sprite.set_bg_priority(1);
             _sprite.set_visible(false);
         }
 
@@ -206,7 +218,7 @@ namespace {
 
             if(! affine_divisor || abs_affine_divisor < 32)
             {
-                _sprite.set_visible(false);
+                set_visible(false);
                 return;
             }
 
@@ -236,7 +248,7 @@ namespace {
             int delta_y = (u0v1 * y2) + (y1 * u2v0) + (y0 * u1v2) - (y0 * u2v1) - (u1v0 * y2) - (u0v2 * y1);
             int position_divisor = u0v1 + u2v0 + u1v2 - u2v1 - u1v0 - u0v2;
             _sprite.set_position(delta_x / position_divisor, delta_y / position_divisor);
-            _sprite.set_visible(true);
+            set_visible(true);
         }
     };
 
@@ -361,6 +373,12 @@ namespace {
     constexpr bn::fixed room_center_y_values[NUM_ROOMS] = {
         bn::fixed(-120), bn::fixed(-135), bn::fixed(0), bn::fixed(0), bn::fixed(120), bn::fixed(135)
     };
+    constexpr bn::fixed room_half_extent_x_values[NUM_ROOMS] = {
+        bn::fixed(60), bn::fixed(75), bn::fixed(60), bn::fixed(60), bn::fixed(60), bn::fixed(75)
+    };
+    constexpr bn::fixed room_half_extent_y_values[NUM_ROOMS] = {
+        bn::fixed(60), bn::fixed(75), bn::fixed(60), bn::fixed(60), bn::fixed(60), bn::fixed(75)
+    };
 
     bn::fixed room_center_x(int room_id)
     {
@@ -370,6 +388,16 @@ namespace {
     bn::fixed room_center_y(int room_id)
     {
         return room_center_y_values[room_id];
+    }
+
+    bn::fixed room_half_extent_x(int room_id)
+    {
+        return room_half_extent_x_values[room_id];
+    }
+
+    bn::fixed room_half_extent_y(int room_id)
+    {
+        return room_half_extent_y_values[room_id];
     }
 
     enum class door_direction
@@ -648,8 +676,22 @@ void RoomViewer::_rotate_player_dir(fr::sprite_3d& sprite, int quarter_turns)
 str::Scene RoomViewer::execute()
 {
     bn::bg_palettes::set_transparent_color(bn::color(2, 2, 4));
+    _models.set_shape_oam_start_index(SHAPE_OAM_START_INDEX);
+    int previous_reserved_sprite_handles = bn::sprites::reserved_handles_count();
+    int required_reserved_sprite_handles = ROOM_VIEWER_RESERVED_HANDLES;
 
-    int current_room = 0;
+    if(previous_reserved_sprite_handles < required_reserved_sprite_handles)
+    {
+        bn::sprites::set_reserved_handles_count(required_reserved_sprite_handles);
+    }
+
+    // Keep spawn deterministic for debugging: start from the painting-facing view.
+    _corner_index = SPAWN_CORNER_INDEX;
+    _player_dir = SPAWN_PLAYER_DIR;
+    _player_facing_left = SPAWN_PLAYER_FACING_LEFT;
+    _player_moving = false;
+
+    int current_room = SPAWN_ROOM_ID;
     _models.load_colors(bn::span<const bn::color>(room_viewer_colors, 10));
 
     fr::model_3d* room_models[NUM_ROOMS] = {};
@@ -733,7 +775,17 @@ str::Scene RoomViewer::execute()
 
         for(int room_id = 0; room_id < NUM_ROOMS; ++room_id)
         {
-            should_exist[room_id] = room_id == current_room || rooms_are_adjacent(current_room, room_id);
+            bool around_current = room_id == current_room || rooms_are_adjacent(current_room, room_id);
+            bool around_transition_target = false;
+
+            if(door_transition_active)
+            {
+                around_transition_target =
+                    room_id == door_transition_target_room ||
+                    rooms_are_adjacent(door_transition_target_room, room_id);
+            }
+
+            should_exist[room_id] = around_current || around_transition_target;
 
             if(!should_exist[room_id] && room_models[room_id])
             {
@@ -771,7 +823,10 @@ str::Scene RoomViewer::execute()
                                           fr::model_3d::layering_mode::none);
             room_model->set_depth_bias(
                 room_id == current_room ? 0 : ADJACENT_ROOM_DEPTH_BIAS);
-            room_model->set_double_sided(room_id == current_room);
+            bool current_or_transition_room =
+                room_id == current_room ||
+                (door_transition_active && room_id == door_transition_target_room);
+            room_model->set_double_sided(current_or_transition_room);
         };
 
         // Current room first, then adjacent rooms while budget allows.
@@ -1001,6 +1056,12 @@ str::Scene RoomViewer::execute()
 
     auto update_painting_quads = [&]() {
         corner_matrix cm = rotate_corner_matrix(base_corner, current_view_angle);
+        bn::fixed room_half_x = room_half_extent_x(current_room);
+        bn::fixed room_half_y = room_half_extent_y(current_room);
+        bn::fixed a_center_x = PAINTING_A_CENTER_X;
+        bn::fixed b_center_y = PAINTING_B_CENTER_Y;
+        bn::fixed a_wall_y = room_half_y - PAINTING_WALL_INSET;
+        bn::fixed b_wall_x = room_half_x - PAINTING_WALL_INSET;
 
         auto local_point_to_view = [&](bn::fixed local_x, bn::fixed local_y, bn::fixed local_z) {
             return transform_global_point(cm,
@@ -1061,15 +1122,15 @@ str::Scene RoomViewer::execute()
         bn::fixed b_z_bottom = PAINTING_Z_CENTER + PAINTING_B_HALF_HEIGHT;
 
         // Painting A: on back wall (constant Y).
-        bn::fixed a_left_x = PAINTING_A_CENTER_X - PAINTING_A_HALF_WIDTH;
-        bn::fixed a_right_x = PAINTING_A_CENTER_X + PAINTING_A_HALF_WIDTH;
+        bn::fixed a_left_x = a_center_x - PAINTING_A_HALF_WIDTH;
+        bn::fixed a_right_x = a_center_x + PAINTING_A_HALF_WIDTH;
 
-        fr::point_3d a0 = local_point_to_view(a_left_x, PAINTING_A_WALL_Y, a_z_bottom);
-        fr::point_3d a1 = local_point_to_view(a_right_x, PAINTING_A_WALL_Y, a_z_bottom);
-        fr::point_3d a2 = local_point_to_view(a_right_x, PAINTING_A_WALL_Y, a_z_top);
-        fr::point_3d a3 = local_point_to_view(a_left_x, PAINTING_A_WALL_Y, a_z_top);
+        fr::point_3d a0 = local_point_to_view(a_left_x, a_wall_y, a_z_bottom);
+        fr::point_3d a1 = local_point_to_view(a_right_x, a_wall_y, a_z_bottom);
+        fr::point_3d a2 = local_point_to_view(a_right_x, a_wall_y, a_z_top);
+        fr::point_3d a3 = local_point_to_view(a_left_x, a_wall_y, a_z_top);
 
-        fr::point_3d a_center = local_point_to_view(PAINTING_A_CENTER_X, PAINTING_A_WALL_Y, PAINTING_Z_CENTER);
+        fr::point_3d a_center = local_point_to_view(a_center_x, a_wall_y, PAINTING_Z_CENTER);
         fr::point_3d a_normal = local_vector_to_view(0, -1, 0);  // south wall interior normal
 
         bn::point a0_screen, a1_screen, a2_screen, a3_screen;
@@ -1082,7 +1143,6 @@ str::Scene RoomViewer::execute()
 
         if(a_visible)
         {
-            // Rotate Andrews 180 degrees in-place (Escaping stays unchanged).
             painting_a_quad.set_points(a2_screen, a3_screen, a0_screen, a1_screen);
         }
         else
@@ -1091,15 +1151,15 @@ str::Scene RoomViewer::execute()
         }
 
         // Painting B: on right wall (constant X).
-        bn::fixed b_low_y = PAINTING_B_CENTER_Y - PAINTING_B_HALF_WIDTH;
-        bn::fixed b_high_y = PAINTING_B_CENTER_Y + PAINTING_B_HALF_WIDTH;
+        bn::fixed b_low_y = b_center_y - PAINTING_B_HALF_WIDTH;
+        bn::fixed b_high_y = b_center_y + PAINTING_B_HALF_WIDTH;
 
-        fr::point_3d b0 = local_point_to_view(PAINTING_B_WALL_X, b_low_y, b_z_bottom);
-        fr::point_3d b1 = local_point_to_view(PAINTING_B_WALL_X, b_high_y, b_z_bottom);
-        fr::point_3d b2 = local_point_to_view(PAINTING_B_WALL_X, b_high_y, b_z_top);
-        fr::point_3d b3 = local_point_to_view(PAINTING_B_WALL_X, b_low_y, b_z_top);
+        fr::point_3d b0 = local_point_to_view(b_wall_x, b_low_y, b_z_bottom);
+        fr::point_3d b1 = local_point_to_view(b_wall_x, b_high_y, b_z_bottom);
+        fr::point_3d b2 = local_point_to_view(b_wall_x, b_high_y, b_z_top);
+        fr::point_3d b3 = local_point_to_view(b_wall_x, b_low_y, b_z_top);
 
-        fr::point_3d b_center = local_point_to_view(PAINTING_B_WALL_X, PAINTING_B_CENTER_Y, PAINTING_Z_CENTER);
+        fr::point_3d b_center = local_point_to_view(b_wall_x, b_center_y, PAINTING_Z_CENTER);
         fr::point_3d b_normal = local_vector_to_view(-1, 0, 0);  // east wall interior normal
 
         bn::point b0_screen, b1_screen, b2_screen, b3_screen;
@@ -1142,6 +1202,19 @@ str::Scene RoomViewer::execute()
     auto refresh_overlay_text = [&](int room_id, int fps, int vertices_count) {
         _text_sprites.clear();
 
+        auto generation_failed = [&]() {
+            // Avoid hard asserts from sprite tile exhaustion when toggling overlay.
+            _text_sprites.clear();
+            text_debug_mode = _debug_mode;
+            text_fx = _player_fx.integer();
+            text_fy = _player_fy.integer();
+            text_dir = _player_dir;
+            text_room = room_id;
+            text_corner = _corner_index;
+            text_fps = fps;
+            text_vertices = vertices_count;
+        };
+
         if(_debug_mode)
         {
             int current_fx = _player_fx.integer();
@@ -1150,22 +1223,42 @@ str::Scene RoomViewer::execute()
             bn::string<32> line1;
             bn::ostringstream stream1(line1);
             stream1 << "F:" << current_fx << "," << current_fy << " D:" << _player_dir;
-            tg.generate(0, -72, line1, _text_sprites);
+            if(! tg.generate_optional(0, -72, line1, _text_sprites))
+            {
+                generation_failed();
+                return;
+            }
 
             bn::string<32> line2;
             bn::ostringstream stream2(line2);
             stream2 << "Room:" << room_id << " C:" << _corner_index;
-            tg.generate(0, -60, line2, _text_sprites);
+            if(! tg.generate_optional(0, -60, line2, _text_sprites))
+            {
+                generation_failed();
+                return;
+            }
 
             bn::string<32> line3;
             bn::ostringstream stream3(line3);
             stream3 << "FPS:" << fps << " V:" << vertices_count << "/" << fr::models_3d::max_vertices();
-            tg.generate(0, -48, line3, _text_sprites);
+            if(! tg.generate_optional(0, -48, line3, _text_sprites))
+            {
+                generation_failed();
+                return;
+            }
 
             #if BN_CFG_PROFILER_ENABLED
-                tg.generate(0, 72, "SEL+START:Profiler B:Exit", _text_sprites);
+                if(! tg.generate_optional(0, 72, "SEL+START:Profiler B:Exit", _text_sprites))
+                {
+                    generation_failed();
+                    return;
+                }
             #else
-                tg.generate(0, 72, "Profiler:OFF B:Exit", _text_sprites);
+                if(! tg.generate_optional(0, 72, "Profiler:OFF B:Exit", _text_sprites))
+                {
+                    generation_failed();
+                    return;
+                }
             #endif
 
             text_fx = current_fx;
@@ -1178,8 +1271,17 @@ str::Scene RoomViewer::execute()
         }
         else
         {
-            tg.generate(0, -72, "ROOM VIEWER", _text_sprites);
-            tg.generate(0, 72, "L/R:Zoom START:North B:Exit", _text_sprites);
+            if(! tg.generate_optional(0, -72, "ROOM VIEWER", _text_sprites))
+            {
+                generation_failed();
+                return;
+            }
+
+            if(! tg.generate_optional(0, 72, "L/R:Zoom START:North B:Exit", _text_sprites))
+            {
+                generation_failed();
+                return;
+            }
 
             text_fps = fps;
             text_vertices = vertices_count;
@@ -1225,6 +1327,12 @@ str::Scene RoomViewer::execute()
             BN_PROFILER_START("room_models_update");
             _models.update(_camera);
             BN_PROFILER_STOP();
+
+            if(bn::sprites::reserved_handles_count() != previous_reserved_sprite_handles)
+            {
+                bn::sprites::set_reserved_handles_count(previous_reserved_sprite_handles);
+            }
+
             bn::core::update();
             return str::Scene::START;
         }
@@ -1471,6 +1579,8 @@ str::Scene RoomViewer::execute()
                     door_transition_target_anchor_y = room_center_y(next_room);
                     door_transition_target_local_x = new_local_x;
                     door_transition_target_local_y = new_local_y;
+                    // Keep destination neighborhood loaded during interpolation.
+                    sync_room_models();
                     break;
                 }
             }

@@ -14,7 +14,7 @@ int main()
 {
     bn::core::init();
 
-    str::Scene next = str::Scene::START;  // Start with the start screen
+    str::Scene next = str::Scene::ROOM_VIEWER;
     bn::fixed_point spawn_location(50, 100);
     int selected_world_id = 0;
     int selected_character_id = 0; // This will be updated by character selection
@@ -25,8 +25,7 @@ int main()
         {
             case str::Scene::START:
             {
-                str::Start start;
-                next = start.execute();
+                next = str::Scene::ROOM_VIEWER;
                 break;
             }
             case str::Scene::CHARACTER_SELECT:
@@ -68,7 +67,7 @@ int main()
                 break;
             }
             default:
-                next = str::Scene::START;
+                next = str::Scene::ROOM_VIEWER;
                 break;
         }
         bn::core::update();

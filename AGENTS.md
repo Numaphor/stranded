@@ -66,3 +66,11 @@ There is no linter or static analysis configured. The compiler warnings from `ma
 - `wf-pacman` packages installed: `wf-tools`, `target-gba`, `blocksds-toolchain` (provides `mmutil` for audio).
 - The `butano/` directory is a git submodule — run `git submodule update --init --recursive` if it's empty.
 - `python` must be available (provided by `python-is-python3` package).
+
+## Local Windows ARM64 E2E testing memory
+
+Detailed local E2E instructions were moved to:
+
+- `docs/e2e-testing.md`
+
+Default rule for this repo: use full screenshot-grounded E2E validation before claiming visual fixes.

@@ -150,6 +150,39 @@ def _door_center_local(room_id: int, wall_name: str, pair_targets: dict[tuple[in
 
     return local_offset
 
+
+def _door_top_world(room_id: int) -> float:
+    room_scale = ROOM_WORLD_SCALE[room_id]
+    door_top_local = DOOR_TOP_WORLD / room_scale
+    return door_top_local * room_scale
+
+
+def _validate_door_top_alignment() -> None:
+    """Ensure connected room portals share the same world-space opening top."""
+    checked_pairs: set[tuple[int, int]] = set()
+
+    for room_id, walls in ROOM_DOOR_WALLS.items():
+        for wall_name in walls:
+            neighbor_room = _neighbor_room_for_wall(room_id, wall_name)
+            if neighbor_room is None:
+                raise ValueError(
+                    f"Door config invalid: room {room_id} wall '{wall_name}' has no neighbor"
+                )
+
+            pair = tuple(sorted((room_id, neighbor_room)))
+            if pair in checked_pairs:
+                continue
+
+            checked_pairs.add(pair)
+            first_top = _door_top_world(pair[0])
+            second_top = _door_top_world(pair[1])
+
+            if abs(first_top - second_top) > 0.0001:
+                raise ValueError(
+                    "Door opening top mismatch between connected rooms "
+                    f"{pair[0]} and {pair[1]}: {first_top:.4f} vs {second_top:.4f}"
+                )
+
 # Building vertices from building.h (engine coordinates)
 BUILDING_ENGINE_VERTS = [
     (-120.0, -180.0, 0.0), (0.0, -180.0, 0.0), (120.0, -180.0, 0.0),
@@ -225,8 +258,12 @@ OBJ_NORMAL_TO_ENGINE = {
 ROOM_HALF = 30.0
 ROOM_WALL_TOP = 25.0
 DOOR_HALF_WORLD = 5.0
-DOOR_TOP = 17.5
+DOOR_TOP_WORLD = 17.5
 DOUBLE_SIDED_ROOM_SURFACES = True
+# Extend floor beyond wall boundary to prevent T-junction scanline artifacts.
+# Door-side wall vertices sit on the floor edge but are not floor vertices,
+# causing sub-pixel interpolation gaps through which adjacent rooms are visible.
+FLOOR_EXTENSION = 1.0
 
 WINDOW_BOTTOM = 10.0
 WINDOW_TOP = 18.0
@@ -383,7 +420,15 @@ def _add_room_surface(local_vertices, local_faces, material, normal, quad):
         _add_quad(local_vertices, local_faces, material, normal, quad)
 
 
-def _add_wall(local_vertices, local_faces, wall_name, has_door, door_center=0.0, door_half=DOOR_HALF_WORLD):
+def _add_wall(
+    local_vertices,
+    local_faces,
+    wall_name,
+    has_door,
+    door_center=0.0,
+    door_half=DOOR_HALF_WORLD,
+    door_top_local=DOOR_TOP_WORLD,
+):
     x0, x1 = -ROOM_HALF, ROOM_HALF
     z0, z1 = -ROOM_HALF, ROOM_HALF
     y0, y1 = 0.0, ROOM_WALL_TOP
@@ -394,7 +439,7 @@ def _add_wall(local_vertices, local_faces, wall_name, has_door, door_center=0.0,
         if has_door:
             _add_room_surface(local_vertices, local_faces, "wall", normal, [(x0, y0, z0), (ds0, y0, z0), (ds0, y1, z0), (x0, y1, z0)])
             _add_room_surface(local_vertices, local_faces, "wall", normal, [(ds1, y0, z0), (x1, y0, z0), (x1, y1, z0), (ds1, y1, z0)])
-            _add_room_surface(local_vertices, local_faces, "door_frame", normal, [(ds0, DOOR_TOP, z0), (ds1, DOOR_TOP, z0), (ds1, y1, z0), (ds0, y1, z0)])
+            _add_room_surface(local_vertices, local_faces, "door_frame", normal, [(ds0, door_top_local, z0), (ds1, door_top_local, z0), (ds1, y1, z0), (ds0, y1, z0)])
         else:
             _add_room_surface(local_vertices, local_faces, "wall", normal, [(x0, y0, z0), (x1, y0, z0), (x1, y1, z0), (x0, y1, z0)])
     elif wall_name == "south":
@@ -402,7 +447,7 @@ def _add_wall(local_vertices, local_faces, wall_name, has_door, door_center=0.0,
         if has_door:
             _add_room_surface(local_vertices, local_faces, "wall", normal, [(x0, y1, z1), (ds0, y1, z1), (ds0, y0, z1), (x0, y0, z1)])
             _add_room_surface(local_vertices, local_faces, "wall", normal, [(ds1, y1, z1), (x1, y1, z1), (x1, y0, z1), (ds1, y0, z1)])
-            _add_room_surface(local_vertices, local_faces, "door_frame", normal, [(ds0, y1, z1), (ds1, y1, z1), (ds1, DOOR_TOP, z1), (ds0, DOOR_TOP, z1)])
+            _add_room_surface(local_vertices, local_faces, "door_frame", normal, [(ds0, y1, z1), (ds1, y1, z1), (ds1, door_top_local, z1), (ds0, door_top_local, z1)])
         else:
             _add_room_surface(local_vertices, local_faces, "wall", normal, [(x0, y1, z1), (x1, y1, z1), (x1, y0, z1), (x0, y0, z1)])
     elif wall_name == "west":
@@ -410,7 +455,7 @@ def _add_wall(local_vertices, local_faces, wall_name, has_door, door_center=0.0,
         if has_door:
             _add_room_surface(local_vertices, local_faces, "wall", normal, [(x0, y1, z0), (x0, y1, ds0), (x0, y0, ds0), (x0, y0, z0)])
             _add_room_surface(local_vertices, local_faces, "wall", normal, [(x0, y1, ds1), (x0, y1, z1), (x0, y0, z1), (x0, y0, ds1)])
-            _add_room_surface(local_vertices, local_faces, "door_frame", normal, [(x0, y1, ds0), (x0, y1, ds1), (x0, DOOR_TOP, ds1), (x0, DOOR_TOP, ds0)])
+            _add_room_surface(local_vertices, local_faces, "door_frame", normal, [(x0, y1, ds0), (x0, y1, ds1), (x0, door_top_local, ds1), (x0, door_top_local, ds0)])
         else:
             _add_room_surface(local_vertices, local_faces, "wall", normal, [(x0, y1, z0), (x0, y1, z1), (x0, y0, z1), (x0, y0, z0)])
     elif wall_name == "east":
@@ -418,7 +463,7 @@ def _add_wall(local_vertices, local_faces, wall_name, has_door, door_center=0.0,
         if has_door:
             _add_room_surface(local_vertices, local_faces, "wall", normal, [(x1, y0, z0), (x1, y0, ds0), (x1, y1, ds0), (x1, y1, z0)])
             _add_room_surface(local_vertices, local_faces, "wall", normal, [(x1, y0, ds1), (x1, y0, z1), (x1, y1, z1), (x1, y1, ds1)])
-            _add_room_surface(local_vertices, local_faces, "door_frame", normal, [(x1, DOOR_TOP, ds0), (x1, DOOR_TOP, ds1), (x1, y1, ds1), (x1, y1, ds0)])
+            _add_room_surface(local_vertices, local_faces, "door_frame", normal, [(x1, door_top_local, ds0), (x1, door_top_local, ds1), (x1, y1, ds1), (x1, y1, ds0)])
         else:
             _add_room_surface(local_vertices, local_faces, "wall", normal, [(x1, y0, z0), (x1, y0, z1), (x1, y1, z1), (x1, y1, z0)])
     else:
@@ -467,19 +512,21 @@ def _build_room_mesh(room_id, table_vertices, table_faces, chair_vertices, chair
     local_vertices = []
     local_faces = []
 
-    _add_quad(local_vertices, local_faces, "floor_dark", (0, 0, -1), [(-30, 0, 30), (30, 0, 30), (30, 0, -30), (-30, 0, -30)])
+    fe = ROOM_HALF + FLOOR_EXTENSION
+    _add_quad(local_vertices, local_faces, "floor_dark", (0, 0, -1), [(-fe, 0, fe), (fe, 0, fe), (fe, 0, -fe), (-fe, 0, -fe)])
 
     door_walls = ROOM_DOOR_WALLS[room_id]
     room_scale = ROOM_WORLD_SCALE[room_id]
     door_half_local = DOOR_HALF_WORLD / room_scale
+    door_top_local = DOOR_TOP_WORLD / room_scale
     _add_wall(local_vertices, local_faces, "north", "north" in door_walls,
-              door_centers.get("north", 0.0), door_half_local)
+              door_centers.get("north", 0.0), door_half_local, door_top_local)
     _add_wall(local_vertices, local_faces, "south", "south" in door_walls,
-              door_centers.get("south", 0.0), door_half_local)
+              door_centers.get("south", 0.0), door_half_local, door_top_local)
     _add_wall(local_vertices, local_faces, "west", "west" in door_walls,
-              door_centers.get("west", 0.0), door_half_local)
+              door_centers.get("west", 0.0), door_half_local, door_top_local)
     _add_wall(local_vertices, local_faces, "east", "east" in door_walls,
-              door_centers.get("east", 0.0), door_half_local)
+              door_centers.get("east", 0.0), door_half_local, door_top_local)
 
     if "window" in ROOM_DECOR[room_id]:
         window_wall = WINDOW_WALL_BY_ROOM.get(room_id)
@@ -498,6 +545,7 @@ def _build_room_mesh(room_id, table_vertices, table_faces, chair_vertices, chair
 
 def main():
     validate_decor_spec()
+    _validate_door_top_alignment()
     out_path = os.path.join(OBJ_DIR, "level.obj")
 
     normal_map = {}

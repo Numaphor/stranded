@@ -5,6 +5,7 @@
 
 #include "fr_shape_groups.h"
 
+#include "bn_assert.h"
 #include "bn_hdma.h"
 #include "bn_memory.h"
 #include "bn_sprites.h"
@@ -236,6 +237,14 @@ void shape_groups::set_fade(bn::color color, bn::fixed intensity)
     }
 }
 
+void shape_groups::set_oam_start_index(int oam_start_index)
+{
+    BN_ASSERT(oam_start_index >= 0, "Invalid OAM start index: ", oam_start_index);
+    BN_ASSERT(oam_start_index + _max_hdma_sprites <= bn::hw::sprites::count(),
+              "Invalid OAM range: ", oam_start_index, " + ", _max_hdma_sprites);
+    _oam_start_index = oam_start_index;
+}
+
 void shape_groups::update()
 {
     if(_draw_enabled)
@@ -258,7 +267,7 @@ void shape_groups::update()
         bn::memory::copy(hdma_source[0], scanline_elements, hdma_source[hdma_source_size]);
 
         bn::span<const uint16_t> hdma_source_ref(hdma_source + scanline_elements, hdma_source_size);
-        bn::hdma::start(hdma_source_ref, bn::hw::sprites::vram()[128 - max_sprites].attr0);
+        bn::hdma::start(hdma_source_ref, bn::hw::sprites::vram()[_oam_start_index].attr0);
 
         if(hdma_source == _hdma_source_a)
         {
@@ -270,6 +279,16 @@ void shape_groups::update()
             bn::memory::copy(*_hlines_count, bn::display::height(), *_previous_hlines_count_b);
             _hdma_source = _hdma_source_a;
         }
+
+        int max_hl = 0;
+        for(int i = 0; i < bn::display::height(); ++i)
+        {
+            if(_hlines_count[i] > max_hl)
+            {
+                max_hl = _hlines_count[i];
+            }
+        }
+        _debug_max_hlines = max_hl;
 
         bn::memory::clear(bn::display::height(), *_hlines_count);
     }

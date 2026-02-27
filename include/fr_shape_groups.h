@@ -53,12 +53,24 @@ public:
     BN_CODE_IWRAM void add_sprite(unsigned minimum_y, unsigned maximum_y,
                                   uint16_t attr0, uint16_t attr1, uint16_t attr2);
 
+    void set_oam_start_index(int oam_start_index);
+
     void update();
+
+    [[nodiscard]] int max_hlines_last_frame() const
+    {
+        return _debug_max_hlines;
+    }
+
+    [[nodiscard]] static constexpr int required_reserved_sprite_handles()
+    {
+        return _max_hdma_sprites;
+    }
 
 private:
     static constexpr int _max_palettes = 8;
-    // Increased to avoid per-scanline overflow when multiple room shells overlap.
-    static constexpr int _max_hdma_sprites = 48;
+    // Increased to avoid per-scanline overflow when furniture + room shells overlap.
+    static constexpr int _max_hdma_sprites = 64;
     static constexpr int _hdma_source_size = (bn::display::height() + 1) * 4 * _max_hdma_sprites;
 
     class color_tiles
@@ -100,8 +112,10 @@ private:
     alignas(int) uint16_t _hdma_source_a[_hdma_source_size];
     alignas(int) uint16_t _hdma_source_b[_hdma_source_size];
     uint16_t* _hdma_source = _hdma_source_a;
+    int _oam_start_index = 0;
 
     bool _draw_enabled = false;
+    int _debug_max_hlines = 0;
 
     BN_CODE_IWRAM void _hide_left_hlines(const uint8_t* previous_hlines_count);
 
