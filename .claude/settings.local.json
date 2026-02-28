@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(/c/Python314/python.exe:*)",
-      "Bash(python:*)"
-    ]
-  }
-}

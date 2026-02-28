@@ -21,7 +21,10 @@ Last updated: 2026-02-22
 
 - Python scripts in `tools/` for content/header generation.
 - Node script `scripts/launch_emulator.js` for local emulator workflow.
-- mGBA used for emulator-based validation.
+- Emulator-based validation:
+  - Windows: bundled mGBA build under `tools/` (or override via `stranded.emulatorPath`).
+  - WSL: can launch the bundled Windows mGBA build via Windows interop (no `wine` required).
+  - Linux/macOS (non-WSL): requires a native emulator install (for example `VisualBoyAdvance` or `mgba`) and/or setting `stranded.emulatorPath`.
 
 ## CI/CD Integrations
 
