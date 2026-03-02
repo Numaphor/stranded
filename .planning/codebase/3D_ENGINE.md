@@ -1,6 +1,6 @@
 # 3D Engine Reference
 
-Last updated: 2026-02-23
+Last updated: 2026-03-01
 
 ## Scope
 
@@ -68,23 +68,29 @@ Order is rotate -> scale -> translate.
 
 ## Room Viewer Isometric Setup
 
-`src/core/room_viewer.cpp` uses fixed angles:
+`src/room_viewer.cpp` uses fixed angles:
 
 - `iso_phi = 6400`
 - `iso_theta = 59904`
 - `iso_psi = 6400`
 
-A base corner matrix is derived from these angles. Corner switching uses a quarter-turn rotation over that base orientation.
+A base corner matrix is derived from these angles. The view angle follows committed movement heading plus a behind-offset and is quantized into quarter turns for `_corner_index`.
 
-## Smooth Corner Transition (Current)
+## Corner Handling and Camera Follow (Current)
 
-- Quarter turn angle: `16384`
-- Duration constant: `CORNER_TURN_DURATION_FRAMES` (currently `20`)
-- Easing: smoothstep
-- Matrix updates happen each frame during transition
-- Player movement is paused while transition is active
+- Quarter turn angle: `QUARTER_TURN_ANGLE = 16384`.
+- Render refresh threshold: `RENDER_UPDATE_ANGLE_STEP = 64`; orientations/paintings update when the view angle moves by this step.
+- View angle source: committed movement heading plus `CAMERA_BEHIND_OFFSET_ANGLE = 24576` with easing gains and max step clamps; `_corner_index` derives from quantized view angle instead of a discrete transition coroutine.
+- Camera distance: adjustable via `L/R`, clamped `100–500`; `START` (without `SELECT`) recenters toward committed heading with a short boost (`CAMERA_START_BOOST_FRAMES = 10`).
+- Movement continues while turning corners; only door transitions pause movement.
 
-See `.planning/features/ROOM_VIEWER_CORNER_TRANSITIONS.md` for behavior and tuning notes.
+## Door Transition (Current)
+
+- Duration: `DOOR_TRANSITION_DURATION_FRAMES = 16` with smoothstep easing.
+- Interpolates player/global position and anchor; preloads decor/models for the target room; movement input blocked during the transition.
+- Depth bias applied to transition decor to prevent Z-fighting; furniture reloaded after swap.
+
+See `.planning/features/ROOM_VIEWER_CORNER_TRANSITIONS.md` for corner/turn behavior and tuning notes.
 
 ## Build Include Order
 

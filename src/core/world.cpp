@@ -216,7 +216,7 @@ namespace str
         // internal_window.set_show_bg(*_sword_bg, true);
         // internal_window.set_boundaries(-SWORD_HALF_WIDTH, -SWORD_HALF_HEIGHT, SWORD_HALF_WIDTH, SWORD_HALF_HEIGHT);
 
-        _minimap = new Minimap(bn::fixed_point(100, -80), bg_map_ptr, camera);
+        _minimap = new Minimap();
         _player->set_camera(camera);
 
         bn::sprite_text_generator text_generator(common::variable_8x8_sprite_font);
@@ -313,7 +313,7 @@ namespace str
             if (!str::ZoneManager::is_position_valid(_player->pos()))
                 _player->revert_position();
             if (_minimap)
-                _minimap->update(_player->pos(), {0, 0}, _enemies);
+                _minimap->update(_player->pos(), static_cast<int>(_player->facing_direction()), _enemies);
             PlayerMovement::Direction fdir = _player->facing_direction();
             bn::fixed_point dl = {0, 0};
             if (fdir == PlayerMovement::Direction::RIGHT)
@@ -454,7 +454,7 @@ namespace str
                 _level->reset();
                 _enemies.clear();
                 delete _minimap;
-                _minimap = new Minimap({100, -80}, bg_map_ptr, camera);
+                _minimap = new Minimap();
                 _player->spawn(spawn_location, camera);
                 _init_world_specific_content(_current_world_id, camera, bg, text_generator);
                 camera.set_position(0, 0);

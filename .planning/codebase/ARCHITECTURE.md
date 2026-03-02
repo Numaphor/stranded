@@ -1,7 +1,7 @@
 # Architecture
 
 Analysis date: 2026-02-09
-Last updated: 2026-02-22
+Last updated: 2026-03-01
 
 ## High-level Pattern
 
@@ -14,7 +14,7 @@ Last updated: 2026-02-22
 
 ### Presentation Layer
 
-- Files: `src/core/scenes.cpp`, `src/core/model_viewer.cpp`, `src/core/room_viewer.cpp`
+- Files: `src/core/scenes.cpp`, `src/core/model_viewer.cpp`, `src/room_viewer.cpp`
 - Responsibilities: input routing, UI text/sprites, scene-local rendering behavior.
 
 ### Gameplay Layer
@@ -48,14 +48,12 @@ The loop creates a scene object, executes it, reads the returned scene enum, and
 ## Room Viewer Architecture
 
 - Scene entrypoint: `str::RoomViewer::execute()`.
-- Models: room shell + optional decor (table/chair), created as dynamic `fr::model_3d` objects.
-- Player: `fr::sprite_3d` using Eris sprite sheet.
-- Camera: fixed phi (`0`), adjustable distance via `L/R`.
-- Navigation: six connected rooms in a 2x3 grid with door transitions.
-- Corner view switching:
-  - `START` triggers a smooth corner transition.
-  - Transition interpolates a view angle and updates model rotation each frame.
-  - Movement is paused during transition, then `_corner_index` advances and facing is remapped.
+- Location: `src/room_viewer.cpp`, header `include/str_scene_room_viewer.h`.
+- Models: room shell + optional decor (table/chair), created as dynamic `fr::model_3d` objects per active/transition room.
+- Player: `fr::sprite_3d` using the Eris sprite sheet.
+- Camera: isometric angles (`phi=6400`, `theta=59904`, `psi=6400`); follows committed movement heading with smoothing and a behind-offset; distance adjustable via `L/R` (clamped 100–500) and recenter boost on `START` (without `SELECT`).
+- Navigation: six connected rooms in a 2x3 grid with eased door transitions (16-frame smoothstep) that pause movement while swapping rooms/anchor/decor/models.
+- Corner view handling: view angle continuously follows heading; `_corner_index` is derived from quantized view angle (quarter turns). Models/paintings are reoriented when the quantized corner changes instead of a button-driven snap.
 
 ## Important Abstractions
 

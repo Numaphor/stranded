@@ -25,6 +25,7 @@
 #include "bn_sprite_items_mr_and_mrs_andrews_wall_top.h"
 
 #include "common_variable_8x8_sprite_font.h"
+#include "str_minimap.h"
 
 #include "fr_sin_cos.h"
 #include "fr_div_lut.h"
@@ -702,6 +703,7 @@ str::Scene RoomViewer::execute()
     bn::fixed door_transition_target_local_x = 0;
     bn::fixed door_transition_target_local_y = 0;
 
+    str::Minimap* minimap = new str::Minimap();
     auto set_model_rotation = [](fr::model_3d& m, const corner_matrix& cm) {
         m.set_rotation_matrix(
             cm.r00, cm.r01, cm.r02,
@@ -1354,6 +1356,8 @@ str::Scene RoomViewer::execute()
 
         if(bn::keypad::b_pressed())
         {
+            delete minimap;
+            minimap = nullptr;
             clear_room_decor_models(table_ptr, chair_ptr);
             clear_room_decor_models(transition_table_ptr, transition_chair_ptr);
 
@@ -1761,6 +1765,31 @@ str::Scene RoomViewer::execute()
         if(text_dirty)
         {
             refresh_overlay_text(current_room, current_fps, current_vertices);
+        }
+
+        // --- Minimap update ---
+        if(minimap)
+        {
+            bn::fixed_point player_world_pos;
+            if(door_transition_active)
+            {
+                player_world_pos = bn::fixed_point(door_transition_current_global_x, door_transition_current_global_y);
+            }
+            else
+            {
+                player_world_pos = bn::fixed_point(room_center_x(current_room) + _player_fx, room_center_y(current_room) + _player_fy);
+            }
+
+            // Map room_viewer direction (0=down,1=down_side,2=side,3=up_side,4=up)
+            // to minimap direction (UP=0,DOWN=1,LEFT=2,RIGHT=3)
+            int minimap_dir;
+            if(dir == 4)       { minimap_dir = 0; }  // up -> UP
+            else if(dir == 3)  { minimap_dir = 0; }  // up_side -> UP
+            else if(dir == 0)  { minimap_dir = 1; }  // down -> DOWN
+            else if(dir == 1)  { minimap_dir = 1; }  // down_side -> DOWN
+            else               { minimap_dir = facing_left ? 2 : 3; }  // side -> LEFT/RIGHT
+
+            minimap->update(player_world_pos, minimap_dir);
         }
 
         #if BN_CFG_PROFILER_ENABLED && ! FR_DETAILED_PROFILE

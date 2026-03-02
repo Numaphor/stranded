@@ -1,7 +1,7 @@
 # Codebase Structure
 
 Analysis date: 2026-02-09
-Last updated: 2026-02-22
+Last updated: 2026-03-01
 
 ## Top-level Layout
 
@@ -28,7 +28,8 @@ stranded/
 
 - `src/main.cpp`: scene loop and scene dispatch.
 - `src/actors/`: gameplay entities (`player`, `enemy`, `npc`, companion logic).
-- `src/core/`: game systems and scenes (`world`, `scenes`, `room_viewer`, `model_viewer`, HUD, collision, level, quest, minimap).
+- `src/core/`: game systems and scenes (`world`, `scenes`, HUD, collision, level, quest, minimap`).
+- `src/room_viewer.cpp`: standalone room viewer scene (moved out of `src/core/`).
 - `src/viewer/`: 3D runtime implementation copied/adapted from varooom-3d.
 
 ### `include/`
@@ -42,7 +43,7 @@ Important build detail:
 
 ## Room Viewer Related Files
 
-- Scene logic: `src/core/room_viewer.cpp`
+- Scene logic: `src/room_viewer.cpp`
 - Scene header: `include/str_scene_room_viewer.h`
 - 3D model headers: `include/models/str_model_3d_items_room.h`, `include/models/str_model_3d_items_table.h`, `include/models/str_model_3d_items_chair.h`
 - 3D runtime dependencies: `src/viewer/fr_models_3d.cpp`, `src/viewer/fr_models_3d.bn_iwram.cpp`, `src/viewer/fr_camera_3d.cpp`
