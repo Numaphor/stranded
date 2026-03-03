@@ -27,7 +27,8 @@ public:
     enum class layering_mode
     {
         none,
-        room_perspective
+        room_perspective,
+        room_floor_only
     };
 
     constexpr explicit model_3d(const model_3d_item& item) :

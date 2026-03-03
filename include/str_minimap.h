@@ -100,8 +100,14 @@ namespace str {
         // Helper: determine which room a world position is in (-1 if none)
         int _find_room(bn::fixed_point world_pos) const;
 
+        // Room-viewer variant: keeps current room while inside overlap bounds to avoid jitter.
+        int _find_room_room_viewer(bn::fixed_point world_pos) const;
+
         // Helper: map world position to minimap screen position within a room
         bn::fixed_point _world_to_minimap(bn::fixed_point world_pos, int room_id) const;
+
+        // Room-viewer variant: maps door thresholds closer to connector sprites.
+        bn::fixed_point _world_to_minimap_room_viewer(bn::fixed_point world_pos, int room_id) const;
 
         // Update room sprite frames based on current state
         void _update_room_visuals();

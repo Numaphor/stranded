@@ -66,7 +66,13 @@ namespace {
     constexpr int PAINTING_MIN_TRI_AREA2 = 220;
     constexpr int ADJACENT_ROOM_DEPTH_BIAS = 1500000;
     constexpr int TRANSITION_DECOR_DEPTH_BIAS = ADJACENT_ROOM_DEPTH_BIAS;
-    constexpr bool LOAD_ADJACENT_ROOMS = false;
+    constexpr int ROOM_PREVIEW_TARGET_FPS = 50;
+    constexpr int ROOM_PREVIEW_FPS_HYSTERESIS = 3;
+    constexpr int ROOM_PREVIEW_DOWNSHIFT_FPS = ROOM_PREVIEW_TARGET_FPS - ROOM_PREVIEW_FPS_HYSTERESIS;
+    constexpr int ROOM_PREVIEW_UPSHIFT_FPS = ROOM_PREVIEW_TARGET_FPS + ROOM_PREVIEW_FPS_HYSTERESIS;
+    constexpr int ROOM_PREVIEW_REQUIRED_SAMPLES = 2;
+    constexpr int ROOM_PREVIEW_MODE_CHANGE_COOLDOWN_FRAMES = 180;
+    constexpr bool ROOM_PREVIEW_AUTO_ADJUST = false;
     constexpr bool ENABLE_PAINTING_QUADS = true;
     constexpr bool ENABLE_NPC_SPRITES = true;
     constexpr bn::fixed NPC_FX = 20;
@@ -126,6 +132,58 @@ namespace {
         bn::fixed r10, r11, r12;
         bn::fixed r20, r21, r22;
     };
+
+    enum class room_preview_mode
+    {
+        all_connected,
+        preferred_only,
+        off
+    };
+
+    const char* room_preview_mode_name(room_preview_mode mode)
+    {
+        switch(mode)
+        {
+            case room_preview_mode::all_connected:
+                return "ALL";
+
+            case room_preview_mode::preferred_only:
+                return "ONE";
+
+            default:
+                return "OFF";
+        }
+    }
+
+    room_preview_mode downgraded_room_preview_mode(room_preview_mode mode)
+    {
+        switch(mode)
+        {
+            case room_preview_mode::all_connected:
+                return room_preview_mode::preferred_only;
+
+            case room_preview_mode::preferred_only:
+                return room_preview_mode::off;
+
+            default:
+                return room_preview_mode::off;
+        }
+    }
+
+    room_preview_mode upgraded_room_preview_mode(room_preview_mode mode)
+    {
+        switch(mode)
+        {
+            case room_preview_mode::off:
+                return room_preview_mode::preferred_only;
+
+            case room_preview_mode::preferred_only:
+                return room_preview_mode::all_connected;
+
+            default:
+                return room_preview_mode::all_connected;
+        }
+    }
 
     int normalize_angle(int angle)
     {
@@ -349,6 +407,9 @@ namespace {
         template<int half_size>
         void _update_impl()
         {
+            auto abs_value = [](int value) {
+                return value >= 0 ? value : -value;
+            };
             int x0 = _p0.x();
             int y0 = _p0.y();
             int x1 = _p1.x();
@@ -379,6 +440,16 @@ namespace {
             int pb = (256 * (2 * half_size * x1 - 2 * half_size * x2 - x1 + x2)) / affine_divisor;
             int pc = (-512 * half_size * y0 + 512 * half_size * y1 + 256 * y0 - 256 * y1) / affine_divisor;
             int pd = (256 * (2 * half_size * x0 - 2 * half_size * x1 - x0 + x1)) / affine_divisor;
+            constexpr int max_affine_register = 32767;
+
+            // Prevent affine register overflow/wrap when projected triangles become unstable at specific zooms.
+            if(abs_value(pa) > max_affine_register || abs_value(pb) > max_affine_register ||
+               abs_value(pc) > max_affine_register || abs_value(pd) > max_affine_register)
+            {
+                set_visible(false);
+                return;
+            }
+
             bn::affine_mat_attributes attributes;
             attributes.unsafe_set_register_values(pa, pb, pc, pd);
             _affine_mat.set_attributes(attributes);
@@ -400,7 +471,17 @@ namespace {
             int delta_x = (u0v1 * x2) + (u2v0 * x1) + (x0 * u1v2) - (x0 * u2v1) - (u1v0 * x2) - (u0v2 * x1);
             int delta_y = (u0v1 * y2) + (y1 * u2v0) + (y0 * u1v2) - (y0 * u2v1) - (u1v0 * y2) - (u0v2 * y1);
             int position_divisor = u0v1 + u2v0 + u1v2 - u2v1 - u1v0 - u0v2;
-            _sprite.set_position(delta_x / position_divisor, delta_y / position_divisor);
+            int sprite_x = delta_x / position_divisor;
+            int sprite_y = delta_y / position_divisor;
+
+            // Keep off-screen/unstable projections from wrapping into visible garbage quads.
+            if(abs_value(sprite_x) > 240 || abs_value(sprite_y) > 176)
+            {
+                set_visible(false);
+                return;
+            }
+
+            _sprite.set_position(sprite_x, sprite_y);
             set_visible(true);
         }
     };
@@ -575,6 +656,24 @@ namespace {
 
             default:
                 return -1;
+        }
+    }
+
+    int preferred_neighbor_room_for_corner(int room_id, int corner_index)
+    {
+        switch(corner_index)
+        {
+            case 0:
+                return neighbor_room_for_door(room_id, door_direction::north);
+
+            case 1:
+                return neighbor_room_for_door(room_id, door_direction::west);
+
+            case 2:
+                return neighbor_room_for_door(room_id, door_direction::south);
+
+            default:
+                return neighbor_room_for_door(room_id, door_direction::east);
         }
     }
 
@@ -786,6 +885,11 @@ str::Scene RoomViewer::execute()
     int door_transition_elapsed = 0;
     int door_transition_target_room = current_room;
     int door_transition_furniture_room = -1;
+    room_preview_mode preview_mode = room_preview_mode::all_connected;
+    bool debug_hide_room_models = false;
+    int preview_mode_low_fps_samples = 0;
+    int preview_mode_high_fps_samples = 0;
+    int preview_mode_change_cooldown_frames = 0;
     bn::fixed door_transition_start_global_x = 0;
     bn::fixed door_transition_start_global_y = 0;
     bn::fixed door_transition_target_global_x = 0;
@@ -838,39 +942,76 @@ str::Scene RoomViewer::execute()
     auto sync_room_models = [&]() {
         bool changed = false;
         bool should_exist[NUM_ROOMS] = {};
-        auto preferred_neighbor_room = [&](int room_id) {
-            switch(_corner_index)
+
+        if(debug_hide_room_models)
+        {
+            for(int room_id = 0; room_id < NUM_ROOMS; ++room_id)
             {
-                case 0:
-                    return neighbor_room_for_door(room_id, door_direction::north);
+                if(room_models[room_id])
+                {
+                    _models.destroy_dynamic_model(*room_models[room_id]);
+                    room_models[room_id] = nullptr;
+                    changed = true;
+                }
+            }
 
-                case 1:
-                    return neighbor_room_for_door(room_id, door_direction::west);
+            return changed;
+        }
 
-                case 2:
-                    return neighbor_room_for_door(room_id, door_direction::south);
+        auto mark_preview_rooms = [&](int anchor_room) {
+            should_exist[anchor_room] = true;
 
-                default:
-                    return neighbor_room_for_door(room_id, door_direction::east);
+            if(preview_mode == room_preview_mode::off)
+            {
+                return;
+            }
+
+            if(preview_mode == room_preview_mode::preferred_only)
+            {
+                int preferred_neighbor = preferred_neighbor_room_for_corner(anchor_room, _corner_index);
+                if(preferred_neighbor >= 0)
+                {
+                    should_exist[preferred_neighbor] = true;
+                }
+
+                return;
+            }
+
+            int east_neighbor = neighbor_room_for_door(anchor_room, door_direction::east);
+            int west_neighbor = neighbor_room_for_door(anchor_room, door_direction::west);
+            int south_neighbor = neighbor_room_for_door(anchor_room, door_direction::south);
+            int north_neighbor = neighbor_room_for_door(anchor_room, door_direction::north);
+
+            if(east_neighbor >= 0)
+            {
+                should_exist[east_neighbor] = true;
+            }
+
+            if(west_neighbor >= 0)
+            {
+                should_exist[west_neighbor] = true;
+            }
+
+            if(south_neighbor >= 0)
+            {
+                should_exist[south_neighbor] = true;
+            }
+
+            if(north_neighbor >= 0)
+            {
+                should_exist[north_neighbor] = true;
             }
         };
-        int current_preferred_neighbor = preferred_neighbor_room(current_room);
+
+        mark_preview_rooms(current_room);
+
+        if(door_transition_active)
+        {
+            mark_preview_rooms(door_transition_target_room);
+        }
 
         for(int room_id = 0; room_id < NUM_ROOMS; ++room_id)
         {
-            bool around_current = room_id == current_room ||
-                                  (LOAD_ADJACENT_ROOMS && room_id == current_preferred_neighbor);
-            bool around_transition_target = false;
-
-            if(door_transition_active)
-            {
-                int transition_preferred_neighbor = preferred_neighbor_room(door_transition_target_room);
-                around_transition_target = room_id == door_transition_target_room ||
-                                           (LOAD_ADJACENT_ROOMS && room_id == transition_preferred_neighbor);
-            }
-
-            should_exist[room_id] = around_current || around_transition_target;
-
             if(!should_exist[room_id] && room_models[room_id])
             {
                 _models.destroy_dynamic_model(*room_models[room_id]);
@@ -902,15 +1043,15 @@ str::Scene RoomViewer::execute()
                 }
             }
 
+            bool room_perspective_mode = room_id == current_room;
             room_model->set_mode(
-                room_id == current_room ? fr::model_3d::layering_mode::room_perspective :
-                                          fr::model_3d::layering_mode::none);
+                room_perspective_mode ? fr::model_3d::layering_mode::room_perspective :
+                                        fr::model_3d::layering_mode::room_floor_only);
             room_model->set_depth_bias(
                 room_id == current_room ? 0 : ADJACENT_ROOM_DEPTH_BIAS);
-            bool current_or_transition_room =
-                room_id == current_room ||
-                (door_transition_active && room_id == door_transition_target_room);
-            room_model->set_double_sided(current_or_transition_room);
+            // Preview rooms use floor-only mode; double-sided shell faces are only needed
+            // for the current room shell.
+            room_model->set_double_sided(room_perspective_mode);
         };
 
         // Current room first, then adjacent rooms while budget allows.
@@ -989,6 +1130,14 @@ str::Scene RoomViewer::execute()
     };
 
     auto ensure_decor_models = [&]() {
+        if(debug_hide_room_models)
+        {
+            clear_room_decor_models(table_ptr, chair_ptr);
+            clear_room_decor_models(transition_table_ptr, transition_chair_ptr);
+            door_transition_furniture_room = -1;
+            return;
+        }
+
         ensure_room_decor_models(current_room, 0, table_ptr, chair_ptr);
 
         if(door_transition_furniture_room >= 0 && door_transition_furniture_room != current_room)
@@ -1199,6 +1348,13 @@ str::Scene RoomViewer::execute()
     };
 
     auto update_painting_quads = [&]() {
+        if(debug_hide_room_models || ! room_models[current_room])
+        {
+            painting_a_quad.set_visible(false);
+            painting_b_quad.set_visible(false);
+            return;
+        }
+
         corner_matrix cm = rotate_corner_matrix(base_corner, current_view_angle);
         bn::fixed room_half_x = room_half_extent_x(current_room);
         bn::fixed room_half_y = room_half_extent_y(current_room);
@@ -1348,6 +1504,8 @@ str::Scene RoomViewer::execute()
     int text_room = -1;
     int text_corner = -1;
     int text_yaw_deg = 999;
+    int text_preview_mode = -1;
+    int text_hide_room_models = -1;
     int text_fps = -1;
     int text_vertices = -1;
     int current_fps = 60;
@@ -1372,6 +1530,8 @@ str::Scene RoomViewer::execute()
             text_room = room_id;
             text_corner = _corner_index;
             text_yaw_deg = yaw_degrees;
+            text_preview_mode = int(preview_mode);
+            text_hide_room_models = int(debug_hide_room_models);
             text_fps = fps;
             text_vertices = vertices_count;
         };
@@ -1408,6 +1568,23 @@ str::Scene RoomViewer::execute()
                 return;
             }
 
+            bn::string<32> line4;
+            bn::ostringstream stream4(line4);
+            stream4 << "Prev:" << room_preview_mode_name(preview_mode)
+                    << " A:" << (ROOM_PREVIEW_AUTO_ADJUST ? "ON" : "OFF")
+                    << " RM:" << (debug_hide_room_models ? "OFF" : "ON");
+
+            if(ROOM_PREVIEW_AUTO_ADJUST)
+            {
+                stream4 << " T:" << ROOM_PREVIEW_TARGET_FPS;
+            }
+
+            if(! tg.generate_optional(0, -36, line4, _text_sprites))
+            {
+                generation_failed();
+                return;
+            }
+
             #if BN_CFG_PROFILER_ENABLED
                 if(! tg.generate_optional(0, 72, "SEL+START:Profiler B:Exit", _text_sprites))
                 {
@@ -1428,6 +1605,8 @@ str::Scene RoomViewer::execute()
             text_room = room_id;
             text_corner = _corner_index;
             text_yaw_deg = yaw_degrees;
+            text_preview_mode = int(preview_mode);
+            text_hide_room_models = int(debug_hide_room_models);
             text_fps = fps;
             text_vertices = vertices_count;
         }
@@ -1446,6 +1625,8 @@ str::Scene RoomViewer::execute()
             }
             text_fps = fps;
             text_vertices = vertices_count;
+            text_preview_mode = int(preview_mode);
+            text_hide_room_models = int(debug_hide_room_models);
         }
 
         text_debug_mode = _debug_mode;
@@ -1464,12 +1645,14 @@ str::Scene RoomViewer::execute()
         int frame_cost = bn::core::last_missed_frames() + 1;
         fps_sample_updates += 1;
         fps_sample_refreshes += frame_cost;
+        bool fps_sample_ready = false;
 
         if(fps_sample_refreshes >= 60)
         {
             current_fps = (60 * fps_sample_updates + (fps_sample_refreshes / 2)) / fps_sample_refreshes;
             fps_sample_updates = 0;
             fps_sample_refreshes = 0;
+            fps_sample_ready = true;
         }
 
         #if BN_CFG_PROFILER_ENABLED
@@ -1503,6 +1686,72 @@ str::Scene RoomViewer::execute()
             if(retarget_cooldown_frames < 0)
             {
                 retarget_cooldown_frames = 0;
+            }
+        }
+
+        if(ROOM_PREVIEW_AUTO_ADJUST)
+        {
+            if(preview_mode_change_cooldown_frames > 0)
+            {
+                preview_mode_change_cooldown_frames -= elapsed_frames;
+
+                if(preview_mode_change_cooldown_frames < 0)
+                {
+                    preview_mode_change_cooldown_frames = 0;
+                }
+            }
+
+            if(fps_sample_ready)
+            {
+                if(current_fps < ROOM_PREVIEW_DOWNSHIFT_FPS)
+                {
+                    ++preview_mode_low_fps_samples;
+                    preview_mode_high_fps_samples = 0;
+                }
+                else if(current_fps > ROOM_PREVIEW_UPSHIFT_FPS)
+                {
+                    ++preview_mode_high_fps_samples;
+                    preview_mode_low_fps_samples = 0;
+                }
+                else
+                {
+                    preview_mode_low_fps_samples = 0;
+                    preview_mode_high_fps_samples = 0;
+                }
+
+                if(preview_mode_change_cooldown_frames == 0)
+                {
+                    if(preview_mode_low_fps_samples >= ROOM_PREVIEW_REQUIRED_SAMPLES)
+                    {
+                        room_preview_mode downgraded_mode = downgraded_room_preview_mode(preview_mode);
+
+                        if(downgraded_mode != preview_mode)
+                        {
+                            preview_mode = downgraded_mode;
+                            preview_mode_change_cooldown_frames = ROOM_PREVIEW_MODE_CHANGE_COOLDOWN_FRAMES;
+                            sync_room_models();
+                            update_orientations_and_paintings();
+                        }
+
+                        preview_mode_low_fps_samples = 0;
+                        preview_mode_high_fps_samples = 0;
+                    }
+                    else if(preview_mode_high_fps_samples >= ROOM_PREVIEW_REQUIRED_SAMPLES)
+                    {
+                        room_preview_mode upgraded_mode = upgraded_room_preview_mode(preview_mode);
+
+                        if(upgraded_mode != preview_mode)
+                        {
+                            preview_mode = upgraded_mode;
+                            preview_mode_change_cooldown_frames = ROOM_PREVIEW_MODE_CHANGE_COOLDOWN_FRAMES;
+                            sync_room_models();
+                            update_orientations_and_paintings();
+                        }
+
+                        preview_mode_low_fps_samples = 0;
+                        preview_mode_high_fps_samples = 0;
+                    }
+                }
             }
         }
 
@@ -1579,7 +1828,17 @@ str::Scene RoomViewer::execute()
 
         if(bn::keypad::select_pressed())
         {
-            _debug_mode = !_debug_mode;
+            if(bn::keypad::l_held())
+            {
+                debug_hide_room_models = !debug_hide_room_models;
+                sync_room_models();
+                ensure_decor_models();
+                update_orientations_and_paintings();
+            }
+            else
+            {
+                _debug_mode = !_debug_mode;
+            }
         }
 
         if(door_transition_active)
@@ -1958,6 +2217,8 @@ str::Scene RoomViewer::execute()
             if(current_fx != text_fx || current_fy != text_fy ||
                _player_dir != text_dir || current_room != text_room || _corner_index != text_corner ||
                current_yaw_deg != text_yaw_deg ||
+               int(preview_mode) != text_preview_mode ||
+               int(debug_hide_room_models) != text_hide_room_models ||
                current_fps != text_fps || current_vertices != text_vertices)
             {
                 text_dirty = true;

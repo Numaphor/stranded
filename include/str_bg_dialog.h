@@ -115,6 +115,11 @@ public:
                 create_backdrop_set(1, 0, 64, 1);
             }
         }
+
+        if(_dialog_backdrop_sprites.empty())
+        {
+            _init_fallback_backdrop_bg();
+        }
     }
 
     void set_greeting(bn::span<const bn::string_view> lines)
@@ -224,7 +229,7 @@ public:
 
                 // Write characters up to _current_char
                 _clear_text_area();
-                _write_text(TEXT_ROW, TEXT_COL, line.data(), _current_char);
+                _write_wrapped_text_centered(TEXT_ROW, line.data(), line_len, _current_char);
                 _flush();
             }
             else
@@ -275,27 +280,52 @@ private:
 
     // Dialog text position (screen y ~= +32..+48)
     // screen y=32 → map_y = 32+128 = 160 → row 20
-    static constexpr int TEXT_ROW = 20;
-    static constexpr int TEXT_COL = 5;      // ~left margin
+    static constexpr int TEXT_ROW = 24;
 
     // Options start a bit higher (screen y ~= +16)
     // screen y=16 → map_y = 16+128 = 144 → row 18
-    static constexpr int OPTIONS_ROW = 18;
-    static constexpr int OPTIONS_COL = 5;
+    static constexpr int OPTIONS_ROW = 22;
 
     // "Press A" prompt (screen y ~= +48)
-    static constexpr int PROMPT_ROW = 21;
+    static constexpr int PROMPT_ROW = 24;
 
     static constexpr int VISIBLE_COL_LEFT = 1;
     static constexpr int VISIBLE_COL_RIGHT = 30;
 
     static constexpr int VISIBLE_OPTIONS = 3;
     static constexpr int BACKDROP_SEGMENTS = 3;
-    static constexpr int BACKDROP_Y = 32;
+    static constexpr int BACKDROP_Y = 64;
+    static constexpr int BACKDROP_FALLBACK_TILES_COUNT = 2;
+    static constexpr int BACKDROP_FALLBACK_PALETTE_COLORS_COUNT = 16;
 
     // Text area rows to clear (rows 18-21 cover dialog + options area)
-    static constexpr int TEXT_AREA_TOP = 18;
-    static constexpr int TEXT_AREA_BOTTOM = 21;
+    static constexpr int TEXT_AREA_TOP = 22;
+    static constexpr int TEXT_AREA_BOTTOM = 25;
+
+    static constexpr bn::tile _fallback_backdrop_tiles[BACKDROP_FALLBACK_TILES_COUNT] = {
+        { { 0, 0, 0, 0, 0, 0, 0, 0 } },
+        { { 0x11111111, 0x11111111, 0x11111111, 0x11111111,
+            0x11111111, 0x11111111, 0x11111111, 0x11111111 } }
+    };
+
+    static constexpr bn::color _fallback_backdrop_palette[BACKDROP_FALLBACK_PALETTE_COLORS_COUNT] = {
+        bn::color(0, 0, 0),   // index 0 (transparent)
+        bn::color(2, 2, 4),   // index 1 (dialog strip)
+        bn::color(0, 0, 0),   // unused
+        bn::color(0, 0, 0),   // unused
+        bn::color(0, 0, 0),   // unused
+        bn::color(0, 0, 0),   // unused
+        bn::color(0, 0, 0),   // unused
+        bn::color(0, 0, 0),   // unused
+        bn::color(0, 0, 0),   // unused
+        bn::color(0, 0, 0),   // unused
+        bn::color(0, 0, 0),   // unused
+        bn::color(0, 0, 0),   // unused
+        bn::color(0, 0, 0),   // unused
+        bn::color(0, 0, 0),   // unused
+        bn::color(0, 0, 0),   // unused
+        bn::color(0, 0, 0)    // unused
+    };
 
     enum State
     {
@@ -329,11 +359,56 @@ private:
         {
             backdrop_sprite.set_visible(visible);
         }
+
+        if(_backdrop_bg.has_value())
+        {
+            _backdrop_bg->set_visible(visible);
+        }
     }
 
     void _refresh_backdrop_visibility()
     {
         _set_backdrop_visible(_active || _prompt_visible);
+    }
+
+    void _init_fallback_backdrop_bg()
+    {
+        bn::memory::clear(_backdrop_cells);
+
+        for(int row = TEXT_AREA_TOP; row <= TEXT_AREA_BOTTOM; ++row)
+        {
+            for(int col = VISIBLE_COL_LEFT; col <= VISIBLE_COL_RIGHT; ++col)
+            {
+                int index = row * MAP_COLUMNS + col;
+                bn::regular_bg_map_cell_info cell_info(_backdrop_cells[index]);
+                cell_info.set_tile_index(1);
+                cell_info.set_palette_id(0);
+                cell_info.set_horizontal_flip(false);
+                cell_info.set_vertical_flip(false);
+                _backdrop_cells[index] = cell_info.cell();
+            }
+        }
+
+        bn::regular_bg_map_item map_item(_backdrop_cells[0], bn::size(MAP_COLUMNS, MAP_ROWS));
+        bn::regular_bg_item backdrop_bg_item(
+            bn::regular_bg_tiles_item(
+                bn::span<const bn::tile>(_fallback_backdrop_tiles, BACKDROP_FALLBACK_TILES_COUNT),
+                bn::bpp_mode::BPP_4),
+            bn::bg_palette_item(
+                bn::span<const bn::color>(_fallback_backdrop_palette, BACKDROP_FALLBACK_PALETTE_COLORS_COUNT),
+                bn::bpp_mode::BPP_4),
+            map_item);
+
+        bool old_offset = bn::bg_tiles::allow_offset();
+        bn::bg_tiles::set_allow_offset(false);
+        _backdrop_bg = backdrop_bg_item.create_bg_optional(0, 0);
+        bn::bg_tiles::set_allow_offset(old_offset);
+
+        if(_backdrop_bg.has_value())
+        {
+            _backdrop_bg->set_priority(1);
+            _backdrop_bg->set_visible(false);
+        }
     }
 
     // Write ASCII text at map position
@@ -361,15 +436,9 @@ private:
         }
     }
 
-    // Write text centered on a row
-    void _write_text_centered(int row, const char* text)
+    // Write text centered on a row.
+    void _write_text_centered(int row, const char* text, int len)
     {
-        int len = 0;
-        while(text[len] != '\0')
-        {
-            ++len;
-        }
-        // Visible columns: 1 to 30 (30 cols). Center within that.
         int start_col = VISIBLE_COL_LEFT + ((VISIBLE_COL_RIGHT - VISIBLE_COL_LEFT + 1) - len) / 2;
         if(start_col < VISIBLE_COL_LEFT)
         {
@@ -378,37 +447,132 @@ private:
         _write_text(row, start_col, text, len);
     }
 
+    // Write null-terminated text centered on a row.
+    void _write_text_centered(int row, const char* text)
+    {
+        int len = 0;
+        while(text[len] != '\0')
+        {
+            ++len;
+        }
+
+        _write_text_centered(row, text, len);
+    }
+
+    // Wrap a line into up to 2 centered rows, keeping wrapping stable while typewriting.
+    void _write_wrapped_text_centered(int bottom_row, const char* text, int total_len, int visible_len)
+    {
+        int max_cols = VISIBLE_COL_RIGHT - VISIBLE_COL_LEFT + 1;
+
+        if(visible_len <= 0)
+        {
+            return;
+        }
+
+        if(visible_len > total_len)
+        {
+            visible_len = total_len;
+        }
+
+        if(total_len <= max_cols)
+        {
+            _write_text_centered(bottom_row, text, visible_len);
+            return;
+        }
+
+        int split = max_cols;
+        for(int index = max_cols; index > 0; --index)
+        {
+            if(text[index - 1] == ' ')
+            {
+                split = index - 1;
+                break;
+            }
+        }
+
+        if(split <= 0)
+        {
+            split = max_cols;
+        }
+
+        int second_start = split;
+        while(second_start < total_len && text[second_start] == ' ')
+        {
+            ++second_start;
+        }
+
+        int first_visible = bn::min(visible_len, split);
+        if(first_visible > 0)
+        {
+            _write_text_centered(bottom_row - 1, text, first_visible);
+        }
+
+        if(visible_len > second_start)
+        {
+            int second_visible = bn::min(visible_len - second_start, max_cols);
+            if(second_visible > 0)
+            {
+                _write_text_centered(bottom_row, text + second_start, second_visible);
+            }
+        }
+    }
+
     void _render_options()
     {
         _clear_text_area();
 
         int visible = _options.size() < VISIBLE_OPTIONS ?
                       _options.size() : VISIBLE_OPTIONS;
+        int max_cols = VISIBLE_COL_RIGHT - VISIBLE_COL_LEFT + 1;
+        int display_width = 0;
 
         for(int i = 0; i < visible; ++i)
         {
             int idx = _scroll_offset + i;
-            if(idx >= _options.size()) break;
+            if(idx >= _options.size())
+            {
+                break;
+            }
+
+            int line_len = _options[idx].option_text.size() + 2; // include selection prefix
+            display_width = bn::max(display_width, bn::min(line_len, max_cols));
+        }
+
+        int block_start_col = VISIBLE_COL_LEFT + (max_cols - display_width) / 2;
+
+        for(int i = 0; i < visible; ++i)
+        {
+            int idx = _scroll_offset + i;
+            if(idx >= _options.size())
+            {
+                break;
+            }
 
             int row = OPTIONS_ROW + i;
+            bn::string<64> line_text;
 
             if(idx == _selected_option)
             {
-                // Selected: prefix with "> "
-                _set_cell(OPTIONS_COL, row, '>' - 32);
-                _set_cell(OPTIONS_COL + 1, row, ' ' - 32);
-                _write_text(row, OPTIONS_COL + 2,
-                           _options[idx].option_text.data(),
-                           _options[idx].option_text.size());
+                line_text.append("> ");
             }
             else
             {
-                // Unselected: prefix with "  "
-                _set_cell(OPTIONS_COL, row, ' ' - 32);
-                _set_cell(OPTIONS_COL + 1, row, ' ' - 32);
-                _write_text(row, OPTIONS_COL + 2,
-                           _options[idx].option_text.data(),
-                           _options[idx].option_text.size());
+                line_text.append("  ");
+            }
+
+            line_text.append(_options[idx].option_text);
+
+            if(line_text.size() > max_cols)
+            {
+                bn::string<64> clipped_text;
+                int keep = bn::max(0, max_cols - 3);
+                clipped_text.append(bn::string_view(line_text.data(), keep));
+                clipped_text.append("...");
+                _write_text(row, block_start_col, clipped_text.data(), clipped_text.size());
+            }
+            else
+            {
+                _write_text(row, block_start_col, line_text.data(), line_text.size());
             }
         }
         _flush();
@@ -531,9 +695,11 @@ private:
 
     // Map cell data (EWRAM — too large for IWRAM stack)
     alignas(int) BN_DATA_EWRAM static bn::regular_bg_map_cell _cells[MAP_CELLS];
+    alignas(int) BN_DATA_EWRAM static bn::regular_bg_map_cell _backdrop_cells[MAP_CELLS];
 
     bn::optional<bn::regular_bg_ptr> _bg;
     bn::optional<bn::regular_bg_map_ptr> _bg_map;
+    bn::optional<bn::regular_bg_ptr> _backdrop_bg;
     bn::vector<DialogOption, 8> _options;
     bn::span<const bn::string_view> _greeting_lines;
     bn::span<const bn::string_view> _current_lines;
@@ -551,6 +717,7 @@ private:
 
 // Static EWRAM allocation for BG map cells
 alignas(int) BN_DATA_EWRAM bn::regular_bg_map_cell BgDialog::_cells[BgDialog::MAP_CELLS];
+alignas(int) BN_DATA_EWRAM bn::regular_bg_map_cell BgDialog::_backdrop_cells[BgDialog::MAP_CELLS];
 
 } // namespace str
 

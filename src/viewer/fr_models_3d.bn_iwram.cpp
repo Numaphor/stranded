@@ -41,6 +41,7 @@ namespace
     using fixed = bn::fixed_t<fixed_precision>;
     constexpr int room_back_layer_bias = 1000000;
     constexpr int room_front_layer_bias = -1000000;
+    constexpr int div_lut_max_index = 1024 * 4 - 1;
 }
 
 void models_3d::_process_models(const camera_3d& camera)
@@ -117,7 +118,8 @@ void models_3d::_process_models(const camera_3d& camera)
                 const point_3d& model_point = model_vertices[index].point();
                 bn::fixed vry = model_point.y() - camera_position.y();
                 int vcz = -vry.data();
-                bool vertex_valid = near_plane <= vcz;
+                int div_lut_index = vcz >> 10;
+                bool vertex_valid = near_plane <= vcz && div_lut_index <= div_lut_max_index;
                 projected_vertices_valid[index] = vertex_valid;
 
                 if(vertex_valid) [[likely]]
@@ -128,7 +130,7 @@ void models_3d::_process_models(const camera_3d& camera)
                     int vcy = -(vrx.unsafe_multiplication(camera_v_x) + vrz.unsafe_multiplication(camera_v_z)).data();
 
                     // int scale = (1 << (focal_length_shift + 16 + 4)) / vcz;
-                    auto scale = int((div_lut_ptr[vcz >> 10] << (focal_length_shift - 8)) >> 6);
+                    auto scale = int((div_lut_ptr[div_lut_index] << (focal_length_shift - 8)) >> 6);
 
                     projected_vertices[index] = {
                         int16_t(((vcx * scale) >> 16) + (display_width / 2)),
@@ -194,7 +196,8 @@ void models_3d::_process_models(const camera_3d& camera)
                 point_3d model_point = model.transform(model_vertices[index]);
                 bn::fixed vry = model_point.y() - camera_position.y();
                 int vcz = -vry.data();
-                bool vertex_valid = near_plane <= vcz;
+                int div_lut_index = vcz >> 10;
+                bool vertex_valid = near_plane <= vcz && div_lut_index <= div_lut_max_index;
                 projected_vertices_valid[index] = vertex_valid;
 
                 if(vertex_valid) [[likely]]
@@ -205,7 +208,7 @@ void models_3d::_process_models(const camera_3d& camera)
                     int vcy = -(vrx.unsafe_multiplication(camera_v_x) + vrz.unsafe_multiplication(camera_v_z)).data();
 
                     // int scale = (1 << (focal_length_shift + 16 + 4)) / vcz;
-                    auto scale = int((div_lut_ptr[vcz >> 10] << (focal_length_shift - 8)) >> 6);
+                    auto scale = int((div_lut_ptr[div_lut_index] << (focal_length_shift - 8)) >> 6);
 
                     projected_vertices[index] = {
                         int16_t(((vcx * scale) >> 16) + (display_width / 2)),
@@ -234,21 +237,40 @@ void models_3d::_process_models(const camera_3d& camera)
                     point_3d normal = model.rotate(face.normal());
                     point_3d vr = centroid - camera_position;
                     bool front_facing = vr.safe_dot_product(normal) < 0;
+                    int color_index = face.color_index();
+                    bool room_floor_surface = color_index >= 0 && color_index <= 5;
+                    bool room_shell_surface = color_index >= 6 && color_index <= 8;
+                    bool room_perspective_mode = model.mode() == model_3d::layering_mode::room_perspective;
+                    bool room_floor_only_mode = model.mode() == model_3d::layering_mode::room_floor_only;
+                    bool render_face = false;
 
-                    if(model_double_sided || front_facing) [[likely]]
+                    if(room_floor_surface)
+                    {
+                        // Room floor surfaces are visible in perspective and floor-only modes.
+                        render_face = (room_perspective_mode || room_floor_only_mode) && front_facing;
+                    }
+                    else if(room_shell_surface && room_floor_only_mode)
+                    {
+                        // Floor-only preview mode hides room walls/windows/door frames.
+                        render_face = false;
+                    }
+                    else
+                    {
+                        render_face = front_facing || model_double_sided;
+                    }
+
+                    if(render_face) [[likely]]
                     {
                         int projected_z = -vr.y().data() + model.depth_bias();
 
-                        if(model.mode() == model_3d::layering_mode::room_perspective)
+                        if(room_perspective_mode)
                         {
                             // Keep room shell generally behind entities, but allow the front
                             // shell (walls/windows/door frame) to overlay the player.
-                            int color_index = face.color_index();
-                            bool shell_surface = color_index >= 6 && color_index <= 8;
                             const point_3d& local_centroid = face.centroid().point();
                             point_3d floor_centroid = model.transform(
                                 vertex_3d(local_centroid.x(), local_centroid.y(), 0));
-                            bool front_shell_surface = shell_surface &&
+                            bool front_shell_surface = room_shell_surface &&
                                 normal.y() > 0 &&
                                 floor_centroid.y() > model.position().y();
                             projected_z += front_shell_surface ? room_front_layer_bias : room_back_layer_bias;
@@ -376,7 +398,9 @@ void models_3d::_process_models(const camera_3d& camera)
         bn::fixed vry = sprite_position.y() - camera_position.y();
         int vcz = -vry.data();
 
-        if(near_plane <= vcz) [[likely]]
+        int div_lut_index = vcz >> 10;
+
+        if(near_plane <= vcz && div_lut_index <= div_lut_max_index) [[likely]]
         {
             sprite_3d_item& sprite_item = sprite.item();
             int px_size = sprite_item.pixel_size();
@@ -386,7 +410,7 @@ void models_3d::_process_models(const camera_3d& camera)
             bn::fixed vrz = (sprite_position.z() - camera_position.z()) / 16;
             int vcx = (vrx.unsafe_multiplication(camera_u_x) + vrz.unsafe_multiplication(camera_u_z)).data();
 
-            auto sprite_scale = int((div_lut_ptr[vcz >> 10] << (focal_length_shift - 8)) >> 3);
+            auto sprite_scale = int((div_lut_ptr[div_lut_index] << (focal_length_shift - 8)) >> 3);
             auto scale = sprite_scale >> 3;
             int sprite_x = ((vcx * scale) >> 16) + (display_width / 2) - px_size;
 

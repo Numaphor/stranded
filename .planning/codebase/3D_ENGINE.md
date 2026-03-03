@@ -92,6 +92,12 @@ Order is rotate -> scale -> translate.
 
 A base corner matrix is derived from these angles. The view angle follows the committed movement heading plus a behind-offset and is quantized into quarter turns for `_corner_index`.
 
+## Room Preview Loading
+
+- Room shells are loaded in `room_preview_mode::all_connected` by default (current room + connected neighbors).
+- Adaptive preview throttling code (`ALL -> ONE -> OFF`) exists but is disabled by default via `ROOM_PREVIEW_AUTO_ADJUST = false`.
+- Debug overlay includes preview status and adaptive flag (`Prev:* A:OFF/ON`) for quick verification.
+
 ## Camera Follow System (Current)
 
 The room viewer uses a continuous heading-based camera follow system (not a discrete corner transition triggered by button press):

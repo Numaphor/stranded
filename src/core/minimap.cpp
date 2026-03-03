@@ -63,6 +63,22 @@ namespace str
         return best_room;
     }
 
+    int Minimap::_find_room_room_viewer(bn::fixed_point world_pos) const
+    {
+        if(_current_room >= 0)
+        {
+            bn::fixed current_dx = bn::abs(world_pos.x() - _room_center_x[_current_room]);
+            bn::fixed current_dy = bn::abs(world_pos.y() - _room_center_y[_current_room]);
+
+            if(current_dx <= _room_half_x[_current_room] && current_dy <= _room_half_y[_current_room])
+            {
+                return _current_room;
+            }
+        }
+
+        return _find_room(world_pos);
+    }
+
     // Map world position to a logical minimap position (not screen position)
     // Returns coordinates in the same logical space as _room_screen_pos()
     bn::fixed_point Minimap::_world_to_minimap(bn::fixed_point world_pos, int room_id) const
@@ -79,6 +95,25 @@ namespace str
         bn::fixed sx = room_logical.x() - nx * half_inner;
         bn::fixed sy = room_logical.y() + ny * half_inner;
 
+        return bn::fixed_point(sx, sy);
+    }
+
+    bn::fixed_point Minimap::_world_to_minimap_room_viewer(bn::fixed_point world_pos, int room_id) const
+    {
+        // Room viewer movement and door triggers use local +/-55 as the playable bounds.
+        constexpr bn::fixed room_viewer_playable_half_extent = bn::fixed(55);
+        // Match the visible room art extents:
+        // small room sprite ~= 12x12 visible area, big room ~= 14x14.
+        bn::fixed room_viewer_half_inner = _is_big_room[room_id] ? bn::fixed(6) : bn::fixed(5);
+
+        bn::fixed_point room_logical = _room_screen_pos(room_id);
+        bn::fixed nx = (world_pos.x() - _room_center_x[room_id]) / room_viewer_playable_half_extent;
+        bn::fixed ny = (world_pos.y() - _room_center_y[room_id]) / room_viewer_playable_half_extent;
+        nx = bn::clamp(nx, bn::fixed(-1), bn::fixed(1));
+        ny = bn::clamp(ny, bn::fixed(-1), bn::fixed(1));
+
+        bn::fixed sx = room_logical.x() + nx * room_viewer_half_inner;
+        bn::fixed sy = room_logical.y() + ny * room_viewer_half_inner;
         return bn::fixed_point(sx, sy);
     }
 
@@ -322,7 +357,7 @@ namespace str
 
     void Minimap::update(bn::fixed_point player_pos, int /*facing_direction*/)
     {
-        int new_room = _find_room(player_pos);
+        int new_room = _find_room_room_viewer(player_pos);
 
         if (new_room >= 0)
         {
@@ -340,7 +375,7 @@ namespace str
                 _update_room_visuals();
             }
             // Compute player's logical minimap position
-            bn::fixed_point player_logical = _world_to_minimap(player_pos, _current_room);
+            bn::fixed_point player_logical = _world_to_minimap_room_viewer(player_pos, _current_room);
 
             // Scroll: rooms move, player gem stays at panel center
             bn::fixed_point scroll_offset(_panel_center.x() - player_logical.x(),
