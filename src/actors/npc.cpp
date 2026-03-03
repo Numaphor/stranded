@@ -17,6 +17,7 @@
 #include "bn_string.h"
 
 #include "bn_sprite_items_merchant.h"
+#include "bn_sprite_items_text_bg.h"
 #include "common_variable_8x8_sprite_font.h"
 
 namespace str
@@ -27,7 +28,32 @@ namespace str
     // =========================================================================
 
     NPC::NPC(bn::fixed_point pos, bn::camera_ptr &camera, NPC_TYPE type, bn::sprite_text_generator &text_generator)
-        : Entity(pos), _type(type), _camera(camera), _text_generator(text_generator) { _text_generator.set_bg_priority(0); }
+        : Entity(pos), _type(type), _camera(camera), _text_generator(text_generator)
+    {
+        _text_generator.set_bg_priority(0);
+        _text_generator.set_z_order(0);
+
+        constexpr int DIALOG_BACKDROP_SEGMENTS = 3;
+        constexpr int DIALOG_BACKDROP_START_X = -64;
+        constexpr int DIALOG_BACKDROP_SEGMENT_WIDTH = 64;
+        constexpr int DIALOG_BACKDROP_Y_OFFSET = -4;
+
+        for(int index = 0; index < DIALOG_BACKDROP_SEGMENTS; ++index)
+        {
+            const int backdrop_x = DIALOG_BACKDROP_START_X + index * DIALOG_BACKDROP_SEGMENT_WIDTH;
+            bn::optional<bn::sprite_ptr> backdrop_sprite =
+                    bn::sprite_ptr::create_optional(backdrop_x, _text_y_limit + DIALOG_BACKDROP_Y_OFFSET,
+                                                    bn::sprite_items::text_bg);
+
+            if(backdrop_sprite)
+            {
+                backdrop_sprite->set_bg_priority(1);
+                backdrop_sprite->set_z_order(-32767);
+                backdrop_sprite->set_visible(false);
+                _dialog_backdrop_sprites.push_back(*backdrop_sprite);
+            }
+        }
+    }
 
     void NPC::update()
     {
@@ -127,6 +153,10 @@ namespace str
             _currentLine = _currentChar = 0;
             _currentChars = "";
             _has_spoken_once = 1;
+
+            for(bn::sprite_ptr& backdrop_sprite : _dialog_backdrop_sprites)
+                backdrop_sprite.set_visible(true);
+
             bn::sound_items::hello.play();
         }
     }
@@ -146,6 +176,9 @@ namespace str
         _dialog_state = DIALOG_STATE::GREETING;
         _has_spoken_once = 1;
         _text_sprites.clear();
+
+        for(bn::sprite_ptr& backdrop_sprite : _dialog_backdrop_sprites)
+            backdrop_sprite.set_visible(false);
     }
 
     void NPC::render_dialog_options()

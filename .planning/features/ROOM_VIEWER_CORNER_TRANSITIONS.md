@@ -1,59 +1,99 @@
-# Room Viewer Corner Transitions
+# Room Viewer Camera and Transitions
 
-Last updated: 2026-02-22
+Last updated: 2026-03-03
 
 ## Scope
 
-This document describes how corner switching works in `src/core/room_viewer.cpp`.
-It covers the current smooth transition implementation and tuning points.
+This document describes how the camera and door transitions work in `src/room_viewer.cpp`. It covers the continuous heading-based camera follow system, corner index derivation, and door transition mechanics.
 
-## Current Behavior
+## Camera Follow System (Current)
 
-- `START` triggers a corner change only if no corner transition is active.
-- Transition rotates the world by one quarter turn over time instead of snapping.
-- Transition timing is controlled by:
-  - `QUARTER_TURN_ANGLE = 16384` (90 degrees in a 16-bit angle domain)
-  - `CORNER_TURN_DURATION_FRAMES = 20`
-- Easing uses smoothstep:
-  - `eased = t * t * (3 - 2 * t)`
-- During the transition:
-  - room + decor rotation matrices are updated every frame
-  - movement input is ignored to avoid control/view mismatch
-  - zoom (`L`/`R`) and debug toggle (`SELECT`) still work
-- On completion:
-  - `_corner_index` advances to the next corner
-  - player facing is remapped via `_rotate_player_dir(...)`
+The room viewer uses a **continuous heading-based camera follow** system. There is no discrete START-triggered corner transition. Instead:
 
-## Implementation Overview
+- The camera view angle tracks the player's committed movement heading plus a behind-offset angle.
+- `_corner_index` is derived from the quantized view angle (divided into quarter turns).
+- The view angle updates smoothly with easing gains and max step clamps.
 
-Core logic lives in `src/core/room_viewer.cpp`:
+### Key Constants
 
-- `compute_corner_matrices(...)` creates the base isometric orientation set.
-- `rotate_corner_matrix(...)` rotates a base corner matrix by an interpolated angle.
-- Runtime transition state:
-  - `current_view_angle`
-  - `corner_transition_active`
-  - `corner_transition_elapsed`
-  - `corner_transition_start_angle`
-  - `corner_transition_target_angle`
-- `update_all_orientations()` applies the active matrix to room/table/chair models.
+| Constant | Value | Purpose |
+|----------|-------|---------|
+| `QUARTER_TURN_ANGLE` | `16384` | 90 degrees in 16-bit angle domain |
+| `CAMERA_BEHIND_OFFSET_ANGLE` | `24576` | Offset to position camera behind player |
+| `CAMERA_RENDER_UPDATE_ANGLE_STEP` | `64` | Threshold for refreshing orientations and paintings |
+| `CAMERA_START_BOOST_FRAMES` | `10` | Short recenter boost when START is pressed |
+| `iso_phi` | `6400` | Base isometric phi angle |
+| `iso_theta` | `59904` | Base isometric theta angle |
+| `iso_psi` | `6400` | Base isometric psi angle |
+
+### Behavior
+
+- Movement **continues** while the camera turns corners; input is not blocked for camera rotation.
+- `START` (without `SELECT`) recenters the camera toward the committed heading with a short boost.
+- `L/R` adjusts camera distance (zoom), clamped 100-500.
+- `SELECT` toggles debug mode.
+- Orientations and paintings refresh when the view angle moves by `CAMERA_RENDER_UPDATE_ANGLE_STEP` (64).
+
+### Implementation
+
+Core logic lives in `src/room_viewer.cpp`:
+
+- `compute_corner_matrices(...)` creates the base isometric orientation set from phi/theta/psi angles.
+- `rotate_corner_matrix(...)` rotates a base corner matrix by a given angle.
+- `update_all_orientations()` applies the active matrix to room, table, chair, and painting models.
+- `_corner_index` derives from quantized view angle.
+
+## Door Transitions
+
+When the player steps onto a door tile, a room-to-room transition triggers:
+
+### Key Constants
+
+| Constant | Value | Purpose |
+|----------|-------|---------|
+| `DOOR_TRANSITION_DURATION_FRAMES` | `16` | Transition duration in frames |
+
+### Behavior
+
+1. Transition interpolates player position and global position/anchor over 16 frames with smoothstep easing.
+2. Decor and models for the target room are preloaded during the transition.
+3. Movement input is blocked during the transition and restored on completion.
+4. Depth bias is applied to transition decor to prevent Z-fighting.
+5. Furniture is reloaded after the room swap completes.
+
+### Room Layout
+
+6 rooms in a 2x3 grid with 7 door pairs connecting adjacent rooms. Rooms are indexed 0-5.
+
+## Player Representation
+
+The room viewer manages a 3D player representation:
+
+- Player direction: 5 states (`_player_dir` 0-4: down, down_side, side, up_side, up).
+- Player facing: `_player_facing_left` boolean.
+- Player position: `_player_fx`, `_player_fy`, `_player_fz` in fixed-point.
+- Animation: `_anim_frame_counter` with tile updates via `_update_player_anim_tiles()`.
+
+## Dialog in Room Viewer
+
+The room viewer uses `RoomDialog` (sprite-based dialog) for NPC interaction. During dialog:
+
+- HUD sprites are freed for VRAM.
+- Dialog state machine: IDLE -> GREETING -> SHOWING_OPTIONS -> SHOWING_RESPONSE.
+- Typewriter effect at half-speed tick.
+- Scrollable options (max 8 options, 3 visible).
 
 ## Historical Note
 
-Older planning notes described a pseudo-inverse coordinate conversion workflow.
-The current implementation uses a single floor coordinate space and rotates view
-orientation over time, so that older description is no longer the active design.
-
-## Tuning
-
-- Slower transition: increase `CORNER_TURN_DURATION_FRAMES`.
-- Faster transition: decrease `CORNER_TURN_DURATION_FRAMES`.
-- Different feel: replace smoothstep with linear or another easing function.
+Earlier versions of the room viewer used a discrete corner transition system triggered by START button press, with `CORNER_TURN_DURATION_FRAMES` controlling the transition duration. This was replaced with the continuous heading-based camera follow system described above. The old transition state variables (`corner_transition_active`, `corner_transition_elapsed`, `corner_transition_start_angle`, `corner_transition_target_angle`) no longer exist in the codebase.
 
 ## Manual Verification Checklist
 
-1. Press `START` once and confirm a smooth turn (no snap).
-2. Press `START` repeatedly during a turn and confirm no overlapping transitions.
-3. Hold movement input during turn and confirm movement is blocked until complete.
-4. Change zoom with `L`/`R` during turn and confirm zoom still updates.
-5. Confirm player facing and movement mapping are correct after each completed turn.
+1. Camera follows committed heading smoothly with no snap.
+2. Press `START` to recenter camera toward heading -- confirm smooth boost.
+3. Hold movement input during camera rotation and confirm movement is NOT blocked.
+4. Change zoom with `L`/`R` and confirm camera distance adjusts within 100-500.
+5. Walk through a door and confirm smooth 16-frame transition with no snap.
+6. Confirm movement is blocked during door transition and restored after.
+7. Confirm player facing and direction update correctly per heading.
+8. Confirm paintings/orientations refresh when view angle changes by step threshold.

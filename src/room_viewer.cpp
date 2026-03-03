@@ -19,6 +19,9 @@
 #include "bn_profiler.h"
 #include "bn_point.h"
 #include "bn_sprite_items_eris.h"
+#include "bn_sprite_items_villager.h"
+#include "bn_sprite_palette_ptr.h"
+#include "str_bg_dialog.h"
 #include "bn_sprite_items_escaping_criticism_wall_bottom.h"
 #include "bn_sprite_items_escaping_criticism_wall_top.h"
 #include "bn_sprite_items_mr_and_mrs_andrews_wall_bottom.h"
@@ -46,20 +49,17 @@ namespace {
     constexpr int NUM_ROOMS = 6;
     constexpr int QUARTER_TURN_ANGLE = 16384;
     constexpr int CAMERA_BEHIND_OFFSET_ANGLE = 24576;
-    constexpr int CAMERA_FOLLOW_COMMIT_FRAMES = 18;
-    constexpr int CAMERA_COMMIT_ANGLE_TOLERANCE = 1024;
     constexpr int CAMERA_MIN_RETARGET_DELTA = 8192;
-    constexpr bn::fixed CAMERA_FOLLOW_GAIN = bn::fixed(0.05);
+    constexpr bn::fixed CAMERA_FOLLOW_GAIN = bn::fixed(0.025);
     constexpr bn::fixed CAMERA_START_GAIN = bn::fixed(0.14);
-    constexpr int CAMERA_FOLLOW_MAX_STEP = 256;
+    constexpr int CAMERA_FOLLOW_MAX_STEP = 128;
     constexpr int CAMERA_START_MAX_STEP = 640;
     constexpr int CAMERA_MIN_STEP = 4;
     constexpr int CAMERA_SNAP_EPSILON = 32;
     constexpr int CAMERA_START_BOOST_FRAMES = 10;
     constexpr int CAMERA_INITIAL_LOCK_FRAMES = 120;
     constexpr int CAMERA_RETARGET_COOLDOWN_FRAMES = 36;
-    constexpr bn::fixed CAMERA_MOVEMENT_DEADZONE_DISTANCE = 8;
-    constexpr int CAMERA_MOVEMENT_DEADZONE_IDLE_RESET_FRAMES = 12;
+    constexpr int CAMERA_IDLE_FOLLOW_DELAY_FRAMES = 60;
     constexpr int CAMERA_RENDER_UPDATE_ANGLE_STEP = 64;
     constexpr int PAINTING_MOTION_UPDATE_INTERVAL_FRAMES = 2;
     constexpr bn::fixed PAINTING_FACE_VISIBILITY_DOT_MIN = bn::fixed(8);
@@ -68,6 +68,57 @@ namespace {
     constexpr int TRANSITION_DECOR_DEPTH_BIAS = ADJACENT_ROOM_DEPTH_BIAS;
     constexpr bool LOAD_ADJACENT_ROOMS = false;
     constexpr bool ENABLE_PAINTING_QUADS = true;
+    constexpr bool ENABLE_NPC_SPRITES = true;
+    constexpr bn::fixed NPC_FX = 20;
+    constexpr bn::fixed NPC_FY = -15;
+    constexpr bn::fixed NPC_FZ = -10;
+    constexpr int NPC_ANIM_SPEED = 12;
+    constexpr int NPC_FRAMES_PER_ANIM = 4;
+    constexpr int NPC_PALETTE_HAT_INDEX_0 = 9;
+    constexpr int NPC_PALETTE_HAT_INDEX_1 = 10;
+    constexpr int NPC_PALETTE_HAT_INDEX_2 = 11;
+    constexpr int BIG_ROOM_A = 1;
+    constexpr int BIG_ROOM_B = 5;
+
+    // NPC hat recolor targets per big room (derived from room floor colors)
+    // Room 1 floor: bn::color(12,14,22) blue -> keep original blue hat
+    // Room 5 floor: bn::color(8,18,20) teal -> recolor to teal/green
+    constexpr bn::color npc_room5_hat_color_0(12, 28, 24);
+    constexpr bn::color npc_room5_hat_color_1(6, 20, 18);
+    constexpr bn::color npc_room5_hat_color_2(8, 12, 16);
+
+    // NPC dialog data
+    constexpr int NPC_INTERACT_DIST = 30; // Manhattan distance threshold
+
+    constexpr bn::string_view villager_a_greeting[] = {
+        "Hello, traveler!",
+        "These old halls hold many secrets.",
+        "What brings you here?"
+    };
+
+    constexpr bn::string_view villager_a_opt0_resp[] = {
+        "This gallery was built centuries ago.",
+        "The paintings... they watch you."
+    };
+    constexpr bn::string_view villager_a_opt1_resp[] = {
+        "Be careful in the dark rooms.",
+        "Strange things lurk in the shadows."
+    };
+
+    constexpr bn::string_view villager_b_greeting[] = {
+        "Ah, another visitor!",
+        "Not many make it this far.",
+        "Can I help you with something?"
+    };
+
+    constexpr bn::string_view villager_b_opt0_resp[] = {
+        "I've been here longer than I remember.",
+        "Time moves strangely in this place."
+    };
+    constexpr bn::string_view villager_b_opt1_resp[] = {
+        "The exit? I think it's through",
+        "the room with the tall painting."
+    };
 
     struct corner_matrix
     {
@@ -103,6 +154,50 @@ namespace {
         int normalized_angle = normalize_angle(angle);
         int bucket = (normalized_angle + 4096) / 8192;
         return normalize_angle(bucket * 8192);
+    }
+
+    int wrap_linear8(int linear)
+    {
+        return ((linear % 8) + 8) % 8;
+    }
+
+    int view_angle_steps_8(int angle)
+    {
+        return normalize_angle(angle) / 8192;
+    }
+
+    // Convert (dir, facing_left) to a linear 0-7 index and back.
+    // Linear: 0=down 1=down-right 2=right 3=up-right 4=up 5=up-left 6=left 7=down-left
+    int dir_to_linear8(int dir, bool facing_left)
+    {
+        if(!facing_left)
+        {
+            return dir; // 0-4 maps directly to 0=down..4=up
+        }
+        switch(dir)
+        {
+            case 1: return 7; // down-left
+            case 2: return 6; // left
+            case 3: return 5; // up-left
+            default: return dir; // 0=down, 4=up unchanged
+        }
+    }
+
+    void linear8_to_dir(int linear, int& out_dir, bool& out_facing_left)
+    {
+        linear = wrap_linear8(linear);
+        switch(linear)
+        {
+            case 0: out_dir = 0; out_facing_left = false; break;
+            case 1: out_dir = 1; out_facing_left = false; break;
+            case 2: out_dir = 2; out_facing_left = false; break;
+            case 3: out_dir = 3; out_facing_left = false; break;
+            case 4: out_dir = 4; out_facing_left = false; break;
+            case 5: out_dir = 3; out_facing_left = true;  break;
+            case 6: out_dir = 2; out_facing_left = true;  break;
+            case 7: out_dir = 1; out_facing_left = true;  break;
+            default: out_dir = 0; out_facing_left = false; break;
+        }
     }
 
     bn::fixed_point screen_to_room_delta(bn::fixed screen_dx, bn::fixed screen_dy, int view_angle)
@@ -674,16 +769,17 @@ str::Scene RoomViewer::execute()
     int current_view_angle = -_corner_index * QUARTER_TURN_ANGLE;
     int last_oriented_view_angle = current_view_angle;
     int target_view_angle = current_view_angle;
-    int pending_heading_angle = normalize_angle(current_view_angle - CAMERA_BEHIND_OFFSET_ANGLE);
-    int committed_heading_angle = pending_heading_angle;
-    int move_heading_commit_frames = 0;
+    int committed_heading_angle = normalize_angle(current_view_angle - CAMERA_BEHIND_OFFSET_ANGLE);
     bool has_committed_heading = false;
     int start_recenter_boost_frames = 0;
     int camera_initial_lock_frames = CAMERA_INITIAL_LOCK_FRAMES;
     int retarget_cooldown_frames = 0;
     int painting_update_cooldown_frames = 0;
-    bn::fixed follow_deadzone_distance_accum = 0;
-    int follow_deadzone_idle_frames = 0;
+    int idle_follow_timer = 0;
+    int last_movement_heading = 0;
+    bool has_last_movement_heading = false;
+    int player_world_linear_dir =
+        wrap_linear8(dir_to_linear8(_player_dir, _player_facing_left) - view_angle_steps_8(current_view_angle));
     bn::fixed world_anchor_x = room_center_x(current_room);
     bn::fixed world_anchor_y = room_center_y(current_room);
     bool door_transition_active = false;
@@ -910,6 +1006,9 @@ str::Scene RoomViewer::execute()
         }
     };
 
+    fr::sprite_3d* npc_sprite_a_ptr = nullptr;
+    fr::sprite_3d* npc_sprite_b_ptr = nullptr;
+
     auto update_all_orientations = [&]() {
         corner_matrix cm = rotate_corner_matrix(base_corner, current_view_angle);
 
@@ -1002,6 +1101,22 @@ str::Scene RoomViewer::execute()
     player_sprite_created = true;
     player_sprite.set_scale(2);
 
+    // --- NPC sprites for big rooms (Room 1 and Room 5) ---
+    fr::sprite_3d_item npc_sprite_item_a(bn::sprite_items::villager, 0);
+    fr::sprite_3d_item npc_sprite_item_b(bn::sprite_items::villager, 0);
+
+    // Room 5 NPC gets unique palette recolored to teal/green
+    npc_sprite_item_b.palette() = bn::sprite_items::villager.palette_item().create_new_palette();
+    npc_sprite_item_b.palette().set_color(NPC_PALETTE_HAT_INDEX_0, npc_room5_hat_color_0);
+    npc_sprite_item_b.palette().set_color(NPC_PALETTE_HAT_INDEX_1, npc_room5_hat_color_1);
+    npc_sprite_item_b.palette().set_color(NPC_PALETTE_HAT_INDEX_2, npc_room5_hat_color_2);
+
+    npc_sprite_a_ptr = &_models.create_sprite(npc_sprite_item_a);
+    npc_sprite_b_ptr = &_models.create_sprite(npc_sprite_item_b);
+    npc_sprite_a_ptr->set_scale(2);
+    npc_sprite_b_ptr->set_scale(2);
+    int npc_anim_counter = 0;
+
     update_orientations_and_paintings();
 
     auto update_player_sprite_position = [&]() {
@@ -1017,6 +1132,39 @@ str::Scene RoomViewer::execute()
 
         player_sprite.set_position(
             transform_global_point(cm, player_global_x, player_global_y, _player_fz));
+
+        // --- NPC sprite positioning (every frame, with off-screen fallback) ---
+        constexpr fr::point_3d offscreen_pos(0, -9999, 0);
+        if(npc_sprite_a_ptr)
+        {
+            if(room_models[BIG_ROOM_A])
+            {
+                npc_sprite_a_ptr->set_position(
+                    transform_global_point(cm,
+                                           room_center_x(BIG_ROOM_A) + NPC_FX - world_anchor_x,
+                                           room_center_y(BIG_ROOM_A) + NPC_FY - world_anchor_y,
+                                           NPC_FZ));
+            }
+            else
+            {
+                npc_sprite_a_ptr->set_position(offscreen_pos);
+            }
+        }
+        if(npc_sprite_b_ptr)
+        {
+            if(room_models[BIG_ROOM_B])
+            {
+                npc_sprite_b_ptr->set_position(
+                    transform_global_point(cm,
+                                           room_center_x(BIG_ROOM_B) + NPC_FX - world_anchor_x,
+                                           room_center_y(BIG_ROOM_B) + NPC_FY - world_anchor_y,
+                                           NPC_FZ));
+            }
+            else
+            {
+                npc_sprite_b_ptr->set_position(offscreen_pos);
+            }
+        }
     };
 
     textured_quad painting_a_quad(
@@ -1188,6 +1336,11 @@ str::Scene RoomViewer::execute()
     tg.set_center_alignment();
     tg.set_bg_priority(0);
 
+    // --- NPC dialog (BG-based, no sprite VRAM) ---
+    str::BgDialog npc_dialog;
+    bool prev_near_npc = false;
+    bool near_any_npc = false;
+
     bool text_debug_mode = !_debug_mode;
     int text_fx = 0;
     int text_fy = 0;
@@ -1291,7 +1444,6 @@ str::Scene RoomViewer::execute()
                 generation_failed();
                 return;
             }
-
             text_fps = fps;
             text_vertices = vertices_count;
         }
@@ -1404,11 +1556,8 @@ str::Scene RoomViewer::execute()
         {
             start_recenter_boost_frames = 0;
             retarget_cooldown_frames = 0;
-            follow_deadzone_distance_accum = 0;
-            follow_deadzone_idle_frames = 0;
-            move_heading_commit_frames = 0;
+            idle_follow_timer = 0;
         }
-
         if(camera_steering_enabled && !door_transition_active && bn::keypad::start_pressed() && !bn::keypad::select_held())
         {
             int heading_for_recenter = has_committed_heading ?
@@ -1473,31 +1622,32 @@ str::Scene RoomViewer::execute()
         }
 
         bool moving = false;
-        int dir = _player_dir;
-        bool facing_left = _player_facing_left;
+        int dir = 0;
+        bool facing_left = false;
+        linear8_to_dir(player_world_linear_dir + view_angle_steps_8(current_view_angle), dir, facing_left);
         bn::fixed dfx = 0;
         bn::fixed dfy = 0;
         bn::fixed actual_move_dx = 0;
         bn::fixed actual_move_dy = 0;
         bn::fixed screen_dx = 0, screen_dy = 0;
 
-        if(!door_transition_active && bn::keypad::up_held())
+        if(!door_transition_active && !npc_dialog.is_active() && bn::keypad::up_held())
         {
             screen_dy = -1;
             moving = true;
         }
-        else if(!door_transition_active && bn::keypad::down_held())
+        else if(!door_transition_active && !npc_dialog.is_active() && bn::keypad::down_held())
         {
             screen_dy = 1;
             moving = true;
         }
 
-        if(!door_transition_active && bn::keypad::left_held())
+        if(!door_transition_active && !npc_dialog.is_active() && bn::keypad::left_held())
         {
             screen_dx = -1;
             moving = true;
         }
-        else if(!door_transition_active && bn::keypad::right_held())
+        else if(!door_transition_active && !npc_dialog.is_active() && bn::keypad::right_held())
         {
             screen_dx = 1;
             moving = true;
@@ -1513,6 +1663,9 @@ str::Scene RoomViewer::execute()
             else if(screen_dx == -1 && screen_dy == 1)  { dir = 1; facing_left = true;  }
             else if(screen_dx == 1 && screen_dy == -1)  { dir = 3; facing_left = false; }
             else if(screen_dx == -1 && screen_dy == -1) { dir = 3; facing_left = true;  }
+
+            player_world_linear_dir = wrap_linear8(
+                dir_to_linear8(dir, facing_left) - view_angle_steps_8(current_view_angle));
 
             bn::fixed speed_factor = 1;
             if(screen_dx != 0 && screen_dy != 0)
@@ -1603,65 +1756,37 @@ str::Scene RoomViewer::execute()
 
         if(actual_move_dx != 0 || actual_move_dy != 0)
         {
-            follow_deadzone_distance_accum += bn::abs(actual_move_dx) + bn::abs(actual_move_dy);
-            follow_deadzone_idle_frames = 0;
+            // While moving: track heading but do NOT update target_view_angle.
+            last_movement_heading = quantize_heading_angle_8(
+                bn::atan2(actual_move_dy.data(), actual_move_dx.data()).data());
+            has_last_movement_heading = true;
+            idle_follow_timer = 0;
         }
         else
         {
-            follow_deadzone_idle_frames += elapsed_frames;
-            if(follow_deadzone_idle_frames >= CAMERA_MOVEMENT_DEADZONE_IDLE_RESET_FRAMES)
-            {
-                follow_deadzone_idle_frames = CAMERA_MOVEMENT_DEADZONE_IDLE_RESET_FRAMES;
-                follow_deadzone_distance_accum = 0;
-                move_heading_commit_frames = 0;
-            }
+            idle_follow_timer += elapsed_frames;
         }
 
         if(camera_steering_enabled && !door_transition_active)
         {
-            if((actual_move_dx != 0 || actual_move_dy != 0) &&
-               follow_deadzone_distance_accum >= CAMERA_MOVEMENT_DEADZONE_DISTANCE)
+            // Only retarget camera after player has been idle for ~1 second.
+            if(has_last_movement_heading &&
+               idle_follow_timer >= CAMERA_IDLE_FOLLOW_DELAY_FRAMES)
             {
-                int movement_heading_angle = quantize_heading_angle_8(
-                    bn::atan2(actual_move_dy.data(), actual_move_dx.data()).data());
+                int new_target = normalize_angle(last_movement_heading + CAMERA_BEHIND_OFFSET_ANGLE);
+                int committed_delta = int_abs(shortest_angle_delta(
+                    has_committed_heading ? committed_heading_angle : last_movement_heading,
+                    last_movement_heading));
 
-                if(!has_committed_heading)
+                if(!has_committed_heading || committed_delta >= CAMERA_MIN_RETARGET_DELTA)
                 {
-                    pending_heading_angle = movement_heading_angle;
-                    committed_heading_angle = movement_heading_angle;
-                    move_heading_commit_frames = CAMERA_FOLLOW_COMMIT_FRAMES;
+                    committed_heading_angle = last_movement_heading;
                     has_committed_heading = true;
-                    target_view_angle = normalize_angle(committed_heading_angle + CAMERA_BEHIND_OFFSET_ANGLE);
+                    target_view_angle = new_target;
+                    retarget_cooldown_frames = CAMERA_RETARGET_COOLDOWN_FRAMES;
                 }
-                else
-                {
-                    int pending_delta = int_abs(shortest_angle_delta(pending_heading_angle, movement_heading_angle));
 
-                    if(pending_delta <= CAMERA_COMMIT_ANGLE_TOLERANCE)
-                    {
-                        pending_heading_angle = movement_heading_angle;
-                        move_heading_commit_frames += elapsed_frames;
-                    }
-                    else
-                    {
-                        pending_heading_angle = movement_heading_angle;
-                        move_heading_commit_frames = elapsed_frames;
-                    }
-
-                    if(move_heading_commit_frames >= CAMERA_FOLLOW_COMMIT_FRAMES)
-                    {
-                        int committed_delta = int_abs(shortest_angle_delta(committed_heading_angle, pending_heading_angle));
-                        if(committed_delta >= CAMERA_MIN_RETARGET_DELTA &&
-                           (retarget_cooldown_frames == 0 || committed_delta > CAMERA_MIN_RETARGET_DELTA * 2))
-                        {
-                            committed_heading_angle = pending_heading_angle;
-                            target_view_angle = normalize_angle(committed_heading_angle + CAMERA_BEHIND_OFFSET_ANGLE);
-                            retarget_cooldown_frames = CAMERA_RETARGET_COOLDOWN_FRAMES;
-                            follow_deadzone_distance_accum = 0;
-                            move_heading_commit_frames = 0;
-                        }
-                    }
-                }
+                has_last_movement_heading = false;
             }
 
             int angle_delta = shortest_angle_delta(current_view_angle, target_view_angle);
@@ -1712,6 +1837,7 @@ str::Scene RoomViewer::execute()
             update_orientations_and_paintings();
         }
 
+        linear8_to_dir(player_world_linear_dir + view_angle_steps_8(current_view_angle), dir, facing_left);
         update_player_sprite_position();
 
         if(paintings_need_update)
@@ -1740,6 +1866,82 @@ str::Scene RoomViewer::execute()
         _player_facing_left = facing_left;
         _update_player_anim_tiles(player_sprite_item, moving || door_transition_active, dir, elapsed_frames);
 
+        // --- NPC idle animation with camera-relative facing ---
+        {
+            // NPC faces south (linear 0) in world space; rotate by camera angle
+            int npc_linear = wrap_linear8(view_angle_steps_8(current_view_angle));
+            int npc_dir = 0;
+            bool npc_facing_left = false;
+            linear8_to_dir(npc_linear, npc_dir, npc_facing_left);
+
+            int npc_anim_frame = (npc_anim_counter / NPC_ANIM_SPEED) % NPC_FRAMES_PER_ANIM;
+            int npc_tile_index = npc_dir * NPC_FRAMES_PER_ANIM + npc_anim_frame;
+
+            if(npc_sprite_a_ptr)
+            {
+                npc_sprite_item_a.tiles().set_tiles_ref(
+                    bn::sprite_items::villager.tiles_item(), npc_tile_index);
+                npc_sprite_a_ptr->set_horizontal_flip(npc_facing_left);
+            }
+
+            if(npc_sprite_b_ptr)
+            {
+                npc_sprite_item_b.tiles().set_tiles_ref(
+                    bn::sprite_items::villager.tiles_item(), npc_tile_index);
+                npc_sprite_b_ptr->set_horizontal_flip(npc_facing_left);
+            }
+
+            ++npc_anim_counter;
+        }
+
+        // --- NPC proximity check ---
+        bool near_npc_a = !npc_dialog.is_active() && (current_room == BIG_ROOM_A) &&
+            (bn::abs(_player_fx - NPC_FX) + bn::abs(_player_fy - NPC_FY) < NPC_INTERACT_DIST);
+        bool near_npc_b = !npc_dialog.is_active() && (current_room == BIG_ROOM_B) &&
+            (bn::abs(_player_fx - NPC_FX) + bn::abs(_player_fy - NPC_FY) < NPC_INTERACT_DIST);
+        near_any_npc = near_npc_a || near_npc_b;
+        if(near_any_npc != prev_near_npc)
+        {
+            if(near_any_npc) { npc_dialog.show_prompt(); }
+            else             { npc_dialog.hide_prompt(); }
+            prev_near_npc = near_any_npc;
+        }
+
+        // --- NPC dialog interaction ---
+        if(npc_dialog.is_active())
+        {
+            npc_dialog.update();
+        }
+        else
+        {
+            // Check if player presses A while near an NPC
+            if(bn::keypad::a_pressed() && !door_transition_active)
+            {
+                if(near_npc_a)
+                {
+                    npc_dialog.set_greeting(villager_a_greeting);
+                    str::BgDialog::DialogOption opts_a[] = {
+                        {"Tell me about this place", villager_a_opt0_resp, false},
+                        {"Any warnings?", villager_a_opt1_resp, false},
+                        {"Goodbye", {}, true}
+                    };
+                    npc_dialog.set_options(opts_a);
+                    npc_dialog.talk();
+                }
+                else if(near_npc_b)
+                {
+                    npc_dialog.set_greeting(villager_b_greeting);
+                    str::BgDialog::DialogOption opts_b[] = {
+                        {"Who are you?", villager_b_opt0_resp, false},
+                        {"How do I get out?", villager_b_opt1_resp, false},
+                        {"Goodbye", {}, true}
+                    };
+                    npc_dialog.set_options(opts_b);
+                    npc_dialog.talk();
+                }
+            }
+        }
+
         bool text_dirty = _debug_mode != text_debug_mode;
         int current_vertices = _models.vertices_count();
         int current_yaw_deg = (normalize_angle(current_view_angle) * 360 + 32768) / 65536;
@@ -1762,7 +1964,7 @@ str::Scene RoomViewer::execute()
             }
         }
 
-        if(text_dirty)
+        if(text_dirty && !npc_dialog.is_active())
         {
             refresh_overlay_text(current_room, current_fps, current_vertices);
         }

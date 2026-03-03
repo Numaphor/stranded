@@ -53,6 +53,7 @@ namespace str
         bool _hidden = false;
 
         bn::vector<bn::sprite_ptr, 32> _text_sprites;
+        bn::vector<bn::sprite_ptr, 3> _dialog_backdrop_sprites;
         bn::sprite_text_generator &_text_generator;
 
         const bn::fixed _text_y_inc = 14;

@@ -1,6 +1,6 @@
 # Platform and Integrations
 
-Last updated: 2026-02-22
+Last updated: 2026-03-03
 
 ## Runtime and Toolchain
 
@@ -8,8 +8,8 @@ Last updated: 2026-02-22
 - Primary language: C++ (project configured for modern C++ through Butano build system).
 - Build entrypoint: `Makefile`.
 - Cross-toolchain in use:
-  - local environments may use devkitARM/devkitPro
-  - CI uses Wonderful Toolchain bootstrap + `wf-pacman` packages
+  - Primary: Wonderful Toolchain (`/opt/wonderful` with `wf-pacman` packages: `wf-tools`, `target-gba`, `blocksds-toolchain`)
+  - Alternative: local devkitARM/devkitPro environments
 
 ## Core Dependencies
 
@@ -17,28 +17,89 @@ Last updated: 2026-02-22
 - varooom-3d baseline under `butano/games/varooom-3d/`.
 - Project 3D overrides in `include/fr_*.h` and runtime sources in `src/viewer/`.
 
+## Build Configuration
+
+Key Makefile settings:
+
+- `ROMCODE = SBTP`, `ROMTITLE = ROM TITLE`
+- `USERFLAGS = -flto` (link-time optimization enabled)
+- `USERLDFLAGS = -flto`
+- `STACKTRACE = true` (stack trace support enabled)
+- `PYTHON = python` (required for content pipeline)
+- Source directories: `src`, `src/core`, `src/actors`, `src/viewer`, `butano/common/src`
+- Include order: `include`, `butano/common/include`, `butano/games/varooom-3d/include`
+- Graphics: `graphics`, `graphics/bg`, `graphics/sprite`, subdirectories + `graphics/shape_group_textures`
+- Audio: 12 specific .wav files (death, eek, growl, hello, hum, mutant_hit, slime, slime2, steps, swipe, tablet, teleport)
+- DMG audio: `dmg_audio` + `butano/common/dmg_audio`
+
 ## Local Support Tooling
 
-- Python scripts in `tools/` for content/header generation.
-- Node script `scripts/launch_emulator.js` for local emulator workflow.
-- Emulator-based validation:
-  - Windows: bundled mGBA build under `tools/` (or override via `stranded.emulatorPath`).
-  - WSL: can launch the bundled Windows mGBA build via Windows interop (no `wine` required).
-  - Linux/macOS (non-WSL): requires a native emulator install (for example `VisualBoyAdvance` or `mgba`) and/or setting `stranded.emulatorPath`.
+### Content Pipeline (`tools/`)
+
+| Script | Purpose |
+|--------|---------|
+| `create_starter_level_obj.py` | Creates level .obj files from template parameters |
+| `generate_level_headers.py` | Converts OBJ files to C++ level headers |
+| `model_utils.py` | Shared OBJ/MTL parsing utilities |
+| `obj_to_header.py` | Standalone OBJ-to-C++ header converter |
+| `generate_bg_font.py` | Generates 8x8 BMP font atlas for BG-based text rendering |
+| `convert_axulart_npc.py` | Converts axulart-style NPC sprite sheets |
+| `generate_wall_painting_sprites.py` | Generates triangular wall painting sprites |
+
+### Bundled Emulator
+
+- `tools/mGBA-0.10.5-win64/`: Bundled Windows mGBA build for local testing.
+- Can be launched via Windows interop from WSL (no `wine` required).
+
+### Dev Scripts (`scripts/`)
+
+- `launch_emulator.js`: Build-and-run script; reads `.vscode/settings.json` for emulator path override (`stranded.emulatorPath`).
+
+### Emulator Setup
+
+- Windows: bundled mGBA build under `tools/` (or override via `stranded.emulatorPath`).
+- WSL: can launch the bundled Windows mGBA build via Windows interop.
+- Linux/macOS (non-WSL): requires a native emulator install (e.g., `VisualBoyAdvance` or `mgba`) and/or setting `stranded.emulatorPath`.
+
+## AI Agent Configuration (`.agents/`)
+
+- `.agents/rules/butano-gba.md`: Butano GBA development guide for AI agents.
+- `.agents/rules/codebase-documentation.md`: How to use `.planning/` and project references.
+- `.agents/skills/stranded-windows-e2e-testing/`: E2E testing skill for Windows ARM64 with mGBA.
+
+## Asset Organization
+
+### Graphics (`graphics/`)
+
+- `bg/`: Background images (BMP + JSON metadata).
+- `sprite/`: Sprite sheets by category: `creature/`, `decor/`, `enemy/`, `hud/`, `item/`, `npc/`, `player/`, `vfx/`.
+- `shape_group_textures/`: 80+ texture files for 3D shape group rendering.
+
+### Audio (`audio/`)
+
+12 sound effects (.wav and .it format): death, eek, growl, hello, hum, mutant_hit, slime, slime2, steps, swipe, tablet, teleport.
+
+### DMG Audio (`dmg_audio/`)
+
+Reserved for DMG-specific audio assets. Currently empty (directory created 2025-07-14).
 
 ## CI/CD Integrations
 
 Workflows in `.github/workflows/`:
 
-- `build.yml`
-  - checks out repo + submodules
-  - installs toolchain dependencies
-  - builds ROM
-  - uploads ROM artifact
-  - creates release on `main` when ROM hash changes
-  - publishes dev container image to GHCR when release changes are detected
-- `copilot-setup-steps.yml`
-  - provisions baseline toolchain for Copilot setup runs
+### `build.yml`
+
+- Triggers: push to main, pull requests
+- Checks out repo + submodules
+- Installs Wonderful Toolchain dependencies
+- Builds ROM
+- Uploads ROM artifact
+- Creates release on `main` when ROM hash changes
+- Publishes dev container image to GHCR when release changes are detected
+
+### `copilot-setup-steps.yml`
+
+- Provisions baseline Wonderful Toolchain for Copilot/Codespaces setup runs.
 
 ## External Services
 

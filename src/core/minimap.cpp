@@ -41,16 +41,26 @@ namespace str
 
     int Minimap::_find_room(bn::fixed_point world_pos) const
     {
+        int best_room = -1;
+        bn::fixed best_score;
+
         for (int i = 0; i < MINIMAP_NUM_ROOMS; ++i)
         {
             bn::fixed dx = world_pos.x() - _room_center_x[i];
             bn::fixed dy = world_pos.y() - _room_center_y[i];
             if (bn::abs(dx) <= _room_half_x[i] && bn::abs(dy) <= _room_half_y[i])
             {
-                return i;
+                bn::fixed score = (bn::abs(dx) / _room_half_x[i]) + (bn::abs(dy) / _room_half_y[i]);
+
+                if(best_room < 0 || score < best_score || (score == best_score && i == _current_room))
+                {
+                    best_room = i;
+                    best_score = score;
+                }
             }
         }
-        return -1;
+
+        return best_room;
     }
 
     // Map world position to a logical minimap position (not screen position)
@@ -64,7 +74,7 @@ namespace str
         bn::fixed ny = (world_pos.y() - _room_center_y[room_id]) / _room_half_y[room_id];
 
         // Scale to fit within the room sprite (leave 1px border)
-        bn::fixed half_inner = _is_big_room[room_id] ? bn::fixed(3) : bn::fixed(1);
+        bn::fixed half_inner = _is_big_room[room_id] ? bn::fixed(6) : bn::fixed(5);
         // Negate X: isometric world +X = screen upper-right, minimap is top-down
         bn::fixed sx = room_logical.x() - nx * half_inner;
         bn::fixed sy = room_logical.y() + ny * half_inner;
@@ -116,11 +126,12 @@ namespace str
     void Minimap::_scroll_sprites(bn::fixed_point scroll_offset)
     {
         // Panel half-size: 32 (64x64 panel)
-        // Room sprites are 8x8, door sprites are 8x8 (4px content centered)
-        // Hide any sprite whose center is outside the panel bounds
+        // Clip rooms so they don't extend outside the panel edge
+        // Room sprites are 16x16, door sprites are 8x8
         bn::fixed panel_half = 32;  // 64/2
-        bn::fixed room_clip = panel_half;   // room center must be within panel
-        bn::fixed door_clip = panel_half;   // door center must be within panel
+        bn::fixed room_half = MINIMAP_ROOM_SIZE / 2;  // 8
+        bn::fixed room_clip = panel_half - room_half;  // room center must be far enough inside
+        bn::fixed door_clip = panel_half - 4;  // door center clipped with small margin
 
         // Reposition room sprites
         for (int i = 0; i < MINIMAP_NUM_ROOMS; ++i)
@@ -150,10 +161,12 @@ namespace str
             bn::fixed mid_y = (pos_a.y() + pos_b.y()) / 2 + scroll_offset.y();
             _door_sprites[d].set_position(mid_x, mid_y);
 
-            // Hide if outside panel viewport
+            // Only show if both connected rooms are revealed AND within panel bounds
+            bool room_a_revealed = (_room_states[room_a] != RoomState::UNVISITED);
+            bool room_b_revealed = (_room_states[room_b] != RoomState::UNVISITED);
             bn::fixed dx = bn::abs(mid_x - _panel_center.x());
             bn::fixed dy = bn::abs(mid_y - _panel_center.y());
-            _door_sprites[d].set_visible(dx <= door_clip && dy <= door_clip);
+            _door_sprites[d].set_visible(room_a_revealed && room_b_revealed && dx <= door_clip && dy <= door_clip);
         }
     }
 

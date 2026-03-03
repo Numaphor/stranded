@@ -73,14 +73,14 @@ namespace str
     constexpr int MINIMAP_PANEL_Y = -45;    // panel center Y
 
     // Room tile spacing within the minimap grid (logical layout)
-    constexpr int MINIMAP_ROOM_SIZE = 8;        // each room sprite is 8x8
-    constexpr int MINIMAP_ROOM_GAP = 4;          // wider gap for 8x8 rooms in 64x64 panel
-    constexpr int MINIMAP_GRID_CELL = MINIMAP_ROOM_SIZE + MINIMAP_ROOM_GAP; // 12px per cell
+    constexpr int MINIMAP_ROOM_SIZE = 16;       // each room sprite is 16x16
+    constexpr int MINIMAP_ROOM_GAP = 2;          // narrow gap keeps doors small relative to rooms
+    constexpr int MINIMAP_GRID_CELL = MINIMAP_ROOM_SIZE + MINIMAP_ROOM_GAP; // 18px per cell
 
     // Logical grid offset: room grid relative to an arbitrary origin
     // Used to compute logical positions; the viewport scrolls around them
-    constexpr int MINIMAP_GRID_OFFSET_X = -12;   // -(2*12)/2
-    constexpr int MINIMAP_GRID_OFFSET_Y = -18;   // -(3*12)/2
+    constexpr int MINIMAP_GRID_OFFSET_X = -18;   // -(2*18)/2
+    constexpr int MINIMAP_GRID_OFFSET_Y = -27;   // -(3*18)/2
 
     // Z-orders for minimap layers (higher = further back)
     constexpr int Z_ORDER_MINIMAP_BG = 15;
