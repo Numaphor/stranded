@@ -114,6 +114,19 @@ The room viewer uses a continuous heading-based camera follow system (not a disc
 - Interpolates player/global position and anchor; preloads decor/models for the target room; movement input blocked during the transition.
 - Depth bias applied to transition decor to prevent Z-fighting; furniture reloaded after swap.
 
+## Door Quad Rendering (Current)
+
+- Door wall textures render through the shared `render_wall_quad` path in `src/room_viewer.cpp`, identical in structure to painting quad rendering.
+- Door quads update every frame (including high-motion camera turns and room transitions); painting quads are throttled.
+- Stability guards use door-specific thresholds (stricter than painting quads):
+  - `DOOR_FACE_VISIBILITY_DOT_MIN = 10`
+  - `DOOR_MIN_TRI_AREA2 = 300`
+- The shared `render_wall_quad` lambda (defined once, above both update functions) handles both paintings and doors.
+  It performs a single-pass: face-visibility dot check, 4-point projection, stability check, point mapping, then `set_points()` (default `min_affine_divisor = 32`).
+  On any failure the quad is hidden for that frame; there is no fallback cascade.
+- Debug overlay exposes per-frame counters:
+  - `door_rendered`
+  - `door_hidden`
 ## Room Viewer Dialog Systems
 
 The room viewer includes a sprite-based dialog system:
