@@ -285,6 +285,40 @@ namespace str::model_3d_items
     };
     constexpr inline fr::model_3d_item room_5(room_5_vertices, room_5_faces);
 
+    // Shared door panel model — paneled door filling doorway opening (20 wide × 35 tall)
+    // Three horizontal panels: top rail (dark brown), center panel (lighter wood), bottom rail (dark brown)
+    // Color 8 = door_frame dark brown, Color 9 = furniture/wood medium brown
+    constexpr inline fr::vertex_3d door_panel_vertices[] = {
+        // Bottom rail (z=0 to z=-5)
+        fr::vertex_3d(-10.0, 0.0, 0.0),       // 0: bottom-left floor
+        fr::vertex_3d(10.0, 0.0, 0.0),        // 1: bottom-right floor
+        fr::vertex_3d(10.0, 0.0, -5.0),       // 2: bottom-right top-of-rail
+        fr::vertex_3d(-10.0, 0.0, -5.0),      // 3: bottom-left top-of-rail
+        // Center panel (z=-5 to z=-30) — shared vertices 2,3 with bottom rail
+        fr::vertex_3d(10.0, 0.0, -30.0),      // 4: center-right top
+        fr::vertex_3d(-10.0, 0.0, -30.0),     // 5: center-left top
+        // Top rail (z=-30 to z=-35) — shared vertices 4,5 with center panel
+        fr::vertex_3d(10.0, 0.0, -35.0),      // 6: top-right
+        fr::vertex_3d(-10.0, 0.0, -35.0)      // 7: top-left
+    };
+    constexpr inline fr::face_3d door_panel_faces[] = {
+        // Bottom rail — dark brown (matches door frame)
+        fr::face_3d(door_panel_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 0, 1, 2, 3, 8, -1),
+        // Center panel — lighter wood (furniture brown)
+        fr::face_3d(door_panel_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 3, 2, 4, 5, 9, -1),
+        // Top rail — dark brown (matches door frame/lintel)
+        fr::face_3d(door_panel_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 5, 4, 6, 7, 8, -1)
+    };
+    constexpr inline fr::model_3d_item door_panel(door_panel_vertices, door_panel_faces);
+
+    // Legacy aliases — all point to the shared door_panel
+    constexpr inline const fr::model_3d_item& door_peek_0 = door_panel;
+    constexpr inline const fr::model_3d_item& door_peek_1 = door_panel;
+    constexpr inline const fr::model_3d_item& door_peek_2 = door_panel;
+    constexpr inline const fr::model_3d_item& door_peek_3 = door_panel;
+    constexpr inline const fr::model_3d_item& door_peek_4 = door_panel;
+    constexpr inline const fr::model_3d_item& door_peek_5 = door_panel;
+
     constexpr inline fr::model_3d_item room(room_0_vertices, room_0_faces);
 }
 

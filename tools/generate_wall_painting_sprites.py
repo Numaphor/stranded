@@ -51,6 +51,13 @@ SOURCES = (
         color=1.15,
         sharpness=1.4,
     ),
+    SourceSpec(
+        "door",
+        PROJECT_ROOT / "pixel_door.png",
+        (32, 32),
+        contrast=1.1,
+        sharpness=1.3,
+    ),
 )
 
 

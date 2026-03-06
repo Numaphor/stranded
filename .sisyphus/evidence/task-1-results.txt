@@ -1,0 +1,35 @@
+Task 1 Results - standardize-wall-quad-rendering
+Date: 2026-03-05
+Target file: /home/numa/repos/stranded/src/room_viewer.cpp
+
+Build command:
+export WONDERFUL_TOOLCHAIN=/opt/wonderful
+export PATH="/opt/wonderful/bin:/opt/wonderful/toolchain/gcc-arm-none-eabi/bin:$PATH"
+make clean && make -j$(nproc)
+
+Build exit code: 0
+Compiler warnings observed: none in build output
+
+Structural verification:
+- auto local_point_to_view count: 1
+- auto local_vector_to_view count: 1
+- auto is_front_facing count: 1
+- render_door_quad count: 0
+- alternate_order count: 0
+- DOOR_MIN_AFFINE_DIVISOR count: 0
+- room_viewer.cpp lines: 2532
+
+Shared renderer usage:
+- render_wall_quad used by painting path: yes (2 calls)
+- render_wall_quad used by door path: yes (1 call)
+
+Debug counters:
+- removed: door_fallback_used
+- renamed: door_primary_ok -> door_rendered
+- renamed: door_hidden_unstable -> door_hidden
+
+ROM verification:
+- /home/numa/repos/stranded/stranded.gba exists: yes
+
+LSP diagnostics (src/room_viewer.cpp):
+- not clean in this environment (missing include/index configuration), but project build succeeds.

@@ -81,16 +81,29 @@ After gameplay or rendering changes, manually verify:
 ### GDB Debugging
 
 ```bash
-# Terminal 1: launch emulator with GDB server on port 55555
-DISPLAY=:1 /usr/bin/VisualBoyAdvance -G tcp /workspace/workspace.gba &
+# Terminal 1: launch mGBA with GDB server on port 2345
+bash scripts/launch_debug.sh gdb
 
-# Terminal 2: connect debugger
-gdb-multiarch -x gba-debug.gdb /workspace/workspace.elf
+# Terminal 2: connect debugger with GBA-specific commands
+gdb-multiarch -x gba-debug.gdb stranded.elf
 ```
 
-- ELF with debug symbols: `/workspace/workspace.elf`
-- **"Unknown packet vCont?" warnings are harmless** -- VBA's GDB stub is older.
-- **`continue` does not work in batch mode** -- use `stepi` instead.
+Or use VS Code: run the **"Attach debugger (mGBA GDB server)"** launch configuration, which builds, starts mGBA with GDB, and attaches the C/C++ debugger with breakpoints/stepping/watch.
+
+Custom GDB commands (type `help-gba`): `oam-visible`, `affine-all`, `gba-status`, `oam-entry N`, `affine-entry N`, and more.
+
+- ELF with debug symbols: `stranded.elf`
+- For best debugging, build with: `make -j8 USERFLAGS=-Og USERLDFLAGS=`
+- **mGBA GDB uses port 2345** (configurable in `.vscode/settings.json` as `stranded.gdbServerAddress`)
+
+### mGBA Advanced Debugging
+
+- **CLI debugger**: `bash scripts/launch_debug.sh cli` — breakpoints, watchpoints, memory inspect, event trace
+- **Verbose logging**: `bash scripts/launch_debug.sh log` — all log levels including SWI (`BN_LOG` output)
+- **Lua scripting**: Load `scripts/gba_debug.lua` via mGBA > Tools > Scripting for live OAM/affine/IO inspection
+- **Built-in viewers**: mGBA > Tools menu provides Sprite, Tile, Map, Palette, I/O, and Memory viewers
+
+See `.planning/features/MGBA_DEBUG_GUIDE.md` for the full reference.
 
 ---
 

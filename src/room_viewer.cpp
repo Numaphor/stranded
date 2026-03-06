@@ -65,11 +65,9 @@ namespace {
     constexpr int CAMERA_IDLE_FOLLOW_DELAY_FRAMES = 60;
     constexpr int CAMERA_RENDER_UPDATE_ANGLE_STEP = 64;
     constexpr int PAINTING_MOTION_UPDATE_INTERVAL_FRAMES = 2;
-    constexpr bn::fixed PAINTING_FACE_VISIBILITY_DOT_MIN = bn::fixed(8);
-    constexpr int PAINTING_MIN_TRI_AREA2 = 220;
     constexpr bool SHOW_ROOM_VIEWER_MINIMAP = false;
-    constexpr bn::fixed DOOR_FACE_VISIBILITY_DOT_MIN = bn::fixed(10);
-    constexpr int DOOR_MIN_TRI_AREA2 = 300;
+    constexpr bn::fixed WALL_DECOR_FACE_VISIBILITY_DOT_MIN = bn::fixed(8);
+    constexpr int WALL_DECOR_MIN_TRI_AREA2 = 220;
     constexpr int ADJACENT_ROOM_DEPTH_BIAS = 1500000;
     constexpr int TRANSITION_DECOR_DEPTH_BIAS = ADJACENT_ROOM_DEPTH_BIAS;
     constexpr int ROOM_PREVIEW_TARGET_FPS = 50;
@@ -541,9 +539,8 @@ namespace {
             bool top_visible = _top.set_points(p2, p3, p0, min_affine_divisor, allow_winding_swap);
             bool bottom_visible = _bottom.set_points(p0, p1, p2, min_affine_divisor, allow_winding_swap);
 
-            if(! top_visible || ! bottom_visible)
+            if(! top_visible && ! bottom_visible)
             {
-                set_visible(false);
                 return false;
             }
 
@@ -570,6 +567,8 @@ namespace {
         decor_table,               // Room 4: T
         decor_chair,               // Room 5: C
     };
+
+    constexpr int MAX_WALL_DECOR = 6;
 
     bool overlaps_any_furniture(int room_id, bn::fixed px, bn::fixed py)
     {
@@ -738,6 +737,21 @@ namespace {
         bn::fixed shared_world_x = (room_center_x(room_id) + room_center_x(neighbor_room)) / 2;
         return shared_world_x - room_center_x(room_id);
     }
+
+    struct wall_decor_def
+    {
+        door_direction wall;
+        bn::fixed center_lateral;
+        bn::fixed half_width;
+        bn::fixed z_top;
+        bn::fixed z_bottom;
+        bn::fixed wall_inset;
+        bn::fixed face_visibility_dot_min;
+        int min_tri_area2;
+        const bn::sprite_item* top_sprite;
+        const bn::sprite_item* bottom_sprite;
+        bool force_right_wall_order;
+    };
 
     // Check if a door transition should occur and return the new room id (-1 if no transition)
     // Also sets new_local_x/y for the player position in the new room
@@ -1344,34 +1358,85 @@ str::Scene RoomViewer::execute()
         }
     };
 
-    textured_quad painting_a_quad(
-        bn::sprite_items::mr_and_mrs_andrews_wall_top,
-        bn::sprite_items::mr_and_mrs_andrews_wall_bottom);
-    textured_quad painting_b_quad(
-        bn::sprite_items::escaping_criticism_wall_top,
-        bn::sprite_items::escaping_criticism_wall_bottom);
-    bn::optional<textured_quad> door_quads[4];
+    wall_decor_def wall_decor_defs[MAX_WALL_DECOR] = {};
+    bn::optional<textured_quad> wall_decor_quads[MAX_WALL_DECOR];
+    int wall_decor_count = 0;
+    int door_rendered = 0;
+    int door_hidden = 0;
 
-    auto sync_door_quads = [&]() {
+    auto sync_wall_decor = [&]() {
+        // Reset all existing quads
+        for(int i = 0; i < wall_decor_count; ++i)
+        {
+            wall_decor_quads[i].reset();
+        }
+        wall_decor_count = 0;
+
+        // Painting A: on south wall (constant Y = +room_half), lateral = X axis
+        {
+            wall_decor_def& def = wall_decor_defs[wall_decor_count];
+            def.wall = door_direction::south;
+            def.center_lateral = PAINTING_A_CENTER_X;
+            def.half_width = PAINTING_A_HALF_WIDTH;
+            def.z_top = PAINTING_Z_CENTER - PAINTING_A_HALF_HEIGHT;
+            def.z_bottom = PAINTING_Z_CENTER + PAINTING_A_HALF_HEIGHT;
+            def.wall_inset = PAINTING_WALL_INSET;
+            def.face_visibility_dot_min = WALL_DECOR_FACE_VISIBILITY_DOT_MIN;
+            def.min_tri_area2 = WALL_DECOR_MIN_TRI_AREA2;
+            def.top_sprite = &bn::sprite_items::mr_and_mrs_andrews_wall_top;
+            def.bottom_sprite = &bn::sprite_items::mr_and_mrs_andrews_wall_bottom;
+            def.force_right_wall_order = false;
+            wall_decor_quads[wall_decor_count].emplace(*def.top_sprite, *def.bottom_sprite);
+            ++wall_decor_count;
+        }
+
+        // Painting B: on east wall (constant X = +room_half), lateral = Y axis
+        {
+            wall_decor_def& def = wall_decor_defs[wall_decor_count];
+            def.wall = door_direction::east;
+            def.center_lateral = PAINTING_B_CENTER_Y;
+            def.half_width = PAINTING_B_HALF_WIDTH;
+            def.z_top = PAINTING_Z_CENTER - PAINTING_B_HALF_HEIGHT;
+            def.z_bottom = PAINTING_Z_CENTER + PAINTING_B_HALF_HEIGHT;
+            def.wall_inset = PAINTING_WALL_INSET;
+            def.face_visibility_dot_min = WALL_DECOR_FACE_VISIBILITY_DOT_MIN;
+            def.min_tri_area2 = WALL_DECOR_MIN_TRI_AREA2;
+            def.top_sprite = &bn::sprite_items::escaping_criticism_wall_top;
+            def.bottom_sprite = &bn::sprite_items::escaping_criticism_wall_bottom;
+            def.force_right_wall_order = false;
+            wall_decor_quads[wall_decor_count].emplace(*def.top_sprite, *def.bottom_sprite);
+            ++wall_decor_count;
+        }
+
+        // Doors: one per direction that has a neighbor
         for(int i = 0; i < 4; ++i)
         {
             door_direction dir = static_cast<door_direction>(i);
-            bool need = neighbor_room_for_door(current_room, dir) >= 0;
+            if(neighbor_room_for_door(current_room, dir) < 0)
+            {
+                continue;
+            }
 
-            if(need && ! door_quads[i])
-            {
-                door_quads[i].emplace(
-                    bn::sprite_items::door_wall_top,
-                    bn::sprite_items::door_wall_bottom);
-            }
-            else if(! need && door_quads[i])
-            {
-                door_quads[i].reset();
-            }
+            bn::fixed center_offset = aligned_door_center_offset(current_room, dir);
+
+            wall_decor_def& def = wall_decor_defs[wall_decor_count];
+            def.wall = dir;
+            def.center_lateral = center_offset;
+            def.half_width = DOOR_HALF_WIDTH;
+            def.z_top = bn::fixed(-35);
+            def.z_bottom = bn::fixed(0);
+            def.wall_inset = DOOR_WALL_INSET;
+            def.face_visibility_dot_min = WALL_DECOR_FACE_VISIBILITY_DOT_MIN;
+            def.min_tri_area2 = WALL_DECOR_MIN_TRI_AREA2;
+            def.top_sprite = &bn::sprite_items::door_wall_top;
+            def.bottom_sprite = &bn::sprite_items::door_wall_bottom;
+            def.force_right_wall_order = false;
+            wall_decor_quads[wall_decor_count].emplace(*def.top_sprite, *def.bottom_sprite);
+            ++wall_decor_count;
         }
     };
 
-    sync_door_quads();
+    sync_wall_decor();
 
     auto project_point_to_screen = [&](const fr::point_3d& point, bn::point& output) {
         constexpr int focal_length_shift = fr::constants_3d::focal_length_shift;
@@ -1471,15 +1536,12 @@ str::Scene RoomViewer::execute()
         return (area_bottom > 0) == (area_top > 0);
     };
 
-    int door_rendered = 0;
-    int door_hidden = 0;
-
-    auto hide_door_quads = [&]() {
-        for(auto& door_quad : door_quads)
+    auto hide_wall_decor_quads = [&]() {
+        for(int i = 0; i < wall_decor_count; ++i)
         {
-            if(door_quad)
+            if(wall_decor_quads[i])
             {
-                door_quad->set_visible(false);
+                wall_decor_quads[i]->set_visible(false);
             }
         }
     };
@@ -1544,172 +1606,110 @@ str::Scene RoomViewer::execute()
         return quad.set_points(q0, q1, q2, q3);
     };
 
-    auto update_painting_quads = [&]() {
-        if(debug_hide_room_models || ! room_models[current_room])
-        {
-            painting_a_quad.set_visible(false);
-            painting_b_quad.set_visible(false);
-            return;
-        }
-
-        corner_matrix cm = rotate_corner_matrix(base_corner, current_view_angle);
-        bn::fixed room_half_x = room_half_extent_x(current_room);
-        bn::fixed room_half_y = room_half_extent_y(current_room);
-        bn::fixed a_center_x = PAINTING_A_CENTER_X;
-        bn::fixed b_center_y = PAINTING_B_CENTER_Y;
-        bn::fixed a_wall_y = room_half_y - PAINTING_WALL_INSET;
-        bn::fixed b_wall_x = room_half_x - PAINTING_WALL_INSET;
-
-        bn::fixed a_z_top = PAINTING_Z_CENTER + PAINTING_A_HALF_HEIGHT;
-        bn::fixed a_z_bottom = PAINTING_Z_CENTER - PAINTING_A_HALF_HEIGHT;
-        bn::fixed b_z_top = PAINTING_Z_CENTER - PAINTING_B_HALF_HEIGHT;
-        bn::fixed b_z_bottom = PAINTING_Z_CENTER + PAINTING_B_HALF_HEIGHT;
-
-        // Painting A: on back wall (constant Y).
-        bn::fixed a_left_x = a_center_x - PAINTING_A_HALF_WIDTH;
-        bn::fixed a_right_x = a_center_x + PAINTING_A_HALF_WIDTH;
-        fr::point_3d a0 = local_point_to_view(cm, a_left_x, a_wall_y, a_z_bottom);
-        fr::point_3d a1 = local_point_to_view(cm, a_right_x, a_wall_y, a_z_bottom);
-        fr::point_3d a2 = local_point_to_view(cm, a_right_x, a_wall_y, a_z_top);
-        fr::point_3d a3 = local_point_to_view(cm, a_left_x, a_wall_y, a_z_top);
-        fr::point_3d a_center = local_point_to_view(cm, a_center_x, a_wall_y, PAINTING_Z_CENTER);
-        fr::point_3d a_normal = local_vector_to_view(cm, 0, -1, 0);  // south wall interior normal
-        render_wall_quad(painting_a_quad, wall_quad_order::back_wall, a0, a1, a2, a3, a_center, a_normal,
-                         PAINTING_FACE_VISIBILITY_DOT_MIN, PAINTING_MIN_TRI_AREA2);
-
-        // Painting B: on right wall (constant X).
-        bn::fixed b_low_y = b_center_y - PAINTING_B_HALF_WIDTH;
-        bn::fixed b_high_y = b_center_y + PAINTING_B_HALF_WIDTH;
-        fr::point_3d b0 = local_point_to_view(cm, b_wall_x, b_low_y, b_z_bottom);
-        fr::point_3d b1 = local_point_to_view(cm, b_wall_x, b_high_y, b_z_bottom);
-        fr::point_3d b2 = local_point_to_view(cm, b_wall_x, b_high_y, b_z_top);
-        fr::point_3d b3 = local_point_to_view(cm, b_wall_x, b_low_y, b_z_top);
-        fr::point_3d b_center = local_point_to_view(cm, b_wall_x, b_center_y, PAINTING_Z_CENTER);
-        fr::point_3d b_normal = local_vector_to_view(cm, -1, 0, 0);  // east wall interior normal
-        render_wall_quad(painting_b_quad, wall_quad_order::right_wall, b0, b1, b2, b3, b_center, b_normal,
-                         PAINTING_FACE_VISIBILITY_DOT_MIN, PAINTING_MIN_TRI_AREA2);
-    };
-
-    auto update_door_quads = [&]() {
+    auto update_wall_decor_quads = [&]() {
         door_rendered = 0;
         door_hidden = 0;
 
         if(debug_hide_room_models || ! room_models[current_room])
         {
-            hide_door_quads();
+            hide_wall_decor_quads();
             return;
         }
 
         corner_matrix cm = rotate_corner_matrix(base_corner, current_view_angle);
         bn::fixed room_half_x = room_half_extent_x(current_room);
         bn::fixed room_half_y = room_half_extent_y(current_room);
-        bn::fixed door_half_height = bn::fixed(35) / 2;
-        bn::fixed door_center_z = -door_half_height;
-        constexpr bn::fixed door_bottom_z = 0;
-        constexpr bn::fixed door_top_z = -35;
 
-        for(int direction_index = 0; direction_index < 4; ++direction_index)
+        for(int i = 0; i < wall_decor_count; ++i)
         {
-            if(! door_quads[direction_index])
+            if(! wall_decor_quads[i])
             {
                 continue;
             }
 
-            textured_quad& door_quad = *door_quads[direction_index];
-            door_direction direction = static_cast<door_direction>(direction_index);
+            textured_quad& quad = *wall_decor_quads[i];
+            const wall_decor_def& def = wall_decor_defs[i];
 
-            if(neighbor_room_for_door(current_room, direction) < 0)
-            {
-                door_quad.set_visible(false);
-                continue;
-            }
+            bn::fixed z_center = (def.z_top + def.z_bottom) / 2;
 
-            bn::fixed center_x = 0;
-            bn::fixed center_y = 0;
-            bn::fixed center_offset = aligned_door_center_offset(current_room, direction);
-
-            if(direction == door_direction::east || direction == door_direction::west)
-            {
-                center_y = center_offset;
-            }
-            else
-            {
-                center_x = center_offset;
-            }
-
-            fr::point_3d d0;
-            fr::point_3d d1;
-            fr::point_3d d2;
-            fr::point_3d d3;
-            fr::point_3d d_center;
-            fr::point_3d d_normal;
+            fr::point_3d p0;
+            fr::point_3d p1;
+            fr::point_3d p2;
+            fr::point_3d p3;
+            fr::point_3d center;
+            fr::point_3d normal;
             wall_quad_order order = wall_quad_order::right_wall;
 
-            switch(direction)
+            switch(def.wall)
             {
                 case door_direction::east:
                 {
-                    bn::fixed wall_x = room_half_x - DOOR_WALL_INSET;
-                    bn::fixed low_y = center_y - DOOR_HALF_WIDTH;
-                    bn::fixed high_y = center_y + DOOR_HALF_WIDTH;
-                    d0 = local_point_to_view(cm, wall_x, low_y, door_bottom_z);
-                    d1 = local_point_to_view(cm, wall_x, high_y, door_bottom_z);
-                    d2 = local_point_to_view(cm, wall_x, high_y, door_top_z);
-                    d3 = local_point_to_view(cm, wall_x, low_y, door_top_z);
-                    d_center = local_point_to_view(cm, wall_x, center_y, door_center_z);
-                    d_normal = local_vector_to_view(cm, -1, 0, 0);
+                    bn::fixed wall_x = room_half_x - def.wall_inset;
+                    bn::fixed low_y = def.center_lateral - def.half_width;
+                    bn::fixed high_y = def.center_lateral + def.half_width;
+                    p0 = local_point_to_view(cm, wall_x, low_y, def.z_bottom);
+                    p1 = local_point_to_view(cm, wall_x, high_y, def.z_bottom);
+                    p2 = local_point_to_view(cm, wall_x, high_y, def.z_top);
+                    p3 = local_point_to_view(cm, wall_x, low_y, def.z_top);
+                    center = local_point_to_view(cm, wall_x, def.center_lateral, z_center);
+                    normal = local_vector_to_view(cm, -1, 0, 0);
                     order = wall_quad_order::right_wall;
                     break;
                 }
 
                 case door_direction::west:
                 {
-                    bn::fixed wall_x = -room_half_x + DOOR_WALL_INSET;
-                    bn::fixed low_y = center_y - DOOR_HALF_WIDTH;
-                    bn::fixed high_y = center_y + DOOR_HALF_WIDTH;
-                    d0 = local_point_to_view(cm, wall_x, low_y, door_bottom_z);
-                    d1 = local_point_to_view(cm, wall_x, high_y, door_bottom_z);
-                    d2 = local_point_to_view(cm, wall_x, high_y, door_top_z);
-                    d3 = local_point_to_view(cm, wall_x, low_y, door_top_z);
-                    d_center = local_point_to_view(cm, wall_x, center_y, door_center_z);
-                    d_normal = local_vector_to_view(cm, 1, 0, 0);
+                    bn::fixed wall_x = -room_half_x + def.wall_inset;
+                    bn::fixed low_y = def.center_lateral - def.half_width;
+                    bn::fixed high_y = def.center_lateral + def.half_width;
+                    p0 = local_point_to_view(cm, wall_x, low_y, def.z_bottom);
+                    p1 = local_point_to_view(cm, wall_x, high_y, def.z_bottom);
+                    p2 = local_point_to_view(cm, wall_x, high_y, def.z_top);
+                    p3 = local_point_to_view(cm, wall_x, low_y, def.z_top);
+                    center = local_point_to_view(cm, wall_x, def.center_lateral, z_center);
+                    normal = local_vector_to_view(cm, 1, 0, 0);
                     order = wall_quad_order::mirrored_right_wall;
                     break;
                 }
 
                 case door_direction::south:
                 {
-                    bn::fixed wall_y = room_half_y - DOOR_WALL_INSET;
-                    bn::fixed left_x = center_x - DOOR_HALF_WIDTH;
-                    bn::fixed right_x = center_x + DOOR_HALF_WIDTH;
-                    d0 = local_point_to_view(cm, left_x, wall_y, door_bottom_z);
-                    d1 = local_point_to_view(cm, right_x, wall_y, door_bottom_z);
-                    d2 = local_point_to_view(cm, right_x, wall_y, door_top_z);
-                    d3 = local_point_to_view(cm, left_x, wall_y, door_top_z);
-                    d_center = local_point_to_view(cm, center_x, wall_y, door_center_z);
-                    d_normal = local_vector_to_view(cm, 0, -1, 0);
+                    bn::fixed wall_y = room_half_y - def.wall_inset;
+                    bn::fixed left_x = def.center_lateral - def.half_width;
+                    bn::fixed right_x = def.center_lateral + def.half_width;
+                    p0 = local_point_to_view(cm, left_x, wall_y, def.z_top);
+                    p1 = local_point_to_view(cm, right_x, wall_y, def.z_top);
+                    p2 = local_point_to_view(cm, right_x, wall_y, def.z_bottom);
+                    p3 = local_point_to_view(cm, left_x, wall_y, def.z_bottom);
+                    center = local_point_to_view(cm, def.center_lateral, wall_y, z_center);
+                    normal = local_vector_to_view(cm, 0, -1, 0);
                     order = wall_quad_order::back_wall;
                     break;
                 }
 
                 default:
                 {
-                    bn::fixed wall_y = -room_half_y + DOOR_WALL_INSET;
-                    bn::fixed left_x = center_x - DOOR_HALF_WIDTH;
-                    bn::fixed right_x = center_x + DOOR_HALF_WIDTH;
-                    d0 = local_point_to_view(cm, left_x, wall_y, door_bottom_z);
-                    d1 = local_point_to_view(cm, right_x, wall_y, door_bottom_z);
-                    d2 = local_point_to_view(cm, right_x, wall_y, door_top_z);
-                    d3 = local_point_to_view(cm, left_x, wall_y, door_top_z);
-                    d_center = local_point_to_view(cm, center_x, wall_y, door_center_z);
-                    d_normal = local_vector_to_view(cm, 0, 1, 0);
+                    bn::fixed wall_y = -room_half_y + def.wall_inset;
+                    bn::fixed left_x = def.center_lateral - def.half_width;
+                    bn::fixed right_x = def.center_lateral + def.half_width;
+                    p0 = local_point_to_view(cm, left_x, wall_y, def.z_top);
+                    p1 = local_point_to_view(cm, right_x, wall_y, def.z_top);
+                    p2 = local_point_to_view(cm, right_x, wall_y, def.z_bottom);
+                    p3 = local_point_to_view(cm, left_x, wall_y, def.z_bottom);
+                    center = local_point_to_view(cm, def.center_lateral, wall_y, z_center);
+                    normal = local_vector_to_view(cm, 0, 1, 0);
                     order = wall_quad_order::mirrored_back_wall;
                     break;
                 }
             }
 
-            if(render_wall_quad(door_quad, order, d0, d1, d2, d3, d_center, d_normal,
-                                DOOR_FACE_VISIBILITY_DOT_MIN, DOOR_MIN_TRI_AREA2))
+            if(def.force_right_wall_order)
+            {
+                order = wall_quad_order::right_wall;
+            }
+
+            if(render_wall_quad(quad, order, p0, p1, p2, p3, center, normal,
+                                def.face_visibility_dot_min, def.min_tri_area2))
             {
                 ++door_rendered;
             }
@@ -1724,10 +1724,9 @@ str::Scene RoomViewer::execute()
 
     if(paintings_need_update)
     {
-        update_painting_quads();
+        update_wall_decor_quads();
         paintings_need_update = false;
     }
-    update_door_quads();
 
     bn::sprite_text_generator tg(common::variable_8x8_sprite_font);
     tg.set_center_alignment();
@@ -2108,7 +2107,7 @@ str::Scene RoomViewer::execute()
             {
                 door_transition_active = false;
                 current_room = door_transition_target_room;
-                sync_door_quads();
+                sync_wall_decor();
                 _player_fx = door_transition_target_local_x;
                 _player_fy = door_transition_target_local_y;
                 world_anchor_x = door_transition_target_anchor_x;
@@ -2358,7 +2357,7 @@ str::Scene RoomViewer::execute()
 
         linear8_to_dir(player_world_linear_dir + view_angle_steps_8(current_view_angle), dir, facing_left);
         update_player_sprite_position();
-        update_door_quads();
+        update_wall_decor_quads();
 
         if(paintings_need_update)
         {
@@ -2369,14 +2368,14 @@ str::Scene RoomViewer::execute()
                 painting_update_cooldown_frames -= elapsed_frames;
                 if(painting_update_cooldown_frames <= 0)
                 {
-                    update_painting_quads();
+                    update_wall_decor_quads();
                     paintings_need_update = false;
                     painting_update_cooldown_frames = PAINTING_MOTION_UPDATE_INTERVAL_FRAMES;
                 }
             }
             else
             {
-                update_painting_quads();
+                update_wall_decor_quads();
                 paintings_need_update = false;
                 painting_update_cooldown_frames = 0;
             }

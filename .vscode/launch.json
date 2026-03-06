@@ -7,6 +7,25 @@
       "request": "launch",
       "program": "${workspaceFolder}/scripts/launch_emulator.js",
       "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "Attach debugger (mGBA GDB server)",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/${workspaceFolderBasename}.elf",
+      "cwd": "${workspaceFolder}",
+      "MIMode": "gdb",
+      "miDebuggerPath": "${config:stranded.gdbPath}",
+      "miDebuggerServerAddress": "${config:stranded.gdbServerAddress}",
+      "setupCommands": [
+        { "text": "set architecture arm", "ignoreFailures": false },
+        { "text": "set pagination off", "ignoreFailures": false },
+        { "text": "set confirm off", "ignoreFailures": false },
+        { "text": "set print pretty on", "ignoreFailures": false },
+        { "text": "set output-radix 16", "ignoreFailures": false }
+      ],
+      "preLaunchTask": "debug: build + launch mGBA gdbserver",
+      "postDebugTask": "stop mGBA"
     }
   ]
 }
