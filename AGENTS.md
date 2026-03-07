@@ -59,26 +59,45 @@ After gameplay or rendering changes, manually verify:
 4. **Room viewer**: Navigation, collision, door transitions
 5. **Model viewer**: Open/close, camera controls
 
-### Running the ROM
+### Running the ROM (Canonical AI E2E Workflow)
 
-- **Use `VisualBoyAdvance`** (`/usr/bin/VisualBoyAdvance`) -- works reliably in headless VMs.
-- **Do NOT use `mgba-qt`** -- has OpenGL compositing bugs in this environment.
-- VBA opens fullscreen by default. Launch: `DISPLAY=:1 /usr/bin/VisualBoyAdvance /workspace/workspace.gba &`
-- ALSA audio errors are harmless (no sound card in VM).
+- **Use mGBA Qt** at `tools/mGBA-0.10.5-win64/mGBA.exe` for local AI bugfix validation.
+- **Always capture screenshots with mGBA native `F12`** (never browser/desktop screenshot tooling).
+- Canonical one-shot command (build + launch + F12 capture):
 
-### Emulator Key Bindings (VisualBoyAdvance defaults)
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/mgba_f12_capture.ps1
+```
+
+- Fast repeat capture without rebuilding:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/mgba_f12_capture.ps1 -SkipBuild
+```
+
+- The script prints the absolute path of the new screenshot (`stranded-<n>.png`).
+
+### Emulator Key Bindings (mGBA Qt defaults)
 
 | Key | GBA Button |
 |-----|-----------|
-| Z | A |
-| X | B |
+| X | A |
+| Z | B |
 | Arrow keys | D-Pad |
 | Enter | Start |
 | Backspace | Select |
 | A | L shoulder |
 | S | R shoulder |
 
-### GDB Debugging
+### Screenshot Evidence Rules (Mandatory)
+
+- Visual bugfix claims must be grounded in actual screenshot inspection.
+- Use direct screenshot vision as the only analysis method.
+- Do not infer visual correctness from file size, byte count, PNG metadata, or filename patterns.
+- Do not use browser screenshots, Playwright screenshots, or desktop capture substitutes when validating game rendering.
+- Use `stranded-<n>.png` output from mGBA `F12` as the source of truth.
+
+### GDB Debugging (mGBA)
 
 ```bash
 # Terminal 1: launch mGBA with GDB server on port 2345
@@ -98,8 +117,8 @@ Custom GDB commands (type `help-gba`): `oam-visible`, `affine-all`, `gba-status`
 
 ### mGBA Advanced Debugging
 
-- **CLI debugger**: `bash scripts/launch_debug.sh cli` — breakpoints, watchpoints, memory inspect, event trace
-- **Verbose logging**: `bash scripts/launch_debug.sh log` — all log levels including SWI (`BN_LOG` output)
+- **CLI debugger**: `bash scripts/launch_debug.sh cli` - breakpoints, watchpoints, memory inspect, event trace
+- **Verbose logging**: `bash scripts/launch_debug.sh log` - all log levels including SWI (`BN_LOG` output)
 - **Lua scripting**: Load `scripts/gba_debug.lua` via mGBA > Tools > Scripting for live OAM/affine/IO inspection
 - **Built-in viewers**: mGBA > Tools menu provides Sprite, Tile, Map, Palette, I/O, and Memory viewers
 
@@ -194,6 +213,6 @@ Example:
 
 ## Local E2E Testing
 
-See `.agents/skills/stranded-windows-e2e-testing/SKILL.md` for detailed local testing instructions on Windows ARM64.
+See `.agents/skills/stranded-vision-e2e-testing/SKILL.md` for detailed local testing instructions on Windows ARM64.
 
 Default rule: use full screenshot-grounded E2E validation before claiming visual fixes.

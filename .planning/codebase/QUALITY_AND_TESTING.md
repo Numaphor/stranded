@@ -1,6 +1,6 @@
 # Quality and Testing
 
-Last updated: 2026-03-03
+Last updated: 2026-03-06
 
 ## Current Quality Snapshot
 
@@ -74,6 +74,13 @@ Baseline manual pass after gameplay or rendering changes:
 10. Room viewer navigation, collision, and door transitions.
 11. Room viewer dialog system (BgDialog and RoomDialog).
 12. Model viewer open/close and camera controls.
+
+Screenshot evidence policy for AI-driven visual bugfixes:
+
+1. Capture with mGBA native `F12` via `scripts/mgba_f12_capture.ps1`.
+2. Use generated `stranded-<n>.png` files as source of truth.
+3. Judge visual correctness by direct screenshot inspection only.
+4. Do not use file size, metadata, byte count, or non-mGBA screenshot substitutes as evidence.
 
 ## Room Viewer Regression Checklist
 

@@ -1,6 +1,6 @@
 # Platform and Integrations
 
-Last updated: 2026-03-03
+Last updated: 2026-03-06
 
 ## Runtime and Toolchain
 
@@ -54,18 +54,20 @@ Key Makefile settings:
 ### Dev Scripts (`scripts/`)
 
 - `launch_emulator.js`: Build-and-run script; reads `.vscode/settings.json` for emulator path override (`stranded.emulatorPath`).
+- `mgba_f12_capture.ps1`: Canonical AI E2E helper (build, launch mGBA Qt, trigger native `F12`, print screenshot path).
 
 ### Emulator Setup
 
 - Windows: bundled mGBA build under `tools/` (or override via `stranded.emulatorPath`).
 - WSL: can launch the bundled Windows mGBA build via Windows interop.
 - Linux/macOS (non-WSL): requires a native emulator install (e.g., `VisualBoyAdvance` or `mgba`) and/or setting `stranded.emulatorPath`.
+- AI visual validation on Windows ARM64 should use `scripts/mgba_f12_capture.ps1` and mGBA native `F12` screenshots.
 
 ## AI Agent Configuration (`.agents/`)
 
 - `.agents/rules/butano-gba.md`: Butano GBA development guide for AI agents.
 - `.agents/rules/codebase-documentation.md`: How to use `.planning/` and project references.
-- `.agents/skills/stranded-windows-e2e-testing/`: E2E testing skill for Windows ARM64 with mGBA.
+- `.agents/skills/stranded-vision-e2e-testing/`: Vision-only E2E testing skill for Windows ARM64 with mGBA.
 
 ## Asset Organization
 

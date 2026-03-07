@@ -62,9 +62,19 @@ public:
         return _vertices_count;
     }
 
+    [[nodiscard]] int faces_count() const
+    {
+        return _faces_count;
+    }
+
     [[nodiscard]] static constexpr int max_vertices()
     {
         return _max_vertices;
+    }
+
+    [[nodiscard]] static constexpr int max_faces()
+    {
+        return _max_faces;
     }
 
     [[nodiscard]] int max_hlines_last_frame() const

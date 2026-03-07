@@ -13,7 +13,6 @@
 #include "bn_math.h"
 #include "bn_algorithm.h"
 #include "bn_assert.h"
-#include "bn_optional.h"
 #include "bn_string.h"
 #include "bn_sstream.h"
 #include "bn_log.h"
@@ -25,8 +24,6 @@
 #include "str_bg_dialog.h"
 #include "bn_sprite_items_escaping_criticism_wall_bottom.h"
 #include "bn_sprite_items_escaping_criticism_wall_top.h"
-#include "bn_sprite_items_door_wall_bottom.h"
-#include "bn_sprite_items_door_wall_top.h"
 #include "bn_sprite_items_mr_and_mrs_andrews_wall_bottom.h"
 #include "bn_sprite_items_mr_and_mrs_andrews_wall_top.h"
 
@@ -37,8 +34,8 @@
 #include "fr_div_lut.h"
 #include "fr_constants_3d.h"
 #include "models/str_model_3d_items_room.h"
-#include "models/str_model_3d_items_table.h"
-#include "models/str_model_3d_items_chair.h"
+#include "models/str_model_3d_items_books.h"
+#include "models/str_model_3d_items_potted_plant.h"
 #include "../butano/butano/hw/include/bn_hw_sprites.h"
 
 #ifndef STR_ROOM_VIEWER_AUTO_PROFILE_FRAMES
@@ -65,9 +62,8 @@ namespace {
     constexpr int CAMERA_IDLE_FOLLOW_DELAY_FRAMES = 60;
     constexpr int CAMERA_RENDER_UPDATE_ANGLE_STEP = 64;
     constexpr int PAINTING_MOTION_UPDATE_INTERVAL_FRAMES = 2;
-    constexpr bool SHOW_ROOM_VIEWER_MINIMAP = false;
-    constexpr bn::fixed WALL_DECOR_FACE_VISIBILITY_DOT_MIN = bn::fixed(8);
-    constexpr int WALL_DECOR_MIN_TRI_AREA2 = 220;
+    constexpr bn::fixed PAINTING_FACE_VISIBILITY_DOT_MIN = bn::fixed(8);
+    constexpr int PAINTING_MIN_TRI_AREA2 = 220;
     constexpr int ADJACENT_ROOM_DEPTH_BIAS = 1500000;
     constexpr int TRANSITION_DECOR_DEPTH_BIAS = ADJACENT_ROOM_DEPTH_BIAS;
     constexpr int ROOM_PREVIEW_TARGET_FPS = 50;
@@ -307,10 +303,10 @@ namespace {
         out[3] = { -c0y, c0x, c0z,  -c1y, c1x, c1z,  -c2y, c2x, c2z };
     }
 
-    constexpr bn::fixed TABLE_FX = 10;
-    constexpr bn::fixed TABLE_FY = 0;
-    constexpr bn::fixed CHAIR_FX = 10;
-    constexpr bn::fixed CHAIR_FY = 16;
+    constexpr bn::fixed BOOKS_FX = 24;
+    constexpr bn::fixed BOOKS_FY = -12;
+    constexpr bn::fixed POTTED_PLANT_FX = -28;
+    constexpr bn::fixed POTTED_PLANT_FY = 24;
     // Textured-polygon painting quads (room-local coordinates):
     // A on back wall (Y = +58), B on right wall (X = +58).
     // A (back wall): mr_and_mrs_andrews (192x112, landscape)
@@ -324,15 +320,14 @@ namespace {
     constexpr bn::fixed PAINTING_A_CENTER_X = -38;
     constexpr bn::fixed PAINTING_B_CENTER_Y = -34;
 
-    constexpr bn::fixed TABLE_HW = 12;
-    constexpr bn::fixed TABLE_HD = 8;
-    constexpr bn::fixed CHAIR_HW = 6;
-    constexpr bn::fixed CHAIR_HD = 6;
+    constexpr bn::fixed BOOKS_HW = 4;
+    constexpr bn::fixed BOOKS_HD = 4;
+    constexpr bn::fixed POTTED_PLANT_HW = 6;
+    constexpr bn::fixed POTTED_PLANT_HD = 6;
 
     constexpr bn::fixed FLOOR_MIN = -55;
     constexpr bn::fixed FLOOR_MAX = 55;
     constexpr bn::fixed DOOR_HALF_WIDTH = 10;
-    constexpr bn::fixed DOOR_WALL_INSET = bn::fixed(0.2);
     constexpr bn::fixed DOOR_APPROACH_EDGE_MARGIN = 18;
     constexpr bn::fixed DOOR_APPROACH_LANE_MARGIN = 12;
     // Movement is frame-compensated, so keep a lower per-step speed target.
@@ -341,7 +336,7 @@ namespace {
     constexpr int SPAWN_CORNER_INDEX = 2;
     constexpr int SPAWN_PLAYER_DIR = 3;
     constexpr bool SPAWN_PLAYER_FACING_LEFT = false;
-    constexpr int SPAWN_ROOM_ID = 0;
+    constexpr int SPAWN_ROOM_ID = 1;
     constexpr int SHAPE_OAM_START_INDEX = 64;
     constexpr int SHAPE_RESERVED_HANDLES = fr::models_3d::required_reserved_sprite_handles();
     constexpr int ROOM_VIEWER_RESERVED_HANDLES = 0;
@@ -352,83 +347,65 @@ namespace {
     {
     public:
         explicit textured_triangle(const bn::sprite_item& sprite_item) :
-            _sprite(sprite_item.create_sprite_optional(0, 0)),
+            _sprite(sprite_item.create_sprite(0, 0)),
+            _affine_mat(bn::sprite_affine_mat_ptr::create()),
             _half_size(sprite_item.shape_size().width() / 2)
         {
-            if(_sprite)
-            {
-                _affine_mat.emplace(bn::sprite_affine_mat_ptr::create());
-                _sprite->set_affine_mat(*_affine_mat);
-                // Keep paintings above room HDMA sprites without needing manual OAM writes.
-                _sprite->set_bg_priority(1);
-                _sprite->set_visible(false);
-            }
+            _sprite.set_affine_mat(_affine_mat);
+            // Keep paintings above room HDMA sprites without needing manual OAM writes.
+            _sprite.set_bg_priority(1);
+            _sprite.set_visible(false);
         }
 
         void set_visible(bool visible)
         {
-            if(_sprite)
-            {
-                _sprite->set_visible(visible);
-            }
+            _sprite.set_visible(visible);
         }
 
-        bool set_points(const bn::point& p0, const bn::point& p1, const bn::point& p2,
-                        int min_affine_divisor = 32, bool allow_winding_swap = true)
+        void set_points(const bn::point& p0, const bn::point& p1, const bn::point& p2)
         {
-            if(! _sprite || ! _affine_mat)
-            {
-                return false;
-            }
-
             _p0 = p0;
             _p1 = p1;
             _p2 = p2;
-            _min_affine_divisor = min_affine_divisor > 0 ? min_affine_divisor : 1;
-            _allow_winding_swap = allow_winding_swap;
-            return _update();
+            _update();
         }
 
     private:
-        bn::optional<bn::sprite_ptr> _sprite;
-        bn::optional<bn::sprite_affine_mat_ptr> _affine_mat;
+        bn::sprite_ptr _sprite;
+        bn::sprite_affine_mat_ptr _affine_mat;
         bn::point _p0;
         bn::point _p1;
         bn::point _p2;
-        int _min_affine_divisor = 32;
-        bool _allow_winding_swap = true;
         int _half_size;
 
-        bool _update()
+        void _update()
         {
-            if(! _sprite || ! _affine_mat)
-            {
-                return false;
-            }
-
             switch(_half_size)
             {
                 case 4:
-                    return _update_impl<4>();
+                    _update_impl<4>();
+                    break;
 
                 case 8:
-                    return _update_impl<8>();
+                    _update_impl<8>();
+                    break;
 
                 case 16:
-                    return _update_impl<16>();
+                    _update_impl<16>();
+                    break;
 
                 case 32:
-                    return _update_impl<32>();
+                    _update_impl<32>();
+                    break;
 
                 default:
                     BN_ERROR("Invalid textured triangle half size: ", _half_size);
-                    set_visible(false);
-                    return false;
+                    break;
             }
         }
 
         template<int half_size>
-        bool _update_impl()
+        void _update_impl()
         {
             auto abs_value = [](int value) {
                 return value >= 0 ? value : -value;
@@ -445,26 +422,18 @@ namespace {
             // texture doesn't flip into view when projected winding changes.
             if(affine_divisor > 0)
             {
-                if(_allow_winding_swap)
-                {
-                    bn::swap(x1, x2);
-                    bn::swap(y1, y2);
-                    affine_divisor = x0 * y1 - x0 * y2 - x1 * y0 + x1 * y2 + x2 * y0 - x2 * y1;
-                }
-                else
-                {
-                    set_visible(false);
-                    return false;
-                }
+                bn::swap(x1, x2);
+                bn::swap(y1, y2);
+                affine_divisor = x0 * y1 - x0 * y2 - x1 * y0 + x1 * y2 + x2 * y0 - x2 * y1;
             }
 
             // Very thin/skewed screen-space triangles explode affine params and cause scanline artifacts.
             int abs_affine_divisor = affine_divisor >= 0 ? affine_divisor : -affine_divisor;
 
-            if(! affine_divisor || abs_affine_divisor < _min_affine_divisor)
+            if(! affine_divisor || abs_affine_divisor < 32)
             {
                 set_visible(false);
-                return false;
+                return;
             }
 
             int pa = (-512 * half_size * y1 + 512 * half_size * y2 + 256 * y1 - 256 * y2) / affine_divisor;
@@ -478,12 +447,12 @@ namespace {
                abs_value(pc) > max_affine_register || abs_value(pd) > max_affine_register)
             {
                 set_visible(false);
-                return false;
+                return;
             }
 
             bn::affine_mat_attributes attributes;
             attributes.unsafe_set_register_values(pa, pb, pc, pd);
-            _affine_mat->set_attributes(attributes);
+            _affine_mat.set_attributes(attributes);
 
             int u0 = -half_size;
             int v0 = half_size;
@@ -509,12 +478,11 @@ namespace {
             if(abs_value(sprite_x) > 240 || abs_value(sprite_y) > 176)
             {
                 set_visible(false);
-                return false;
+                return;
             }
 
-            _sprite->set_position(sprite_x, sprite_y);
+            _sprite.set_position(sprite_x, sprite_y);
             set_visible(true);
-            return true;
         }
     };
 
@@ -533,18 +501,10 @@ namespace {
             _bottom.set_visible(visible);
         }
 
-        bool set_points(const bn::point& p0, const bn::point& p1, const bn::point& p2, const bn::point& p3,
-                        int min_affine_divisor = 32, bool allow_winding_swap = true)
+        void set_points(const bn::point& p0, const bn::point& p1, const bn::point& p2, const bn::point& p3)
         {
-            bool top_visible = _top.set_points(p2, p3, p0, min_affine_divisor, allow_winding_swap);
-            bool bottom_visible = _bottom.set_points(p0, p1, p2, min_affine_divisor, allow_winding_swap);
-
-            if(! top_visible && ! bottom_visible)
-            {
-                return false;
-            }
-
-            return true;
+            _top.set_points(p2, p3, p0);
+            _bottom.set_points(p0, p1, p2);
         }
 
     private:
@@ -555,34 +515,33 @@ namespace {
     enum decor_flags
     {
         decor_none = 0,
-        decor_table = 1 << 0,
-        decor_chair = 1 << 1,
+        decor_books = 1 << 0,
+        decor_potted_plant = 1 << 1,
     };
 
     constexpr int room_decor_flags[NUM_ROOMS] = {
-        decor_table | decor_chair, // Room 0: TC
-        decor_none,                // Room 1: W
-        decor_table,               // Room 2: T
-        decor_chair,               // Room 3: CW
-        decor_table,               // Room 4: T
-        decor_chair,               // Room 5: C
+        decor_books,        // Room 0
+        decor_books,        // Room 1
+        decor_potted_plant, // Room 2
+        decor_books,        // Room 3
+        decor_potted_plant, // Room 4
+        decor_potted_plant, // Room 5
     };
-
-    constexpr int MAX_WALL_DECOR = 6;
 
     bool overlaps_any_furniture(int room_id, bn::fixed px, bn::fixed py)
     {
         int decor = room_decor_flags[room_id];
 
-        if(decor & decor_table)
+        if(decor & decor_books)
         {
-            if(bn::abs(px - TABLE_FX) < TABLE_HW && bn::abs(py - TABLE_FY) < TABLE_HD)
+            if(bn::abs(px - BOOKS_FX) < BOOKS_HW && bn::abs(py - BOOKS_FY) < BOOKS_HD)
                 return true;
         }
 
-        if(decor & decor_chair)
+        if(decor & decor_potted_plant)
         {
-            if(bn::abs(px - CHAIR_FX) < CHAIR_HW && bn::abs(py - CHAIR_FY) < CHAIR_HD)
+            if(bn::abs(px - POTTED_PLANT_FX) < POTTED_PLANT_HW &&
+               bn::abs(py - POTTED_PLANT_FY) < POTTED_PLANT_HD)
                 return true;
         }
 
@@ -601,7 +560,7 @@ namespace {
     //  +------+------+
     //
     // Each room is 120x120, player confined to [-55,55] (FLOOR_MIN/MAX).
-    // Doors trigger when player crosses ±55 near center of a wall edge.
+    // Doors trigger when player crosses ??55 near center of a wall edge.
 
     constexpr inline bn::color room_viewer_colors[10] = {
         bn::color(22, 16, 8),   // 0 room0_floor
@@ -737,21 +696,6 @@ namespace {
         bn::fixed shared_world_x = (room_center_x(room_id) + room_center_x(neighbor_room)) / 2;
         return shared_world_x - room_center_x(room_id);
     }
-
-    struct wall_decor_def
-    {
-        door_direction wall;
-        bn::fixed center_lateral;
-        bn::fixed half_width;
-        bn::fixed z_top;
-        bn::fixed z_bottom;
-        bn::fixed wall_inset;
-        bn::fixed face_visibility_dot_min;
-        int min_tri_area2;
-        const bn::sprite_item* top_sprite;
-        const bn::sprite_item* bottom_sprite;
-        bool force_right_wall_order;
-    };
 
     // Check if a door transition should occur and return the new room id (-1 if no transition)
     // Also sets new_local_x/y for the player position in the new room
@@ -910,10 +854,10 @@ str::Scene RoomViewer::execute()
     _models.load_colors(bn::span<const bn::color>(room_viewer_colors, 10));
 
     fr::model_3d* room_models[NUM_ROOMS] = {};
-    fr::model_3d* table_ptr = nullptr;
-    fr::model_3d* chair_ptr = nullptr;
-    fr::model_3d* transition_table_ptr = nullptr;
-    fr::model_3d* transition_chair_ptr = nullptr;
+    fr::model_3d* books_ptr = nullptr;
+    fr::model_3d* potted_plant_ptr = nullptr;
+    fr::model_3d* transition_books_ptr = nullptr;
+    fr::model_3d* transition_potted_plant_ptr = nullptr;
 
     fr::point_3d room_base_pos(0, 96, 16);
     bool player_sprite_created = false;
@@ -960,7 +904,7 @@ str::Scene RoomViewer::execute()
     bn::fixed door_transition_target_local_x = 0;
     bn::fixed door_transition_target_local_y = 0;
 
-    str::Minimap* minimap = SHOW_ROOM_VIEWER_MINIMAP ? new str::Minimap() : nullptr;
+    str::Minimap* minimap = new str::Minimap();
     auto set_model_rotation = [](fr::model_3d& m, const corner_matrix& cm) {
         m.set_rotation_matrix(
             cm.r00, cm.r01, cm.r02,
@@ -987,8 +931,14 @@ str::Scene RoomViewer::execute()
     auto try_create_dynamic_model = [&](const fr::model_3d_item& model_item) -> fr::model_3d* {
         int reserved_vertices = player_sprite_created ? 0 : 1;
         int model_vertices_count = model_item.vertices().size();
+        int model_faces_count = model_item.faces().size();
 
         if(_models.vertices_count() + model_vertices_count + reserved_vertices > fr::models_3d::max_vertices())
+        {
+            return nullptr;
+        }
+
+        if(_models.faces_count() + model_faces_count + reserved_vertices > fr::models_3d::max_faces())
         {
             return nullptr;
         }
@@ -1069,7 +1019,7 @@ str::Scene RoomViewer::execute()
 
         for(int room_id = 0; room_id < NUM_ROOMS; ++room_id)
         {
-            if((!should_exist[room_id] || room_id != current_room) && room_models[room_id])
+            if(!should_exist[room_id] && room_models[room_id])
             {
                 _models.destroy_dynamic_model(*room_models[room_id]);
                 room_models[room_id] = nullptr;
@@ -1078,7 +1028,7 @@ str::Scene RoomViewer::execute()
         }
 
         auto ensure_room_model = [&](int room_id) {
-            if(!should_exist[room_id] || room_id != current_room)
+            if(!should_exist[room_id])
             {
                 return;
             }
@@ -1100,99 +1050,99 @@ str::Scene RoomViewer::execute()
                 }
             }
 
-            room_model->set_mode(fr::model_3d::layering_mode::room_perspective);
-            room_model->set_depth_bias(0);
-            room_model->set_double_sided(true);
+            bool room_perspective_mode = room_id == current_room;
+            room_model->set_mode(
+                room_perspective_mode ? fr::model_3d::layering_mode::room_perspective :
+                                        fr::model_3d::layering_mode::room_floor_only);
+            room_model->set_depth_bias(
+                room_id == current_room ? 0 : ADJACENT_ROOM_DEPTH_BIAS);
+            // Preview rooms use floor-only mode; double-sided shell faces are only needed
+            // for the current room shell.
+            room_model->set_double_sided(room_perspective_mode);
         };
 
+        // Current room first, then adjacent rooms while budget allows.
         ensure_room_model(current_room);
+
+        for(int room_id = 0; room_id < NUM_ROOMS; ++room_id)
+        {
+            if(room_id != current_room)
+            {
+                ensure_room_model(room_id);
+            }
+        }
 
         return changed;
     };
 
-    auto ensure_room_decor_models =
-        [&](int room_id, int depth_bias, fr::model_3d*& room_table_ptr, fr::model_3d*& room_chair_ptr) {
-        int decor = room_decor_flags[room_id];
-
-        bool needs_table = decor & decor_table;
-        if(needs_table)
+    auto configure_room_decor_model =
+        [&](bool needed, const fr::model_3d_item& model_item, int depth_bias, fr::model_3d*& room_model_ptr) {
+        if(needed)
         {
-            if(!room_table_ptr)
+            if(!room_model_ptr)
             {
-                room_table_ptr = try_create_dynamic_model(str::model_3d_items::table);
+                room_model_ptr = try_create_dynamic_model(model_item);
             }
 
-            if(room_table_ptr)
+            if(room_model_ptr)
             {
-                room_table_ptr->set_mode(fr::model_3d::layering_mode::none);
-                room_table_ptr->set_depth_bias(depth_bias);
-                room_table_ptr->set_double_sided(false);
+                room_model_ptr->set_mode(fr::model_3d::layering_mode::none);
+                room_model_ptr->set_depth_bias(depth_bias);
+                room_model_ptr->set_double_sided(false);
             }
         }
-        else if(room_table_ptr)
+        else if(room_model_ptr)
         {
-            _models.destroy_dynamic_model(*room_table_ptr);
-            room_table_ptr = nullptr;
-        }
-
-        bool needs_chair = decor & decor_chair;
-        if(needs_chair)
-        {
-            if(!room_chair_ptr)
-            {
-                room_chair_ptr = try_create_dynamic_model(str::model_3d_items::chair);
-            }
-
-            if(room_chair_ptr)
-            {
-                room_chair_ptr->set_mode(fr::model_3d::layering_mode::none);
-                room_chair_ptr->set_depth_bias(depth_bias);
-                room_chair_ptr->set_double_sided(false);
-            }
-        }
-        else if(room_chair_ptr)
-        {
-            _models.destroy_dynamic_model(*room_chair_ptr);
-            room_chair_ptr = nullptr;
+            _models.destroy_dynamic_model(*room_model_ptr);
+            room_model_ptr = nullptr;
         }
     };
 
-    auto clear_room_decor_models = [&](fr::model_3d*& room_table_ptr, fr::model_3d*& room_chair_ptr) {
-        if(room_chair_ptr)
+    auto ensure_room_decor_models = [&](int room_id, int depth_bias, fr::model_3d*& room_books_ptr,
+                                        fr::model_3d*& room_potted_plant_ptr) {
+        int decor = room_decor_flags[room_id];
+        configure_room_decor_model(
+            decor & decor_books, str::model_3d_items::books, depth_bias, room_books_ptr);
+        configure_room_decor_model(
+            decor & decor_potted_plant, str::model_3d_items::potted_plant, depth_bias, room_potted_plant_ptr);
+    };
+
+    auto clear_room_decor_models = [&](fr::model_3d*& room_books_ptr, fr::model_3d*& room_potted_plant_ptr) {
+        if(room_potted_plant_ptr)
         {
-            _models.destroy_dynamic_model(*room_chair_ptr);
-            room_chair_ptr = nullptr;
+            _models.destroy_dynamic_model(*room_potted_plant_ptr);
+            room_potted_plant_ptr = nullptr;
         }
 
-        if(room_table_ptr)
+        if(room_books_ptr)
         {
-            _models.destroy_dynamic_model(*room_table_ptr);
-            room_table_ptr = nullptr;
+            _models.destroy_dynamic_model(*room_books_ptr);
+            room_books_ptr = nullptr;
         }
     };
 
     auto ensure_decor_models = [&]() {
         if(debug_hide_room_models)
         {
-            clear_room_decor_models(table_ptr, chair_ptr);
-            clear_room_decor_models(transition_table_ptr, transition_chair_ptr);
+            clear_room_decor_models(books_ptr, potted_plant_ptr);
+            clear_room_decor_models(transition_books_ptr, transition_potted_plant_ptr);
             door_transition_furniture_room = -1;
             return;
         }
 
-        ensure_room_decor_models(current_room, 0, table_ptr, chair_ptr);
+        ensure_room_decor_models(current_room, 0, books_ptr, potted_plant_ptr);
 
         if(door_transition_furniture_room >= 0 && door_transition_furniture_room != current_room)
         {
             ensure_room_decor_models(
                 door_transition_furniture_room,
                 TRANSITION_DECOR_DEPTH_BIAS,
-                transition_table_ptr,
-                transition_chair_ptr);
+                transition_books_ptr,
+                transition_potted_plant_ptr);
         }
         else
         {
-            clear_room_decor_models(transition_table_ptr, transition_chair_ptr);
+            clear_room_decor_models(transition_books_ptr, transition_potted_plant_ptr);
             door_transition_furniture_room = -1;
         }
     };
@@ -1218,47 +1168,50 @@ str::Scene RoomViewer::execute()
             }
         }
 
-        if(table_ptr)
+        if(books_ptr)
         {
-            set_model_rotation(*table_ptr, cm);
-            table_ptr->set_position(
+            set_model_rotation(*books_ptr, cm);
+            books_ptr->set_position(
                 transform_global_point(cm,
-                                       room_center_x(current_room) + TABLE_FX - world_anchor_x,
-                                       room_center_y(current_room) + TABLE_FY - world_anchor_y,
+                                       room_center_x(current_room) + BOOKS_FX - world_anchor_x,
+                                       room_center_y(current_room) + BOOKS_FY - world_anchor_y,
                                        0));
         }
 
-        if(chair_ptr)
+        if(potted_plant_ptr)
         {
-            set_model_rotation(*chair_ptr, cm);
-            chair_ptr->set_position(
+            set_model_rotation(*potted_plant_ptr, cm);
+            potted_plant_ptr->set_position(
                 transform_global_point(cm,
-                                       room_center_x(current_room) + CHAIR_FX - world_anchor_x,
-                                       room_center_y(current_room) + CHAIR_FY - world_anchor_y,
+                                       room_center_x(current_room) + POTTED_PLANT_FX - world_anchor_x,
+                                       room_center_y(current_room) + POTTED_PLANT_FY - world_anchor_y,
                                        0));
         }
 
         if(door_transition_furniture_room >= 0)
         {
-            if(transition_table_ptr)
+            if(transition_books_ptr)
             {
-                set_model_rotation(*transition_table_ptr, cm);
-                transition_table_ptr->set_position(
+                set_model_rotation(*transition_books_ptr, cm);
+                transition_books_ptr->set_position(
                     transform_global_point(cm,
-                                           room_center_x(door_transition_furniture_room) + TABLE_FX - world_anchor_x,
-                                           room_center_y(door_transition_furniture_room) + TABLE_FY - world_anchor_y,
+                                           room_center_x(door_transition_furniture_room) + BOOKS_FX - world_anchor_x,
+                                           room_center_y(door_transition_furniture_room) + BOOKS_FY - world_anchor_y,
                                            0));
             }
 
-            if(transition_chair_ptr)
+            if(transition_potted_plant_ptr)
             {
-                set_model_rotation(*transition_chair_ptr, cm);
-                transition_chair_ptr->set_position(
+                set_model_rotation(*transition_potted_plant_ptr, cm);
+                transition_potted_plant_ptr->set_position(
                     transform_global_point(cm,
-                                           room_center_x(door_transition_furniture_room) + CHAIR_FX - world_anchor_x,
-                                           room_center_y(door_transition_furniture_room) + CHAIR_FY - world_anchor_y,
+                                           room_center_x(door_transition_furniture_room) + POTTED_PLANT_FX -
+                                               world_anchor_x,
+                                           room_center_y(door_transition_furniture_room) + POTTED_PLANT_FY -
+                                               world_anchor_y,
                                            0));
             }
+
         }
     };
 
@@ -1358,85 +1311,12 @@ str::Scene RoomViewer::execute()
         }
     };
 
-    wall_decor_def wall_decor_defs[MAX_WALL_DECOR] = {};
-    bn::optional<textured_quad> wall_decor_quads[MAX_WALL_DECOR];
-    int wall_decor_count = 0;
-    int door_rendered = 0;
-    int door_hidden = 0;
-
-    auto sync_wall_decor = [&]() {
-        // Reset all existing quads
-        for(int i = 0; i < wall_decor_count; ++i)
-        {
-            wall_decor_quads[i].reset();
-        }
-        wall_decor_count = 0;
-
-        // Painting A: on south wall (constant Y = +room_half), lateral = X axis
-        {
-            wall_decor_def& def = wall_decor_defs[wall_decor_count];
-            def.wall = door_direction::south;
-            def.center_lateral = PAINTING_A_CENTER_X;
-            def.half_width = PAINTING_A_HALF_WIDTH;
-            def.z_top = PAINTING_Z_CENTER - PAINTING_A_HALF_HEIGHT;
-            def.z_bottom = PAINTING_Z_CENTER + PAINTING_A_HALF_HEIGHT;
-            def.wall_inset = PAINTING_WALL_INSET;
-            def.face_visibility_dot_min = WALL_DECOR_FACE_VISIBILITY_DOT_MIN;
-            def.min_tri_area2 = WALL_DECOR_MIN_TRI_AREA2;
-            def.top_sprite = &bn::sprite_items::mr_and_mrs_andrews_wall_top;
-            def.bottom_sprite = &bn::sprite_items::mr_and_mrs_andrews_wall_bottom;
-            def.force_right_wall_order = false;
-            wall_decor_quads[wall_decor_count].emplace(*def.top_sprite, *def.bottom_sprite);
-            ++wall_decor_count;
-        }
-
-        // Painting B: on east wall (constant X = +room_half), lateral = Y axis
-        {
-            wall_decor_def& def = wall_decor_defs[wall_decor_count];
-            def.wall = door_direction::east;
-            def.center_lateral = PAINTING_B_CENTER_Y;
-            def.half_width = PAINTING_B_HALF_WIDTH;
-            def.z_top = PAINTING_Z_CENTER - PAINTING_B_HALF_HEIGHT;
-            def.z_bottom = PAINTING_Z_CENTER + PAINTING_B_HALF_HEIGHT;
-            def.wall_inset = PAINTING_WALL_INSET;
-            def.face_visibility_dot_min = WALL_DECOR_FACE_VISIBILITY_DOT_MIN;
-            def.min_tri_area2 = WALL_DECOR_MIN_TRI_AREA2;
-            def.top_sprite = &bn::sprite_items::escaping_criticism_wall_top;
-            def.bottom_sprite = &bn::sprite_items::escaping_criticism_wall_bottom;
-            def.force_right_wall_order = false;
-            wall_decor_quads[wall_decor_count].emplace(*def.top_sprite, *def.bottom_sprite);
-            ++wall_decor_count;
-        }
-
-        // Doors: one per direction that has a neighbor
-        for(int i = 0; i < 4; ++i)
-        {
-            door_direction dir = static_cast<door_direction>(i);
-            if(neighbor_room_for_door(current_room, dir) < 0)
-            {
-                continue;
-            }
-
-            bn::fixed center_offset = aligned_door_center_offset(current_room, dir);
-
-            wall_decor_def& def = wall_decor_defs[wall_decor_count];
-            def.wall = dir;
-            def.center_lateral = center_offset;
-            def.half_width = DOOR_HALF_WIDTH;
-            def.z_top = bn::fixed(-35);
-            def.z_bottom = bn::fixed(0);
-            def.wall_inset = DOOR_WALL_INSET;
-            def.face_visibility_dot_min = WALL_DECOR_FACE_VISIBILITY_DOT_MIN;
-            def.min_tri_area2 = WALL_DECOR_MIN_TRI_AREA2;
-            def.top_sprite = &bn::sprite_items::door_wall_top;
-            def.bottom_sprite = &bn::sprite_items::door_wall_bottom;
-            def.force_right_wall_order = false;
-            wall_decor_quads[wall_decor_count].emplace(*def.top_sprite, *def.bottom_sprite);
-            ++wall_decor_count;
-        }
-    };
-
-    sync_wall_decor();
+    textured_quad painting_a_quad(
+        bn::sprite_items::mr_and_mrs_andrews_wall_top,
+        bn::sprite_items::mr_and_mrs_andrews_wall_bottom);
+    textured_quad painting_b_quad(
+        bn::sprite_items::escaping_criticism_wall_top,
+        bn::sprite_items::escaping_criticism_wall_bottom);
 
     auto project_point_to_screen = [&](const fr::point_3d& point, bn::point& output) {
         constexpr int focal_length_shift = fr::constants_3d::focal_length_shift;
@@ -1462,261 +1342,136 @@ str::Scene RoomViewer::execute()
         return true;
     };
 
-    enum class wall_quad_order
-    {
-        right_wall,
-        mirrored_right_wall,
-        back_wall,
-        mirrored_back_wall
-    };
-
-    auto map_wall_quad_points =
-        [](wall_quad_order order, const bn::point& p0, const bn::point& p1,
-           const bn::point& p2, const bn::point& p3,
-           bn::point& q0, bn::point& q1, bn::point& q2, bn::point& q3) {
-        switch(order)
-        {
-            case wall_quad_order::right_wall:
-                q0 = p0;
-                q1 = p1;
-                q2 = p2;
-                q3 = p3;
-                break;
-
-            case wall_quad_order::mirrored_right_wall:
-                q0 = p1;
-                q1 = p0;
-                q2 = p3;
-                q3 = p2;
-                break;
-
-            case wall_quad_order::back_wall:
-                q0 = p2;
-                q1 = p3;
-                q2 = p0;
-                q3 = p1;
-                break;
-
-            default:
-                q0 = p3;
-                q1 = p2;
-                q2 = p1;
-                q3 = p0;
-                break;
-        }
-    };
-
-    auto quad_projection_is_stable = [&](const bn::point& p0, const bn::point& p1,
-                                         const bn::point& p2, const bn::point& p3,
-                                         int min_tri_area2) {
-        constexpr int max_abs_x = 168;
-        constexpr int max_abs_y = 128;
-        auto point_in_safe_range = [&](const bn::point& p) {
-            return int_abs(p.x()) <= max_abs_x && int_abs(p.y()) <= max_abs_y;
-        };
-
-        if(! point_in_safe_range(p0) || ! point_in_safe_range(p1) ||
-           ! point_in_safe_range(p2) || ! point_in_safe_range(p3))
-        {
-            return false;
-        }
-
-        auto tri_area2 = [](const bn::point& a, const bn::point& b, const bn::point& c) {
-            return (b.x() - a.x()) * (c.y() - a.y()) - (b.y() - a.y()) * (c.x() - a.x());
-        };
-
-        int area_bottom = tri_area2(p0, p1, p2);
-        int area_top = tri_area2(p0, p2, p3);
-
-        if(int_abs(area_bottom) < min_tri_area2 || int_abs(area_top) < min_tri_area2)
-        {
-            return false;
-        }
-
-        return (area_bottom > 0) == (area_top > 0);
-    };
-
-    auto hide_wall_decor_quads = [&]() {
-        for(int i = 0; i < wall_decor_count; ++i)
-        {
-            if(wall_decor_quads[i])
-            {
-                wall_decor_quads[i]->set_visible(false);
-            }
-        }
-    };
-
-    auto local_point_to_view = [&](const corner_matrix& cm, bn::fixed local_x, bn::fixed local_y, bn::fixed local_z) {
-        return transform_global_point(cm,
-                                      room_center_x(current_room) + local_x - world_anchor_x,
-                                      room_center_y(current_room) + local_y - world_anchor_y,
-                                      local_z);
-    };
-
-    auto local_vector_to_view = [&](const corner_matrix& cm, bn::fixed local_x, bn::fixed local_y, bn::fixed local_z) {
-        return fr::point_3d(local_x * cm.r00 + local_y * cm.r01 + local_z * cm.r02,
-                            local_x * cm.r10 + local_y * cm.r11 + local_z * cm.r12,
-                            local_x * cm.r20 + local_y * cm.r21 + local_z * cm.r22);
-    };
-
-    auto is_front_facing = [&](const fr::point_3d& center, const fr::point_3d& normal, bn::fixed dot_min) {
-        fr::point_3d to_camera(_camera.position().x() - center.x(),
-                               _camera.position().y() - center.y(),
-                               _camera.position().z() - center.z());
-        bn::fixed facing_dot = normal.x() * to_camera.x() +
-                               normal.y() * to_camera.y() +
-                               normal.z() * to_camera.z();
-        return facing_dot > dot_min;
-    };
-
-    auto render_wall_quad = [&](textured_quad& quad, wall_quad_order order,
-                                const fr::point_3d& p0, const fr::point_3d& p1,
-                                const fr::point_3d& p2, const fr::point_3d& p3,
-                                const fr::point_3d& center, const fr::point_3d& normal,
-                                bn::fixed face_visibility_dot_min, int min_tri_area2) {
-        if(! is_front_facing(center, normal, face_visibility_dot_min))
-        {
-            quad.set_visible(false);
-            return false;
-        }
-
-        bn::point p0_screen;
-        bn::point p1_screen;
-        bn::point p2_screen;
-        bn::point p3_screen;
-
-        if(! project_point_to_screen(p0, p0_screen) || ! project_point_to_screen(p1, p1_screen) ||
-           ! project_point_to_screen(p2, p2_screen) || ! project_point_to_screen(p3, p3_screen))
-        {
-            quad.set_visible(false);
-            return false;
-        }
-
-        if(! quad_projection_is_stable(p0_screen, p1_screen, p2_screen, p3_screen, min_tri_area2))
-        {
-            quad.set_visible(false);
-            return false;
-        }
-
-        bn::point q0;
-        bn::point q1;
-        bn::point q2;
-        bn::point q3;
-        map_wall_quad_points(order, p0_screen, p1_screen, p2_screen, p3_screen, q0, q1, q2, q3);
-        return quad.set_points(q0, q1, q2, q3);
-    };
-
-    auto update_wall_decor_quads = [&]() {
-        door_rendered = 0;
-        door_hidden = 0;
-
+    auto update_painting_quads = [&]() {
         if(debug_hide_room_models || ! room_models[current_room])
         {
-            hide_wall_decor_quads();
+            painting_a_quad.set_visible(false);
+            painting_b_quad.set_visible(false);
             return;
         }
 
         corner_matrix cm = rotate_corner_matrix(base_corner, current_view_angle);
         bn::fixed room_half_x = room_half_extent_x(current_room);
         bn::fixed room_half_y = room_half_extent_y(current_room);
+        bn::fixed a_center_x = PAINTING_A_CENTER_X;
+        bn::fixed b_center_y = PAINTING_B_CENTER_Y;
+        bn::fixed a_wall_y = room_half_y - PAINTING_WALL_INSET;
+        bn::fixed b_wall_x = room_half_x - PAINTING_WALL_INSET;
 
-        for(int i = 0; i < wall_decor_count; ++i)
+        auto local_point_to_view = [&](bn::fixed local_x, bn::fixed local_y, bn::fixed local_z) {
+            return transform_global_point(cm,
+                                          room_center_x(current_room) + local_x - world_anchor_x,
+                                          room_center_y(current_room) + local_y - world_anchor_y,
+                                          local_z);
+        };
+
+        auto local_vector_to_view = [&](bn::fixed local_x, bn::fixed local_y, bn::fixed local_z) {
+            return fr::point_3d(local_x * cm.r00 + local_y * cm.r01 + local_z * cm.r02,
+                                local_x * cm.r10 + local_y * cm.r11 + local_z * cm.r12,
+                                local_x * cm.r20 + local_y * cm.r21 + local_z * cm.r22);
+        };
+
+        auto is_front_facing = [&](const fr::point_3d& center, const fr::point_3d& normal) {
+            fr::point_3d to_camera(_camera.position().x() - center.x(),
+                                   _camera.position().y() - center.y(),
+                                   _camera.position().z() - center.z());
+            bn::fixed facing_dot = normal.x() * to_camera.x() +
+                                   normal.y() * to_camera.y() +
+                                   normal.z() * to_camera.z();
+            // Require a stronger positive margin so near-grazing views don't leak through wall edges.
+            return facing_dot > PAINTING_FACE_VISIBILITY_DOT_MIN;
+        };
+
+        auto quad_projection_is_stable = [&](const bn::point& p0, const bn::point& p1,
+                                             const bn::point& p2, const bn::point& p3) {
+            constexpr int max_abs_x = 168;
+            constexpr int max_abs_y = 128;
+            auto point_in_safe_range = [&](const bn::point& p) {
+                return int_abs(p.x()) <= max_abs_x && int_abs(p.y()) <= max_abs_y;
+            };
+
+            if(! point_in_safe_range(p0) || ! point_in_safe_range(p1) ||
+               ! point_in_safe_range(p2) || ! point_in_safe_range(p3))
+            {
+                return false;
+            }
+
+            auto tri_area2 = [](const bn::point& a, const bn::point& b, const bn::point& c) {
+                return (b.x() - a.x()) * (c.y() - a.y()) - (b.y() - a.y()) * (c.x() - a.x());
+            };
+
+            int area_bottom = tri_area2(p0, p1, p2);
+            int area_top = tri_area2(p0, p2, p3);
+
+            if(int_abs(area_bottom) < PAINTING_MIN_TRI_AREA2 || int_abs(area_top) < PAINTING_MIN_TRI_AREA2)
+            {
+                return false;
+            }
+
+            return (area_bottom > 0) == (area_top > 0);
+        };
+
+        bn::fixed a_z_top = PAINTING_Z_CENTER + PAINTING_A_HALF_HEIGHT;
+        bn::fixed a_z_bottom = PAINTING_Z_CENTER - PAINTING_A_HALF_HEIGHT;
+        bn::fixed b_z_top = PAINTING_Z_CENTER - PAINTING_B_HALF_HEIGHT;
+        bn::fixed b_z_bottom = PAINTING_Z_CENTER + PAINTING_B_HALF_HEIGHT;
+
+        // Painting A: on back wall (constant Y).
+        bn::fixed a_left_x = a_center_x - PAINTING_A_HALF_WIDTH;
+        bn::fixed a_right_x = a_center_x + PAINTING_A_HALF_WIDTH;
+
+        fr::point_3d a0 = local_point_to_view(a_left_x, a_wall_y, a_z_bottom);
+        fr::point_3d a1 = local_point_to_view(a_right_x, a_wall_y, a_z_bottom);
+        fr::point_3d a2 = local_point_to_view(a_right_x, a_wall_y, a_z_top);
+        fr::point_3d a3 = local_point_to_view(a_left_x, a_wall_y, a_z_top);
+
+        fr::point_3d a_center = local_point_to_view(a_center_x, a_wall_y, PAINTING_Z_CENTER);
+        fr::point_3d a_normal = local_vector_to_view(0, -1, 0);  // south wall interior normal
+
+        bn::point a0_screen, a1_screen, a2_screen, a3_screen;
+        bool a_visible = is_front_facing(a_center, a_normal) &&
+                         project_point_to_screen(a0, a0_screen) &&
+                         project_point_to_screen(a1, a1_screen) &&
+                         project_point_to_screen(a2, a2_screen) &&
+                         project_point_to_screen(a3, a3_screen) &&
+                         quad_projection_is_stable(a0_screen, a1_screen, a2_screen, a3_screen);
+
+        if(a_visible)
         {
-            if(! wall_decor_quads[i])
-            {
-                continue;
-            }
+            painting_a_quad.set_points(a2_screen, a3_screen, a0_screen, a1_screen);
+        }
+        else
+        {
+            painting_a_quad.set_visible(false);
+        }
 
-            textured_quad& quad = *wall_decor_quads[i];
-            const wall_decor_def& def = wall_decor_defs[i];
+        // Painting B: on right wall (constant X).
+        bn::fixed b_low_y = b_center_y - PAINTING_B_HALF_WIDTH;
+        bn::fixed b_high_y = b_center_y + PAINTING_B_HALF_WIDTH;
 
-            bn::fixed z_center = (def.z_top + def.z_bottom) / 2;
+        fr::point_3d b0 = local_point_to_view(b_wall_x, b_low_y, b_z_bottom);
+        fr::point_3d b1 = local_point_to_view(b_wall_x, b_high_y, b_z_bottom);
+        fr::point_3d b2 = local_point_to_view(b_wall_x, b_high_y, b_z_top);
+        fr::point_3d b3 = local_point_to_view(b_wall_x, b_low_y, b_z_top);
 
-            fr::point_3d p0;
-            fr::point_3d p1;
-            fr::point_3d p2;
-            fr::point_3d p3;
-            fr::point_3d center;
-            fr::point_3d normal;
-            wall_quad_order order = wall_quad_order::right_wall;
+        fr::point_3d b_center = local_point_to_view(b_wall_x, b_center_y, PAINTING_Z_CENTER);
+        fr::point_3d b_normal = local_vector_to_view(-1, 0, 0);  // east wall interior normal
 
-            switch(def.wall)
-            {
-                case door_direction::east:
-                {
-                    bn::fixed wall_x = room_half_x - def.wall_inset;
-                    bn::fixed low_y = def.center_lateral - def.half_width;
-                    bn::fixed high_y = def.center_lateral + def.half_width;
-                    p0 = local_point_to_view(cm, wall_x, low_y, def.z_bottom);
-                    p1 = local_point_to_view(cm, wall_x, high_y, def.z_bottom);
-                    p2 = local_point_to_view(cm, wall_x, high_y, def.z_top);
-                    p3 = local_point_to_view(cm, wall_x, low_y, def.z_top);
-                    center = local_point_to_view(cm, wall_x, def.center_lateral, z_center);
-                    normal = local_vector_to_view(cm, -1, 0, 0);
-                    order = wall_quad_order::right_wall;
-                    break;
-                }
+        bn::point b0_screen, b1_screen, b2_screen, b3_screen;
+        bool b_visible = is_front_facing(b_center, b_normal) &&
+                         project_point_to_screen(b0, b0_screen) &&
+                         project_point_to_screen(b1, b1_screen) &&
+                         project_point_to_screen(b2, b2_screen) &&
+                         project_point_to_screen(b3, b3_screen) &&
+                         quad_projection_is_stable(b0_screen, b1_screen, b2_screen, b3_screen);
 
-                case door_direction::west:
-                {
-                    bn::fixed wall_x = -room_half_x + def.wall_inset;
-                    bn::fixed low_y = def.center_lateral - def.half_width;
-                    bn::fixed high_y = def.center_lateral + def.half_width;
-                    p0 = local_point_to_view(cm, wall_x, low_y, def.z_bottom);
-                    p1 = local_point_to_view(cm, wall_x, high_y, def.z_bottom);
-                    p2 = local_point_to_view(cm, wall_x, high_y, def.z_top);
-                    p3 = local_point_to_view(cm, wall_x, low_y, def.z_top);
-                    center = local_point_to_view(cm, wall_x, def.center_lateral, z_center);
-                    normal = local_vector_to_view(cm, 1, 0, 0);
-                    order = wall_quad_order::mirrored_right_wall;
-                    break;
-                }
-
-                case door_direction::south:
-                {
-                    bn::fixed wall_y = room_half_y - def.wall_inset;
-                    bn::fixed left_x = def.center_lateral - def.half_width;
-                    bn::fixed right_x = def.center_lateral + def.half_width;
-                    p0 = local_point_to_view(cm, left_x, wall_y, def.z_top);
-                    p1 = local_point_to_view(cm, right_x, wall_y, def.z_top);
-                    p2 = local_point_to_view(cm, right_x, wall_y, def.z_bottom);
-                    p3 = local_point_to_view(cm, left_x, wall_y, def.z_bottom);
-                    center = local_point_to_view(cm, def.center_lateral, wall_y, z_center);
-                    normal = local_vector_to_view(cm, 0, -1, 0);
-                    order = wall_quad_order::back_wall;
-                    break;
-                }
-
-                default:
-                {
-                    bn::fixed wall_y = -room_half_y + def.wall_inset;
-                    bn::fixed left_x = def.center_lateral - def.half_width;
-                    bn::fixed right_x = def.center_lateral + def.half_width;
-                    p0 = local_point_to_view(cm, left_x, wall_y, def.z_top);
-                    p1 = local_point_to_view(cm, right_x, wall_y, def.z_top);
-                    p2 = local_point_to_view(cm, right_x, wall_y, def.z_bottom);
-                    p3 = local_point_to_view(cm, left_x, wall_y, def.z_bottom);
-                    center = local_point_to_view(cm, def.center_lateral, wall_y, z_center);
-                    normal = local_vector_to_view(cm, 0, 1, 0);
-                    order = wall_quad_order::mirrored_back_wall;
-                    break;
-                }
-            }
-
-            if(def.force_right_wall_order)
-            {
-                order = wall_quad_order::right_wall;
-            }
-
-            if(render_wall_quad(quad, order, p0, p1, p2, p3, center, normal,
-                                def.face_visibility_dot_min, def.min_tri_area2))
-            {
-                ++door_rendered;
-            }
-            else
-            {
-                ++door_hidden;
-            }
+        if(b_visible)
+        {
+            painting_b_quad.set_points(b0_screen, b1_screen, b2_screen, b3_screen);
+        }
+        else
+        {
+            painting_b_quad.set_visible(false);
         }
     };
 
@@ -1724,7 +1479,7 @@ str::Scene RoomViewer::execute()
 
     if(paintings_need_update)
     {
-        update_wall_decor_quads();
+        update_painting_quads();
         paintings_need_update = false;
     }
 
@@ -1748,8 +1503,6 @@ str::Scene RoomViewer::execute()
     int text_hide_room_models = -1;
     int text_fps = -1;
     int text_vertices = -1;
-    int text_door_rendered = -1;
-    int text_door_hidden = -1;
     int current_fps = 60;
     int fps_sample_updates = 0;
     int fps_sample_refreshes = 0;
@@ -1776,8 +1529,6 @@ str::Scene RoomViewer::execute()
             text_hide_room_models = int(debug_hide_room_models);
             text_fps = fps;
             text_vertices = vertices_count;
-            text_door_rendered = door_rendered;
-            text_door_hidden = door_hidden;
         };
 
         if(_debug_mode)
@@ -1829,16 +1580,6 @@ str::Scene RoomViewer::execute()
                 return;
             }
 
-            bn::string<32> line5;
-            bn::ostringstream stream5(line5);
-            stream5 << "Door R:" << door_rendered
-                    << " H:" << door_hidden;
-            if(! tg.generate_optional(0, -24, line5, _text_sprites))
-            {
-                generation_failed();
-                return;
-            }
-
             #if BN_CFG_PROFILER_ENABLED
                 if(! tg.generate_optional(0, 72, "SEL+START:Profiler B:Exit", _text_sprites))
                 {
@@ -1863,8 +1604,6 @@ str::Scene RoomViewer::execute()
             text_hide_room_models = int(debug_hide_room_models);
             text_fps = fps;
             text_vertices = vertices_count;
-            text_door_rendered = door_rendered;
-            text_door_hidden = door_hidden;
         }
         else
         {
@@ -1883,8 +1622,6 @@ str::Scene RoomViewer::execute()
             text_vertices = vertices_count;
             text_preview_mode = int(preview_mode);
             text_hide_room_models = int(debug_hide_room_models);
-            text_door_rendered = door_rendered;
-            text_door_hidden = door_hidden;
         }
 
         text_debug_mode = _debug_mode;
@@ -2017,8 +1754,8 @@ str::Scene RoomViewer::execute()
         {
             delete minimap;
             minimap = nullptr;
-            clear_room_decor_models(table_ptr, chair_ptr);
-            clear_room_decor_models(transition_table_ptr, transition_chair_ptr);
+            clear_room_decor_models(books_ptr, potted_plant_ptr);
+            clear_room_decor_models(transition_books_ptr, transition_potted_plant_ptr);
 
             _models.destroy_sprite(player_sprite);
 
@@ -2107,16 +1844,15 @@ str::Scene RoomViewer::execute()
             {
                 door_transition_active = false;
                 current_room = door_transition_target_room;
-                sync_wall_decor();
                 _player_fx = door_transition_target_local_x;
                 _player_fy = door_transition_target_local_y;
                 world_anchor_x = door_transition_target_anchor_x;
                 world_anchor_y = door_transition_target_anchor_y;
-                clear_room_decor_models(table_ptr, chair_ptr);
-                table_ptr = transition_table_ptr;
-                chair_ptr = transition_chair_ptr;
-                transition_table_ptr = nullptr;
-                transition_chair_ptr = nullptr;
+                clear_room_decor_models(books_ptr, potted_plant_ptr);
+                books_ptr = transition_books_ptr;
+                potted_plant_ptr = transition_potted_plant_ptr;
+                transition_books_ptr = nullptr;
+                transition_potted_plant_ptr = nullptr;
                 door_transition_furniture_room = -1;
                 sync_room_models();
                 ensure_decor_models();
@@ -2241,7 +1977,7 @@ str::Scene RoomViewer::execute()
                     // Preload destination-room decor before camera interpolation starts.
                     ensure_decor_models();
                     // Avoid seeing current-room decor through walls during camera interpolation.
-                    clear_room_decor_models(table_ptr, chair_ptr);
+                    clear_room_decor_models(books_ptr, potted_plant_ptr);
 
                     update_orientations_and_paintings();
 
@@ -2357,7 +2093,6 @@ str::Scene RoomViewer::execute()
 
         linear8_to_dir(player_world_linear_dir + view_angle_steps_8(current_view_angle), dir, facing_left);
         update_player_sprite_position();
-        update_wall_decor_quads();
 
         if(paintings_need_update)
         {
@@ -2368,14 +2103,14 @@ str::Scene RoomViewer::execute()
                 painting_update_cooldown_frames -= elapsed_frames;
                 if(painting_update_cooldown_frames <= 0)
                 {
-                    update_wall_decor_quads();
+                    update_painting_quads();
                     paintings_need_update = false;
                     painting_update_cooldown_frames = PAINTING_MOTION_UPDATE_INTERVAL_FRAMES;
                 }
             }
             else
             {
-                update_wall_decor_quads();
+                update_painting_quads();
                 paintings_need_update = false;
                 painting_update_cooldown_frames = 0;
             }
@@ -2479,9 +2214,7 @@ str::Scene RoomViewer::execute()
                current_yaw_deg != text_yaw_deg ||
                int(preview_mode) != text_preview_mode ||
                int(debug_hide_room_models) != text_hide_room_models ||
-               current_fps != text_fps || current_vertices != text_vertices ||
-               door_rendered != text_door_rendered ||
-               door_hidden != text_door_hidden)
+               current_fps != text_fps || current_vertices != text_vertices)
             {
                 text_dirty = true;
             }
@@ -2529,3 +2262,12 @@ str::Scene RoomViewer::execute()
 }
 
 }
+
+
+
+
+
+
+
+
+

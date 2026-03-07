@@ -1,7 +1,7 @@
 # Codebase Structure
 
 Analysis date: 2026-02-09
-Last updated: 2026-03-03
+Last updated: 2026-03-06
 
 ## Top-level Layout
 
@@ -141,6 +141,8 @@ Generated 3D model definitions:
 - `str_model_3d_items_room.h`
 - `str_model_3d_items_table.h`
 - `str_model_3d_items_chair.h`
+- `str_model_3d_items_books.h`
+- `str_model_3d_items_potted_plant.h`
 - `str_model_3d_items_building.h`
 - `str_model_3d_items_player_car.h`
 - `str_model_3d_items_blaster.h`
@@ -171,6 +173,7 @@ This ensures `#include "fr_model_3d.h"` resolves to the project override.
 ### `scripts/`
 
 - `launch_emulator.js`: Build-and-run script; reads `.vscode/settings.json` for emulator path.
+- `mgba_f12_capture.ps1`: Build-run-capture helper that launches mGBA Qt and takes a native `F12` screenshot.
 
 ### `.agents/`
 
@@ -178,7 +181,7 @@ AI agent configuration for development workflows:
 
 - `.agents/rules/butano-gba.md`: Butano GBA development guide.
 - `.agents/rules/codebase-documentation.md`: Planning docs usage guide.
-- `.agents/skills/stranded-windows-e2e-testing/`: E2E testing skill for Windows ARM64.
+- `.agents/skills/stranded-vision-e2e-testing/`: Vision-only E2E testing skill for Windows ARM64.
 
 ## Asset Directories
 

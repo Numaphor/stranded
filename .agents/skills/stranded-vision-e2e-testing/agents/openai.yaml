@@ -1,0 +1,4 @@
+interface:
+  display_name: "Stranded Vision E2E"
+  short_description: "Vision-only mGBA screenshot E2E testing for Stranded"
+  default_prompt: "Use $stranded-vision-e2e-testing to validate rendering from mGBA F12 screenshots using direct visual inspection only."

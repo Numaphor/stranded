@@ -41,9 +41,9 @@ Order is rotate -> scale -> translate.
 
 ## Runtime Limits
 
-- Max vertices: `100`
+- Max vertices: `256`
 - Max faces: `300`
-- `RoomViewer` applies a runtime budget check and skips optional dynamic models when adding them would exceed `100` vertices.
+- `RoomViewer` applies a runtime budget check and skips optional dynamic models when adding them would exceed vertex/face limits.
 
 ## Project Extensions (Important)
 
@@ -113,6 +113,7 @@ The room viewer uses a continuous heading-based camera follow system (not a disc
 - Duration: `DOOR_TRANSITION_DURATION_FRAMES = 16` with smoothstep easing.
 - Interpolates player/global position and anchor; preloads decor/models for the target room; movement input blocked during the transition.
 - Depth bias applied to transition decor to prevent Z-fighting; furniture reloaded after swap.
+- Room decor currently uses books/potted-plant models by room-specific decor flags.
 
 ## Door Quad Rendering (Current)
 

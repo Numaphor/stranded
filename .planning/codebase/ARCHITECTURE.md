@@ -175,5 +175,5 @@ Key points:
 - 6 rooms in 2x3 grid with door transitions (16 frames, smoothstep easing)
 - Camera follows committed heading with behind-offset, quantized to quarter turns for `_corner_index`
 - Camera distance: adjustable via L/R, clamped 100-500
-- Runtime budget: 100 max vertices, 300 max faces
+- Runtime budget: 256 max vertices, 300 max faces
 - Player direction: 5 states (down, down_side, side, up_side, up)
