@@ -242,14 +242,16 @@ void models_3d::_process_models(const camera_3d& camera)
                     bool room_shell_surface = color_index >= 6 && color_index <= 8;
                     bool room_perspective_mode = model.mode() == model_3d::layering_mode::room_perspective;
                     bool room_floor_only_mode = model.mode() == model_3d::layering_mode::room_floor_only;
+                    bool room_layered_mode = room_perspective_mode || room_floor_only_mode;
                     bool render_face = false;
 
-                    if(room_floor_surface)
+                    // Apply room-specific face filtering only when a room layering mode is active.
+                    if(room_layered_mode && room_floor_surface)
                     {
                         // Room floor surfaces are visible in perspective and floor-only modes.
-                        render_face = (room_perspective_mode || room_floor_only_mode) && front_facing;
+                        render_face = front_facing;
                     }
-                    else if(room_shell_surface && room_floor_only_mode)
+                    else if(room_layered_mode && room_shell_surface && room_floor_only_mode)
                     {
                         // Floor-only preview mode hides room walls/windows/door frames.
                         render_face = false;
