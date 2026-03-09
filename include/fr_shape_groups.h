@@ -51,7 +51,8 @@ public:
                                   unsigned shading, const hline* hlines);
 
     BN_CODE_IWRAM void add_sprite(unsigned minimum_y, unsigned maximum_y,
-                                  uint16_t attr0, uint16_t attr1, uint16_t attr2);
+                                  uint16_t attr0, uint16_t attr1, uint16_t attr2,
+                                  int pixel_width);
 
     void set_oam_start_index(int oam_start_index);
 
@@ -72,6 +73,10 @@ private:
     // Increased to avoid per-scanline overflow when furniture + room shells overlap.
     static constexpr int _max_hdma_sprites = 64;
     static constexpr int _hdma_source_size = (bn::display::height() + 1) * 4 * _max_hdma_sprites;
+    // GBA has a hard per-scanline OBJ budget; enforce headroom for non-HDMA sprites.
+    static constexpr int _gba_scanline_cycles = 1210;
+    static constexpr int _reserved_oam_cycles = 300;
+    static constexpr int _max_hdma_cycles = _gba_scanline_cycles - _reserved_oam_cycles;
 
     class color_tiles
     {
@@ -106,6 +111,7 @@ private:
     alignas(int) uint8_t _palette_ids[_max_palettes];
 
     alignas(int) uint8_t _hlines_count[bn::display::height()] = {};
+    alignas(int) uint16_t _hlines_cycles[bn::display::height()] = {};
     alignas(int) uint8_t _previous_hlines_count_a[bn::display::height()] = {};
     alignas(int) uint8_t _previous_hlines_count_b[bn::display::height()] = {};
 
