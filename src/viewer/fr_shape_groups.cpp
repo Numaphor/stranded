@@ -291,6 +291,7 @@ void shape_groups::update()
         _debug_max_hlines = max_hl;
 
         bn::memory::clear(bn::display::height(), *_hlines_count);
+        bn::memory::clear(bn::display::height(), *_hlines_cycles);
     }
     else
     {
