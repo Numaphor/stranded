@@ -1,35 +1,38 @@
 # Planning Docs
 
-Last updated: 2026-03-03
+Last updated: 2026-03-22
 
 ## Purpose
 
-This folder holds technical planning and maintenance notes for the Stranded codebase.
-Docs here are for engineering decisions, implementation details, and update checklists.
+This folder holds the current technical notes for the minimal room-viewer
+baseline.
 
 ## Layout
 
-- `codebase/`: stable references for architecture, structure, 3D engine behavior, conventions, and quality practices.
-- `features/`: focused notes for specific systems that changed recently.
+- `codebase/` holds the stable references for architecture, layout,
+  conventions, 3D runtime behavior, toolchain notes, and validation.
+- `features/` holds focused notes that are still useful during the cull.
 
 ## Current Documents
 
 ### Codebase
 
-- `codebase/ARCHITECTURE.md` -- scene system, architecture layers, entity hierarchy, key subsystems.
-- `codebase/STRUCTURE.md` -- file/directory inventory, header reference, tooling, asset layout.
-- `codebase/3D_ENGINE.md` -- coordinate system, transform pipeline, runtime limits, project extensions, room viewer setup, dialog systems.
-- `codebase/CONVENTIONS.md` -- naming, includes, types, memory, formatting, constants, hotspots.
-- `codebase/PLATFORM_AND_INTEGRATIONS.md` -- toolchain, build config, CI/CD, emulator setup, asset organization.
-- `codebase/QUALITY_AND_TESTING.md` -- technical risks, testing strategy, manual checklists, regression checks.
+- `codebase/ARCHITECTURE.md` - room-viewer architecture and runtime layers.
+- `codebase/STRUCTURE.md` - current repo layout and surviving directories.
+- `codebase/3D_ENGINE.md` - room-viewer 3D runtime, transforms, and limits.
+- `codebase/CONVENTIONS.md` - naming, includes, types, formatting, and hot
+  spots.
+- `codebase/PLATFORM_AND_INTEGRATIONS.md` - build toolchain and local tooling.
+- `codebase/QUALITY_AND_TESTING.md` - local validation and regression notes.
 
 ### Features
 
-- `features/ROOM_VIEWER_CORNER_TRANSITIONS.md` -- camera follow system, door transitions, player representation, dialog.
+- `features/MGBA_DEBUG_GUIDE.md` - local mGBA debugging workflow.
+- `features/MINIMAL_RUNTIME_CULL_BASELINE.md` - baseline note for the cull.
 
 ## Maintenance Rules
 
-- Keep docs ASCII-only to avoid encoding issues in terminals.
+- Keep docs ASCII-only.
 - Prefer relative repository paths in file references.
-- Update constants and behavior notes after gameplay-facing changes.
-- If a file is superseded by a merged doc, delete the old file in the same change.
+- Update notes when room-viewer behavior or build requirements change.
+- Delete superseded notes instead of keeping parallel historical copies.

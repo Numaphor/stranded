@@ -1782,7 +1782,7 @@ str::Scene RoomViewer::execute()
             }
 
             bn::core::update();
-            return str::Scene::START;
+            return str::Scene::ROOM_VIEWER;
         }
 
         #if BN_CFG_PROFILER_ENABLED

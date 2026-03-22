@@ -1,16 +1,15 @@
 #include "str_minimap.h"
-#include "str_enemy.h"
 #include "str_constants.h"
 
 #include "bn_fixed_point.h"
 #include "bn_sprite_builder.h"
 #include "bn_blending.h"
+#include "bn_math.h"
 
 #include "bn_sprite_items_minimap_room.h"
 #include "bn_sprite_items_minimap_room_big.h"
 #include "bn_sprite_items_minimap_bg.h"
 #include "bn_sprite_items_minimap_arrow.h"
-#include "bn_sprite_items_minimap_enemy.h"
 #include "bn_sprite_items_minimap_door.h"
 
 namespace str
@@ -268,93 +267,6 @@ namespace str
         _scroll_sprites(scroll_offset);
     }
 
-    void Minimap::update(bn::fixed_point player_pos, int /*facing_direction*/, const bn::vector<Enemy, 16>& enemies)
-    {
-        int new_room = _find_room(player_pos);
-
-        if (new_room >= 0)
-        {
-            // Only update visuals when room state actually changes
-            bool room_changed = (_current_room != new_room);
-
-            // Mark previous current room as visited
-            if (_current_room >= 0 && room_changed)
-            {
-                _room_states[_current_room] = RoomState::VISITED;
-            }
-
-            if (room_changed)
-            {
-                _current_room = new_room;
-                _room_states[_current_room] = RoomState::CURRENT;
-                _update_room_visuals();
-            }
-            // Compute player's logical minimap position
-            bn::fixed_point player_logical = _world_to_minimap(player_pos, _current_room);
-
-            // Scroll offset: panel center - player logical position
-            // This makes the player position appear at the panel center
-            bn::fixed_point scroll_offset(_panel_center.x() - player_logical.x(),
-                                           _panel_center.y() - player_logical.y());
-            _scroll_sprites(scroll_offset);
-
-            // Player gem stays at panel center
-            _player_arrow.set_position(_panel_center);
-            _player_arrow.set_visible(true);
-
-            // Update enemy dots
-            int visible_enemy_count = 0;
-            for (int i = 0; i < enemies.size(); ++i)
-            {
-                bn::fixed_point ep = enemies[i].pos();
-                int enemy_room = _find_room(ep);
-
-                if (enemy_room < 0)
-                {
-                    continue;
-                }
-
-                if (visible_enemy_count >= _enemy_dots.size())
-                {
-                    auto s = bn::sprite_items::minimap_enemy.create_sprite(0, 0);
-                    _configure_hud_sprite(s, Z_ORDER_MINIMAP_ENEMY);
-                    s.set_blending_enabled(true);
-                    _enemy_dots.push_back(EnemyDot(s, &enemies[i]));
-                }
-
-                // Enemy logical position + same scroll offset
-                bn::fixed_point enemy_logical = _world_to_minimap(ep, enemy_room);
-                bn::fixed_point enemy_screen(enemy_logical.x() + scroll_offset.x(),
-                                              enemy_logical.y() + scroll_offset.y());
-                _enemy_dots[visible_enemy_count].sprite.set_position(enemy_screen);
-
-                // Clip enemy dots outside panel viewport
-                bn::fixed edx = bn::abs(enemy_screen.x() - _panel_center.x());
-                bn::fixed edy = bn::abs(enemy_screen.y() - _panel_center.y());
-                bn::fixed enemy_clip = 16; // panel half
-                _enemy_dots[visible_enemy_count].sprite.set_visible(edx <= enemy_clip && edy <= enemy_clip);
-                _enemy_dots[visible_enemy_count].enemy = &enemies[i];
-                ++visible_enemy_count;
-            }
-
-            // Hide excess enemy dots
-            for (int i = visible_enemy_count; i < _enemy_dots.size(); ++i)
-            {
-                _enemy_dots[i].sprite.set_visible(false);
-            }
-            while (_enemy_dots.size() > enemies.size())
-            {
-                _enemy_dots.pop_back();
-            }
-        }
-        else
-        {
-            _player_arrow.set_visible(false);
-        }
-
-        _update_pulse();
-    }
-
     void Minimap::update(bn::fixed_point player_pos, int /*facing_direction*/)
     {
         int new_room = _find_room_room_viewer(player_pos);
@@ -404,10 +316,6 @@ namespace str
         for (auto& door : _door_sprites)
         {
             door.set_visible(visible);
-        }
-        for (auto& ed : _enemy_dots)
-        {
-            ed.sprite.set_visible(visible);
         }
     }
 

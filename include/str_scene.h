@@ -5,12 +5,6 @@ namespace str
 {
     enum class Scene
     {
-        START,
-        CHARACTER_SELECT,
-        MENU,
-        CONTROLS,
-        WORLD,
-        MODEL_VIEWER,
         ROOM_VIEWER
     };
 }

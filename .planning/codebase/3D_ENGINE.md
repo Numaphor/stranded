@@ -1,172 +1,65 @@
 # 3D Engine Reference
 
-Last updated: 2026-03-03
+Last updated: 2026-03-22
 
 ## Scope
 
-Stranded uses the varooom-3d pipeline through project-controlled code paths:
+This note covers the shared 3D runtime used by the room viewer:
 
-- Runtime sources: `src/viewer/`
-- Project header overrides: `include/fr_*.h`
-- Upstream baseline: `butano/games/varooom-3d/`
+- `src/viewer/`
+- `include/fr_*.h`
+- `include/models/`
 
-The Butano submodule stays clean; project behavior changes are done in project files.
+The Butano submodule remains the upstream source of truth for the base runtime
+behavior.
 
 ## Coordinate System
 
 ```text
 Engine X -> screen horizontal axis
-Engine Y -> depth axis (camera looks toward -Y)
+Engine Y -> depth axis
 Engine Z -> screen vertical axis
 ```
 
-Camera defaults:
-
-- Position: `(0, 256, 0)`
-- Phi: configurable; room viewer uses `0`
-- Screen center used by projection: `(120, 80)`
-
 ## Transform Pipeline
 
-For a model vertex:
+The runtime follows the usual model path:
 
-1. Rotate by model matrix (`fr::model_3d` internal matrix).
-2. Scale by model scale.
-3. Translate by model position.
+1. Rotate by the model matrix.
+2. Scale by the model scale.
+3. Translate by the model position.
 4. Convert to camera space.
-5. Perspective project to screen.
-6. Depth-sort and rasterize.
-
-Order is rotate -> scale -> translate.
+5. Project to screen space.
+6. Depth-sort and render.
 
 ## Runtime Limits
 
 - Max vertices: `256`
 - Max faces: `300`
-- `RoomViewer` applies a runtime budget check and skips optional dynamic models when adding them would exceed vertex/face limits.
 
-## Project Extensions (Important)
+The room viewer keeps within these limits by loading only the models and
+decorations needed for the current room state.
 
-### `include/fr_model_3d.h`
+## Project Overrides
 
-- Supports direct matrix assignment via `set_rotation_matrix(...)`.
-- Adds `depth_bias()` and `set_depth_bias(int)`.
-- Adds layering mode support used by room shell rendering (`layering_mode::room_perspective`).
+- `include/fr_model_3d.h` adds direct matrix control and depth bias support.
+- `include/fr_sprite_3d.h` adds explicit horizontal flip controls.
+- `include/fr_sprite_3d_item.h` carries the sprite sizing metadata used by the
+  viewer runtime.
+- `include/fr_models_3d.h` and `include/fr_shape_groups.h` expose the project
+  interfaces for the shared runtime.
 
-### `include/fr_sprite_3d.h`
+## Room Viewer Usage
 
-- Adds horizontal flip controls to avoid negative-scale flip hacks.
-
-### `include/fr_sprite_3d_item.h`
-
-- Extends sprite sizing metadata for 8/16/32/64 pixel workflows.
-
-### `include/fr_models_3d.h`
-
-- Models runtime interface for transform submission and render dispatch.
-
-### `include/fr_shape_groups.h`
-
-- Shape group management for 3D sprite rendering (80+ textures).
-
-### `src/viewer/fr_models_3d*.cpp`
-
-- Contains camera-space transforms, projection, depth sorting, and sprite_3d render submission.
-- IWRAM variant handles hot loops.
-
-### `src/viewer/fr_shape_groups*.cpp`
-
-- Shape group allocation and IWRAM-optimized operations.
-
-### `src/viewer/fr_sin_cos.cpp` and `src/viewer/fr_div_lut.cpp`
-
-- Fixed-point trig tables and division lookup tables for fast math.
-
-## Room Viewer Isometric Setup
-
-`src/room_viewer.cpp` uses fixed angles:
-
-- `iso_phi = 6400`
-- `iso_theta = 59904`
-- `iso_psi = 6400`
-
-A base corner matrix is derived from these angles. The view angle follows the committed movement heading plus a behind-offset and is quantized into quarter turns for `_corner_index`.
-
-## Room Preview Loading
-
-- Room shells are loaded in `room_preview_mode::all_connected` by default (current room + connected neighbors).
-- Adaptive preview throttling code (`ALL -> ONE -> OFF`) exists but is disabled by default via `ROOM_PREVIEW_AUTO_ADJUST = false`.
-- Debug overlay includes preview status and adaptive flag (`Prev:* A:OFF/ON`) for quick verification.
-
-## Camera Follow System (Current)
-
-The room viewer uses a continuous heading-based camera follow system (not a discrete corner transition triggered by button press):
-
-- Quarter turn angle: `QUARTER_TURN_ANGLE = 16384`.
-- Render refresh threshold: `CAMERA_RENDER_UPDATE_ANGLE_STEP = 64`; orientations/paintings update when the view angle moves by this step.
-- View angle source: committed movement heading plus `CAMERA_BEHIND_OFFSET_ANGLE = 24576` with easing gains and max step clamps; `_corner_index` derives from quantized view angle.
-- Camera distance: adjustable via `L/R`, clamped `100-500`; `START` (without `SELECT`) recenters toward committed heading with a short boost (`CAMERA_START_BOOST_FRAMES = 10`).
-- Movement continues while turning corners; only door transitions pause movement.
-
-## Door Transition (Current)
-
-- Duration: `DOOR_TRANSITION_DURATION_FRAMES = 16` with smoothstep easing.
-- Interpolates player/global position and anchor; preloads decor/models for the target room; movement input blocked during the transition.
-- Depth bias applied to transition decor to prevent Z-fighting; furniture reloaded after swap.
-- Room decor currently uses books/potted-plant models by room-specific decor flags.
-
-## Door Quad Rendering (Current)
-
-- Door wall textures render through the shared `render_wall_quad` path in `src/room_viewer.cpp`, identical in structure to painting quad rendering.
-- Door quads update every frame (including high-motion camera turns and room transitions); painting quads are throttled.
-- Stability guards use door-specific thresholds (stricter than painting quads):
-  - `DOOR_FACE_VISIBILITY_DOT_MIN = 10`
-  - `DOOR_MIN_TRI_AREA2 = 300`
-- The shared `render_wall_quad` lambda (defined once, above both update functions) handles both paintings and doors.
-  It performs a single-pass: face-visibility dot check, 4-point projection, stability check, point mapping, then `set_points()` (default `min_affine_divisor = 32`).
-  On any failure the quad is hidden for that frame; there is no fallback cascade.
-- Debug overlay exposes per-frame counters:
-  - `door_rendered`
-  - `door_hidden`
-## Room Viewer Dialog Systems
-
-The room viewer includes a sprite-based dialog system:
-
-### RoomDialog (`include/str_room_dialog.h`)
-
-- Sprite-based dialog using `sprite_text_generator`.
-- States: IDLE / GREETING / SHOWING_OPTIONS / SHOWING_RESPONSE.
-- Typewriter effect with half-speed tick (`char * 2` frames).
-- Text at `(-90, 40)`, options at `y=30` with 12px spacing.
-- Max 32 text sprites, max 8 dialog options (3 visible with scrolling).
-- Frees HUD sprites for VRAM during dialog display.
-
-### BgDialog (`include/str_bg_dialog.h`)
-
-- BG-layer bitmap font dialog using NO sprite VRAM.
-- Renders text via BG map cell tile indices on a 32x32 regular_bg.
-- EWRAM-backed cell storage.
-- Same state machine and dialog option structure as RoomDialog.
-- Text area rows 18-21, options at row 18, prompt at row 21.
-- Typewriter effect (speed up with held A or Up).
-
-Both share `DialogOption` struct: `option_text`, `response_lines[]`, `ends_conversation`.
-
-## Player Representation in Room Viewer
-
-The `RoomViewer` manages a 3D player representation:
-
-- Player direction: 5 states (down, down_side, side, up_side, up) via `_player_dir`.
-- Player facing: `_player_facing_left` boolean.
-- Player position: `_player_fx/fy/fz` in fixed-point.
-- Animation: `_anim_frame_counter` with tile updates via `_update_player_anim_tiles()`.
+- The room viewer uses a fixed isometric setup.
+- Camera follow tracks the committed movement heading.
+- `START` recenters the camera.
+- `L` and `R` adjust camera distance.
+- Door transitions run for a fixed number of frames and block movement while
+  active.
+- `BgDialog` is used for NPC interaction in the current baseline.
 
 ## Build Include Order
 
-`Makefile` include order keeps project overrides first:
-
-- `include`
-- `butano/common/include`
-- `butano/games/varooom-3d/include`
-
-This ensures `#include "fr_model_3d.h"` resolves to the project override.
+`Makefile` keeps project overrides first so `#include "fr_model_3d.h"` resolves
+to the project header before the upstream copy.

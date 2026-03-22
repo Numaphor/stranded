@@ -32,14 +32,12 @@ TARGET      	:=  $(notdir $(CURDIR))
 BUILD       	:=  build
 LIBBUTANO   	:=  butano/butano
 PYTHON      	:=  python
-SOURCES     	:=  src src/core src/actors src/viewer butano/common/src
+SOURCES     	:=  src src/core src/viewer butano/common/src
 INCLUDES    	:=  include butano/common/include butano/games/varooom-3d/include
 DATA        	:=
-GRAPHICS    	:=  graphics butano/common/graphics graphics/bg graphics/sprite/player graphics/sprite/creature graphics/sprite/enemy graphics/sprite/npc graphics/sprite/vfx graphics/sprite/hud graphics/sprite/item graphics/sprite/decor graphics/shape_group_textures
-# Keep Maxmod audio bank small enough for GBA ROM limits.
-# Add module files back only when they are actually used.
-AUDIO       	:=  audio/death.wav audio/eek.wav audio/growl.wav audio/hello.wav audio/hum.wav audio/mutant_hit.wav audio/slime.wav audio/slime2.wav audio/steps.wav audio/swipe.wav audio/tablet.wav audio/teleport.wav
-DMGAUDIO    	:=  dmg_audio butano/common/dmg_audio
+GRAPHICS    	:=  butano/common/graphics graphics/bg graphics/sprite/player graphics/sprite/npc graphics/sprite/hud graphics/sprite/decor graphics/shape_group_textures
+AUDIO       	:=
+DMGAUDIO    	:=
 ROMTITLE    	:=  ROM TITLE
 ROMCODE     	:=  SBTP
 USERFLAGS   	:=  -flto

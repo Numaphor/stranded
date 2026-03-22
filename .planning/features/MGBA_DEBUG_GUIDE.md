@@ -274,5 +274,3 @@ end)
    - mGBA Sprite Viewer: Tools > Sprite Viewer
    - Lua buffers: check OAM Sprites and Affine Matrices windows
 7. **Cross-reference** with room viewer overlay diagnostics (`Door`, `Df`, `HL`)
-
-See also: [ROOM_VIEWER_OAM_AFFINE_DEBUG_PLAYBOOK.md](ROOM_VIEWER_OAM_AFFINE_DEBUG_PLAYBOOK.md) for artifact-specific diagnosis.
