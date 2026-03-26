@@ -1758,6 +1758,16 @@ str::Scene RoomViewer::execute()
             clear_room_decor_models(transition_books_ptr, transition_potted_plant_ptr);
 
             _models.destroy_sprite(player_sprite);
+            if(npc_sprite_a_ptr)
+            {
+                _models.destroy_sprite(*npc_sprite_a_ptr);
+                npc_sprite_a_ptr = nullptr;
+            }
+            if(npc_sprite_b_ptr)
+            {
+                _models.destroy_sprite(*npc_sprite_b_ptr);
+                npc_sprite_b_ptr = nullptr;
+            }
 
             for(int room_id = 0; room_id < NUM_ROOMS; ++room_id)
             {
