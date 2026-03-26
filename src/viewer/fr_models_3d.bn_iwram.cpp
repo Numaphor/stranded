@@ -242,7 +242,13 @@ void models_3d::_process_models(const camera_3d& camera)
                     bool room_shell_surface = color_index >= 6 && color_index <= 8;
                     bool room_perspective_mode = model.mode() == model_3d::layering_mode::room_perspective;
                     bool room_floor_only_mode = model.mode() == model_3d::layering_mode::room_floor_only;
+                    bool near_shell_surface = false;
                     bool render_face = false;
+
+                    if(room_perspective_mode && room_shell_surface)
+                    {
+                        near_shell_surface = normal.y() < 0;
+                    }
 
                     if(room_floor_surface)
                     {
@@ -252,6 +258,11 @@ void models_3d::_process_models(const camera_3d& camera)
                     else if(room_shell_surface && room_floor_only_mode)
                     {
                         // Floor-only preview mode hides room walls/windows/door frames.
+                        render_face = false;
+                    }
+                    else if(near_shell_surface)
+                    {
+                        // Hide shell surfaces whose outward normal points toward the camera.
                         render_face = false;
                     }
                     else
@@ -265,15 +276,9 @@ void models_3d::_process_models(const camera_3d& camera)
 
                         if(room_perspective_mode)
                         {
-                            // Keep room shell generally behind entities, but allow the front
-                            // shell (walls/windows/door frame) to overlay the player.
-                            const point_3d& local_centroid = face.centroid().point();
-                            point_3d floor_centroid = model.transform(
-                                vertex_3d(local_centroid.x(), local_centroid.y(), 0));
-                            bool front_shell_surface = room_shell_surface &&
-                                normal.y() > 0 &&
-                                floor_centroid.y() > model.position().y();
-                            projected_z += front_shell_surface ? room_front_layer_bias : room_back_layer_bias;
+                            // Keep room shell generally behind entities, but allow the
+                            // remaining near-half shell to overlay the player if shown.
+                            projected_z += near_shell_surface ? room_front_layer_bias : room_back_layer_bias;
                         }
 
                         _valid_faces_info[valid_faces_count] = {

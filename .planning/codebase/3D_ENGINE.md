@@ -1,6 +1,6 @@
 # 3D Engine Reference
 
-Last updated: 2026-03-22
+Last updated: 2026-03-26
 
 ## Scope
 
@@ -51,7 +51,8 @@ decorations needed for the current room state.
 
 ## Room Viewer Usage
 
-- The room viewer uses a fixed isometric setup.
+- The room viewer uses a fixed 60-degree top-down floor tilt across every
+  quarter-turn rotation.
 - Camera follow tracks the committed movement heading.
 - `START` recenters the camera.
 - `L` and `R` adjust camera distance.

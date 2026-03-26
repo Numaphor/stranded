@@ -43,9 +43,6 @@
 #endif
 
 namespace {
-    constexpr int iso_phi = 6400;
-    constexpr int iso_theta = 59904;
-    constexpr int iso_psi = 6400;
     constexpr int NUM_ROOMS = 6;
     constexpr int QUARTER_TURN_ANGLE = 16384;
     constexpr int CAMERA_BEHIND_OFFSET_ANGLE = 24576;
@@ -283,24 +280,27 @@ namespace {
 
     void compute_corner_matrices(corner_matrix out[4])
     {
-        bn::fixed sp = fr::sin(iso_phi), cp = fr::cos(iso_phi);
-        bn::fixed st = fr::sin(iso_theta), ct = fr::cos(iso_theta);
-        bn::fixed ss = fr::sin(iso_psi),  cs = fr::cos(iso_psi);
+        constexpr bn::fixed FLOOR_X_AXIS_X = bn::fixed(0.716816);
+        constexpr bn::fixed FLOOR_X_AXIS_Y = bn::fixed(0.5984);
+        constexpr bn::fixed FLOOR_X_AXIS_Z = bn::fixed(0.3579);
+        constexpr bn::fixed FLOOR_Y_AXIS_X = bn::fixed(-0.697102);
+        constexpr bn::fixed FLOOR_Y_AXIS_Y = bn::fixed(0.626033);
+        constexpr bn::fixed FLOOR_Y_AXIS_Z = bn::fixed(0.349472);
+        constexpr bn::fixed FLOOR_NORMAL_X = bn::fixed(-0.014934);
+        constexpr bn::fixed FLOOR_NORMAL_Y = bn::fixed(-0.5);
+        constexpr bn::fixed FLOOR_NORMAL_Z = bn::fixed(0.865897);
 
-        bn::fixed c0x = cp * ct;
-        bn::fixed c0y = cp * st * ss - sp * cs;
-        bn::fixed c0z = cp * st * cs + sp * ss;
-        bn::fixed c1x = sp * ct;
-        bn::fixed c1y = sp * st * ss + cp * cs;
-        bn::fixed c1z = sp * st * cs - cp * ss;
-        bn::fixed c2x = -st;
-        bn::fixed c2y = ct * ss;
-        bn::fixed c2z = ct * cs;
+        // Keep the original room-viewer bearing, but retune the floor pitch to 60 degrees from above.
+        const corner_matrix base = {
+            FLOOR_X_AXIS_X, FLOOR_Y_AXIS_X, FLOOR_NORMAL_X,
+            FLOOR_X_AXIS_Y, FLOOR_Y_AXIS_Y, FLOOR_NORMAL_Y,
+            FLOOR_X_AXIS_Z, FLOOR_Y_AXIS_Z, FLOOR_NORMAL_Z
+        };
 
-        out[0] = { c0x, c0y, c0z,  c1x, c1y, c1z,  c2x, c2y, c2z };
-        out[1] = { c0y, -c0x, c0z,  c1y, -c1x, c1z,  c2y, -c2x, c2z };
-        out[2] = { -c0x, -c0y, c0z,  -c1x, -c1y, c1z,  -c2x, -c2y, c2z };
-        out[3] = { -c0y, c0x, c0z,  -c1y, c1x, c1z,  -c2y, c2x, c2z };
+        out[0] = base;
+        out[1] = rotate_corner_matrix(base, QUARTER_TURN_ANGLE);
+        out[2] = rotate_corner_matrix(base, QUARTER_TURN_ANGLE * 2);
+        out[3] = rotate_corner_matrix(base, QUARTER_TURN_ANGLE * 3);
     }
 
     constexpr bn::fixed BOOKS_FX = 24;
@@ -660,24 +660,6 @@ namespace {
         }
     }
 
-    int preferred_neighbor_room_for_corner(int room_id, int corner_index)
-    {
-        switch(corner_index)
-        {
-            case 0:
-                return neighbor_room_for_door(room_id, door_direction::north);
-
-            case 1:
-                return neighbor_room_for_door(room_id, door_direction::west);
-
-            case 2:
-                return neighbor_room_for_door(room_id, door_direction::south);
-
-            default:
-                return neighbor_room_for_door(room_id, door_direction::east);
-        }
-    }
-
     // Keep doorway centers aligned between rooms with different shell sizes.
     bn::fixed aligned_door_center_offset(int room_id, door_direction direction)
     {
@@ -886,7 +868,7 @@ str::Scene RoomViewer::execute()
     int door_transition_elapsed = 0;
     int door_transition_target_room = current_room;
     int door_transition_furniture_room = -1;
-    room_preview_mode preview_mode = room_preview_mode::all_connected;
+    room_preview_mode preview_mode = room_preview_mode::off;
     bool debug_hide_room_models = false;
     int preview_mode_low_fps_samples = 0;
     int preview_mode_high_fps_samples = 0;
@@ -965,56 +947,11 @@ str::Scene RoomViewer::execute()
             return changed;
         }
 
-        auto mark_preview_rooms = [&](int anchor_room) {
-            should_exist[anchor_room] = true;
-
-            if(preview_mode == room_preview_mode::off)
-            {
-                return;
-            }
-
-            if(preview_mode == room_preview_mode::preferred_only)
-            {
-                int preferred_neighbor = preferred_neighbor_room_for_corner(anchor_room, _corner_index);
-                if(preferred_neighbor >= 0)
-                {
-                    should_exist[preferred_neighbor] = true;
-                }
-
-                return;
-            }
-
-            int east_neighbor = neighbor_room_for_door(anchor_room, door_direction::east);
-            int west_neighbor = neighbor_room_for_door(anchor_room, door_direction::west);
-            int south_neighbor = neighbor_room_for_door(anchor_room, door_direction::south);
-            int north_neighbor = neighbor_room_for_door(anchor_room, door_direction::north);
-
-            if(east_neighbor >= 0)
-            {
-                should_exist[east_neighbor] = true;
-            }
-
-            if(west_neighbor >= 0)
-            {
-                should_exist[west_neighbor] = true;
-            }
-
-            if(south_neighbor >= 0)
-            {
-                should_exist[south_neighbor] = true;
-            }
-
-            if(north_neighbor >= 0)
-            {
-                should_exist[north_neighbor] = true;
-            }
-        };
-
-        mark_preview_rooms(current_room);
+        should_exist[current_room] = true;
 
         if(door_transition_active)
         {
-            mark_preview_rooms(door_transition_target_room);
+            should_exist[door_transition_target_room] = true;
         }
 
         for(int room_id = 0; room_id < NUM_ROOMS; ++room_id)
@@ -1061,15 +998,12 @@ str::Scene RoomViewer::execute()
             room_model->set_double_sided(room_perspective_mode);
         };
 
-        // Current room first, then adjacent rooms while budget allows.
+        // Keep only the active room loaded, plus the destination room while a door transition runs.
         ensure_room_model(current_room);
 
-        for(int room_id = 0; room_id < NUM_ROOMS; ++room_id)
+        if(door_transition_active && door_transition_target_room != current_room)
         {
-            if(room_id != current_room)
-            {
-                ensure_room_model(room_id);
-            }
+            ensure_room_model(door_transition_target_room);
         }
 
         return changed;

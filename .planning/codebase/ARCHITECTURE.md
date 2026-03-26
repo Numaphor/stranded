@@ -1,7 +1,7 @@
 # Architecture
 
 Analysis date: 2026-03-22
-Last updated: 2026-03-22
+Last updated: 2026-03-26
 
 ## Scope
 
@@ -34,8 +34,10 @@ documented baseline.
 
 ## Key Behavior
 
-- The room viewer uses a fixed isometric presentation with committed-heading
-  camera follow.
+- The room viewer uses a fixed 60-degree top-down presentation with
+  committed-heading camera follow.
+- Only the active room is rendered outside active door transitions, and
+  camera-facing shell surfaces are culled so the interior stays visible.
 - `START` recenters the camera toward the current heading.
 - `L` and `R` adjust camera distance within the supported range.
 - Door transitions are time-based and block movement while the transition runs.
