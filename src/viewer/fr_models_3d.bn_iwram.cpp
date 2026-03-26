@@ -41,6 +41,7 @@ namespace
     using fixed = bn::fixed_t<fixed_precision>;
     constexpr int room_back_layer_bias = 1000000;
     constexpr int room_front_layer_bias = -1000000;
+    constexpr bn::fixed room_near_wall_cull_normal_y_max = bn::fixed(-0.2);
     constexpr int div_lut_max_index = 1024 * 4 - 1;
 }
 
@@ -247,7 +248,7 @@ void models_3d::_process_models(const camera_3d& camera)
 
                     if(room_perspective_mode && room_shell_surface)
                     {
-                        near_shell_surface = normal.y() < 0;
+                        near_shell_surface = normal.y() < room_near_wall_cull_normal_y_max;
                     }
 
                     if(room_floor_surface)
