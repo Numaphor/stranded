@@ -23,30 +23,35 @@ void shape_groups::add_hlines(unsigned minimum_y, unsigned maximum_y, int width,
     int attr1;
     int attr2;
     bool split;
+    int sprite_cycles;
 
     if(width < 8)
     {
         attr1 = bn::hw::sprites::second_attributes(0, bn::sprite_size::SMALL, false, false);
         attr2 = bn::hw::sprites::third_attributes(tiles_ids.small_tiles_id, palette_id, 3);
         split = false;
+        sprite_cycles = 8;
     }
     else if(width < 16)
     {
         attr1 = bn::hw::sprites::second_attributes(0, bn::sprite_size::NORMAL, false, false);
         attr2 = bn::hw::sprites::third_attributes(tiles_ids.normal_tiles_id, palette_id, 3);
         split = false;
+        sprite_cycles = 16;
     }
     else if(width < 32)
     {
         attr1 = bn::hw::sprites::second_attributes(0, bn::sprite_size::BIG, false, false);
         attr2 = bn::hw::sprites::third_attributes(tiles_ids.big_tiles_id, palette_id, 3);
         split = false;
+        sprite_cycles = 32;
     }
     else
     {
         attr1 = bn::hw::sprites::second_attributes(0, bn::sprite_size::HUGE, false, false);
         attr2 = bn::hw::sprites::third_attributes(tiles_ids.huge_tiles_id, palette_id, 3);
         split = width > split_length;
+        sprite_cycles = 64;
     }
 
     uint16_t* hdma_source = _hdma_source;
@@ -68,9 +73,11 @@ void shape_groups::add_hlines(unsigned minimum_y, unsigned maximum_y, int width,
                     {
                         int hlines_count = _hlines_count[y];
 
-                        if(hlines_count < _max_hdma_sprites) [[likely]]
+                        if(hlines_count < _max_hdma_sprites &&
+                           _hlines_cycles[y] + sprite_cycles <= _max_hdma_cycles) [[likely]]
                         {
                             _hlines_count[y] = hlines_count + 1;
+                            _hlines_cycles[y] += sprite_cycles;
 
                             uint16_t* sprite_hdma_source = hdma_source + (y * screen_line_elements);
                             sprite_hdma_source += hlines_count * 4;
@@ -105,9 +112,11 @@ void shape_groups::add_hlines(unsigned minimum_y, unsigned maximum_y, int width,
             {
                 int hlines_count = _hlines_count[y];
 
-                if(hlines_count < _max_hdma_sprites) [[likely]]
+                if(hlines_count < _max_hdma_sprites &&
+                   _hlines_cycles[y] + sprite_cycles <= _max_hdma_cycles) [[likely]]
                 {
                     _hlines_count[y] = hlines_count + 1;
+                    _hlines_cycles[y] += sprite_cycles;
 
                     uint16_t* sprite_hdma_source = hdma_source + (y * screen_line_elements);
                     sprite_hdma_source += hlines_count * 4;
@@ -152,6 +161,7 @@ void shape_groups::add_hlines(unsigned minimum_y, unsigned maximum_y, int width,
                         }
 
                         int hlines_count = _hlines_count[y];
+                        int line_cycles = _hlines_cycles[y];
                         uint16_t* sprite_hdma_source = hdma_source + (y * screen_line_elements);
                         sprite_hdma_source += hlines_count * 4;
 
@@ -159,12 +169,14 @@ void shape_groups::add_hlines(unsigned minimum_y, unsigned maximum_y, int width,
 
                         do
                         {
-                            if(hlines_count < _max_hdma_sprites) [[likely]]
+                            if(hlines_count < _max_hdma_sprites &&
+                               line_cycles + sprite_cycles <= _max_hdma_cycles) [[likely]]
                             {
                                 int length = xr - xl;
                                 int sprite_y;
                                 keep_adding = length > split_length;
                                 ++hlines_count;
+                                line_cycles += sprite_cycles;
 
                                 if(keep_adding)
                                 {
@@ -194,6 +206,7 @@ void shape_groups::add_hlines(unsigned minimum_y, unsigned maximum_y, int width,
                         while(keep_adding);
 
                         _hlines_count[y] = hlines_count;
+                        _hlines_cycles[y] = line_cycles;
                     }
                 }
             }
@@ -206,6 +219,7 @@ void shape_groups::add_hlines(unsigned minimum_y, unsigned maximum_y, int width,
                 int xr = hlines[y].xr;
 
                 int hlines_count = _hlines_count[y];
+                int line_cycles = _hlines_cycles[y];
                 uint16_t* sprite_hdma_source = hdma_source + (y * screen_line_elements);
                 sprite_hdma_source += hlines_count * 4;
 
@@ -213,12 +227,14 @@ void shape_groups::add_hlines(unsigned minimum_y, unsigned maximum_y, int width,
 
                 do
                 {
-                    if(hlines_count < _max_hdma_sprites) [[likely]]
+                    if(hlines_count < _max_hdma_sprites &&
+                       line_cycles + sprite_cycles <= _max_hdma_cycles) [[likely]]
                     {
                         int length = xr - xl;
                         int sprite_y;
                         keep_adding = length > split_length;
                         ++hlines_count;
+                        line_cycles += sprite_cycles;
 
                         if(keep_adding) [[likely]]
                         {
@@ -248,23 +264,29 @@ void shape_groups::add_hlines(unsigned minimum_y, unsigned maximum_y, int width,
                 while(keep_adding);
 
                 _hlines_count[y] = hlines_count;
+                _hlines_cycles[y] = line_cycles;
             }
         }
     }
 }
 
-void shape_groups::add_sprite(unsigned minimum_y, unsigned maximum_y, uint16_t attr0, uint16_t attr1, uint16_t attr2)
+void shape_groups::add_sprite(unsigned minimum_y, unsigned maximum_y, uint16_t attr0, uint16_t attr1, uint16_t attr2,
+                              int pixel_width)
 {
     uint16_t* hdma_source = _hdma_source;
     int screen_line_elements = _max_hdma_sprites * 4;
+    // Double-size affine sprite cost: 10 + 2 * canvas_width.
+    int sprite_cycles = 10 + 2 * pixel_width;
 
     for(unsigned y = minimum_y; y <= maximum_y; ++y)
     {
         int hlines_count = _hlines_count[y];
 
-        if(hlines_count < _max_hdma_sprites) [[likely]]
+        if(hlines_count < _max_hdma_sprites &&
+           _hlines_cycles[y] + sprite_cycles <= _max_hdma_cycles) [[likely]]
         {
             _hlines_count[y] = hlines_count + 1;
+            _hlines_cycles[y] += sprite_cycles;
 
             uint16_t* sprite_hdma_source = hdma_source + (y * screen_line_elements);
             sprite_hdma_source += hlines_count * 4;
