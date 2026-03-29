@@ -39,7 +39,7 @@ private:
     bn::fixed _player_fz = 0;
 
     void _update_player_anim_tiles(fr::sprite_3d_item& item, bool moving, int dir, bool facing_left,
-                                   int elapsed_frames);
+                                   int frame_advance);
 };
 
 }

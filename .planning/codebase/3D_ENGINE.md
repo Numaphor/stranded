@@ -1,6 +1,6 @@
 # 3D Engine Reference
 
-Last updated: 2026-03-29
+Last updated: 2026-03-30
 
 ## Scope
 
@@ -37,8 +37,9 @@ The runtime follows the usual model path:
 - Max vertices: `256`
 - Max faces: `300`
 
-The room viewer keeps within these limits by loading only the models and
-decorations needed for the current room state.
+The room viewer keeps within these limits by loading only the active room shell
+plus the transition-room shell when needed, while room decor stays within a
+small dynamic-model budget.
 
 ## Project Overrides
 
@@ -48,6 +49,11 @@ decorations needed for the current room state.
   viewer runtime.
 - `include/fr_models_3d.h` and `include/fr_shape_groups.h` expose the project
   interfaces for the shared runtime.
+- `scripts/generate_room_shell_header.py` emits the simplified room-shell
+  header in `include/models/str_model_3d_items_room.h`.
+- `scripts/blender_render_static_prop_frames.py` and
+  `scripts/build_interior_prop_assets.py` bake static Interior-pack props into
+  Butano-ready sprite sheets under `graphics/sprite/interior_props/`.
 
 ## Room Viewer Usage
 
@@ -60,8 +66,26 @@ decorations needed for the current room state.
   renders by default, with the voxel-derived bake path kept as an optional
   offline asset-generation route that now bakes all imported mesh parts and
   projects them with a grounded, preview-like pitched camera target.
+- Static Interior-pack props can now be baked to sharp 8-view sprite sheets by
+  the offline asset pipeline, ready for future `sprite_3d` room-prop
+  integration.
+- Floors and walls stay on the existing room-shell `model_3d` path. The
+  current shell generator keeps the original renderer contract intact by using
+  floor color slots `0..5` and shell color slots `6..8`, while adding a denser
+  parquet-like floor split and a wainscot-plus-wall banding treatment.
+- Room-shell doorway openings are generated from the same aligned door-center
+  math used by `src/room_viewer.cpp` for transitions, and the wall band above
+  each door stays filled with the normal wall color so the opening top reads as
+  part of the same wall surface.
+- In room-viewer local space, `north` is the hidden front wall at `Y = -half`
+  and `south` is the visible back wall at `Y = +half`; the shell generator must
+  keep that same convention so visible exits match both collision and minimap
+  directions.
 - The camera is constrained to 8 directions and turns quickly through each
   intermediate heading instead of teleporting to the target angle.
+- Player walking uses a capped partial missed-frame catch-up so room-viewer
+  movement speed still tunes by feel without dropping into severe slowdown,
+  while door transitions still advance by elapsed frame count.
 - After 1 second of no input, the camera recenters behind the player's
   current facing direction, except while the player is near the room center.
 - `START` recenters the camera behind the player's current facing direction.

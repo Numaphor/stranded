@@ -1,12 +1,14 @@
 # Quality and Testing
 
-Last updated: 2026-03-29
+Last updated: 2026-03-30
 
 ## Current Practice
 
 - There are no automated tests.
 - `make -j4` is the primary build check.
 - Validation is local and emulator-driven.
+- `scripts/mgba_f12_capture.ps1` is the canonical screenshot helper for native
+  mGBA `F12` capture in this repo.
 
 ## Manual Validation
 
@@ -23,6 +25,15 @@ For room-viewer changes, verify:
 
 When a change is visual, use native mGBA `F12` screenshots and inspect the
 result directly.
+
+For the Maria-style interior pipeline, also verify:
+
+7. Room shells still render through the existing world path while only their
+   shell shapes and colors change.
+8. Offline-baked Interior-pack sprite sheets build cleanly and keep the
+   intended sharp 8-view ordering.
+9. When reviewing baked prop frames, imported props stay grounded and keep
+   their silhouette centered consistently across the full turntable.
 
 ## Main Risks
 

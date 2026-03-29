@@ -85,7 +85,7 @@ namespace {
     constexpr int BIG_ROOM_B = 5;
     constexpr int PLAYER_IDLE_FRAMES_PER_ANGLE = 17;
     constexpr int PLAYER_WALK_FRAMES_PER_ANGLE = 8;
-    constexpr int PLAYER_ANIM_SPEED = 6;
+    constexpr int PLAYER_ANIM_SPEED = 5;
     constexpr bn::fixed PLAYER_SPRITE_SCALE = bn::fixed(7) / 8;
     int player_angle_row(int dir, bool facing_left)
     {
@@ -398,7 +398,8 @@ namespace {
     constexpr bn::fixed DOOR_HALF_WIDTH = 10;
     constexpr bn::fixed DOOR_APPROACH_EDGE_MARGIN = 18;
     constexpr bn::fixed DOOR_APPROACH_LANE_MARGIN = 12;
-    // Movement is frame-compensated, so keep a lower per-step speed target.
+    // Keep player movement fixed-step per update so walk speed stays intuitive,
+    // then tune the base step to preserve a smooth on-screen cadence.
     constexpr bn::fixed MOVE_SPEED = bn::fixed(0.5);
     constexpr int DOOR_TRANSITION_DURATION_FRAMES = 16;
     constexpr int SPAWN_CORNER_INDEX = 2;
@@ -683,19 +684,6 @@ namespace {
     // Each room is 120x120, player confined to [-55,55] (FLOOR_MIN/MAX).
     // Doors trigger when player crosses ??55 near center of a wall edge.
 
-    constexpr inline bn::color room_viewer_colors[10] = {
-        bn::color(22, 16, 8),   // 0 room0_floor
-        bn::color(12, 14, 22),  // 1 room1_floor
-        bn::color(10, 20, 10),  // 2 room2_floor
-        bn::color(22, 10, 8),   // 3 room3_floor
-        bn::color(16, 10, 20),  // 4 room4_floor
-        bn::color(8, 18, 20),   // 5 room5_floor
-        bn::color(28, 26, 22),  // 6 wall
-        bn::color(16, 22, 28),  // 7 window
-        bn::color(10, 8, 6),    // 8 door_frame
-        bn::color(18, 12, 6)    // 9 furniture
-    };
-
     // Door transition info: which direction, which neighbor room
     // Doors are at the edges of local room space:
     //   North door (y near -55): go to row-1 (same column)
@@ -913,7 +901,7 @@ namespace str
 RoomViewer::RoomViewer() {}
 
 void RoomViewer::_update_player_anim_tiles(fr::sprite_3d_item& item, bool moving, int dir, bool facing_left,
-                                           int elapsed_frames)
+                                           int frame_advance)
 {
     const bn::sprite_item& player_sprite_item =
         moving ? bn::sprite_items::player_walk : bn::sprite_items::player_idle;
@@ -934,7 +922,7 @@ void RoomViewer::_update_player_anim_tiles(fr::sprite_3d_item& item, bool moving
 
     item.tiles().set_tiles_ref(player_sprite_item.tiles_item(), tile_index);
 
-    _anim_frame_counter += elapsed_frames;
+    _anim_frame_counter += frame_advance;
 }
 
 str::Scene RoomViewer::execute()
@@ -957,7 +945,7 @@ str::Scene RoomViewer::execute()
     _debug_mode = ENABLE_RENDER_SWEEP_DEBUG;
 
     int current_room = SPAWN_ROOM_ID;
-    _models.load_colors(bn::span<const bn::color>(room_viewer_colors, 10));
+    _models.load_colors(str::model_3d_items::room_model_colors);
 
     fr::model_3d* room_models[NUM_ROOMS] = {};
     fr::model_3d* books_ptr = nullptr;
@@ -1816,6 +1804,7 @@ str::Scene RoomViewer::execute()
         #endif
 
         int elapsed_frames = bn::clamp(frame_cost, 1, 4);
+        int player_frame_advance = bn::min(elapsed_frames, 2);
 
         if(camera_initial_lock_frames > 0)
         {
@@ -2089,7 +2078,9 @@ str::Scene RoomViewer::execute()
             bn::fixed old_player_fx = _player_fx;
             bn::fixed old_player_fy = _player_fy;
 
-            for(int step = 0; step < elapsed_frames; ++step)
+            // Keep the normal 60 FPS feel, but allow one extra catch-up step
+            // on missed frames so movement doesn't suddenly bog down.
+            for(int step = 0; step < player_frame_advance; ++step)
             {
                 bn::fixed new_fx = bn::clamp(_player_fx + dfx, FLOOR_MIN, FLOOR_MAX);
                 bn::fixed new_fy = bn::clamp(_player_fy + dfy, FLOOR_MIN, FLOOR_MAX);
@@ -2149,7 +2140,6 @@ str::Scene RoomViewer::execute()
                     door_transition_target_local_y = new_local_y;
                     // Keep destination neighborhood loaded during interpolation.
                     sync_room_models();
-                    break;
                 }
             }
 
@@ -2239,7 +2229,7 @@ str::Scene RoomViewer::execute()
 
         player_sprite.set_horizontal_flip(false);
         _update_player_anim_tiles(player_sprite_item, moving || door_transition_active, dir, facing_left,
-                                  elapsed_frames);
+                                  player_frame_advance);
 
         // --- NPC idle animation with camera-relative facing ---
         {
