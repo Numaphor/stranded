@@ -1,6 +1,6 @@
 # 3D Engine Reference
 
-Last updated: 2026-03-26
+Last updated: 2026-03-29
 
 ## Scope
 
@@ -53,8 +53,18 @@ decorations needed for the current room state.
 
 - The room viewer uses a fixed 60-degree top-down floor tilt across every
   quarter-turn rotation.
-- Camera follow tracks the committed movement heading.
-- `START` recenters the camera.
+- Wide scanline-rendered faces reserve a stable number of HDMA sprite slots per
+  visible row so per-row split changes do not reorder overlapping geometry into
+  horizontal bands.
+- The player sprite uses a 64x64 sheet baked offline from the Blender preview
+  renders by default, with the voxel-derived bake path kept as an optional
+  offline asset-generation route that now bakes all imported mesh parts and
+  projects them with a grounded, preview-like pitched camera target.
+- The camera is constrained to 8 directions and turns quickly through each
+  intermediate heading instead of teleporting to the target angle.
+- After 1 second of no input, the camera recenters behind the player's
+  current facing direction, except while the player is near the room center.
+- `START` recenters the camera behind the player's current facing direction.
 - `L` and `R` adjust camera distance.
 - Door transitions run for a fixed number of frames and block movement while
   active.

@@ -1,6 +1,6 @@
 # Quality and Testing
 
-Last updated: 2026-03-22
+Last updated: 2026-03-29
 
 ## Current Practice
 
@@ -15,7 +15,9 @@ For room-viewer changes, verify:
 1. The ROM boots directly into the room viewer.
 2. Movement and collision still behave correctly.
 3. Door transitions still run and block movement while active.
-4. Camera recentering and distance changes still work.
+4. The camera still turns quickly through 8-direction headings, recenters
+   after 1 second of no input away from the room center, and `START`/distance
+   changes still work.
 5. The minimap still updates correctly.
 6. `BgDialog` still opens and advances correctly.
 

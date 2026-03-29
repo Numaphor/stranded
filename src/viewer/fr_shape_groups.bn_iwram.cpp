@@ -129,6 +129,15 @@ void shape_groups::add_hlines(unsigned minimum_y, unsigned maximum_y, int width,
     }
     else
     {
+        int clipped_width = width;
+
+        if(clipped_width > bn::display::width())
+        {
+            clipped_width = bn::display::width();
+        }
+
+        int split_segments = 1 + ((clipped_width - 2) / split_length);
+
         if(x_outside) [[unlikely]]
         {
             for(unsigned y = minimum_y; y <= maximum_y; ++y)
@@ -152,48 +161,45 @@ void shape_groups::add_hlines(unsigned minimum_y, unsigned maximum_y, int width,
                         }
 
                         int hlines_count = _hlines_count[y];
-                        uint16_t* sprite_hdma_source = hdma_source + (y * screen_line_elements);
-                        sprite_hdma_source += hlines_count * 4;
 
-                        bool keep_adding;
-
-                        do
+                        if(hlines_count + split_segments <= _max_hdma_sprites) [[likely]]
                         {
-                            if(hlines_count < _max_hdma_sprites) [[likely]]
-                            {
-                                int length = xr - xl;
-                                int sprite_y;
-                                keep_adding = length > split_length;
-                                ++hlines_count;
+                            _hlines_count[y] = hlines_count + split_segments;
 
-                                if(keep_adding)
+                            uint16_t* sprite_hdma_source = hdma_source + (y * screen_line_elements);
+                            sprite_hdma_source += hlines_count * 4;
+
+                            int segment_xl = xl;
+
+                            for(int segment_index = 0; segment_index < split_segments; ++segment_index)
+                            {
+                                if(segment_xl <= xr) [[likely]]
                                 {
-                                    sprite_y = int(y) - split_length;
+                                    int length = xr - segment_xl;
+
+                                    if(length > split_length)
+                                    {
+                                        length = split_length;
+                                    }
+
+                                    sprite_hdma_source[0] = bn::hw::sprites::first_attributes(
+                                                int(y) - length, bn::sprite_shape::SQUARE, bn::bpp_mode::BPP_4, 0,
+                                                true, false, false, false);
+
+                                    sprite_hdma_source[1] = attr1 + segment_xl;
+                                    sprite_hdma_source[2] = attr2;
                                 }
                                 else
                                 {
-                                    sprite_y = int(y) - length;
+                                    sprite_hdma_source[0] = ATTR0_HIDE;
+                                    sprite_hdma_source[1] = 0;
+                                    sprite_hdma_source[2] = 0;
                                 }
 
-                                sprite_hdma_source[0] = bn::hw::sprites::first_attributes(
-                                            sprite_y, bn::sprite_shape::SQUARE, bn::bpp_mode::BPP_4, 0,
-                                            true, false, false, false);
-
-                                sprite_hdma_source[1] = attr1 + xl;
-
-                                sprite_hdma_source[2] = attr2;
-
-                                xl += split_length;
+                                segment_xl += split_length;
                                 sprite_hdma_source += 4;
                             }
-                            else
-                            {
-                                keep_adding = false;
-                            }
                         }
-                        while(keep_adding);
-
-                        _hlines_count[y] = hlines_count;
                     }
                 }
             }
@@ -206,48 +212,45 @@ void shape_groups::add_hlines(unsigned minimum_y, unsigned maximum_y, int width,
                 int xr = hlines[y].xr;
 
                 int hlines_count = _hlines_count[y];
-                uint16_t* sprite_hdma_source = hdma_source + (y * screen_line_elements);
-                sprite_hdma_source += hlines_count * 4;
 
-                bool keep_adding;
-
-                do
+                if(hlines_count + split_segments <= _max_hdma_sprites) [[likely]]
                 {
-                    if(hlines_count < _max_hdma_sprites) [[likely]]
-                    {
-                        int length = xr - xl;
-                        int sprite_y;
-                        keep_adding = length > split_length;
-                        ++hlines_count;
+                    _hlines_count[y] = hlines_count + split_segments;
 
-                        if(keep_adding) [[likely]]
+                    uint16_t* sprite_hdma_source = hdma_source + (y * screen_line_elements);
+                    sprite_hdma_source += hlines_count * 4;
+
+                    int segment_xl = xl;
+
+                    for(int segment_index = 0; segment_index < split_segments; ++segment_index)
+                    {
+                        if(segment_xl <= xr) [[likely]]
                         {
-                            sprite_y = int(y) - split_length;
+                            int length = xr - segment_xl;
+
+                            if(length > split_length)
+                            {
+                                length = split_length;
+                            }
+
+                            sprite_hdma_source[0] = bn::hw::sprites::first_attributes(
+                                        int(y) - length, bn::sprite_shape::SQUARE, bn::bpp_mode::BPP_4, 0,
+                                        true, false, false, false);
+
+                            sprite_hdma_source[1] = attr1 + segment_xl;
+                            sprite_hdma_source[2] = attr2;
                         }
                         else
                         {
-                            sprite_y = int(y) - length;
+                            sprite_hdma_source[0] = ATTR0_HIDE;
+                            sprite_hdma_source[1] = 0;
+                            sprite_hdma_source[2] = 0;
                         }
 
-                        sprite_hdma_source[0] = bn::hw::sprites::first_attributes(
-                                    sprite_y, bn::sprite_shape::SQUARE, bn::bpp_mode::BPP_4, 0,
-                                    true, false, false, false);
-
-                        sprite_hdma_source[1] = attr1 + xl;
-
-                        sprite_hdma_source[2] = attr2;
-
-                        xl += split_length;
+                        segment_xl += split_length;
                         sprite_hdma_source += 4;
                     }
-                    else
-                    {
-                        keep_adding = false;
-                    }
                 }
-                while(keep_adding);
-
-                _hlines_count[y] = hlines_count;
             }
         }
     }

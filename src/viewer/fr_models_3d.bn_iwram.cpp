@@ -42,6 +42,7 @@ namespace
     constexpr int room_back_layer_bias = 1000000;
     constexpr int room_front_layer_bias = -1000000;
     constexpr bn::fixed room_near_wall_cull_normal_y_max = bn::fixed(-0.2);
+    constexpr int projected_face_min_area2 = 24;
     constexpr int div_lut_max_index = 1024 * 4 - 1;
 }
 
@@ -241,6 +242,7 @@ void models_3d::_process_models(const camera_3d& camera)
                     int color_index = face.color_index();
                     bool room_floor_surface = color_index >= 0 && color_index <= 5;
                     bool room_shell_surface = color_index >= 6 && color_index <= 8;
+                    bool room_main_wall_surface = color_index == 6;
                     bool room_perspective_mode = model.mode() == model_3d::layering_mode::room_perspective;
                     bool room_floor_only_mode = model.mode() == model_3d::layering_mode::room_floor_only;
                     bool near_shell_surface = false;
@@ -268,7 +270,16 @@ void models_3d::_process_models(const camera_3d& camera)
                     }
                     else
                     {
-                        render_face = front_facing || model_double_sided;
+                        bool allow_double_sided = model_double_sided;
+
+                        if(room_shell_surface)
+                        {
+                            // Keep only the main room shell double-sided so thin door-frame
+                            // faces don't leak through walls as horizontal/diagonal bands.
+                            allow_double_sided = room_main_wall_surface;
+                        }
+
+                        render_face = front_facing || allow_double_sided;
                     }
 
                     if(render_face) [[likely]]
@@ -330,6 +341,43 @@ void models_3d::_process_models(const camera_3d& camera)
 
             if(minimum_x < display_width && maximum_x >= 0) [[likely]]
             {
+                auto tri_area2 = [](const point_2d& a, const point_2d& b, const point_2d& c) {
+                    return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+                };
+                auto same_sign = [](int a, int b) {
+                    return (a > 0 && b > 0) || (a < 0 && b < 0);
+                };
+
+                bool stable_projection = true;
+
+                if(face->triangle())
+                {
+                    int area2 = tri_area2(pv0, pv1, pv2);
+                    stable_projection = bn::abs(area2) >= projected_face_min_area2;
+                }
+                else
+                {
+                    int area012 = tri_area2(pv0, pv1, pv2);
+                    int area023 = tri_area2(pv0, pv2, pv3);
+                    int edge01 = tri_area2(pv0, pv1, pv2);
+                    int edge12 = tri_area2(pv1, pv2, pv3);
+                    int edge23 = tri_area2(pv2, pv3, pv0);
+                    int edge30 = tri_area2(pv3, pv0, pv1);
+
+                    stable_projection =
+                        bn::abs(area012) >= projected_face_min_area2 &&
+                        bn::abs(area023) >= projected_face_min_area2 &&
+                        same_sign(area012, area023) &&
+                        same_sign(edge01, edge12) &&
+                        same_sign(edge12, edge23) &&
+                        same_sign(edge23, edge30);
+                }
+
+                if(! stable_projection) [[unlikely]]
+                {
+                    continue;
+                }
+
                 int16_t minimum_y = pv0.y;
                 int16_t maximum_y = minimum_y;
                 int top_index = 0;

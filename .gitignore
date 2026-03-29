@@ -18,6 +18,13 @@ build/
 compile_commands.json
 .clangd
 .cache
+__pycache__/
+tmp/
+stranded-*.png
+stranded-codex-*.png
+stranded.ss8
+tmp_painting_mappings.png
+graphics/sprite/decor/*_inspect.png
 # OS specific files
 *.exe
 tools/mGBA-0.10.5-win64/nointro.sqlite3

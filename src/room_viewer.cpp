@@ -18,7 +18,8 @@
 #include "bn_log.h"
 #include "bn_profiler.h"
 #include "bn_point.h"
-#include "bn_sprite_items_eris.h"
+#include "bn_sprite_items_player_idle.h"
+#include "bn_sprite_items_player_walk.h"
 #include "bn_sprite_items_villager.h"
 #include "bn_sprite_palette_ptr.h"
 #include "str_bg_dialog.h"
@@ -46,21 +47,19 @@ namespace {
     constexpr int NUM_ROOMS = 6;
     constexpr int QUARTER_TURN_ANGLE = 16384;
     constexpr int CAMERA_BEHIND_OFFSET_ANGLE = 24576;
-    constexpr int CAMERA_MIN_RETARGET_DELTA = 8192;
-    constexpr bn::fixed CAMERA_FOLLOW_GAIN = bn::fixed(0.025);
-    constexpr bn::fixed CAMERA_START_GAIN = bn::fixed(0.14);
-    constexpr int CAMERA_FOLLOW_MAX_STEP = 128;
-    constexpr int CAMERA_START_MAX_STEP = 640;
-    constexpr int CAMERA_MIN_STEP = 4;
-    constexpr int CAMERA_SNAP_EPSILON = 32;
-    constexpr int CAMERA_START_BOOST_FRAMES = 10;
     constexpr int CAMERA_INITIAL_LOCK_FRAMES = 120;
-    constexpr int CAMERA_RETARGET_COOLDOWN_FRAMES = 36;
-    constexpr int CAMERA_IDLE_FOLLOW_DELAY_FRAMES = 60;
+    constexpr int CAMERA_IDLE_RECENTER_DELAY_FRAMES = 60;
+    constexpr bn::fixed CAMERA_CENTER_HOLD_HALF_EXTENT = 16;
+    constexpr int CAMERA_TURN_MAX_STEP_ANGLE = 2048;
+    constexpr bn::fixed CAMERA_TURN_GAIN = bn::fixed(0.35);
+    constexpr bn::fixed CAMERA_TURN_RESPONSE = bn::fixed(0.65);
+    constexpr int CAMERA_TURN_SNAP_EPSILON = 96;
     constexpr int CAMERA_RENDER_UPDATE_ANGLE_STEP = 64;
     constexpr int PAINTING_MOTION_UPDATE_INTERVAL_FRAMES = 2;
     constexpr bn::fixed PAINTING_FACE_VISIBILITY_DOT_MIN = bn::fixed(8);
     constexpr int PAINTING_MIN_TRI_AREA2 = 220;
+    constexpr int PAINTING_MIN_TRI_SPAN = 4;
+    constexpr int PAINTING_MAX_AFFINE_REGISTER = 16384;
     constexpr int ADJACENT_ROOM_DEPTH_BIAS = 1500000;
     constexpr int TRANSITION_DECOR_DEPTH_BIAS = ADJACENT_ROOM_DEPTH_BIAS;
     constexpr int ROOM_PREVIEW_TARGET_FPS = 50;
@@ -70,8 +69,10 @@ namespace {
     constexpr int ROOM_PREVIEW_REQUIRED_SAMPLES = 2;
     constexpr int ROOM_PREVIEW_MODE_CHANGE_COOLDOWN_FRAMES = 180;
     constexpr bool ROOM_PREVIEW_AUTO_ADJUST = false;
+    constexpr bool ENABLE_RENDER_SWEEP_DEBUG = false;
     constexpr bool ENABLE_PAINTING_QUADS = true;
     constexpr bool ENABLE_NPC_SPRITES = true;
+    constexpr bool ENABLE_MINIMAP = true;
     constexpr bn::fixed NPC_FX = 20;
     constexpr bn::fixed NPC_FY = -15;
     constexpr bn::fixed NPC_FZ = -10;
@@ -82,6 +83,33 @@ namespace {
     constexpr int NPC_PALETTE_HAT_INDEX_2 = 11;
     constexpr int BIG_ROOM_A = 1;
     constexpr int BIG_ROOM_B = 5;
+    constexpr int PLAYER_IDLE_FRAMES_PER_ANGLE = 17;
+    constexpr int PLAYER_WALK_FRAMES_PER_ANGLE = 8;
+    constexpr int PLAYER_ANIM_SPEED = 6;
+    constexpr bn::fixed PLAYER_SPRITE_SCALE = bn::fixed(7) / 8;
+    int player_angle_row(int dir, bool facing_left)
+    {
+        switch(dir)
+        {
+            case 0:
+                return 0;
+
+            case 1:
+                return facing_left ? 1 : 7;
+
+            case 2:
+                return facing_left ? 2 : 6;
+
+            case 3:
+                return facing_left ? 3 : 5;
+
+            case 4:
+                return 4;
+
+            default:
+                return 0;
+        }
+    }
 
     // NPC hat recolor targets per big room (derived from room floor colors)
     // Room 1 floor: bn::color(12,14,22) blue -> keep original blue hat
@@ -204,13 +232,6 @@ namespace {
         return ((normalize_angle(-angle) + 8192) / QUARTER_TURN_ANGLE) & 3;
     }
 
-    int quantize_heading_angle_8(int angle)
-    {
-        int normalized_angle = normalize_angle(angle);
-        int bucket = (normalized_angle + 4096) / 8192;
-        return normalize_angle(bucket * 8192);
-    }
-
     int wrap_linear8(int linear)
     {
         return ((linear % 8) + 8) % 8;
@@ -219,6 +240,53 @@ namespace {
     int view_angle_steps_8(int angle)
     {
         return normalize_angle(angle) / 8192;
+    }
+
+    int heading_angle_from_linear8(int linear)
+    {
+        return normalize_angle(8192 - wrap_linear8(linear) * 8192);
+    }
+
+    int step_angle_toward_target(int current_angle, int target_angle, bn::fixed& turn_velocity)
+    {
+        int angle_delta = shortest_angle_delta(current_angle, target_angle);
+
+        if(angle_delta == 0)
+        {
+            turn_velocity = 0;
+            return current_angle;
+        }
+
+        int abs_angle_delta = angle_delta >= 0 ? angle_delta : -angle_delta;
+
+        if(abs_angle_delta <= CAMERA_TURN_SNAP_EPSILON)
+        {
+            turn_velocity = 0;
+            return target_angle;
+        }
+
+        bn::fixed max_step = CAMERA_TURN_MAX_STEP_ANGLE;
+        bn::fixed desired_step = bn::fixed(angle_delta) * CAMERA_TURN_GAIN;
+        desired_step = bn::max(-max_step, bn::min(desired_step, max_step));
+        turn_velocity += (desired_step - turn_velocity) * CAMERA_TURN_RESPONSE;
+
+        int step = turn_velocity.round_integer();
+
+        if(step == 0)
+        {
+            step = angle_delta > 0 ? 1 : -1;
+        }
+
+        if(step > 0)
+        {
+            step = bn::min(step, abs_angle_delta);
+        }
+        else
+        {
+            step = -bn::min(-step, abs_angle_delta);
+        }
+
+        return normalize_angle(current_angle + step);
     }
 
     // Convert (dir, facing_left) to a linear 0-7 index and back.
@@ -336,76 +404,119 @@ namespace {
     constexpr int SPAWN_CORNER_INDEX = 2;
     constexpr int SPAWN_PLAYER_DIR = 3;
     constexpr bool SPAWN_PLAYER_FACING_LEFT = false;
-    constexpr int SPAWN_ROOM_ID = 1;
+    constexpr int SPAWN_ROOM_ID = 0;
     constexpr int SHAPE_OAM_START_INDEX = 64;
     constexpr int SHAPE_RESERVED_HANDLES = fr::models_3d::required_reserved_sprite_handles();
     constexpr int ROOM_VIEWER_RESERVED_HANDLES = 0;
     static_assert(ROOM_VIEWER_RESERVED_HANDLES <= bn::hw::sprites::count(),
                   "Room viewer reserved handles overflow OAM");
 
+    constexpr int degrees_to_angle(int degrees)
+    {
+        return (degrees * 65536) / 360;
+    }
+
+    struct render_sweep_preset
+    {
+        int fx;
+        int fy;
+        int view_angle;
+        int dir;
+        bool facing_left;
+    };
+
+    constexpr render_sweep_preset render_sweep_presets[] = {
+        { -28, 28, degrees_to_angle(180), 4, false },
+        { -12, 28, degrees_to_angle(180), 4, false },
+        {   4, 28, degrees_to_angle(180), 4, false },
+        {  20, 28, degrees_to_angle(180), 4, false },
+        { -28, 16, degrees_to_angle(180), 4, false },
+        { -12, 16, degrees_to_angle(180), 4, false },
+        {   4, 16, degrees_to_angle(180), 4, false },
+        {  20, 16, degrees_to_angle(180), 4, false },
+        { -20, 10, degrees_to_angle(168), 4, false },
+        {  -4, 10, degrees_to_angle(168), 4, false },
+        {  12, 10, degrees_to_angle(168), 4, false },
+        {  28, 10, degrees_to_angle(168), 4, false },
+        { -20, 10, degrees_to_angle(192), 0, false },
+        {  -4, 10, degrees_to_angle(192), 0, false },
+        {  12, 10, degrees_to_angle(192), 0, false },
+        {  28, 10, degrees_to_angle(192), 0, false },
+    };
+
+    constexpr int render_sweep_presets_count = sizeof(render_sweep_presets) / sizeof(render_sweep_presets[0]);
+
     class textured_triangle
     {
     public:
         explicit textured_triangle(const bn::sprite_item& sprite_item) :
-            _sprite(sprite_item.create_sprite(0, 0)),
+            _sprite(sprite_item.create_sprite_optional(0, 0)),
             _affine_mat(bn::sprite_affine_mat_ptr::create()),
             _half_size(sprite_item.shape_size().width() / 2)
         {
-            _sprite.set_affine_mat(_affine_mat);
-            // Keep paintings above room HDMA sprites without needing manual OAM writes.
-            _sprite.set_bg_priority(1);
-            _sprite.set_visible(false);
+            if(_sprite)
+            {
+                _sprite->set_affine_mat(_affine_mat);
+                // Keep paintings above room HDMA sprites without needing manual OAM writes.
+                _sprite->set_bg_priority(1);
+                _sprite->set_visible(false);
+            }
         }
 
         void set_visible(bool visible)
         {
-            _sprite.set_visible(visible);
+            if(_sprite)
+            {
+                _sprite->set_visible(visible);
+            }
         }
 
-        void set_points(const bn::point& p0, const bn::point& p1, const bn::point& p2)
+        bool set_points(const bn::point& p0, const bn::point& p1, const bn::point& p2)
         {
+            if(! _sprite)
+            {
+                return false;
+            }
+
             _p0 = p0;
             _p1 = p1;
             _p2 = p2;
-            _update();
+            return _update();
         }
 
     private:
-        bn::sprite_ptr _sprite;
+        bn::optional<bn::sprite_ptr> _sprite;
         bn::sprite_affine_mat_ptr _affine_mat;
         bn::point _p0;
         bn::point _p1;
         bn::point _p2;
         int _half_size;
 
-        void _update()
+        bool _update()
         {
             switch(_half_size)
             {
                 case 4:
-                    _update_impl<4>();
-                    break;
+                    return _update_impl<4>();
 
                 case 8:
-                    _update_impl<8>();
-                    break;
+                    return _update_impl<8>();
 
                 case 16:
-                    _update_impl<16>();
-                    break;
+                    return _update_impl<16>();
 
                 case 32:
-                    _update_impl<32>();
-                    break;
+                    return _update_impl<32>();
 
                 default:
                     BN_ERROR("Invalid textured triangle half size: ", _half_size);
-                    break;
+                    set_visible(false);
+                    return false;
             }
         }
 
         template<int half_size>
-        void _update_impl()
+        bool _update_impl()
         {
             auto abs_value = [](int value) {
                 return value >= 0 ? value : -value;
@@ -433,21 +544,20 @@ namespace {
             if(! affine_divisor || abs_affine_divisor < 32)
             {
                 set_visible(false);
-                return;
+                return false;
             }
 
             int pa = (-512 * half_size * y1 + 512 * half_size * y2 + 256 * y1 - 256 * y2) / affine_divisor;
             int pb = (256 * (2 * half_size * x1 - 2 * half_size * x2 - x1 + x2)) / affine_divisor;
             int pc = (-512 * half_size * y0 + 512 * half_size * y1 + 256 * y0 - 256 * y1) / affine_divisor;
             int pd = (256 * (2 * half_size * x0 - 2 * half_size * x1 - x0 + x1)) / affine_divisor;
-            constexpr int max_affine_register = 32767;
-
-            // Prevent affine register overflow/wrap when projected triangles become unstable at specific zooms.
-            if(abs_value(pa) > max_affine_register || abs_value(pb) > max_affine_register ||
-               abs_value(pc) > max_affine_register || abs_value(pd) > max_affine_register)
+            // Reject very stretched affine triangles well before hardware register
+            // overflow so they don't degrade into visible horizontal banding.
+            if(abs_value(pa) > PAINTING_MAX_AFFINE_REGISTER || abs_value(pb) > PAINTING_MAX_AFFINE_REGISTER ||
+               abs_value(pc) > PAINTING_MAX_AFFINE_REGISTER || abs_value(pd) > PAINTING_MAX_AFFINE_REGISTER)
             {
                 set_visible(false);
-                return;
+                return false;
             }
 
             bn::affine_mat_attributes attributes;
@@ -474,15 +584,18 @@ namespace {
             int sprite_x = delta_x / position_divisor;
             int sprite_y = delta_y / position_divisor;
 
-            // Keep off-screen/unstable projections from wrapping into visible garbage quads.
-            if(abs_value(sprite_x) > 240 || abs_value(sprite_y) > 176)
+            // Affine triangle centers can land well outside the visible screen
+            // while the transformed triangle itself is still on screen, so only
+            // reject clearly nonsensical wrapped positions.
+            if(abs_value(sprite_x) > 1024 || abs_value(sprite_y) > 1024)
             {
                 set_visible(false);
-                return;
+                return false;
             }
 
-            _sprite.set_position(sprite_x, sprite_y);
+            _sprite->set_position(sprite_x, sprite_y);
             set_visible(true);
+            return true;
         }
     };
 
@@ -501,10 +614,18 @@ namespace {
             _bottom.set_visible(visible);
         }
 
-        void set_points(const bn::point& p0, const bn::point& p1, const bn::point& p2, const bn::point& p3)
+        bool set_points(const bn::point& p0, const bn::point& p1, const bn::point& p2, const bn::point& p3)
         {
-            _top.set_points(p2, p3, p0);
-            _bottom.set_points(p0, p1, p2);
+            bool top_ok = _top.set_points(p2, p3, p0);
+            bool bottom_ok = _bottom.set_points(p0, p1, p2);
+
+            if(! top_ok || ! bottom_ok)
+            {
+                set_visible(false);
+                return false;
+            }
+
+            return true;
         }
 
     private:
@@ -520,10 +641,10 @@ namespace {
     };
 
     constexpr int room_decor_flags[NUM_ROOMS] = {
-        decor_books,        // Room 0
+        decor_none,         // Room 0
         decor_books,        // Room 1
         decor_potted_plant, // Room 2
-        decor_books,        // Room 3
+        decor_none,         // Room 3
         decor_potted_plant, // Room 4
         decor_potted_plant, // Room 5
     };
@@ -791,25 +912,27 @@ namespace str
 
 RoomViewer::RoomViewer() {}
 
-void RoomViewer::_update_player_anim_tiles(fr::sprite_3d_item& item, bool moving, int dir, int elapsed_frames)
+void RoomViewer::_update_player_anim_tiles(fr::sprite_3d_item& item, bool moving, int dir, bool facing_left,
+                                           int elapsed_frames)
 {
-    constexpr int idle_bases[] = {8, 12, 16, 20, 24};
-    constexpr int walk_bases[] = {28, 32, 36, 40, 44};
-    constexpr int frames_per_anim = 4;
-    constexpr int anim_speed = 8;
+    const bn::sprite_item& player_sprite_item =
+        moving ? bn::sprite_items::player_walk : bn::sprite_items::player_idle;
+    int frames_per_angle = moving ? PLAYER_WALK_FRAMES_PER_ANGLE : PLAYER_IDLE_FRAMES_PER_ANGLE;
 
-    if(_player_moving != moving || _player_dir != dir)
+    if(_player_moving != moving || _player_dir != dir || _player_facing_left != facing_left)
     {
         _player_moving = moving;
         _player_dir = dir;
+        _player_facing_left = facing_left;
         _anim_frame_counter = 0;
+        item.palette().set_colors(player_sprite_item.palette_item());
     }
 
-    int base_frame = moving ? walk_bases[dir] : idle_bases[dir];
-    int frame_in_anim = (_anim_frame_counter / anim_speed) % frames_per_anim;
+    int base_frame = player_angle_row(dir, facing_left) * frames_per_angle;
+    int frame_in_anim = (_anim_frame_counter / PLAYER_ANIM_SPEED) % frames_per_angle;
     int tile_index = base_frame + frame_in_anim;
 
-    item.tiles().set_tiles_ref(bn::sprite_items::eris.tiles_item(), tile_index);
+    item.tiles().set_tiles_ref(player_sprite_item.tiles_item(), tile_index);
 
     _anim_frame_counter += elapsed_frames;
 }
@@ -831,6 +954,7 @@ str::Scene RoomViewer::execute()
     _player_dir = SPAWN_PLAYER_DIR;
     _player_facing_left = SPAWN_PLAYER_FACING_LEFT;
     _player_moving = false;
+    _debug_mode = ENABLE_RENDER_SWEEP_DEBUG;
 
     int current_room = SPAWN_ROOM_ID;
     _models.load_colors(bn::span<const bn::color>(room_viewer_colors, 10));
@@ -841,7 +965,7 @@ str::Scene RoomViewer::execute()
     fr::model_3d* transition_books_ptr = nullptr;
     fr::model_3d* transition_potted_plant_ptr = nullptr;
 
-    fr::point_3d room_base_pos(0, 96, 16);
+    fr::point_3d room_base_pos(0, 96, 8);
     bool player_sprite_created = false;
 
     corner_matrix all_corners[4];
@@ -851,15 +975,10 @@ str::Scene RoomViewer::execute()
     int current_view_angle = -_corner_index * QUARTER_TURN_ANGLE;
     int last_oriented_view_angle = current_view_angle;
     int target_view_angle = current_view_angle;
-    int committed_heading_angle = normalize_angle(current_view_angle - CAMERA_BEHIND_OFFSET_ANGLE);
-    bool has_committed_heading = false;
-    int start_recenter_boost_frames = 0;
+    bn::fixed camera_turn_velocity = 0;
     int camera_initial_lock_frames = CAMERA_INITIAL_LOCK_FRAMES;
-    int retarget_cooldown_frames = 0;
     int painting_update_cooldown_frames = 0;
-    int idle_follow_timer = 0;
-    int last_movement_heading = 0;
-    bool has_last_movement_heading = false;
+    int idle_recenter_timer = 0;
     int player_world_linear_dir =
         wrap_linear8(dir_to_linear8(_player_dir, _player_facing_left) - view_angle_steps_8(current_view_angle));
     bn::fixed world_anchor_x = room_center_x(current_room);
@@ -873,6 +992,7 @@ str::Scene RoomViewer::execute()
     int preview_mode_low_fps_samples = 0;
     int preview_mode_high_fps_samples = 0;
     int preview_mode_change_cooldown_frames = 0;
+    int render_sweep_pose_index = ENABLE_RENDER_SWEEP_DEBUG ? 0 : -1;
     bn::fixed door_transition_start_global_x = 0;
     bn::fixed door_transition_start_global_y = 0;
     bn::fixed door_transition_target_global_x = 0;
@@ -886,7 +1006,7 @@ str::Scene RoomViewer::execute()
     bn::fixed door_transition_target_local_x = 0;
     bn::fixed door_transition_target_local_y = 0;
 
-    str::Minimap* minimap = new str::Minimap();
+    str::Minimap* minimap = ENABLE_MINIMAP ? new str::Minimap() : nullptr;
     auto set_model_rotation = [](fr::model_3d& m, const corner_matrix& cm) {
         m.set_rotation_matrix(
             cm.r00, cm.r01, cm.r02,
@@ -1174,10 +1294,13 @@ str::Scene RoomViewer::execute()
     _player_fy = 20;
     _player_fz = -10;
 
-    fr::sprite_3d_item player_sprite_item(bn::sprite_items::eris, 8);
+    fr::sprite_3d_item player_sprite_item(
+        bn::sprite_items::player_idle,
+        player_angle_row(SPAWN_PLAYER_DIR, SPAWN_PLAYER_FACING_LEFT) * PLAYER_IDLE_FRAMES_PER_ANGLE);
     fr::sprite_3d& player_sprite = _models.create_sprite(player_sprite_item);
     player_sprite_created = true;
-    player_sprite.set_scale(2);
+    player_sprite.set_scale(PLAYER_SPRITE_SCALE);
+    player_sprite.set_horizontal_flip(false);
 
     // --- NPC sprites for big rooms (Room 1 and Room 5) ---
     fr::sprite_3d_item npc_sprite_item_a(bn::sprite_items::villager, 0);
@@ -1333,11 +1456,24 @@ str::Scene RoomViewer::execute()
             auto tri_area2 = [](const bn::point& a, const bn::point& b, const bn::point& c) {
                 return (b.x() - a.x()) * (c.y() - a.y()) - (b.y() - a.y()) * (c.x() - a.x());
             };
+            auto tri_span_is_stable = [&](const bn::point& a, const bn::point& b, const bn::point& c) {
+                int min_x = bn::min(a.x(), bn::min(b.x(), c.x()));
+                int max_x = bn::max(a.x(), bn::max(b.x(), c.x()));
+                int min_y = bn::min(a.y(), bn::min(b.y(), c.y()));
+                int max_y = bn::max(a.y(), bn::max(b.y(), c.y()));
+                return max_x - min_x >= PAINTING_MIN_TRI_SPAN &&
+                       max_y - min_y >= PAINTING_MIN_TRI_SPAN;
+            };
 
             int area_bottom = tri_area2(p0, p1, p2);
             int area_top = tri_area2(p0, p2, p3);
 
             if(int_abs(area_bottom) < PAINTING_MIN_TRI_AREA2 || int_abs(area_top) < PAINTING_MIN_TRI_AREA2)
+            {
+                return false;
+            }
+
+            if(! tri_span_is_stable(p0, p1, p2) || ! tri_span_is_stable(p0, p2, p3))
             {
                 return false;
             }
@@ -1372,7 +1508,10 @@ str::Scene RoomViewer::execute()
 
         if(a_visible)
         {
-            painting_a_quad.set_points(a2_screen, a3_screen, a0_screen, a1_screen);
+            if(! painting_a_quad.set_points(a2_screen, a3_screen, a0_screen, a1_screen))
+            {
+                painting_a_quad.set_visible(false);
+            }
         }
         else
         {
@@ -1401,13 +1540,74 @@ str::Scene RoomViewer::execute()
 
         if(b_visible)
         {
-            painting_b_quad.set_points(b0_screen, b1_screen, b2_screen, b3_screen);
+            if(! painting_b_quad.set_points(b0_screen, b1_screen, b2_screen, b3_screen))
+            {
+                painting_b_quad.set_visible(false);
+            }
         }
         else
         {
             painting_b_quad.set_visible(false);
         }
     };
+
+    auto apply_render_sweep_preset = [&](int preset_index) {
+        if(! ENABLE_RENDER_SWEEP_DEBUG)
+        {
+            return;
+        }
+
+        const render_sweep_preset& preset = render_sweep_presets[preset_index];
+
+        current_room = SPAWN_ROOM_ID;
+        _player_fx = preset.fx;
+        _player_fy = preset.fy;
+        _player_fz = -10;
+        _player_dir = preset.dir;
+        _player_facing_left = preset.facing_left;
+        _player_moving = false;
+
+        current_view_angle = normalize_angle(preset.view_angle);
+        last_oriented_view_angle = current_view_angle;
+        target_view_angle = current_view_angle;
+        camera_turn_velocity = 0;
+        camera_initial_lock_frames = 0;
+        painting_update_cooldown_frames = 0;
+        idle_recenter_timer = 0;
+        player_world_linear_dir =
+            wrap_linear8(dir_to_linear8(_player_dir, _player_facing_left) - view_angle_steps_8(current_view_angle));
+        world_anchor_x = room_center_x(current_room);
+        world_anchor_y = room_center_y(current_room);
+        door_transition_active = false;
+        door_transition_elapsed = 0;
+        door_transition_target_room = current_room;
+        door_transition_furniture_room = -1;
+        door_transition_start_global_x = 0;
+        door_transition_start_global_y = 0;
+        door_transition_target_global_x = 0;
+        door_transition_target_global_y = 0;
+        door_transition_current_global_x = 0;
+        door_transition_current_global_y = 0;
+        door_transition_start_anchor_x = world_anchor_x;
+        door_transition_start_anchor_y = world_anchor_y;
+        door_transition_target_anchor_x = world_anchor_x;
+        door_transition_target_anchor_y = world_anchor_y;
+        door_transition_target_local_x = 0;
+        door_transition_target_local_y = 0;
+
+        sync_room_models();
+        ensure_decor_models();
+        update_camera();
+        update_orientations_and_paintings();
+        update_player_sprite_position();
+        update_painting_quads();
+        paintings_need_update = false;
+    };
+
+    if(ENABLE_RENDER_SWEEP_DEBUG)
+    {
+        apply_render_sweep_preset(render_sweep_pose_index);
+    }
 
     update_player_sprite_position();
 
@@ -1437,11 +1637,13 @@ str::Scene RoomViewer::execute()
     int text_hide_room_models = -1;
     int text_fps = -1;
     int text_vertices = -1;
+    int text_hlines = -1;
+    int text_pose_index = -2;
     int current_fps = 60;
     int fps_sample_updates = 0;
     int fps_sample_refreshes = 0;
 
-    auto refresh_overlay_text = [&](int room_id, int fps, int vertices_count) {
+    auto refresh_overlay_text = [&](int room_id, int fps, int vertices_count, int hlines_count) {
         _text_sprites.clear();
         int yaw_degrees = (normalize_angle(current_view_angle) * 360 + 32768) / 65536;
         if(yaw_degrees > 180)
@@ -1463,6 +1665,8 @@ str::Scene RoomViewer::execute()
             text_hide_room_models = int(debug_hide_room_models);
             text_fps = fps;
             text_vertices = vertices_count;
+            text_hlines = hlines_count;
+            text_pose_index = render_sweep_pose_index;
         };
 
         if(_debug_mode)
@@ -1473,6 +1677,10 @@ str::Scene RoomViewer::execute()
             bn::string<32> line1;
             bn::ostringstream stream1(line1);
             stream1 << "F:" << current_fx << "," << current_fy << " D:" << _player_dir;
+            if(ENABLE_RENDER_SWEEP_DEBUG)
+            {
+                stream1 << " P:" << (render_sweep_pose_index + 1) << "/" << render_sweep_presets_count;
+            }
             if(! tg.generate_optional(0, -72, line1, _text_sprites))
             {
                 generation_failed();
@@ -1501,7 +1709,8 @@ str::Scene RoomViewer::execute()
             bn::ostringstream stream4(line4);
             stream4 << "Prev:" << room_preview_mode_name(preview_mode)
                     << " A:" << (ROOM_PREVIEW_AUTO_ADJUST ? "ON" : "OFF")
-                    << " RM:" << (debug_hide_room_models ? "OFF" : "ON");
+                    << " RM:" << (debug_hide_room_models ? "OFF" : "ON")
+                    << " HL:" << hlines_count;
 
             if(ROOM_PREVIEW_AUTO_ADJUST)
             {
@@ -1515,13 +1724,19 @@ str::Scene RoomViewer::execute()
             }
 
             #if BN_CFG_PROFILER_ENABLED
-                if(! tg.generate_optional(0, 72, "SEL+START:Profiler B:Exit", _text_sprites))
+                if(! tg.generate_optional(0, 72,
+                                          ENABLE_RENDER_SWEEP_DEBUG ? "SEL:Pose B:Exit" :
+                                                                      "SEL+START:Profiler B:Exit",
+                                          _text_sprites))
                 {
                     generation_failed();
                     return;
                 }
             #else
-                if(! tg.generate_optional(0, 72, "Profiler:OFF B:Exit", _text_sprites))
+                if(! tg.generate_optional(0, 72,
+                                          ENABLE_RENDER_SWEEP_DEBUG ? "SEL:Pose B:Exit" :
+                                                                      "Profiler:OFF B:Exit",
+                                          _text_sprites))
                 {
                     generation_failed();
                     return;
@@ -1538,6 +1753,8 @@ str::Scene RoomViewer::execute()
             text_hide_room_models = int(debug_hide_room_models);
             text_fps = fps;
             text_vertices = vertices_count;
+            text_hlines = hlines_count;
+            text_pose_index = render_sweep_pose_index;
         }
         else
         {
@@ -1556,6 +1773,8 @@ str::Scene RoomViewer::execute()
             text_vertices = vertices_count;
             text_preview_mode = int(preview_mode);
             text_hide_room_models = int(debug_hide_room_models);
+            text_hlines = hlines_count;
+            text_pose_index = render_sweep_pose_index;
         }
 
         text_debug_mode = _debug_mode;
@@ -1567,7 +1786,7 @@ str::Scene RoomViewer::execute()
         int auto_profile_frames_left = STR_ROOM_VIEWER_AUTO_PROFILE_FRAMES;
     #endif
 
-    refresh_overlay_text(current_room, current_fps, _models.vertices_count());
+    refresh_overlay_text(current_room, current_fps, _models.vertices_count(), _models.max_hlines_last_frame());
 
     while(true)
     {
@@ -1605,16 +1824,6 @@ str::Scene RoomViewer::execute()
             if(camera_initial_lock_frames < 0)
             {
                 camera_initial_lock_frames = 0;
-            }
-        }
-
-        if(retarget_cooldown_frames > 0)
-        {
-            retarget_cooldown_frames -= elapsed_frames;
-
-            if(retarget_cooldown_frames < 0)
-            {
-                retarget_cooldown_frames = 0;
             }
         }
 
@@ -1732,17 +1941,14 @@ str::Scene RoomViewer::execute()
 
         if(!camera_steering_enabled)
         {
-            start_recenter_boost_frames = 0;
-            retarget_cooldown_frames = 0;
-            idle_follow_timer = 0;
+            idle_recenter_timer = 0;
+            camera_turn_velocity = 0;
         }
         if(camera_steering_enabled && !door_transition_active && bn::keypad::start_pressed() && !bn::keypad::select_held())
         {
-            int heading_for_recenter = has_committed_heading ?
-                committed_heading_angle :
-                normalize_angle(current_view_angle - CAMERA_BEHIND_OFFSET_ANGLE);
-            target_view_angle = normalize_angle(heading_for_recenter + CAMERA_BEHIND_OFFSET_ANGLE);
-            start_recenter_boost_frames = CAMERA_START_BOOST_FRAMES;
+            target_view_angle =
+                normalize_angle(heading_angle_from_linear8(player_world_linear_dir) + CAMERA_BEHIND_OFFSET_ANGLE);
+            idle_recenter_timer = 0;
         }
 
         {
@@ -1763,6 +1969,17 @@ str::Scene RoomViewer::execute()
                 sync_room_models();
                 ensure_decor_models();
                 update_orientations_and_paintings();
+            }
+            else if(ENABLE_RENDER_SWEEP_DEBUG && !bn::keypad::start_held() && !bn::keypad::r_held())
+            {
+                render_sweep_pose_index += 1;
+
+                if(render_sweep_pose_index >= render_sweep_presets_count)
+                {
+                    render_sweep_pose_index = 0;
+                }
+
+                apply_render_sweep_preset(render_sweep_pose_index);
             }
             else
             {
@@ -1942,69 +2159,39 @@ str::Scene RoomViewer::execute()
 
         bool view_angle_changed = false;
 
-        if(actual_move_dx != 0 || actual_move_dy != 0)
-        {
-            // While moving: track heading but do NOT update target_view_angle.
-            last_movement_heading = quantize_heading_angle_8(
-                bn::atan2(actual_move_dy.data(), actual_move_dx.data()).data());
-            has_last_movement_heading = true;
-            idle_follow_timer = 0;
-        }
-        else
-        {
-            idle_follow_timer += elapsed_frames;
-        }
-
         if(camera_steering_enabled && !door_transition_active)
         {
-            // Only retarget camera after player has been idle for ~1 second.
-            if(has_last_movement_heading &&
-               idle_follow_timer >= CAMERA_IDLE_FOLLOW_DELAY_FRAMES)
+            bool player_idle = actual_move_dx == 0 && actual_move_dy == 0;
+            bool no_buttons_held = !bn::keypad::any_held();
+            bool player_near_room_center =
+                bn::abs(_player_fx) <= CAMERA_CENTER_HOLD_HALF_EXTENT &&
+                bn::abs(_player_fy) <= CAMERA_CENTER_HOLD_HALF_EXTENT;
+
+            if(player_idle && no_buttons_held && !player_near_room_center)
             {
-                int new_target = normalize_angle(last_movement_heading + CAMERA_BEHIND_OFFSET_ANGLE);
-                int committed_delta = int_abs(shortest_angle_delta(
-                    has_committed_heading ? committed_heading_angle : last_movement_heading,
-                    last_movement_heading));
+                idle_recenter_timer += elapsed_frames;
 
-                if(!has_committed_heading || committed_delta >= CAMERA_MIN_RETARGET_DELTA)
+                if(idle_recenter_timer > CAMERA_IDLE_RECENTER_DELAY_FRAMES)
                 {
-                    committed_heading_angle = last_movement_heading;
-                    has_committed_heading = true;
-                    target_view_angle = new_target;
-                    retarget_cooldown_frames = CAMERA_RETARGET_COOLDOWN_FRAMES;
+                    idle_recenter_timer = CAMERA_IDLE_RECENTER_DELAY_FRAMES;
                 }
-
-                has_last_movement_heading = false;
+            }
+            else
+            {
+                idle_recenter_timer = 0;
             }
 
-            int angle_delta = shortest_angle_delta(current_view_angle, target_view_angle);
-            if(angle_delta != 0)
+            if(idle_recenter_timer >= CAMERA_IDLE_RECENTER_DELAY_FRAMES)
             {
-                bool start_boost = start_recenter_boost_frames > 0;
-                bn::fixed gain = start_boost ? CAMERA_START_GAIN : CAMERA_FOLLOW_GAIN;
-                int max_step = start_boost ? CAMERA_START_MAX_STEP : CAMERA_FOLLOW_MAX_STEP;
-                int abs_angle_delta = int_abs(angle_delta);
-                int step = (bn::fixed(abs_angle_delta) * gain).round_integer();
-                step = bn::max(step, CAMERA_MIN_STEP);
-                step = bn::min(step, max_step);
+                target_view_angle =
+                    normalize_angle(heading_angle_from_linear8(player_world_linear_dir) + CAMERA_BEHIND_OFFSET_ANGLE);
+            }
 
-                if(step >= abs_angle_delta || abs_angle_delta <= CAMERA_SNAP_EPSILON)
-                {
-                    step = abs_angle_delta;
-                }
-
-                current_view_angle = normalize_angle(current_view_angle + (angle_delta > 0 ? step : -step));
+            if(current_view_angle != target_view_angle)
+            {
+                current_view_angle = step_angle_toward_target(current_view_angle, target_view_angle,
+                                                              camera_turn_velocity);
                 view_angle_changed = true;
-            }
-
-            if(start_recenter_boost_frames > 0)
-            {
-                start_recenter_boost_frames -= elapsed_frames;
-
-                if(start_recenter_boost_frames < 0)
-                {
-                    start_recenter_boost_frames = 0;
-                }
             }
         }
 
@@ -2050,9 +2237,9 @@ str::Scene RoomViewer::execute()
             }
         }
 
-        player_sprite.set_horizontal_flip(facing_left);
-        _player_facing_left = facing_left;
-        _update_player_anim_tiles(player_sprite_item, moving || door_transition_active, dir, elapsed_frames);
+        player_sprite.set_horizontal_flip(false);
+        _update_player_anim_tiles(player_sprite_item, moving || door_transition_active, dir, facing_left,
+                                  elapsed_frames);
 
         // --- NPC idle animation with camera-relative facing ---
         {
@@ -2132,6 +2319,7 @@ str::Scene RoomViewer::execute()
 
         bool text_dirty = _debug_mode != text_debug_mode;
         int current_vertices = _models.vertices_count();
+        int current_hlines = _models.max_hlines_last_frame();
         int current_yaw_deg = (normalize_angle(current_view_angle) * 360 + 32768) / 65536;
         if(current_yaw_deg > 180)
         {
@@ -2148,7 +2336,9 @@ str::Scene RoomViewer::execute()
                current_yaw_deg != text_yaw_deg ||
                int(preview_mode) != text_preview_mode ||
                int(debug_hide_room_models) != text_hide_room_models ||
-               current_fps != text_fps || current_vertices != text_vertices)
+               current_fps != text_fps || current_vertices != text_vertices ||
+               current_hlines != text_hlines ||
+               render_sweep_pose_index != text_pose_index)
             {
                 text_dirty = true;
             }
@@ -2156,7 +2346,7 @@ str::Scene RoomViewer::execute()
 
         if(text_dirty && !npc_dialog.is_active())
         {
-            refresh_overlay_text(current_room, current_fps, current_vertices);
+            refresh_overlay_text(current_room, current_fps, current_vertices, current_hlines);
         }
 
         // --- Minimap update ---
