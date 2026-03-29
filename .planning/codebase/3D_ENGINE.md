@@ -83,15 +83,17 @@ small dynamic-model budget.
   directions.
 - The camera is constrained to 8 directions and turns quickly through each
   intermediate heading instead of teleporting to the target angle.
-- Player walking uses a capped partial missed-frame catch-up so room-viewer
-  movement speed still tunes by feel without dropping into severe slowdown,
-  while door transitions still advance by elapsed frame count.
+- Player walking and door transitions use capped carried missed-frame catch-up
+  budgets so room-viewer movement speed still tunes by feel without losing
+  distance to brief heavy-room spikes, and door transitions avoid visibly
+  chunky interpolation jumps.
 - After 1 second of no input, the camera recenters behind the player's
   current facing direction, except while the player is near the room center.
 - `START` recenters the camera behind the player's current facing direction.
 - `L` and `R` adjust camera distance.
-- Door transitions run for a fixed number of frames and block movement while
-  active.
+- Door transitions run for a fixed transition budget, block movement while
+  active, and smooth brief missed-frame bursts instead of consuming them in
+  one visible jump.
 - `BgDialog` is used for NPC interaction in the current baseline.
 
 ## Build Include Order

@@ -398,8 +398,13 @@ namespace {
     constexpr bn::fixed DOOR_HALF_WIDTH = 10;
     constexpr bn::fixed DOOR_APPROACH_EDGE_MARGIN = 18;
     constexpr bn::fixed DOOR_APPROACH_LANE_MARGIN = 12;
+    constexpr int DOOR_TRANSITION_MAX_STEPS_PER_UPDATE = 2;
+    constexpr int DOOR_TRANSITION_MAX_FRAME_BUDGET = 8;
+    constexpr int PLAYER_MOVEMENT_MAX_STEPS_PER_UPDATE = 2;
+    constexpr int PLAYER_MOVEMENT_MAX_FRAME_BUDGET = 8;
     // Keep player movement fixed-step per update so walk speed stays intuitive,
-    // then tune the base step to preserve a smooth on-screen cadence.
+    // but carry a small catch-up budget across missed frames so brief heavy-room
+    // spikes don't permanently shave movement distance.
     constexpr bn::fixed MOVE_SPEED = bn::fixed(0.5);
     constexpr int DOOR_TRANSITION_DURATION_FRAMES = 16;
     constexpr int SPAWN_CORNER_INDEX = 2;
@@ -1388,7 +1393,7 @@ str::Scene RoomViewer::execute()
     };
 
     auto update_painting_quads = [&]() {
-        if(debug_hide_room_models || ! room_models[current_room])
+        if(debug_hide_room_models || door_transition_active || ! room_models[current_room])
         {
             painting_a_quad.set_visible(false);
             painting_b_quad.set_visible(false);
@@ -1630,6 +1635,8 @@ str::Scene RoomViewer::execute()
     int current_fps = 60;
     int fps_sample_updates = 0;
     int fps_sample_refreshes = 0;
+    int door_transition_frame_budget = 0;
+    int player_movement_frame_budget = 0;
 
     auto refresh_overlay_text = [&](int room_id, int fps, int vertices_count, int hlines_count) {
         _text_sprites.clear();
@@ -1804,7 +1811,17 @@ str::Scene RoomViewer::execute()
         #endif
 
         int elapsed_frames = bn::clamp(frame_cost, 1, 4);
-        int player_frame_advance = bn::min(elapsed_frames, 2);
+        int door_transition_frame_advance = 0;
+
+        if(door_transition_active)
+        {
+            door_transition_frame_budget = bn::min(door_transition_frame_budget + elapsed_frames,
+                                                   DOOR_TRANSITION_MAX_FRAME_BUDGET);
+            door_transition_frame_advance =
+                bn::min(door_transition_frame_budget, DOOR_TRANSITION_MAX_STEPS_PER_UPDATE);
+        }
+
+        int player_frame_advance = door_transition_frame_advance;
 
         if(camera_initial_lock_frames > 0)
         {
@@ -1978,11 +1995,13 @@ str::Scene RoomViewer::execute()
 
         if(door_transition_active)
         {
-            door_transition_elapsed += elapsed_frames;
+            door_transition_elapsed += door_transition_frame_advance;
+            door_transition_frame_budget -= door_transition_frame_advance;
 
             if(door_transition_elapsed >= DOOR_TRANSITION_DURATION_FRAMES)
             {
                 door_transition_active = false;
+                door_transition_frame_budget = 0;
                 current_room = door_transition_target_room;
                 _player_fx = door_transition_target_local_x;
                 _player_fy = door_transition_target_local_y;
@@ -2077,9 +2096,13 @@ str::Scene RoomViewer::execute()
             dfy *= MOVE_SPEED;
             bn::fixed old_player_fx = _player_fx;
             bn::fixed old_player_fy = _player_fy;
+            player_movement_frame_budget = bn::min(player_movement_frame_budget + elapsed_frames,
+                                                   PLAYER_MOVEMENT_MAX_FRAME_BUDGET);
+            player_frame_advance = bn::min(player_movement_frame_budget, PLAYER_MOVEMENT_MAX_STEPS_PER_UPDATE);
 
-            // Keep the normal 60 FPS feel, but allow one extra catch-up step
-            // on missed frames so movement doesn't suddenly bog down.
+            // Preserve the normal 60 FPS cadence, but let short missed-frame
+            // bursts pay back over the next few updates instead of losing
+            // ground permanently in heavier rooms.
             for(int step = 0; step < player_frame_advance; ++step)
             {
                 bn::fixed new_fx = bn::clamp(_player_fx + dfx, FLOOR_MIN, FLOOR_MAX);
@@ -2125,6 +2148,7 @@ str::Scene RoomViewer::execute()
 
                     door_transition_active = true;
                     door_transition_elapsed = 0;
+                    door_transition_frame_budget = 0;
                     door_transition_target_room = next_room;
                     door_transition_start_global_x = room_center_x(current_room) + _player_fx;
                     door_transition_start_global_y = room_center_y(current_room) + _player_fy;
@@ -2143,8 +2167,13 @@ str::Scene RoomViewer::execute()
                 }
             }
 
+            player_movement_frame_budget -= player_frame_advance;
             actual_move_dx = _player_fx - old_player_fx;
             actual_move_dy = _player_fy - old_player_fy;
+        }
+        else if(!door_transition_active)
+        {
+            player_movement_frame_budget = 0;
         }
 
         bool view_angle_changed = false;

@@ -46,9 +46,9 @@ documented baseline.
 - The room viewer uses a fixed 60-degree top-down presentation with an
   eight-direction camera that turns quickly through each intermediate heading
   toward the player's facing direction.
-- Player walking uses a capped partial catch-up step so the 60 FPS feel stays
-  stable while missed frames do not make locomotion suddenly drag, and door
-  transitions still use elapsed-frame compensation.
+- Player walking and door transitions use capped carried catch-up budgets so
+  the 60 FPS feel stays stable while brief missed-frame bursts do not turn into
+  sticky locomotion or visibly chunky room-transition jumps.
 - Only the active room is rendered outside active door transitions, and
   camera-facing shell surfaces are culled so the interior stays visible.
 - Floors and walls remain true room-shell `model_3d` geometry rendered through
@@ -61,7 +61,8 @@ documented baseline.
   current facing direction, except while the player is near the room center.
 - `START` recenters the camera behind the player's current facing direction.
 - `L` and `R` adjust camera distance within the supported range.
-- Door transitions are time-based and block movement while the transition runs.
+- Door transitions block movement while active and use a smoothed carried
+  frame budget instead of consuming every missed frame in one visible jump.
 - NPC interaction uses `BgDialog` so the room viewer can keep the sprite budget
   under control.
 - The minimap and room decorations are updated from the same room-viewer
