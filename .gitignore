@@ -30,5 +30,13 @@ graphics/sprite/decor/*_inspect.png
 tools/mGBA-0.10.5-win64/nointro.sqlite3
 tools/mGBA-0.10.5-win64/qt.ini
 
+# node
+node_modules/
+package.json
+package-lock.json
+
+# config
+.config/
+
 # codeql artifacts
 _codeql_detected_source_root
