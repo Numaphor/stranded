@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wc -l /d/repo/stranded/include/models/*.h)",
+      "Bash(powershell -ExecutionPolicy Bypass -File scripts/mgba_f12_capture.ps1 -SkipBuild -Sequence toggle_profiler)",
+      "Bash(powershell -ExecutionPolicy Bypass -File scripts/mgba_f12_capture.ps1 -SkipBuild -Sequence toggle_select)",
+      "Bash(powershell -ExecutionPolicy Bypass -File scripts/mgba_f12_capture.ps1 -SkipBuild -Sequence profiler_toggle_mode)",
+      "Bash(powershell -ExecutionPolicy Bypass -File scripts/mgba_f12_capture.ps1 -SkipBuild -Sequence baseline)",
+      "Bash(for i:*)",
+      "Bash(do echo:*)",
+      "Bash(grep -c \"room_$i_vertices\\\\[\\\\]\" include/models/str_model_3d_items_room.h)",
+      "Bash(echo -n \"room_$i: faces=\")",
+      "Bash(grep \"room_$i_faces\\\\[\\\\]\" include/models/str_model_3d_items_room.h)",
+      "Bash(done)",
+      "Bash(python -c \":*)",
+      "Bash(powershell -ExecutionPolicy Bypass -File scripts/mgba_f12_capture.ps1 -SkipBuild -Sequence move_right)"
+    ]
+  }
+}

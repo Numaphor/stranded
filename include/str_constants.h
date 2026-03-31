@@ -62,15 +62,16 @@ namespace str
     constexpr int MINIMAP_VERTICAL_OFFSET = 16;
 
     // Minimap layout constants (compact scrolling minimap)
-    constexpr int MINIMAP_NUM_ROOMS = 6;
+    constexpr int MINIMAP_NUM_ROOMS = 2;
     constexpr int MINIMAP_ROOM_COLS = 2;
-    constexpr int MINIMAP_ROOM_ROWS = 3;
+    constexpr int MINIMAP_ROOM_ROWS = 1;
 
     // Minimap panel position (top-right corner of screen)
     // GBA screen center is (0,0), extents are (-120,-80) to (120,80)
     // Panel is 64x64, place it in the top-right area
-    constexpr int MINIMAP_PANEL_X = 85;     // panel center X
-    constexpr int MINIMAP_PANEL_Y = -45;    // panel center Y
+    constexpr int MINIMAP_PANEL_X = 96;     // panel center X
+    constexpr int MINIMAP_PANEL_Y = -56;    // panel center Y
+    constexpr bn::fixed MINIMAP_BORDER_SCALE = bn::fixed(0.726);
 
     // Room tile spacing within the minimap grid (logical layout)
     constexpr int MINIMAP_ROOM_SIZE = 16;       // each room sprite is 16x16
@@ -80,7 +81,7 @@ namespace str
     // Logical grid offset: room grid relative to an arbitrary origin
     // Used to compute logical positions; the viewport scrolls around them
     constexpr int MINIMAP_GRID_OFFSET_X = -18;   // -(2*18)/2
-    constexpr int MINIMAP_GRID_OFFSET_Y = -27;   // -(3*18)/2
+    constexpr int MINIMAP_GRID_OFFSET_Y = -9;    // -(1*18)/2
 
     // Z-orders for minimap layers (higher = further back)
     constexpr int Z_ORDER_MINIMAP_BG = 15;

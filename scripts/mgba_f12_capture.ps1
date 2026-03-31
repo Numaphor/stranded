@@ -1,6 +1,6 @@
 param(
     [switch]$SkipBuild,
-    [ValidateSet('baseline', 'move_right', 'toggle_select')]
+    [ValidateSet('baseline', 'move_right', 'toggle_select', 'toggle_profiler', 'profiler_toggle_mode', 'profiler_reset')]
     [string]$Sequence = 'baseline'
 )
 
@@ -8,6 +8,24 @@ $ErrorActionPreference = 'Stop'
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $romPath = Join-Path $repoRoot 'stranded.gba'
+$captureLockPath = Join-Path $repoRoot '.mgba_f12_capture.lock'
+$captureLockStream = $null
+
+try
+{
+    $captureLockStream = [System.IO.File]::Open(
+        $captureLockPath,
+        [System.IO.FileMode]::CreateNew,
+        [System.IO.FileAccess]::ReadWrite,
+        [System.IO.FileShare]::None)
+}
+catch
+{
+    throw "Another mGBA F12 capture is already running: $captureLockPath"
+}
+
+try
+{
 
 if(-not $SkipBuild)
 {
@@ -66,7 +84,7 @@ function Press-Key {
     param(
         [byte]$VirtualKey,
         [int]$HoldMs = 50,
-        [int]$AfterMs = 180
+        [int]$AfterMs = 260
     )
 
     [StrandedMgbaCapture]::keybd_event($VirtualKey, 0, 0, 0)
@@ -117,7 +135,7 @@ if($windowHandle -eq [IntPtr]::Zero)
 
 [void][StrandedMgbaCapture]::ShowWindowAsync($windowHandle, 9)
 [void][StrandedMgbaCapture]::SetForegroundWindow($windowHandle)
-Start-Sleep -Milliseconds 2500
+Start-Sleep -Milliseconds 3200
 
 $shell = New-Object -ComObject WScript.Shell
 [void]$shell.AppActivate($process.Id)
@@ -134,20 +152,54 @@ switch($Sequence)
         }
     }
     'toggle_select' {
-        Press-Key 0x08 50 250
+        Press-Key 0x08 50 350
+    }
+    'toggle_profiler' {
+        Press-Key 0x5A 50 350
+    }
+    'profiler_toggle_mode' {
+        Press-Key 0x5A 50 350
+        Press-Key 0x58 50 350
+    }
+    'profiler_reset' {
+        Press-Key 0x5A 50 350
+        Press-Key 0x0D 50 350
     }
 }
 
 [void]$shell.AppActivate($process.Id)
-Start-Sleep -Milliseconds 250
+Start-Sleep -Milliseconds 500
 $shell.SendKeys('{F12}')
-Start-Sleep -Milliseconds 900
+Start-Sleep -Milliseconds 1400
 
 $screenshotPath = Get-NewScreenshotPath
 
-if(-not $process.HasExited)
-{
-    Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
-}
+    if(-not $process.HasExited)
+    {
+        Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+    }
 
-$screenshotPath
+    if($captureLockStream)
+    {
+        $captureLockStream.Dispose()
+        $captureLockStream = $null
+    }
+
+    Remove-Item -LiteralPath $captureLockPath -Force -ErrorAction SilentlyContinue
+
+    $screenshotPath
+}
+finally
+{
+    if($captureLockStream)
+    {
+        $captureLockStream.Dispose()
+    }
+
+    if($process -and -not $process.HasExited)
+    {
+        Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+    }
+
+    Remove-Item -LiteralPath $captureLockPath -Force -ErrorAction SilentlyContinue
+}

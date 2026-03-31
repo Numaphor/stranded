@@ -42,7 +42,7 @@ namespace
     constexpr int room_back_layer_bias = 1000000;
     constexpr int room_front_layer_bias = -1000000;
     constexpr bn::fixed room_near_wall_cull_normal_y_max = bn::fixed(-0.2);
-    constexpr int projected_face_min_area2 = 24;
+    constexpr int projected_face_min_area2 = 8;
     constexpr int div_lut_max_index = 1024 * 4 - 1;
 }
 
@@ -359,7 +359,6 @@ void models_3d::_process_models(const camera_3d& camera)
                 {
                     int area012 = tri_area2(pv0, pv1, pv2);
                     int area023 = tri_area2(pv0, pv2, pv3);
-                    int edge01 = tri_area2(pv0, pv1, pv2);
                     int edge12 = tri_area2(pv1, pv2, pv3);
                     int edge23 = tri_area2(pv2, pv3, pv0);
                     int edge30 = tri_area2(pv3, pv0, pv1);
@@ -368,7 +367,7 @@ void models_3d::_process_models(const camera_3d& camera)
                         bn::abs(area012) >= projected_face_min_area2 &&
                         bn::abs(area023) >= projected_face_min_area2 &&
                         same_sign(area012, area023) &&
-                        same_sign(edge01, edge12) &&
+                        same_sign(area012, edge12) &&
                         same_sign(edge12, edge23) &&
                         same_sign(edge23, edge30);
                 }
@@ -436,9 +435,12 @@ void models_3d::_process_models(const camera_3d& camera)
     {
         visible_faces_count = _cached_geometry_visible_faces_count;
 
-        for(int visible_face_index = 0; visible_face_index < visible_faces_count; ++visible_face_index)
+        if(! _sprites_list.empty())
         {
-            _visible_face_indexes[visible_face_index] = visible_face_index;
+            for(int visible_face_index = 0; visible_face_index < visible_faces_count; ++visible_face_index)
+            {
+                _visible_face_indexes[visible_face_index] = visible_face_index;
+            }
         }
     }
 
@@ -521,17 +523,22 @@ void models_3d::_process_models(const camera_3d& camera)
     }
 
     // Sort visible faces:
+    // On geometry cache hit with no sprites, _visible_face_indexes already holds
+    // the correct sorted order from the last cache miss (same faces, same z-depths).
 
-    FR_PROFILER_START("sort_visible_faces");
-
-    const int* projected_zs = _visible_face_projected_zs;
-
-    bn::sort(_visible_face_indexes, _visible_face_indexes + visible_faces_count, [projected_zs](uint16_t a, uint16_t b)
+    if(! geometry_cache_hit || ! _sprites_list.empty())
     {
-        return projected_zs[a] > projected_zs[b];
-    });
+        FR_PROFILER_START("sort_visible_faces");
 
-    FR_PROFILER_STOP();
+        const int* projected_zs = _visible_face_projected_zs;
+
+        bn::sort(_visible_face_indexes, _visible_face_indexes + visible_faces_count, [projected_zs](uint16_t a, uint16_t b)
+        {
+            return projected_zs[a] > projected_zs[b];
+        });
+
+        FR_PROFILER_STOP();
+    }
 
     // Render visible faces:
 
@@ -573,6 +580,11 @@ void models_3d::_process_models(const camera_3d& camera)
             {
                 maximum_x = display_width - 1;
                 x_outside = true;
+            }
+
+            if(minimum_x > maximum_x) [[unlikely]]
+            {
+                continue;
             }
 
             if(minimum_y != maximum_y) [[likely]]
@@ -694,6 +706,10 @@ void models_3d::_process_models(const camera_3d& camera)
                             hline_xl = hline_xr;
                             hline_xr = temp;
                         }
+
+                        // Expand right edge by 1 pixel to close sub-pixel gaps
+                        // between adjacent polygons sharing a geometric edge.
+                        ++hline_xr;
 
                         hlines[y] = { hline_xl, hline_xr };
                         xl += left_delta;

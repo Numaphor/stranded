@@ -13,7 +13,7 @@
 #endif
 
 #ifndef FR_DETAILED_PROFILE
-    #define FR_DETAILED_PROFILE false
+    #define FR_DETAILED_PROFILE true
 #endif
 
 #ifndef FR_SHOW_CPU_USAGE

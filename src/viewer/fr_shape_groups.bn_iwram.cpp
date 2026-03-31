@@ -86,6 +86,12 @@ void shape_groups::add_hlines(unsigned minimum_y, unsigned maximum_y, int width,
                             }
 
                             int length = xr - xl;
+
+                            if(length <= 0) [[unlikely]]
+                            {
+                                length = 1;
+                            }
+
                             int sprite_y = int(y) - length;
                             sprite_hdma_source[0] = bn::hw::sprites::first_attributes(
                                         sprite_y, bn::sprite_shape::SQUARE, bn::bpp_mode::BPP_4, 0,
@@ -115,6 +121,12 @@ void shape_groups::add_hlines(unsigned minimum_y, unsigned maximum_y, int width,
                     int xl = hlines[y].xl;
                     int xr = hlines[y].xr;
                     int length = xr - xl;
+
+                    if(length <= 0) [[unlikely]]
+                    {
+                        length = 1;
+                    }
+
                     int sprite_y = int(y) - length;
                     sprite_hdma_source[0] = bn::hw::sprites::first_attributes(
                                 sprite_y, bn::sprite_shape::SQUARE, bn::bpp_mode::BPP_4, 0,
@@ -177,6 +189,11 @@ void shape_groups::add_hlines(unsigned minimum_y, unsigned maximum_y, int width,
                                 {
                                     int length = xr - segment_xl;
 
+                                    if(length <= 0) [[unlikely]]
+                                    {
+                                        length = 1;
+                                    }
+
                                     if(length > split_length)
                                     {
                                         length = split_length;
@@ -227,6 +244,11 @@ void shape_groups::add_hlines(unsigned minimum_y, unsigned maximum_y, int width,
                         if(segment_xl <= xr) [[likely]]
                         {
                             int length = xr - segment_xl;
+
+                            if(length <= 0) [[unlikely]]
+                            {
+                                length = 1;
+                            }
 
                             if(length > split_length)
                             {

@@ -31,11 +31,17 @@ namespace str
     // Logical grid position for a room (relative to grid origin, NOT panel center)
     bn::fixed_point Minimap::_room_screen_pos(int room_id) const
     {
-        int col = room_id % MINIMAP_ROOM_COLS;
-        int row = room_id / MINIMAP_ROOM_COLS;
-        bn::fixed x = MINIMAP_GRID_OFFSET_X + col * MINIMAP_GRID_CELL + (MINIMAP_ROOM_SIZE / 2);
-        bn::fixed y = MINIMAP_GRID_OFFSET_Y + row * MINIMAP_GRID_CELL + (MINIMAP_ROOM_SIZE / 2);
-        return bn::fixed_point(x, y);
+        switch(room_id)
+        {
+            case 0:
+                return bn::fixed_point(0, MINIMAP_GRID_CELL / 2);
+
+            case 1:
+                return bn::fixed_point(0, -MINIMAP_GRID_CELL / 2);
+
+            default:
+                return bn::fixed_point(0, 0);
+        }
     }
 
     int Minimap::_find_room(bn::fixed_point world_pos) const
@@ -99,15 +105,13 @@ namespace str
 
     bn::fixed_point Minimap::_world_to_minimap_room_viewer(bn::fixed_point world_pos, int room_id) const
     {
-        // Room viewer movement and door triggers use local +/-55 as the playable bounds.
-        constexpr bn::fixed room_viewer_playable_half_extent = bn::fixed(55);
-        // Match the visible room art extents:
-        // small room sprite ~= 12x12 visible area, big room ~= 14x14.
+        bn::fixed room_viewer_playable_half_x = _room_half_x[room_id] - _playable_edge_inset;
+        bn::fixed room_viewer_playable_half_y = _room_half_y[room_id] - _playable_edge_inset;
         bn::fixed room_viewer_half_inner = _is_big_room[room_id] ? bn::fixed(6) : bn::fixed(5);
 
         bn::fixed_point room_logical = _room_screen_pos(room_id);
-        bn::fixed nx = (world_pos.x() - _room_center_x[room_id]) / room_viewer_playable_half_extent;
-        bn::fixed ny = (world_pos.y() - _room_center_y[room_id]) / room_viewer_playable_half_extent;
+        bn::fixed nx = (world_pos.x() - _room_center_x[room_id]) / room_viewer_playable_half_x;
+        bn::fixed ny = (world_pos.y() - _room_center_y[room_id]) / room_viewer_playable_half_y;
         nx = bn::clamp(nx, bn::fixed(-1), bn::fixed(1));
         ny = bn::clamp(ny, bn::fixed(-1), bn::fixed(1));
 
@@ -142,10 +146,9 @@ namespace str
             bn::sprite_ptr door = bn::sprite_items::minimap_door.create_sprite(0, 0);
             _configure_hud_sprite(door, Z_ORDER_MINIMAP_DOOR);
 
-            // If rooms are in the same row (horizontal connection), rotate 90 degrees
-            int row_a = room_a / MINIMAP_ROOM_COLS;
-            int row_b = room_b / MINIMAP_ROOM_COLS;
-            if (row_a == row_b)
+            bn::fixed_point pos_a = _room_screen_pos(room_a);
+            bn::fixed_point pos_b = _room_screen_pos(room_b);
+            if (bn::abs(pos_a.x() - pos_b.x()) > bn::abs(pos_a.y() - pos_b.y()))
             {
                 door.set_rotation_angle(90);
             }
@@ -159,10 +162,8 @@ namespace str
     // Hide sprites that fall outside the 32x32 panel viewport
     void Minimap::_scroll_sprites(bn::fixed_point scroll_offset)
     {
-        // Panel half-size: 32 (64x64 panel)
-        // Clip rooms so they don't extend outside the panel edge
-        // Room sprites are 16x16, door sprites are 8x8
-        bn::fixed panel_half = 32;  // 64/2
+        // Clip against the scaled border sprite so rooms don't spill outside it.
+        bn::fixed panel_half = bn::fixed(32) * MINIMAP_BORDER_SCALE;
         bn::fixed room_half = MINIMAP_ROOM_SIZE / 2;  // 8
         bn::fixed room_clip = panel_half - room_half;  // room center must be far enough inside
         bn::fixed door_clip = panel_half - 4;  // door center clipped with small margin
@@ -220,12 +221,8 @@ namespace str
     Minimap::Minimap()
         : _bg_panel(bn::sprite_items::minimap_bg.create_sprite(MINIMAP_PANEL_X, MINIMAP_PANEL_Y)),
           _room_sprites{
-              bn::sprite_items::minimap_room.create_sprite(0, 0, 0),      // Room 0: small
-              bn::sprite_items::minimap_room_big.create_sprite(0, 0, 0),  // Room 1: BIG
-              bn::sprite_items::minimap_room.create_sprite(0, 0, 0),      // Room 2: small
-              bn::sprite_items::minimap_room.create_sprite(0, 0, 0),      // Room 3: small
-              bn::sprite_items::minimap_room.create_sprite(0, 0, 0),      // Room 4: small
-              bn::sprite_items::minimap_room_big.create_sprite(0, 0, 0)   // Room 5: BIG
+              bn::sprite_items::minimap_room_big.create_sprite(0, 0, 0),  // Room 0: long spawn room
+              bn::sprite_items::minimap_room.create_sprite(0, 0, 0)       // Room 1: square side room
           },
           _player_arrow(bn::sprite_items::minimap_arrow.create_sprite(MINIMAP_PANEL_X, MINIMAP_PANEL_Y, 0)),
           _current_room(-1),
@@ -240,6 +237,8 @@ namespace str
 
         // Configure background panel
         _configure_hud_sprite(_bg_panel, Z_ORDER_MINIMAP_BG);
+        _bg_panel.set_horizontal_scale(MINIMAP_BORDER_SCALE);
+        _bg_panel.set_vertical_scale(MINIMAP_BORDER_SCALE);
         _bg_panel.set_blending_enabled(true);
         bn::blending::set_transparency_alpha(0.7);
 

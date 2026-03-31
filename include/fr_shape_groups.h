@@ -69,8 +69,9 @@ public:
 
 private:
     static constexpr int _max_palettes = 8;
-    // Increased to avoid per-scanline overflow when furniture + room shells overlap.
-    static constexpr int _max_hdma_sprites = 64;
+    // Aggressively trimmed to free EWRAM; if this regresses visuals the only
+    // supported fallback is 32.
+    static constexpr int _max_hdma_sprites = 24;
     static constexpr int _hdma_source_size = (bn::display::height() + 1) * 4 * _max_hdma_sprites;
 
     class color_tiles

@@ -35,34 +35,31 @@ namespace str
         bn::fixed_point _panel_center;
         int _pulse_counter;
         int _last_applied_frame[MINIMAP_NUM_ROOMS];
+        static constexpr bn::fixed _playable_edge_inset = bn::fixed(5);
 
         static constexpr bn::fixed _room_center_x[MINIMAP_NUM_ROOMS] = {
-            bn::fixed(-60), bn::fixed(75), bn::fixed(-60),
-            bn::fixed(60), bn::fixed(-60), bn::fixed(75)
+            bn::fixed(0), bn::fixed(60)
         };
 
         static constexpr bn::fixed _room_center_y[MINIMAP_NUM_ROOMS] = {
-            bn::fixed(-120), bn::fixed(-135), bn::fixed(0),
-            bn::fixed(0), bn::fixed(120), bn::fixed(135)
+            bn::fixed(0), bn::fixed(120)
         };
 
         static constexpr bn::fixed _room_half_x[MINIMAP_NUM_ROOMS] = {
-            bn::fixed(60), bn::fixed(75), bn::fixed(60),
-            bn::fixed(60), bn::fixed(60), bn::fixed(75)
+            bn::fixed(90), bn::fixed(60)
         };
 
         static constexpr bn::fixed _room_half_y[MINIMAP_NUM_ROOMS] = {
-            bn::fixed(60), bn::fixed(75), bn::fixed(60),
-            bn::fixed(60), bn::fixed(60), bn::fixed(75)
+            bn::fixed(60), bn::fixed(60)
         };
 
-        static constexpr int DOOR_COUNT = 7;
+        static constexpr int DOOR_COUNT = 1;
         static constexpr int _door_pairs[DOOR_COUNT][2] = {
-            {0, 1}, {0, 2}, {1, 3}, {2, 3}, {2, 4}, {3, 5}, {4, 5}
+            {0, 1}
         };
 
         static constexpr bool _is_big_room[MINIMAP_NUM_ROOMS] = {
-            false, true, false, false, false, true
+            true, false
         };
 
         void _configure_hud_sprite(bn::sprite_ptr& sprite, int z_order);

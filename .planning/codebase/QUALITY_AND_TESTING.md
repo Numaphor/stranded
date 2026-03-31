@@ -6,6 +6,8 @@ Last updated: 2026-03-30
 
 - There are no automated tests.
 - `make -j4` is the primary build check.
+- `make PROFILE_ENGINE=1 -j4` is the investigation build when full engine
+  profiler logging is needed.
 - Validation is local and emulator-driven.
 - `scripts/mgba_f12_capture.ps1` is the canonical screenshot helper for native
   mGBA `F12` capture in this repo.
@@ -20,19 +22,31 @@ For room-viewer changes, verify:
 4. The camera still turns quickly through 8-direction headings, recenters
    after 1 second of no input away from the room center, and `START`/distance
    changes still work.
-5. The minimap still updates correctly.
-6. `BgDialog` still opens and advances correctly.
+5. The minimap still updates correctly and hides while the debug menu or
+   profiler menu is active.
+6. `BgDialog` still opens and advances correctly with `A`.
+7. `SELECT` opens and closes the BG debug menu, and `SELECT` + `L` still
+   toggles room-model visibility.
+8. The `B` profiler menu opens, closes, scrolls, switches total/max with `A`,
+   and resets samples with `START` without corrupting the room viewer.
 
 When a change is visual, use native mGBA `F12` screenshots and inspect the
 result directly.
 
+For overlay and profiler changes, capture at least:
+
+- `powershell -ExecutionPolicy Bypass -File scripts/mgba_f12_capture.ps1 -SkipBuild -Sequence toggle_select`
+- `powershell -ExecutionPolicy Bypass -File scripts/mgba_f12_capture.ps1 -SkipBuild -Sequence toggle_profiler`
+- `powershell -ExecutionPolicy Bypass -File scripts/mgba_f12_capture.ps1 -SkipBuild -Sequence profiler_toggle_mode`
+- `powershell -ExecutionPolicy Bypass -File scripts/mgba_f12_capture.ps1 -SkipBuild -Sequence profiler_reset`
+
 For the Maria-style interior pipeline, also verify:
 
-7. Room shells still render through the existing world path while only their
+9. Room shells still render through the existing world path while only their
    shell shapes and colors change.
-8. Offline-baked Interior-pack sprite sheets build cleanly and keep the
+10. Offline-baked Interior-pack sprite sheets build cleanly and keep the
    intended sharp 8-view ordering.
-9. When reviewing baked prop frames, imported props stay grounded and keep
+11. When reviewing baked prop frames, imported props stay grounded and keep
    their silhouette centered consistently across the full turntable.
 
 ## Main Risks

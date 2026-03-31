@@ -28,16 +28,13 @@ ROOM_MODEL_COLORS = [
 ]
 
 ROOM_SPECS = [
-    RoomSpec(0, "room_0", 60.0, 60.0),
-    RoomSpec(1, "room_1", 75.0, 75.0),
-    RoomSpec(2, "room_2", 60.0, 60.0),
-    RoomSpec(3, "room_3", 60.0, 60.0),
-    RoomSpec(4, "room_4", 60.0, 60.0),
-    RoomSpec(5, "room_5", 75.0, 75.0),
+    RoomSpec(0, "room_0", 90.0, 60.0),
+    RoomSpec(1, "room_1", 60.0, 60.0),
 ]
 
-ROOM_CENTER_X = (-60.0, 75.0, -60.0, 60.0, -60.0, 75.0)
-ROOM_CENTER_Y = (-120.0, -135.0, 0.0, 0.0, 120.0, 135.0)
+ROOM_CENTER_X = (0.0, 60.0)
+ROOM_CENTER_Y = (0.0, 120.0)
+SHARED_DOOR_WORLD_X = 45.0
 DOOR_HALF_WIDTH = 10.0
 DOOR_FRAME_SIDE_WIDTH = 2.0
 DOOR_FRAME_TOP_HEIGHT = 2.0
@@ -87,32 +84,12 @@ def interval_segments(bounds: float, openings: list[tuple[float, float]]) -> lis
     return segments
 
 
-def room_col(room_id: int) -> int:
-    return room_id % 2
-
-
-def room_row(room_id: int) -> int:
-    return room_id // 2
-
-
-def room_id_from_grid(col: int, row: int) -> int:
-    return row * 2 + col
-
-
 def neighbor_room_for_door(room_id: int, direction: str) -> int:
-    col = room_col(room_id)
-    row = room_row(room_id)
-
-    if direction == "east":
-        return room_id_from_grid(col + 1, row) if col < 1 else -1
-    if direction == "west":
-        return room_id_from_grid(col - 1, row) if col > 0 else -1
-    if direction == "south":
-        return room_id_from_grid(col, row + 1) if row < 2 else -1
-    if direction == "north":
-        return room_id_from_grid(col, row - 1) if row > 0 else -1
-
-    raise ValueError(direction)
+    if room_id == 0 and direction == "south":
+        return 1
+    if room_id == 1 and direction == "north":
+        return 0
+    return -1
 
 
 def aligned_door_center_offset(room_id: int, direction: str) -> float:
@@ -121,12 +98,11 @@ def aligned_door_center_offset(room_id: int, direction: str) -> float:
     if neighbor_room < 0:
         return 0.0
 
-    if direction in ("east", "west"):
-        shared_world_y = (ROOM_CENTER_Y[room_id] + ROOM_CENTER_Y[neighbor_room]) / 2.0
-        return shared_world_y - ROOM_CENTER_Y[room_id]
+    if direction in ("north", "south"):
+        return SHARED_DOOR_WORLD_X - ROOM_CENTER_X[room_id]
 
-    shared_world_x = (ROOM_CENTER_X[room_id] + ROOM_CENTER_X[neighbor_room]) / 2.0
-    return shared_world_x - ROOM_CENTER_X[room_id]
+    shared_world_y = (ROOM_CENTER_Y[room_id] + ROOM_CENTER_Y[neighbor_room]) / 2.0
+    return shared_world_y - ROOM_CENTER_Y[room_id]
 
 
 def room_openings(spec: RoomSpec) -> dict[str, list[tuple[float, float]]]:
@@ -191,7 +167,8 @@ def build_room(spec: RoomSpec) -> MeshBuilder:
             )
 
     def add_wall_side(axis: str, side: float, openings: list[tuple[float, float]], normal: tuple[float, float, float]):
-        segments = interval_segments(spec.half_w if axis == "x" else spec.half_d, openings)
+        # East/west walls vary across room depth; north/south walls vary across room width.
+        segments = interval_segments(spec.half_d if axis == "x" else spec.half_w, openings)
 
         for start, end in segments:
             add_wall_quad(start, end, 0.0, wainscot_top, 7, axis, side, normal)

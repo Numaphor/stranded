@@ -40,16 +40,23 @@ AUDIO       	:=
 DMGAUDIO    	:=
 ROMTITLE    	:=  ROM TITLE
 ROMCODE     	:=  SBTP
-USERFLAGS   	:=  -flto
-USERCXXFLAGS	:=  
-USERASFLAGS 	:=  
+PROFILE_ENGINE	?=  0
+PROFILER_LOG_ENGINE := false
+USERCXXFLAGS	:=
+USERASFLAGS 	:=
 USERLDFLAGS 	:=  -flto
 USERLIBDIRS 	:=  
 USERLIBS    	:=  
 DEFAULTLIBS 	:=  
 STACKTRACE		:=	true
 USERBUILD   	:=  
-EXTTOOL     	:=  
+EXTTOOL     	:=
+
+ifeq ($(PROFILE_ENGINE),1)
+PROFILER_LOG_ENGINE := true
+endif
+
+USERFLAGS   	:=  -flto -DBN_CFG_PROFILER_ENABLED=true -DBN_CFG_PROFILER_LOG_ENGINE=$(PROFILER_LOG_ENGINE) -DBN_CFG_PROFILER_MAX_ENTRIES=16
 
 #---------------------------------------------------------------------------------------------------------------------
 # Export absolute butano path:

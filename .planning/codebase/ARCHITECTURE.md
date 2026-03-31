@@ -54,6 +54,8 @@ documented baseline.
 - Floors and walls remain true room-shell `model_3d` geometry rendered through
   the existing world path, but their generated shell shapes and colors now aim
   at a simplified Maria-style interior look.
+- The current room-shell baseline is a two-room interior: a long spawn room
+  connected by one doorway to a smaller square side room.
 - Room decor still uses the current small hard-coded 3D model set at runtime,
   while the new Interior-pack bake scripts prepare sprite assets for a later
   room-prop integration pass.
@@ -61,12 +63,25 @@ documented baseline.
   current facing direction, except while the player is near the room center.
 - `START` recenters the camera behind the player's current facing direction.
 - `L` and `R` adjust camera distance within the supported range.
+- `SELECT` toggles a BG-based debug menu with room-viewer state, while
+  `SELECT` + `L` still toggles room-model visibility.
+- `A` remains the NPC interaction button, while `B` toggles a pause-style
+  profiler menu that reads the live Butano profiler totals and peak timings.
+- The debug and profiler menus now share one BG overlay allocation and redraw
+  on a capped cadence instead of rebuilding their BG maps every visible frame.
+- The debug menu also reports live EWRAM, IWRAM, and BG tile/block usage so
+  room-viewer memory pressure can be checked in-emulator.
 - Door transitions block movement while active and use a smoothed carried
   frame budget instead of consuming every missed frame in one visible jump.
 - NPC interaction uses `BgDialog` so the room viewer can keep the sprite budget
   under control.
 - The minimap and room decorations are updated from the same room-viewer
-  state.
+  state, the minimap is hidden while the debug menu or profiler menu is
+  active, and the in-game profiler menu overlays on a BG layer so it does not
+  consume the limited non-3D sprite handles. The minimap border sprite can be
+  scaled independently from the room, door, and player markers.
+- The default build keeps profiler support enabled but leaves engine logging
+  off; `make PROFILE_ENGINE=1 -j4` restores the noisier investigation build.
 
 ## Intentional Non-Scope
 
