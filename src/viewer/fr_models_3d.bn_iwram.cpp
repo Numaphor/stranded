@@ -736,7 +736,8 @@ void models_3d::_process_models(const camera_3d& camera)
             uint16_t attr0 = visible_face.minimum_x;
             uint16_t attr1 = visible_face.maximum_x;
             uint16_t attr2 = visible_face.minimum_y;
-            _shape_groups.add_sprite(unsigned(minimum_y), unsigned(maximum_y), attr0, attr1, attr2);
+            _shape_groups.add_sprite(unsigned(minimum_y), unsigned(maximum_y), attr0, attr1, attr2,
+                                     sprite_px_size);
         }
     }
 
