@@ -4,11 +4,11 @@
 int main()
 {
     bn::core::init();
-    str::RoomViewer* viewer = new str::RoomViewer();
 
     while(true)
     {
-        (void) viewer->execute();
+        str::RoomViewer viewer;
+        (void) viewer.execute();
         bn::core::update();
     }
 }
