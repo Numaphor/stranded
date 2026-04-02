@@ -90,7 +90,8 @@ small dynamic-model budget.
 - After 1 second of no input, the camera recenters behind the player's
   current facing direction, except while the player is near the room center.
 - `START` recenters the camera behind the player's current facing direction.
-- `L` and `R` adjust camera distance.
+- Camera distance auto-fits the active room shell to the viewport for the
+  current look angle.
 - Door transitions run for a fixed transition budget, block movement while
   active, and smooth brief missed-frame bursts instead of consuming them in
   one visible jump.

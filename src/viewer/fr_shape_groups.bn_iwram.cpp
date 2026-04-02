@@ -148,7 +148,7 @@ void shape_groups::add_hlines(unsigned minimum_y, unsigned maximum_y, int width,
             clipped_width = bn::display::width();
         }
 
-        int split_segments = 1 + ((clipped_width - 2) / split_length);
+        int split_segments = 1 + ((clipped_width - 1) / split_length);
 
         if(x_outside) [[unlikely]]
         {

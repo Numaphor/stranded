@@ -697,6 +697,16 @@ void models_3d::_process_models(const camera_3d& camera)
 
                     while(y <= bottom_y)
                     {
+                        if(y == left_bottom->y)
+                        {
+                            xl = left_bottom->x;
+                        }
+
+                        if(y == right_bottom->y)
+                        {
+                            xr = right_bottom->x;
+                        }
+
                         int hline_xl = xl.shift_integer();
                         int hline_xr = xr.shift_integer();
 
@@ -707,8 +717,9 @@ void models_3d::_process_models(const camera_3d& camera)
                             hline_xr = temp;
                         }
 
-                        // Expand right edge by 1 pixel to close sub-pixel gaps
+                        // Expand left and right edges by 1 pixel to close sub-pixel gaps
                         // between adjacent polygons sharing a geometric edge.
+                        --hline_xl;
                         ++hline_xr;
 
                         hlines[y] = { hline_xl, hline_xr };
@@ -775,10 +786,14 @@ void models_3d::_process_models(const camera_3d& camera)
                     hline_xr = temp;
                 }
 
+                --hline_xl;
+                ++hline_xr;
+
                 hlines[minimum_y] = { hline_xl, hline_xr };
             }
 
-            int width = maximum_x - minimum_x + 1;
+            // width + 2 accounts for --hline_xl and ++hline_xr expansions so it splits correctly
+            int width = maximum_x - minimum_x + 1 + 2;
             _shape_groups.add_hlines(unsigned(minimum_y), unsigned(maximum_y), width, x_outside,
                                      face->color_index(), face->shading(), hlines);
         }

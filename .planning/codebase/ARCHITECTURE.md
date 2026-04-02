@@ -62,7 +62,8 @@ documented baseline.
 - After 1 second of no input, the camera recenters behind the player's
   current facing direction, except while the player is near the room center.
 - `START` recenters the camera behind the player's current facing direction.
-- `L` and `R` adjust camera distance within the supported range.
+- Camera distance now auto-fits the active room shell so it fills the view for
+  the current look angle and follow offset.
 - `SELECT` toggles a BG-based debug menu with room-viewer state, while
   `SELECT` + `L` still toggles room-model visibility.
 - `A` remains the NPC interaction button, while `B` toggles a pause-style

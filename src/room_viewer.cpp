@@ -7,6 +7,7 @@
 #include "bn_color.h"
 #include "bn_memory.h"
 #include "bn_sprites.h"
+#include "bn_display.h"
 #include "bn_sprite_text_generator.h"
 #include "bn_sprite_affine_mat_ptr.h"
 #include "bn_sprite_ptr.h"
@@ -666,6 +667,12 @@ namespace {
     constexpr bn::fixed CAMERA_TURN_RESPONSE = bn::fixed(0.65);
     constexpr int CAMERA_TURN_SNAP_EPSILON = 96;
     constexpr int CAMERA_RENDER_UPDATE_ANGLE_STEP = 64;
+    constexpr bn::fixed CAMERA_AUTO_FIT_MIN_DIST = 100;
+    constexpr bn::fixed CAMERA_AUTO_FIT_MAX_DIST = 500;
+    constexpr int CAMERA_AUTO_FIT_MARGIN_X = 8;
+    constexpr int CAMERA_AUTO_FIT_MARGIN_Y = 6;
+    constexpr int CAMERA_AUTO_FIT_BINARY_SEARCH_STEPS = 10;
+    constexpr bn::fixed CAMERA_AUTO_FIT_FILL_FACTOR = bn::fixed(0.82);
     constexpr int PAINTING_MOTION_UPDATE_INTERVAL_FRAMES = 2;
     constexpr bn::fixed PAINTING_FACE_VISIBILITY_DOT_MIN = bn::fixed(8);
     constexpr int PAINTING_MIN_TRI_AREA2 = 220;
@@ -1001,6 +1008,7 @@ namespace {
     constexpr bn::fixed BOOKS_HD = 4;
     constexpr bn::fixed POTTED_PLANT_HW = 6;
     constexpr bn::fixed POTTED_PLANT_HD = 6;
+    constexpr bn::fixed ROOM_WALL_TOP_Z = bn::fixed(-50);
 
     constexpr bn::fixed DOOR_HALF_WIDTH = 10;
     constexpr bn::fixed DOOR_APPROACH_EDGE_MARGIN = 18;
@@ -1880,11 +1888,181 @@ str::Scene RoomViewer::execute()
     ensure_decor_models();
     update_orientations_and_paintings();
 
-    bn::fixed cam_dist = 274;
+    auto transform_room_local_point = [&](const corner_matrix& cm, int room_id,
+                                          bn::fixed anchor_x, bn::fixed anchor_y,
+                                          bn::fixed local_x, bn::fixed local_y, bn::fixed local_z) {
+        return transform_global_point(cm,
+                                      room_center_x(room_id) + local_x - anchor_x,
+                                      room_center_y(room_id) + local_y - anchor_y,
+                                      local_z);
+    };
 
-    auto update_camera = [&]() {
-        _camera.set_position(fr::point_3d(0, cam_dist, 0));
-        paintings_need_update = ENABLE_PAINTING_QUADS;
+    auto transform_room_local_vector = [&](const corner_matrix& cm,
+                                           bn::fixed local_x, bn::fixed local_y, bn::fixed local_z) {
+        return fr::point_3d(local_x * cm.r00 + local_y * cm.r01 + local_z * cm.r02,
+                            local_x * cm.r10 + local_y * cm.r11 + local_z * cm.r12,
+                            local_x * cm.r20 + local_y * cm.r21 + local_z * cm.r22);
+    };
+
+    auto project_point_for_camera_distance = [&](const fr::point_3d& point, bn::fixed camera_y, bn::point& output) {
+        constexpr int focal_length_shift = fr::constants_3d::focal_length_shift;
+        constexpr int near_plane = 24 * 256 * 16;
+
+        bn::fixed vry = point.y() - camera_y;
+        int vcz = -vry.data();
+
+        if(vcz < near_plane)
+        {
+            return false;
+        }
+
+        bn::fixed vrx = point.x() / 16;
+        bn::fixed vrz = point.z() / 16;
+        int vcx = (vrx.unsafe_multiplication(_camera.u().x()) + vrz.unsafe_multiplication(_camera.u().z())).data();
+        int vcy = -(vrx.unsafe_multiplication(_camera.v().x()) + vrz.unsafe_multiplication(_camera.v().z())).data();
+
+        int scale = int((fr::div_lut_ptr[vcz >> 10] << (focal_length_shift - 8)) >> 6);
+        output.set_x((vcx * scale) >> 16);
+        output.set_y((vcy * scale) >> 16);
+        return true;
+    };
+
+    auto room_side_is_visible = [&](const corner_matrix& cm, int room_id,
+                                    bn::fixed anchor_x, bn::fixed anchor_y,
+                                    bn::fixed camera_y,
+                                    bn::fixed center_local_x, bn::fixed center_local_y,
+                                    bn::fixed normal_local_x, bn::fixed normal_local_y) {
+        fr::point_3d center = transform_room_local_point(
+            cm, room_id, anchor_x, anchor_y, center_local_x, center_local_y, ROOM_WALL_TOP_Z / 2);
+        fr::point_3d normal = transform_room_local_vector(cm, normal_local_x, normal_local_y, 0);
+        fr::point_3d to_camera(-center.x(), camera_y - center.y(), -center.z());
+        bn::fixed facing_dot = normal.x() * to_camera.x() +
+                               normal.y() * to_camera.y() +
+                               normal.z() * to_camera.z();
+        return facing_dot > 0;
+    };
+
+    auto room_fits_camera_distance = [&](const corner_matrix& cm, int room_id,
+                                         bn::fixed anchor_x, bn::fixed anchor_y,
+                                         bn::fixed camera_y) {
+        constexpr int max_abs_x = (bn::display::width() / 2) - CAMERA_AUTO_FIT_MARGIN_X;
+        constexpr int max_abs_y = (bn::display::height() / 2) - CAMERA_AUTO_FIT_MARGIN_Y;
+
+        auto point_fits = [&](bn::fixed local_x, bn::fixed local_y, bn::fixed local_z) {
+            bn::point screen_point;
+            fr::point_3d point = transform_room_local_point(
+                cm, room_id, anchor_x, anchor_y, local_x, local_y, local_z);
+
+            if(! project_point_for_camera_distance(point, camera_y, screen_point))
+            {
+                return false;
+            }
+
+            return int_abs(screen_point.x()) <= max_abs_x &&
+                   int_abs(screen_point.y()) <= max_abs_y;
+        };
+
+        bn::fixed room_half_x = room_half_extent_x(room_id);
+        bn::fixed room_half_y = room_half_extent_y(room_id);
+
+        if(! point_fits(-room_half_x, -room_half_y, 0) ||
+           ! point_fits(-room_half_x, room_half_y, 0) ||
+           ! point_fits(room_half_x, -room_half_y, 0) ||
+           ! point_fits(room_half_x, room_half_y, 0))
+        {
+            return false;
+        }
+
+        if(room_side_is_visible(cm, room_id, anchor_x, anchor_y, camera_y, 0, -room_half_y, 0, 1) &&
+           (! point_fits(-room_half_x, -room_half_y, ROOM_WALL_TOP_Z) ||
+            ! point_fits(room_half_x, -room_half_y, ROOM_WALL_TOP_Z)))
+        {
+            return false;
+        }
+
+        if(room_side_is_visible(cm, room_id, anchor_x, anchor_y, camera_y, 0, room_half_y, 0, -1) &&
+           (! point_fits(-room_half_x, room_half_y, ROOM_WALL_TOP_Z) ||
+            ! point_fits(room_half_x, room_half_y, ROOM_WALL_TOP_Z)))
+        {
+            return false;
+        }
+
+        if(room_side_is_visible(cm, room_id, anchor_x, anchor_y, camera_y, room_half_x, 0, -1, 0) &&
+           (! point_fits(room_half_x, -room_half_y, ROOM_WALL_TOP_Z) ||
+            ! point_fits(room_half_x, room_half_y, ROOM_WALL_TOP_Z)))
+        {
+            return false;
+        }
+
+        if(room_side_is_visible(cm, room_id, anchor_x, anchor_y, camera_y, -room_half_x, 0, 1, 0) &&
+           (! point_fits(-room_half_x, -room_half_y, ROOM_WALL_TOP_Z) ||
+            ! point_fits(-room_half_x, room_half_y, ROOM_WALL_TOP_Z)))
+        {
+            return false;
+        }
+
+        return true;
+    };
+
+    auto fitted_camera_distance_for_room = [&](const corner_matrix& cm, int room_id,
+                                               bn::fixed anchor_x, bn::fixed anchor_y) {
+        bn::fixed low = CAMERA_AUTO_FIT_MIN_DIST;
+        bn::fixed high = CAMERA_AUTO_FIT_MAX_DIST;
+
+        if(! room_fits_camera_distance(cm, room_id, anchor_x, anchor_y, high))
+        {
+            return high;
+        }
+
+        for(int index = 0; index < CAMERA_AUTO_FIT_BINARY_SEARCH_STEPS; ++index)
+        {
+            bn::fixed mid = (low + high) / 2;
+
+            if(room_fits_camera_distance(cm, room_id, anchor_x, anchor_y, mid))
+            {
+                high = mid;
+            }
+            else
+            {
+                low = mid;
+            }
+        }
+
+        return high;
+    };
+
+    bn::fixed cam_dist = 0;
+
+    auto camera_distance_target = [&]() {
+        corner_matrix cm = rotate_corner_matrix(base_corner, current_view_angle);
+        bn::fixed target_dist =
+            fitted_camera_distance_for_room(cm, current_room, world_anchor_x, world_anchor_y);
+
+        if(door_transition_active)
+        {
+            target_dist = bn::max(
+                target_dist,
+                fitted_camera_distance_for_room(cm, door_transition_target_room, world_anchor_x, world_anchor_y));
+        }
+
+        target_dist = bn::max(CAMERA_AUTO_FIT_MIN_DIST, target_dist * CAMERA_AUTO_FIT_FILL_FACTOR);
+        return target_dist;
+    };
+
+    auto update_camera = [&](bool allow_distance_change = true) {
+        if(! allow_distance_change)
+        {
+            return;
+        }
+
+        bn::fixed target_dist = camera_distance_target();
+
+        if(target_dist != cam_dist)
+        {
+            cam_dist = target_dist;
+            _camera.set_position(fr::point_3d(0, cam_dist, 0));
+            paintings_need_update = ENABLE_PAINTING_QUADS;
+        }
     };
 
     auto update_camera_follow = [&]() {
@@ -2288,7 +2466,8 @@ str::Scene RoomViewer::execute()
 
         sync_room_models();
         ensure_decor_models();
-        update_camera();
+        bool camera_turn_in_progress = current_view_angle != target_view_angle;
+        update_camera(! camera_turn_in_progress);
         update_orientations_and_paintings();
         update_player_sprite_position();
         update_painting_quads();
@@ -2597,16 +2776,6 @@ str::Scene RoomViewer::execute()
             idle_recenter_timer = 0;
         }
 
-        {
-            bn::fixed old_dist = cam_dist;
-            if(bn::keypad::l_held()) cam_dist = bn::max(bn::fixed(100), cam_dist - 3);
-            else if(bn::keypad::r_held()) cam_dist = bn::min(bn::fixed(500), cam_dist + 3);
-            if(cam_dist != old_dist)
-            {
-                update_camera();
-            }
-        }
-
         if(bn::keypad::select_pressed())
         {
             if(bn::keypad::l_held())
@@ -2894,6 +3063,8 @@ str::Scene RoomViewer::execute()
             update_orientations_and_paintings();
         }
 
+        update_camera();
+
         linear8_to_dir(player_world_linear_dir + view_angle_steps_8(current_view_angle), dir, facing_left);
         update_player_sprite_position();
 
@@ -3088,9 +3259,6 @@ str::Scene RoomViewer::execute()
 }
 
 }
-
-
-
 
 
 

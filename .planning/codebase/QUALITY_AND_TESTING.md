@@ -20,8 +20,10 @@ For room-viewer changes, verify:
 2. Movement and collision still behave correctly.
 3. Door transitions still run and block movement while active.
 4. The camera still turns quickly through 8-direction headings, recenters
-   after 1 second of no input away from the room center, and `START`/distance
-   changes still work.
+   after 1 second of no input away from the room center, `START` still
+   recenters it, the auto-fit distance keeps the room filling the view
+   across look-angle changes, and zoom level stays locked while a turn is
+   still in progress.
 5. The minimap still updates correctly and hides while the debug menu or
    profiler menu is active.
 6. `BgDialog` still opens and advances correctly with `A`.
