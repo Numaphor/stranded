@@ -38,7 +38,6 @@
 #include "models/str_model_3d_items_books.h"
 #include "private/viewer/str_room_renderer.h"
 #include "private/viewer/runtime/room_viewer_runtime_systems_shared.h"
-
 namespace str
 {
 [[noreturn]] void run_room_viewer()

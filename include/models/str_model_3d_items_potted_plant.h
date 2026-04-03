@@ -1,8 +1,6 @@
 #ifndef STR_MODEL_3D_ITEMS_POTTED_PLANT_H
 #define STR_MODEL_3D_ITEMS_POTTED_PLANT_H
-
 #include "fr_model_3d_item.h"
-
 namespace str::model_3d_items
 {
     constexpr inline fr::vertex_3d potted_plant_vertices[] = {
@@ -44,7 +42,6 @@ namespace str::model_3d_items
         fr::vertex_3d(0.913705, -1.959552, -14.117032),  // 35
         fr::vertex_3d(2.390654, 1.040393, -11.683252)  // 36
     };
-
     constexpr inline fr::face_3d potted_plant_faces[] = {
         fr::face_3d(potted_plant_vertices, fr::vertex_3d(-0.997196, 0.0, 0.074833), 0, 2, 3, 1, 9, -1),
         fr::face_3d(potted_plant_vertices, fr::vertex_3d(1.0, 0.0, 0.0), 4, 6, 7, 5, 9, -1),
@@ -85,10 +82,6 @@ namespace str::model_3d_items
         fr::face_3d(potted_plant_vertices, fr::vertex_3d(0.395171, 0.878843, 0.26735), 25, 36, 28, 2, -1),
         fr::face_3d(potted_plant_vertices, fr::vertex_3d(-0.395171, -0.878843, -0.26735), 25, 28, 36, 2, -1)
     };
-
     constexpr inline fr::model_3d_item potted_plant(potted_plant_vertices, potted_plant_faces);
 }
-
 #endif
-
-

@@ -1,6 +1,5 @@
 #ifndef STR_BG_DIALOG_H
 #define STR_BG_DIALOG_H
-
 #include <bn_algorithm.h>
 #include <bn_bg_tiles.h>
 #include <bn_memory.h>
@@ -18,10 +17,8 @@
 #include <bn_optional.h>
 #include <bn_sprite_ptr.h>
 #include <bn_sprite_double_size_mode.h>
-
 namespace str
 {
-
 class BgDialog
 {
 public:
@@ -31,49 +28,35 @@ public:
         bn::span<const bn::string_view> response_lines;
         bool ends_conversation;
     };
-
     BgDialog();
-
     void set_greeting(bn::span<const bn::string_view> lines);
     void set_options(bn::span<const DialogOption> options);
     void talk();
-
-    [[nodiscard]] bool is_active() const
-    {
-        return _active;
-    }
-
+    [[nodiscard]] bool is_active() const { return _active; }
     void show_prompt();
     void hide_prompt();
     void update();
-
 private:
     static constexpr int MAP_COLUMNS = 32;
     static constexpr int MAP_ROWS = 32;
     static constexpr int MAP_CELLS = MAP_COLUMNS * MAP_ROWS;
-
     static constexpr int TEXT_ROW = 24;
     static constexpr int OPTIONS_ROW = 22;
     static constexpr int PROMPT_ROW = 24;
-
     static constexpr int VISIBLE_COL_LEFT = 1;
     static constexpr int VISIBLE_COL_RIGHT = 30;
-
     static constexpr int VISIBLE_OPTIONS = 3;
     static constexpr int BACKDROP_SEGMENTS = 3;
     static constexpr int BACKDROP_Y = 64;
     static constexpr int BACKDROP_FALLBACK_TILES_COUNT = 2;
     static constexpr int BACKDROP_FALLBACK_PALETTE_COLORS_COUNT = 16;
-
     static constexpr int TEXT_AREA_TOP = 22;
     static constexpr int TEXT_AREA_BOTTOM = 25;
-
     static constexpr bn::tile _fallback_backdrop_tiles[BACKDROP_FALLBACK_TILES_COUNT] = {
         { { 0, 0, 0, 0, 0, 0, 0, 0 } },
         { { 0x11111111, 0x11111111, 0x11111111, 0x11111111,
             0x11111111, 0x11111111, 0x11111111, 0x11111111 } }
     };
-
     static constexpr bn::color _fallback_backdrop_palette[BACKDROP_FALLBACK_PALETTE_COLORS_COUNT] = {
         bn::color(0, 0, 0),
         bn::color(2, 2, 4),
@@ -92,7 +75,6 @@ private:
         bn::color(0, 0, 0),
         bn::color(0, 0, 0)
     };
-
     enum State
     {
         STATE_IDLE,
@@ -100,7 +82,6 @@ private:
         STATE_SHOWING_OPTIONS,
         STATE_SHOWING_RESPONSE
     };
-
     void _end();
     void _set_backdrop_visible(bool visible);
     void _refresh_backdrop_visibility();
@@ -117,10 +98,8 @@ private:
     void _clear_text_area();
     void _clear_all_text();
     void _flush();
-
     alignas(int) BN_DATA_EWRAM static bn::regular_bg_map_cell _cells[MAP_CELLS];
     alignas(int) BN_DATA_EWRAM static bn::regular_bg_map_cell _backdrop_cells[MAP_CELLS];
-
     bn::optional<bn::regular_bg_ptr> _bg;
     bn::optional<bn::regular_bg_map_ptr> _bg_map;
     bn::optional<bn::regular_bg_ptr> _backdrop_bg;
@@ -138,7 +117,5 @@ private:
     bool _backdrop_visible;
     bn::vector<bn::sprite_ptr, BACKDROP_SEGMENTS> _dialog_backdrop_sprites;
 };
-
 } // namespace str
-
 #endif // STR_BG_DIALOG_H

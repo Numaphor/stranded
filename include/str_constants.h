@@ -1,8 +1,6 @@
 #ifndef STR_CONSTANTS_H
 #define STR_CONSTANTS_H
-
 #include "bn_fixed.h"
-
 namespace str
 {
     // Minimap layout
@@ -13,13 +11,11 @@ namespace str
     constexpr int MINIMAP_ROOM_SIZE = 16;
     constexpr int MINIMAP_ROOM_GAP = 2;
     constexpr int MINIMAP_GRID_CELL = MINIMAP_ROOM_SIZE + MINIMAP_ROOM_GAP;
-
     // Z-orders for minimap layers
     constexpr int Z_ORDER_MINIMAP_BG = 15;
     constexpr int Z_ORDER_MINIMAP_ROOM = 13;
     constexpr int Z_ORDER_MINIMAP_DOOR = 12;
     constexpr int Z_ORDER_MINIMAP_PLAYER = 11;
-
     // Camera follow constants
     constexpr bn::fixed CAMERA_DEADZONE_X = 16;
     constexpr bn::fixed CAMERA_DEADZONE_Y = 10;
@@ -31,5 +27,4 @@ namespace str
     constexpr bn::fixed CAMERA_LOOKAHEAD_SMOOTHING = 0.12;
     constexpr bn::fixed CAMERA_LOOKAHEAD_DECAY = 0.95;
 }
-
 #endif

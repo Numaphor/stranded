@@ -1,6 +1,5 @@
 #ifndef STR_ROOM_VIEWER_RUNTIME_SYSTEMS_SHARED_H
 #define STR_ROOM_VIEWER_RUNTIME_SYSTEMS_SHARED_H
-
 namespace {
     namespace rv = str::viewer;
     constexpr int NUM_ROOMS = 2;
@@ -569,5 +568,4 @@ namespace
     }
 }
 }
-
 #endif

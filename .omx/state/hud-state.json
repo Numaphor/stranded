@@ -1,0 +1,5 @@
+{
+  "last_turn_at": "2026-04-03T22:17:54.508Z",
+  "turn_count": 18,
+  "last_agent_output": "`$team` could not be launched because the required runtime preconditions failed:\n\n- `TMUX` is not se"
+}

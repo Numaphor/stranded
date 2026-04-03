@@ -1,8 +1,6 @@
 #ifndef STR_MODEL_3D_ITEMS_BOOKS_H
 #define STR_MODEL_3D_ITEMS_BOOKS_H
-
 #include "fr_model_3d_item.h"
-
 namespace str::model_3d_items
 {
     constexpr inline fr::vertex_3d books_vertices[] = {
@@ -42,7 +40,6 @@ namespace str::model_3d_items
         fr::vertex_3d(-2.993904, 0.252, -4.032),  // 33
         fr::vertex_3d(-1.985904, 0.252, -4.032)  // 34
     };
-
     constexpr inline fr::face_3d books_faces[] = {
         fr::face_3d(books_vertices, fr::vertex_3d(-0.242536, 0.0, -0.970143), 0, 2, 3, 1, 9, -1),
         fr::face_3d(books_vertices, fr::vertex_3d(0.0, 0.0, 1.0), 4, 6, 7, 5, 9, -1),
@@ -80,10 +77,6 @@ namespace str::model_3d_items
         fr::face_3d(books_vertices, fr::vertex_3d(0.0, -1.0, 0.0), 13, 33, 34, 5, 2, -1),
         fr::face_3d(books_vertices, fr::vertex_3d(0.0, 0.0, -1.0), 34, 33, 25, 23, 2, -1)
     };
-
     constexpr inline fr::model_3d_item books(books_vertices, books_faces);
 }
-
 #endif
-
-

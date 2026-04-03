@@ -1,0 +1,65 @@
+{
+  "active": false,
+  "started_at": "2026-04-03T20:16:22Z",
+  "current_phase": "deep-interview",
+  "iteration": 1,
+  "max_iterations": 12,
+  "task_description": "Clarify a broad brownfield request to reduce LOC in /src and /include as much as possible while preserving functionality.",
+  "interview_id": "deep-interview-loc-reduction-src-include-20260403",
+  "profile": "standard",
+  "type": "brownfield",
+  "initial_idea": "reduce LOC in /src and /include as much as possible while preserving functionality",
+  "rounds": [],
+  "current_ambiguity": 1,
+  "threshold": 0.2,
+  "max_rounds": 12,
+  "challenge_modes_used": [],
+  "codebase_context": {
+    "brownfield": true,
+    "planning_docs_read": [
+      ".planning/codebase/CONVENTIONS.md",
+      ".planning/codebase/ARCHITECTURE.md",
+      ".planning/codebase/STRUCTURE.md"
+    ],
+    "high_leverage_files": [
+      {
+        "path": "src/viewer/runtime/room_viewer_runtime_systems.cpp",
+        "lines": 1005
+      },
+      {
+        "path": "src/viewer/room_renderer.bn_iwram.cpp",
+        "lines": 726
+      },
+      {
+        "path": "include/private/viewer/runtime/room_viewer_runtime_systems_shared.h",
+        "lines": 571
+      },
+      {
+        "path": "include/private/viewer/str_room_renderer.h",
+        "lines": 430
+      },
+      {
+        "path": "src/core/dialog/str_bg_dialog.cpp",
+        "lines": 389
+      },
+      {
+        "path": "src/viewer/room_renderer.cpp",
+        "lines": 373
+      }
+    ],
+    "notes": [
+      "Repo is room-viewer-only baseline.",
+      "Validation expectations include movement, collision, door transitions, camera recentering/distance, minimap, and BgDialog behavior."
+    ]
+  },
+  "current_stage": "intent-first",
+  "current_focus": "intent",
+  "context_snapshot_path": ".omx/context/loc-reduction-src-include-20260403T201800Z.md",
+  "readiness": {
+    "non_goals_explicit": false,
+    "decision_boundaries_explicit": false,
+    "pressure_pass_complete": false
+  },
+  "last_turn_at": "2026-04-03T20:17:34.593Z",
+  "completed_at": "2026-04-03T20:21:06.641Z"
+}

@@ -1,8 +1,6 @@
 #include "str_bg_dialog.h"
-
 namespace str
 {
-
 void BgDialog::_write_text(int row, int col, const char* text, int len)
 {
     for(int i = 0; i < len; ++i)
@@ -16,7 +14,6 @@ void BgDialog::_write_text(int row, int col, const char* text, int len)
         {
             break;
         }
-
         int ch = static_cast<unsigned char>(text[i]);
         int tile_index = 0;
         if(ch >= 32 && ch <= 127)
@@ -26,7 +23,6 @@ void BgDialog::_write_text(int row, int col, const char* text, int len)
         _set_cell(target_col, row, tile_index);
     }
 }
-
 void BgDialog::_write_text_centered(int row, const char* text, int len)
 {
     int start_col = VISIBLE_COL_LEFT + ((VISIBLE_COL_RIGHT - VISIBLE_COL_LEFT + 1) - len) / 2;
@@ -36,7 +32,6 @@ void BgDialog::_write_text_centered(int row, const char* text, int len)
     }
     _write_text(row, start_col, text, len);
 }
-
 void BgDialog::_write_text_centered(int row, const char* text)
 {
     int len = 0;
@@ -44,30 +39,24 @@ void BgDialog::_write_text_centered(int row, const char* text)
     {
         ++len;
     }
-
     _write_text_centered(row, text, len);
 }
-
 void BgDialog::_write_wrapped_text_centered(int bottom_row, const char* text, int total_len, int visible_len)
 {
     int max_cols = VISIBLE_COL_RIGHT - VISIBLE_COL_LEFT + 1;
-
     if(visible_len <= 0)
     {
         return;
     }
-
     if(visible_len > total_len)
     {
         visible_len = total_len;
     }
-
     if(total_len <= max_cols)
     {
         _write_text_centered(bottom_row, text, visible_len);
         return;
     }
-
     int split = max_cols;
     for(int index = max_cols; index > 0; --index)
     {
@@ -77,24 +66,20 @@ void BgDialog::_write_wrapped_text_centered(int bottom_row, const char* text, in
             break;
         }
     }
-
     if(split <= 0)
     {
         split = max_cols;
     }
-
     int second_start = split;
     while(second_start < total_len && text[second_start] == ' ')
     {
         ++second_start;
     }
-
     int first_visible = bn::min(visible_len, split);
     if(first_visible > 0)
     {
         _write_text_centered(bottom_row - 1, text, first_visible);
     }
-
     if(visible_len > second_start)
     {
         int second_visible = bn::min(visible_len - second_start, max_cols);
@@ -104,7 +89,6 @@ void BgDialog::_write_wrapped_text_centered(int bottom_row, const char* text, in
         }
     }
 }
-
 void BgDialog::_set_cell(int x, int y, int tile_index)
 {
     int index = y * MAP_COLUMNS + x;
@@ -115,7 +99,6 @@ void BgDialog::_set_cell(int x, int y, int tile_index)
     cell_info.set_vertical_flip(false);
     _cells[index] = cell_info.cell();
 }
-
 void BgDialog::_clear_row(int row)
 {
     for(int col = 0; col < MAP_COLUMNS; ++col)
@@ -123,7 +106,6 @@ void BgDialog::_clear_row(int row)
         _set_cell(col, row, 0);
     }
 }
-
 void BgDialog::_clear_text_area()
 {
     for(int row = TEXT_AREA_TOP; row <= TEXT_AREA_BOTTOM; ++row)
@@ -131,7 +113,6 @@ void BgDialog::_clear_text_area()
         _clear_row(row);
     }
 }
-
 void BgDialog::_clear_all_text()
 {
     for(int row = 0; row < MAP_ROWS; ++row)
@@ -140,7 +121,6 @@ void BgDialog::_clear_all_text()
     }
     _flush();
 }
-
 void BgDialog::_flush()
 {
     if(_bg_map.has_value())
@@ -148,5 +128,4 @@ void BgDialog::_flush()
         _bg_map->reload_cells_ref();
     }
 }
-
 }
