@@ -1,4 +1,4 @@
-#include "room_renderer.h"
+#include "private/viewer/str_room_renderer.h"
 
 #include "bn_profiler.h"
 #include "../../butano/butano/hw/include/bn_hw_sprites.h"

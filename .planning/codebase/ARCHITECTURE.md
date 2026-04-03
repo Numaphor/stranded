@@ -18,18 +18,22 @@ menu, and model-viewer flows are not part of the shipped behavior.
 
 ### Room Viewer
 
-- `src/room_viewer.cpp` owns the gameplay loop, movement, collision, doors,
-  camera control, NPC interaction, paintings, and minimap coordination.
-- `src/core/str_bg_dialog.cpp` and `include/str_bg_dialog.h` provide the fixed
-  room-viewer dialog UI.
-- `src/core/minimap.cpp` and `include/str_minimap.h` provide the fixed two-room
-  minimap.
+- `src/viewer/room_viewer.cpp` is a thin room-viewer entrypoint.
+- `src/viewer/runtime/room_viewer_runtime.cpp` owns the gameplay loop, movement,
+  collision, doors, camera control, NPC interaction, paintings, and minimap
+  coordination.
+- `src/core/dialog/str_bg_dialog.cpp`, `src/core/dialog/str_bg_dialog_text.cpp`, and
+  `include/str_bg_dialog.h` provide the fixed room-viewer dialog UI.
+- `src/core/minimap/minimap.cpp`, `src/core/minimap/minimap_layout.cpp`, and
+  `include/str_minimap.h` provide the fixed two-room minimap.
 
 ### 3D Rendering
 
-- `src/viewer/room_renderer.h`
+- `include/private/viewer/str_room_renderer.h`
 - `src/viewer/room_renderer.cpp`
 - `src/viewer/room_renderer.bn_iwram.cpp`
+- `src/viewer/math/fr_sin_cos.cpp`
+- `src/viewer/math/fr_div_lut.cpp`
 
 These files are the private room-viewer renderer. They replace the old public
 project-local `fr_*` surface and keep only the features the room viewer still

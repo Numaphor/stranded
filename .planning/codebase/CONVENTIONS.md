@@ -34,7 +34,7 @@ Last updated: 2026-04-03
 
 ## Hot Spots
 
-- `src/room_viewer.cpp`
-- `src/core/minimap.cpp`
-- `src/core/str_bg_dialog.cpp`
+- `src/viewer/runtime/room_viewer_runtime.cpp`
+- `src/core/minimap/minimap_layout.cpp`
+- `src/core/dialog/str_bg_dialog.cpp`
 - `src/viewer/room_renderer.bn_iwram.cpp`

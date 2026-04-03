@@ -26,18 +26,18 @@
 #include "bn_sprite_items_player_walk.h"
 #include "bn_sprite_items_villager.h"
 #include "bn_sprite_palette_ptr.h"
-#include "str_bg_dialog.h"
 #include "bn_sprite_items_escaping_criticism_wall_bottom.h"
 #include "bn_sprite_items_escaping_criticism_wall_top.h"
 #include "bn_sprite_items_mr_and_mrs_andrews_wall_bottom.h"
 #include "bn_sprite_items_mr_and_mrs_andrews_wall_top.h"
+#include "str_bg_dialog.h"
 #include "str_minimap.h"
 
 #include "fr_sin_cos.h"
 #include "fr_div_lut.h"
 #include "models/str_model_3d_items_room.h"
 #include "models/str_model_3d_items_books.h"
-#include "viewer/room_renderer.h"
+#include "private/viewer/str_room_renderer.h"
 
 namespace {
     namespace rv = str::viewer;
@@ -263,6 +263,38 @@ namespace {
             case 7: out_dir = 1; out_facing_left = true;  break;
             default: out_dir = 0; out_facing_left = false; break;
         }
+    }
+
+    struct dir_face
+    {
+        int dir;
+        bool facing_left;
+    };
+
+    constexpr dir_face screen_dir_faces[3][3] = {
+        { { 3, true }, { 4, false }, { 3, false } },
+        { { 2, true }, { 0, false }, { 2, false } },
+        { { 1, true }, { 0, false }, { 1, false } }
+    };
+
+    dir_face dir_face_from_screen_delta(int screen_dx, int screen_dy)
+    {
+        return screen_dir_faces[screen_dy + 1][screen_dx + 1];
+    }
+
+    int minimap_dir_from_player_dir(int dir, bool facing_left)
+    {
+        if(dir == 4 || dir == 3)
+        {
+            return 0;
+        }
+
+        if(dir == 0 || dir == 1)
+        {
+            return 1;
+        }
+
+        return facing_left ? 2 : 3;
     }
 
     bn::fixed_point screen_to_room_delta(bn::fixed screen_dx, bn::fixed screen_dy, int view_angle)
@@ -735,7 +767,7 @@ namespace
     }
 }
 
-[[noreturn]] void run_room_viewer()
+[[noreturn]] void run_room_viewer_runtime()
 {
     rv::Camera _camera;
     rv::Renderer& _models = *new rv::Renderer();
@@ -969,7 +1001,9 @@ namespace
                             local_x * cm.r20 + local_y * cm.r21 + local_z * cm.r22);
     };
 
-    auto project_point_for_camera_distance = [&](const fr::point_3d& point, bn::fixed camera_y, bn::point& output) {
+    auto project_point = [&](const fr::point_3d& point,
+                             bn::fixed camera_x, bn::fixed camera_y, bn::fixed camera_z,
+                             bn::point& output) {
         constexpr int focal_length_shift = rv::focal_length_shift;
         constexpr int near_plane = 24 * 256 * 16;
 
@@ -981,8 +1015,8 @@ namespace
             return false;
         }
 
-        bn::fixed vrx = point.x() / 16;
-        bn::fixed vrz = point.z() / 16;
+        bn::fixed vrx = (point.x() - camera_x) / 16;
+        bn::fixed vrz = (point.z() - camera_z) / 16;
         int vcx = (vrx.unsafe_multiplication(_camera.right_axis().x()) +
                    vrz.unsafe_multiplication(_camera.right_axis().z())).data();
         int vcy = -(vrx.unsafe_multiplication(_camera.up_axis().x()) +
@@ -992,6 +1026,10 @@ namespace
         output.set_x((vcx * scale) >> 16);
         output.set_y((vcy * scale) >> 16);
         return true;
+    };
+
+    auto project_point_for_camera_distance = [&](const fr::point_3d& point, bn::fixed camera_y, bn::point& output) {
+        return project_point(point, 0, camera_y, 0, output);
     };
 
     auto room_side_is_visible = [&](const corner_matrix& cm, int room_id,
@@ -1305,29 +1343,12 @@ namespace
         bn::sprite_items::escaping_criticism_wall_bottom);
 
     auto project_point_to_screen = [&](const fr::point_3d& point, bn::point& output) {
-        constexpr int focal_length_shift = rv::focal_length_shift;
-        constexpr int near_plane = 24 * 256 * 16;
-
         const fr::point_3d& camera_position = _camera.position();
-        bn::fixed vry = point.y() - camera_position.y();
-        int vcz = -vry.data();
-
-        if(vcz < near_plane)
-        {
-            return false;
-        }
-
-        bn::fixed vrx = (point.x() - camera_position.x()) / 16;
-        bn::fixed vrz = (point.z() - camera_position.z()) / 16;
-        int vcx = (vrx.unsafe_multiplication(_camera.right_axis().x()) +
-                   vrz.unsafe_multiplication(_camera.right_axis().z())).data();
-        int vcy = -(vrx.unsafe_multiplication(_camera.up_axis().x()) +
-                    vrz.unsafe_multiplication(_camera.up_axis().z())).data();
-
-        int scale = int((fr::div_lut_ptr[vcz >> 10] << (focal_length_shift - 8)) >> 6);
-        output.set_x((vcx * scale) >> 16);
-        output.set_y((vcy * scale) >> 16);
-        return true;
+        return project_point(point,
+                             camera_position.x(),
+                             camera_position.y(),
+                             camera_position.z(),
+                             output);
     };
 
     auto update_painting_quads = [&]() {
@@ -1615,14 +1636,11 @@ namespace
 
         if(moving)
         {
-            if(screen_dx == 0 && screen_dy == 1)       { dir = 0; facing_left = false; }
-            else if(screen_dx == 0 && screen_dy == -1)  { dir = 4; facing_left = false; }
-            else if(screen_dx == 1 && screen_dy == 0)   { dir = 2; facing_left = false; }
-            else if(screen_dx == -1 && screen_dy == 0)  { dir = 2; facing_left = true;  }
-            else if(screen_dx == 1 && screen_dy == 1)   { dir = 1; facing_left = false; }
-            else if(screen_dx == -1 && screen_dy == 1)  { dir = 1; facing_left = true;  }
-            else if(screen_dx == 1 && screen_dy == -1)  { dir = 3; facing_left = false; }
-            else if(screen_dx == -1 && screen_dy == -1) { dir = 3; facing_left = true;  }
+            int input_dx = screen_dx > 0 ? 1 : (screen_dx < 0 ? -1 : 0);
+            int input_dy = screen_dy > 0 ? 1 : (screen_dy < 0 ? -1 : 0);
+            dir_face movement_face = dir_face_from_screen_delta(input_dx, input_dy);
+            dir = movement_face.dir;
+            facing_left = movement_face.facing_left;
 
             player_world_linear_dir = wrap_linear8(
                 dir_to_linear8(dir, facing_left) - view_angle_steps_8(current_view_angle));
@@ -1901,16 +1919,7 @@ namespace
                 player_world_pos = bn::fixed_point(room_center_x(current_room) + _player_fx, room_center_y(current_room) + _player_fy);
             }
 
-            // Map room_viewer direction (0=down,1=down_side,2=side,3=up_side,4=up)
-            // to minimap direction (UP=0,DOWN=1,LEFT=2,RIGHT=3)
-            int minimap_dir;
-            if(dir == 4)       { minimap_dir = 0; }  // up -> UP
-            else if(dir == 3)  { minimap_dir = 0; }  // up_side -> UP
-            else if(dir == 0)  { minimap_dir = 1; }  // down -> DOWN
-            else if(dir == 1)  { minimap_dir = 1; }  // down_side -> DOWN
-            else               { minimap_dir = facing_left ? 2 : 3; }  // side -> LEFT/RIGHT
-
-            minimap->update(player_world_pos, minimap_dir);
+            minimap->update(player_world_pos, minimap_dir_from_player_dir(dir, facing_left));
         }
 
         _models.render(_camera);

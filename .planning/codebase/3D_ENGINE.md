@@ -6,9 +6,11 @@ Last updated: 2026-04-03
 
 This note covers the private room-viewer renderer:
 
-- `src/viewer/room_renderer.h`
+- `include/private/viewer/str_room_renderer.h`
 - `src/viewer/room_renderer.cpp`
 - `src/viewer/room_renderer.bn_iwram.cpp`
+- `src/viewer/math/fr_sin_cos.cpp`
+- `src/viewer/math/fr_div_lut.cpp`
 - `build/generated/include/models/str_model_3d_items_room.h`
 - `include/models/str_model_3d_items_books.h`
 - `include/models/str_model_3d_items_potted_plant.h`

@@ -1,4 +1,4 @@
-#include "room_renderer.h"
+#include "private/viewer/str_room_renderer.h"
 
 #include "bn_assert.h"
 #include "bn_hdma.h"

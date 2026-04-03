@@ -21,10 +21,15 @@ stranded/
 ## Source Layout
 
 - `src/main.cpp` boots directly into the room viewer.
-- `src/room_viewer.cpp` contains the room-viewer loop.
-- `src/core/minimap.cpp` contains the minimap helper.
-- `src/core/str_bg_dialog.cpp` contains the dialog helper.
-- `src/viewer/room_renderer.*` contains the private room-viewer renderer.
+- `src/viewer/room_viewer.cpp` forwards to the private room-viewer runtime.
+- `src/viewer/runtime/room_viewer_runtime.cpp` contains the room-viewer loop.
+- `src/core/minimap/minimap.cpp` and `src/core/minimap/minimap_layout.cpp`
+  contain the minimap helper.
+- `src/core/dialog/str_bg_dialog.cpp` and `src/core/dialog/str_bg_dialog_text.cpp` contain
+  the dialog helper.
+- `src/viewer/room_renderer.cpp`, `src/viewer/room_renderer.bn_iwram.cpp`, and
+  `include/private/viewer/str_room_renderer.h` contain the private room-viewer renderer.
+- `src/viewer/math/` contains private renderer math support units.
 
 ## Header Layout
 
@@ -37,8 +42,7 @@ stranded/
 
 ## Maintenance Notes
 
-- Keep new room-viewer helpers close to `src/room_viewer.cpp`, `src/core/`, or
-  `src/viewer/`.
+- Keep new room-viewer helpers close to `src/core/` or `src/viewer/`.
 - Keep the room-shell generator and generated-include path aligned.
 - Keep `.planning/` in sync with runtime behavior instead of preserving stale
   notes about removed systems.
