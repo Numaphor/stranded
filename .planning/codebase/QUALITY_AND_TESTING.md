@@ -33,8 +33,8 @@ directly.
 
 ## Main Risks
 
-- `src/viewer/runtime/room_viewer_runtime.cpp` still couples input, movement, camera
-  motion, and door transitions.
+- `src/viewer/runtime/room_viewer_runtime_systems.cpp` still couples input, movement,
+  camera motion, and door transitions in one large runtime loop.
 - `src/viewer/room_renderer.bn_iwram.cpp` is the performance-sensitive render
   path.
 - The room-shell generator and the build-generated include path must stay in

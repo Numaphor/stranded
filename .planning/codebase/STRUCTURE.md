@@ -21,8 +21,10 @@ stranded/
 ## Source Layout
 
 - `src/main.cpp` boots directly into the room viewer.
-- `src/viewer/room_viewer.cpp` forwards to the private room-viewer runtime.
-- `src/viewer/runtime/room_viewer_runtime.cpp` contains the room-viewer loop.
+- `src/viewer/runtime/room_viewer_runtime_systems.cpp` is the room-viewer entrypoint and
+  contains the gameplay loop.
+- `src/viewer/runtime/room_viewer_runtime_state.cpp` contains runtime dialog data and
+  shared runtime constants.
 - `src/core/minimap/minimap.cpp` and `src/core/minimap/minimap_layout.cpp`
   contain the minimap helper.
 - `src/core/dialog/str_bg_dialog.cpp` and `src/core/dialog/str_bg_dialog_text.cpp` contain
@@ -34,6 +36,7 @@ stranded/
 ## Header Layout
 
 - `include/str_scene_room_viewer.h` exposes the room-viewer entrypoint.
+- `include/private/viewer/runtime/` holds private room-viewer runtime module headers.
 - `include/str_minimap.h`, `include/str_bg_dialog.h`, and
   `include/str_constants.h` hold room-viewer support code.
 - `include/models/` keeps tracked prop model headers.

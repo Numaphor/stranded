@@ -18,10 +18,16 @@ menu, and model-viewer flows are not part of the shipped behavior.
 
 ### Room Viewer
 
-- `src/viewer/room_viewer.cpp` is a thin room-viewer entrypoint.
-- `src/viewer/runtime/room_viewer_runtime.cpp` owns the gameplay loop, movement,
-  collision, doors, camera control, NPC interaction, paintings, and minimap
-  coordination.
+- `src/viewer/runtime/room_viewer_runtime_systems.cpp` is the room-viewer
+  entrypoint and owns the gameplay loop,
+  movement, collision, doors, camera control, NPC interaction, paintings, and
+  minimap coordination.
+- `src/viewer/runtime/room_viewer_runtime_state.cpp` owns runtime dialog data and
+  shared runtime constants used by systems.
+- `include/private/viewer/runtime/room_viewer_runtime_state.h` is the private
+  runtime state module interface.
+- `include/private/viewer/runtime/room_viewer_runtime_systems_shared.h` holds
+  private systems-only shared runtime helpers and constants.
 - `src/core/dialog/str_bg_dialog.cpp`, `src/core/dialog/str_bg_dialog_text.cpp`, and
   `include/str_bg_dialog.h` provide the fixed room-viewer dialog UI.
 - `src/core/minimap/minimap.cpp`, `src/core/minimap/minimap_layout.cpp`, and
