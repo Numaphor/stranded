@@ -4,5 +4,9 @@
 int main()
 {
     bn::core::init();
-    str::run_room_viewer();
+
+    while(true)
+    {
+        str::run_room_viewer();
+    }
 }
