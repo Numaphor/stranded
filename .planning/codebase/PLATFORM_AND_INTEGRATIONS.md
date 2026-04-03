@@ -1,6 +1,6 @@
 # Platform and Integrations
 
-Last updated: 2026-03-22
+Last updated: 2026-04-03
 
 ## Build and Runtime
 
@@ -9,6 +9,8 @@ Last updated: 2026-03-22
 - Primary engine dependency: the Butano submodule.
 - Current baseline uses the Wonderful Toolchain layout described in the repo
   build notes.
+- Project include paths must include `butano/butano/hw/include` when code
+  directly includes Butano hardware headers such as `bn_hw_sprites.h`.
 
 ## Local Tooling
 
@@ -16,6 +18,9 @@ Last updated: 2026-03-22
 - `scripts/mgba_f12_capture.ps1` is the local helper for build/run/capture
   checks when a visual review is needed.
 - `scripts/launch_debug.sh` supports debugger and logging workflows.
+- The VS Code C/C++ config currently relies on explicit `includePath` entries
+  (including Butano HW and 3rd-party include roots) instead of depending on a
+  frequently stale `build/compile_commands.json`.
 
 ## Asset and Content Pipeline
 

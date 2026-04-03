@@ -7,7 +7,7 @@
 #include "bn_profiler.h"
 #include "bn_sprite_palette_item.h"
 #include "bn_sprites.h"
-#include "../../butano/butano/hw/include/bn_hw_sprites.h"
+#include "bn_hw_sprites.h"
 
 #include "fr_sin_cos.h"
 
@@ -210,8 +210,8 @@ ScanlineRenderer::ScanlineRenderer()
 {
     for(int index = 0; index < _hdma_source_size; index += 4)
     {
-        bn::hw::sprites::hide_and_destroy(_hdma_source_a[index]);
-        bn::hw::sprites::hide_and_destroy(_hdma_source_b[index]);
+        bn::hw::sprites::hide(_hdma_source_a[index]);
+        bn::hw::sprites::hide(_hdma_source_b[index]);
     }
 }
 
@@ -316,7 +316,7 @@ void ScanlineRenderer::commit_frame()
     bn::memory::copy(hdma_source[0], scanline_elements, hdma_source[hdma_source_size]);
 
     bn::span<const uint16_t> hdma_source_ref(hdma_source + scanline_elements, hdma_source_size);
-    bn::hdma::start(hdma_source_ref, bn::hw::sprites::vram()[_oam_start_index].attr0);
+    bn::hdma::start(hdma_source_ref, *bn::hw::sprites::first_attributes_register(_oam_start_index));
 
     if(hdma_source == _hdma_source_a)
     {
