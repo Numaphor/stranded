@@ -84,25 +84,6 @@ namespace str
         return _find_room(world_pos);
     }
 
-    // Map world position to a logical minimap position (not screen position)
-    // Returns coordinates in the same logical space as _room_screen_pos()
-    bn::fixed_point Minimap::_world_to_minimap(bn::fixed_point world_pos, int room_id) const
-    {
-        bn::fixed_point room_logical = _room_screen_pos(room_id);
-
-        // Normalized position within room (-1 to 1)
-        bn::fixed nx = (world_pos.x() - _room_center_x[room_id]) / _room_half_x[room_id];
-        bn::fixed ny = (world_pos.y() - _room_center_y[room_id]) / _room_half_y[room_id];
-
-        // Scale to fit within the room sprite (leave 1px border)
-        bn::fixed half_inner = _is_big_room[room_id] ? bn::fixed(6) : bn::fixed(5);
-        // Negate X: isometric world +X = screen upper-right, minimap is top-down
-        bn::fixed sx = room_logical.x() - nx * half_inner;
-        bn::fixed sy = room_logical.y() + ny * half_inner;
-
-        return bn::fixed_point(sx, sy);
-    }
-
     bn::fixed_point Minimap::_world_to_minimap_room_viewer(bn::fixed_point world_pos, int room_id) const
     {
         bn::fixed room_viewer_playable_half_x = _room_half_x[room_id] - _playable_edge_inset;

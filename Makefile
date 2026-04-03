@@ -33,7 +33,7 @@ BUILD       	:=  build
 LIBBUTANO   	:=  butano/butano
 PYTHON      	:=  python
 SOURCES     	:=  src src/core src/viewer butano/common/src
-INCLUDES    	:=  include butano/common/include butano/games/varooom-3d/include
+INCLUDES    	:=  $(BUILD)/generated/include include butano/common/include butano/games/varooom-3d/include
 DATA        	:=
 GRAPHICS    	:=  butano/common/graphics graphics/bg graphics/sprite/player graphics/sprite/npc graphics/sprite/hud graphics/sprite/decor graphics/sprite/interior_props graphics/shape_group_textures
 AUDIO       	:=
@@ -50,7 +50,7 @@ USERLIBS    	:=
 DEFAULTLIBS 	:=  
 STACKTRACE		:=	true
 USERBUILD   	:=  
-EXTTOOL     	:=
+EXTTOOL     	:=  $(PYTHON) scripts/generate_room_shell_header.py --output-dir $(BUILD)/generated/include/models
 
 ifeq ($(PROFILE_ENGINE),1)
 PROFILER_LOG_ENGINE := true

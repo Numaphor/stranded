@@ -5,28 +5,20 @@
 #include "bn_bg_palettes.h"
 #include "bn_bg_tiles.h"
 #include "bn_color.h"
-#include "bn_memory.h"
 #include "bn_sprites.h"
 #include "bn_display.h"
-#include "bn_sprite_text_generator.h"
 #include "bn_sprite_affine_mat_ptr.h"
 #include "bn_sprite_ptr.h"
 #include "bn_affine_mat_attributes.h"
 #include "bn_fixed.h"
 #include "bn_math.h"
 #include "bn_algorithm.h"
-#include "bn_assert.h"
 #include "bn_regular_bg_item.h"
 #include "bn_regular_bg_map_item.h"
 #include "bn_regular_bg_map_ptr.h"
 #include "bn_regular_bg_map_cell.h"
 #include "bn_regular_bg_map_cell_info.h"
 #include "bn_regular_bg_ptr.h"
-#include "bn_string.h"
-#include "bn_sstream.h"
-#include "bn_log.h"
-#include "bn_profiler.h"
-#include "bn_unordered_map.h"
 #include "bn_point.h"
 #include "bn_bg_palette_items_dialog_font_palette.h"
 #include "bn_regular_bg_tiles_items_dialog_font_tiles.h"
@@ -39,622 +31,16 @@
 #include "bn_sprite_items_escaping_criticism_wall_top.h"
 #include "bn_sprite_items_mr_and_mrs_andrews_wall_bottom.h"
 #include "bn_sprite_items_mr_and_mrs_andrews_wall_top.h"
-
-#include "common_variable_8x8_sprite_font.h"
 #include "str_minimap.h"
 
 #include "fr_sin_cos.h"
 #include "fr_div_lut.h"
-#include "fr_constants_3d.h"
 #include "models/str_model_3d_items_room.h"
 #include "models/str_model_3d_items_books.h"
-#include "models/str_model_3d_items_potted_plant.h"
-#include "../butano/butano/hw/include/bn_hw_sprites.h"
+#include "viewer/room_renderer.h"
 
 namespace {
-    class overlay_resources
-    {
-    public:
-        static constexpr int MAP_COLUMNS = 32;
-        static constexpr int MAP_ROWS = 32;
-        static constexpr int MAP_CELLS = MAP_COLUMNS * MAP_ROWS;
-        static constexpr int VISIBLE_COL_LEFT = 1;
-        static constexpr int VISIBLE_COL_RIGHT = 30;
-        static constexpr int MENU_TOP_ROW = 6;
-        static constexpr int MENU_BOTTOM_ROW = 25;
-
-        static overlay_resources& instance()
-        {
-            static overlay_resources resources;
-            return resources;
-        }
-
-        [[nodiscard]] bool ensure_visible()
-        {
-            if(_bg && _backdrop_bg && _bg_map)
-            {
-                _bg->set_visible(true);
-                _backdrop_bg->set_visible(true);
-                return true;
-            }
-
-            bn::regular_bg_map_item map_item(_cells[0], bn::size(MAP_COLUMNS, MAP_ROWS));
-            bn::regular_bg_item bg_item(
-                bn::regular_bg_tiles_items::dialog_font_tiles,
-                bn::bg_palette_items::dialog_font_palette,
-                map_item);
-
-            bn::regular_bg_map_item backdrop_map_item(_backdrop_cells[0], bn::size(MAP_COLUMNS, MAP_ROWS));
-            bn::regular_bg_item backdrop_bg_item(
-                bn::regular_bg_tiles_item(
-                    bn::span<const bn::tile>(_backdrop_tiles, BACKDROP_TILES_COUNT),
-                    bn::bpp_mode::BPP_4),
-                bn::bg_palette_item(
-                    bn::span<const bn::color>(_backdrop_palette, BACKDROP_PALETTE_COLORS_COUNT),
-                    bn::bpp_mode::BPP_4),
-                backdrop_map_item);
-
-            bool old_offset = bn::bg_tiles::allow_offset();
-            bn::bg_tiles::set_allow_offset(false);
-            _bg = bg_item.create_bg_optional(0, 0);
-            _backdrop_bg = backdrop_bg_item.create_bg_optional(0, 0);
-            bn::bg_tiles::set_allow_offset(old_offset);
-
-            if(! _bg || ! _backdrop_bg)
-            {
-                hide();
-                return false;
-            }
-
-            _bg->set_priority(0);
-            _bg_map = _bg->map();
-            _backdrop_bg->set_priority(1);
-            _bg->set_visible(true);
-            _backdrop_bg->set_visible(true);
-            return true;
-        }
-
-        void hide()
-        {
-            _bg_map.reset();
-            _bg.reset();
-            _backdrop_bg.reset();
-        }
-
-        [[nodiscard]] bool active() const
-        {
-            return _bg_map.has_value();
-        }
-
-        void clear_cells()
-        {
-            bn::memory::clear(_cells);
-        }
-
-        void reload()
-        {
-            if(_bg_map.has_value())
-            {
-                _bg_map->reload_cells_ref();
-            }
-        }
-
-        void write_text(int row, int col, const char* text, int len)
-        {
-            for(int index = 0; index < len; ++index)
-            {
-                int target_col = col + index;
-
-                if(target_col < VISIBLE_COL_LEFT)
-                {
-                    continue;
-                }
-
-                if(target_col > VISIBLE_COL_RIGHT)
-                {
-                    break;
-                }
-
-                int ch = static_cast<unsigned char>(text[index]);
-                int tile_index = ch >= 32 && ch <= 127 ? ch - 32 : 0;
-                _set_cell(target_col, row, tile_index);
-            }
-        }
-
-        void write_text_centered(int row, const char* text, int len)
-        {
-            int start_col = VISIBLE_COL_LEFT + ((VISIBLE_COL_RIGHT - VISIBLE_COL_LEFT + 1) - len) / 2;
-            start_col = bn::max(start_col, VISIBLE_COL_LEFT);
-            write_text(row, start_col, text, len);
-        }
-
-        void write_text_centered(int row, const char* text)
-        {
-            int len = 0;
-
-            while(text[len] != '\0')
-            {
-                ++len;
-            }
-
-            write_text_centered(row, text, len);
-        }
-
-    private:
-        static constexpr int BACKDROP_TILES_COUNT = 2;
-        static constexpr int BACKDROP_PALETTE_COLORS_COUNT = 16;
-
-        static constexpr bn::tile _backdrop_tiles[BACKDROP_TILES_COUNT] = {
-            { { 0, 0, 0, 0, 0, 0, 0, 0 } },
-            { { 0x11111111, 0x11111111, 0x11111111, 0x11111111,
-                0x11111111, 0x11111111, 0x11111111, 0x11111111 } }
-        };
-
-        static constexpr bn::color _backdrop_palette[BACKDROP_PALETTE_COLORS_COUNT] = {
-            bn::color(0, 0, 0), bn::color(2, 2, 4), bn::color(0, 0, 0), bn::color(0, 0, 0),
-            bn::color(0, 0, 0), bn::color(0, 0, 0), bn::color(0, 0, 0), bn::color(0, 0, 0),
-            bn::color(0, 0, 0), bn::color(0, 0, 0), bn::color(0, 0, 0), bn::color(0, 0, 0),
-            bn::color(0, 0, 0), bn::color(0, 0, 0), bn::color(0, 0, 0), bn::color(0, 0, 0)
-        };
-
-        alignas(int) static BN_DATA_EWRAM bn::regular_bg_map_cell _cells[MAP_CELLS];
-        alignas(int) static BN_DATA_EWRAM bn::regular_bg_map_cell _backdrop_cells[MAP_CELLS];
-
-        bn::optional<bn::regular_bg_ptr> _bg;
-        bn::optional<bn::regular_bg_ptr> _backdrop_bg;
-        bn::optional<bn::regular_bg_map_ptr> _bg_map;
-
-        overlay_resources()
-        {
-            bn::memory::clear(_cells);
-            bn::memory::clear(_backdrop_cells);
-
-            for(int row = MENU_TOP_ROW; row <= MENU_BOTTOM_ROW; ++row)
-            {
-                for(int col = VISIBLE_COL_LEFT; col <= VISIBLE_COL_RIGHT; ++col)
-                {
-                    _set_cell(col, row, 1);
-                    _set_backdrop_cell(col, row, 1);
-                }
-            }
-        }
-
-        void _set_cell(int x, int y, int tile_index)
-        {
-            _set_cell_value(_cells, x, y, tile_index);
-        }
-
-        void _set_backdrop_cell(int x, int y, int tile_index)
-        {
-            _set_cell_value(_backdrop_cells, x, y, tile_index);
-        }
-
-        static void _set_cell_value(bn::regular_bg_map_cell* cells, int x, int y, int tile_index)
-        {
-            int index = y * MAP_COLUMNS + x;
-            bn::regular_bg_map_cell_info cell_info(cells[index]);
-            cell_info.set_tile_index(tile_index);
-            cell_info.set_palette_id(0);
-            cell_info.set_horizontal_flip(false);
-            cell_info.set_vertical_flip(false);
-            cells[index] = cell_info.cell();
-        }
-    };
-
-    class profiler_menu
-    {
-    public:
-        [[nodiscard]] bool visible() const
-        {
-            return _visible;
-        }
-
-        void set_visible(bool visible)
-        {
-            if(_visible == visible)
-            {
-                return;
-            }
-
-            if(visible)
-            {
-                if(! overlay_resources::instance().ensure_visible())
-                {
-                    _visible = false;
-                    return;
-                }
-
-                _visible = true;
-                _scroll_offset = 0;
-                _frame_counter = 0;
-                _refresh();
-            }
-            else
-            {
-                _visible = false;
-                overlay_resources::instance().hide();
-            }
-        }
-
-        void update()
-        {
-            if(! _visible)
-            {
-                return;
-            }
-
-            if(bn::keypad::a_pressed())
-            {
-                _show_total = ! _show_total;
-                _scroll_offset = 0;
-            }
-
-            if(bn::keypad::start_pressed())
-            {
-                BN_PROFILER_RESET();
-                _scroll_offset = 0;
-            }
-
-            if(bn::keypad::down_pressed())
-            {
-                ++_scroll_offset;
-                _frame_counter = 0;
-            }
-            else if(bn::keypad::up_pressed())
-            {
-                --_scroll_offset;
-                _frame_counter = 0;
-            }
-
-            ++_frame_counter;
-
-            if(_frame_counter >= REFRESH_INTERVAL || bn::keypad::a_pressed() || bn::keypad::start_pressed() ||
-               bn::keypad::down_pressed() || bn::keypad::up_pressed())
-            {
-                _frame_counter = 0;
-                _refresh();
-            }
-        }
-
-    private:
-        struct entry_data
-        {
-            const char* id;
-            int64_t total_ticks;
-            int max_ticks;
-        };
-
-        static constexpr int TITLE_ROW = 7;
-        static constexpr int SUMMARY_ROW = 8;
-        static constexpr int CONTROLS_ROW_A = 9;
-        static constexpr int CONTROLS_ROW_B = 10;
-        static constexpr int ENTRIES_ROW = 12;
-        static constexpr int VISIBLE_ENTRY_ROWS = overlay_resources::MENU_BOTTOM_ROW - ENTRIES_ROW;
-        static constexpr int REFRESH_INTERVAL = 12;
-        bool _visible = false;
-        bool _show_total = true;
-        int _scroll_offset = 0;
-        int _frame_counter = 0;
-
-        void _append_clipped_id(const char* id, int max_chars, bn::string<64>& output)
-        {
-            int id_len = 0;
-
-            while(id[id_len] != '\0')
-            {
-                ++id_len;
-            }
-
-            if(id_len <= max_chars)
-            {
-                output.append(id, id_len);
-                return;
-            }
-
-            int clipped_len = bn::max(0, max_chars - 3);
-            output.append(id, clipped_len);
-            output.append("...");
-        }
-
-        void _collect_entries(bn::vector<entry_data, BN_CFG_PROFILER_MAX_ENTRIES>& entries, int64_t& global_value) const
-        {
-            entries.clear();
-            global_value = 0;
-
-            const auto& ticks_per_entry = _bn::profiler::ticks_per_entry();
-
-            for(const auto& ticks_per_entry_pair : ticks_per_entry)
-            {
-                const auto& ticks_entry = ticks_per_entry_pair.second;
-                entry_data entry = {
-                    ticks_per_entry_pair.first,
-                    ticks_entry.total,
-                    ticks_entry.max
-                };
-                entries.push_back(entry);
-            }
-
-            bn::sort(entries.begin(), entries.end(), [this](const entry_data& a, const entry_data& b) {
-                return _show_total ? a.total_ticks > b.total_ticks : a.max_ticks > b.max_ticks;
-            });
-
-            for(const entry_data& entry : entries)
-            {
-                global_value += _show_total ? entry.total_ticks : entry.max_ticks;
-            }
-        }
-
-        void _flush()
-        {
-            overlay_resources::instance().reload();
-        }
-
-        void _refresh()
-        {
-            if(! overlay_resources::instance().active())
-            {
-                return;
-            }
-
-            bn::vector<entry_data, BN_CFG_PROFILER_MAX_ENTRIES> entries;
-            int64_t global_value = 0;
-            _collect_entries(entries, global_value);
-
-            int max_scroll = bn::max(0, entries.size() - VISIBLE_ENTRY_ROWS);
-            _scroll_offset = bn::clamp(_scroll_offset, 0, max_scroll);
-
-            overlay_resources& resources = overlay_resources::instance();
-            resources.clear_cells();
-            resources.write_text_centered(TITLE_ROW, _show_total ? "PROFILER TOTAL" : "PROFILER MAX");
-
-            bn::string<64> summary;
-            bn::ostringstream summary_stream(summary);
-            summary_stream << "SUM:" << global_value << " ENTRIES:" << entries.size();
-            resources.write_text_centered(SUMMARY_ROW, summary.data(), summary.size());
-            resources.write_text_centered(CONTROLS_ROW_A, "A:MODE START:RESET");
-            resources.write_text_centered(CONTROLS_ROW_B, "UP/DOWN:SCROLL B:CLOSE");
-
-            if(entries.empty())
-            {
-                resources.write_text_centered(ENTRIES_ROW, "NO PROFILER DATA RECORDED");
-                _flush();
-                return;
-            }
-
-            int visible_entries = bn::min(VISIBLE_ENTRY_ROWS, entries.size() - _scroll_offset);
-
-            for(int index = 0; index < visible_entries; ++index)
-            {
-                const entry_data& entry = entries[_scroll_offset + index];
-                int64_t entry_value = _show_total ? entry.total_ticks : entry.max_ticks;
-
-                bn::string<8> index_text;
-                bn::ostringstream index_stream(index_text);
-                index_stream << _scroll_offset + index + 1 << '.';
-
-                bn::string<24> value_text;
-                bn::ostringstream value_stream(value_text);
-                value_stream << entry_value;
-
-                bn::string<8> pct_text;
-                if(global_value)
-                {
-                    bn::ostringstream pct_stream(pct_text);
-                    pct_stream << int((entry_value * 100) / global_value) << '%';
-                }
-
-                int max_line_chars = overlay_resources::VISIBLE_COL_RIGHT - overlay_resources::VISIBLE_COL_LEFT + 1;
-                int fixed_chars = index_text.size() + 1 + value_text.size();
-                if(! pct_text.empty())
-                {
-                    fixed_chars += 1 + pct_text.size();
-                }
-
-                int max_id_chars = bn::max(4, max_line_chars - fixed_chars - 1);
-
-                bn::string<64> line;
-                line.append(index_text);
-                line.append(" ");
-                _append_clipped_id(entry.id, max_id_chars, line);
-                line.append(" ");
-                line.append(value_text);
-
-                if(! pct_text.empty())
-                {
-                    line.append(" ");
-                    line.append(pct_text);
-                }
-
-                resources.write_text(ENTRIES_ROW + index, overlay_resources::VISIBLE_COL_LEFT, line.data(), line.size());
-            }
-
-            if(_scroll_offset > 0)
-            {
-                resources.write_text(overlay_resources::MENU_TOP_ROW, overlay_resources::VISIBLE_COL_RIGHT, "^", 1);
-            }
-
-            if(_scroll_offset + VISIBLE_ENTRY_ROWS < entries.size())
-            {
-                resources.write_text(overlay_resources::MENU_BOTTOM_ROW, overlay_resources::VISIBLE_COL_RIGHT, "v", 1);
-            }
-
-            _flush();
-        }
-    };
-
-    class debug_menu
-    {
-    public:
-        struct state
-        {
-            int room_id = -1;
-            int fps = -1;
-            int vertices_count = -1;
-            int hlines_count = -1;
-            int room_x = 0;
-            int room_y = 0;
-            int dir = 0;
-            int corner = 0;
-            int yaw_degrees = 0;
-            const char* preview_name = "";
-            bool room_models_visible = true;
-            int used_alloc_ewram = 0;
-            int used_static_ewram = 0;
-            int used_static_iwram = 0;
-            int used_bg_tiles = 0;
-            int available_bg_tiles = 0;
-            int used_bg_blocks = 0;
-            int available_bg_blocks = 0;
-
-            [[nodiscard]] bool operator==(const state& other) const
-            {
-                return room_id == other.room_id &&
-                       fps == other.fps &&
-                       vertices_count == other.vertices_count &&
-                       hlines_count == other.hlines_count &&
-                       room_x == other.room_x &&
-                       room_y == other.room_y &&
-                       dir == other.dir &&
-                       corner == other.corner &&
-                       yaw_degrees == other.yaw_degrees &&
-                       preview_name == other.preview_name &&
-                       room_models_visible == other.room_models_visible &&
-                       used_alloc_ewram == other.used_alloc_ewram &&
-                       used_static_ewram == other.used_static_ewram &&
-                       used_static_iwram == other.used_static_iwram &&
-                       used_bg_tiles == other.used_bg_tiles &&
-                       available_bg_tiles == other.available_bg_tiles &&
-                       used_bg_blocks == other.used_bg_blocks &&
-                       available_bg_blocks == other.available_bg_blocks;
-            }
-        };
-
-        [[nodiscard]] bool visible() const
-        {
-            return _visible;
-        }
-
-        void set_visible(bool visible)
-        {
-            if(_visible == visible)
-            {
-                return;
-            }
-
-            if(visible)
-            {
-                if(! overlay_resources::instance().ensure_visible())
-                {
-                    _visible = false;
-                    return;
-                }
-
-                _visible = true;
-                _frame_counter = 0;
-                _has_last_state = false;
-            }
-            else
-            {
-                _visible = false;
-                overlay_resources::instance().hide();
-            }
-        }
-
-        void update(const state& current_state)
-        {
-            if(! _visible || ! overlay_resources::instance().active())
-            {
-                return;
-            }
-
-            ++_frame_counter;
-            bool should_refresh = ! _has_last_state || current_state != _last_state;
-
-            if(! should_refresh && _frame_counter < REFRESH_INTERVAL)
-            {
-                return;
-            }
-
-            _frame_counter = 0;
-            _last_state = current_state;
-            _has_last_state = true;
-
-            overlay_resources& resources = overlay_resources::instance();
-            resources.clear_cells();
-            resources.write_text_centered(TITLE_ROW, "DEBUG VIEW");
-
-            bn::string<40> line0;
-            bn::ostringstream line0_stream(line0);
-            line0_stream << "POS:" << current_state.room_x << "," << current_state.room_y << " DIR:" << current_state.dir;
-            resources.write_text_centered(INFO_ROW_0, line0.data(), line0.size());
-
-            bn::string<40> line1;
-            bn::ostringstream line1_stream(line1);
-            line1_stream << "ROOM:" << current_state.room_id << " C:" << current_state.corner << " Y:" << current_state.yaw_degrees;
-            resources.write_text_centered(INFO_ROW_1, line1.data(), line1.size());
-
-            bn::string<40> line2;
-            bn::ostringstream line2_stream(line2);
-            line2_stream << "FPS:" << current_state.fps << " V:" << current_state.vertices_count
-                         << "/" << fr::models_3d::max_vertices();
-            resources.write_text_centered(INFO_ROW_2, line2.data(), line2.size());
-
-            bn::string<40> line3;
-            bn::ostringstream line3_stream(line3);
-            line3_stream << "PREV:" << current_state.preview_name
-                         << " RM:" << (current_state.room_models_visible ? "ON" : "OFF")
-                         << " HL:" << current_state.hlines_count;
-            resources.write_text_centered(INFO_ROW_3, line3.data(), line3.size());
-
-            bn::string<40> line4;
-            bn::ostringstream line4_stream(line4);
-            line4_stream << "EWA:" << current_state.used_alloc_ewram
-                         << " EWS:" << current_state.used_static_ewram;
-            resources.write_text_centered(INFO_ROW_4, line4.data(), line4.size());
-
-            bn::string<40> line5;
-            bn::ostringstream line5_stream(line5);
-            line5_stream << "IWS:" << current_state.used_static_iwram;
-            resources.write_text_centered(INFO_ROW_5, line5.data(), line5.size());
-
-            bn::string<40> line6;
-            bn::ostringstream line6_stream(line6);
-            line6_stream << "BT:" << current_state.used_bg_tiles << "/" << current_state.available_bg_tiles;
-            resources.write_text_centered(INFO_ROW_6, line6.data(), line6.size());
-
-            bn::string<40> line7;
-            bn::ostringstream line7_stream(line7);
-            line7_stream << "BB:" << current_state.used_bg_blocks << "/" << current_state.available_bg_blocks;
-            resources.write_text_centered(INFO_ROW_7, line7.data(), line7.size());
-
-            resources.write_text_centered(CONTROLS_ROW_0, "SELECT:CLOSE B:PROF");
-            resources.write_text_centered(CONTROLS_ROW_1, "START:RECENTER L/R:ZOOM");
-            resources.write_text_centered(CONTROLS_ROW_2, "SEL+L:TOGGLE RM");
-            resources.reload();
-        }
-
-    private:
-        static constexpr int TITLE_ROW = 7;
-        static constexpr int INFO_ROW_0 = 9;
-        static constexpr int INFO_ROW_1 = 10;
-        static constexpr int INFO_ROW_2 = 11;
-        static constexpr int INFO_ROW_3 = 12;
-        static constexpr int INFO_ROW_4 = 14;
-        static constexpr int INFO_ROW_5 = 15;
-        static constexpr int INFO_ROW_6 = 16;
-        static constexpr int INFO_ROW_7 = 17;
-        static constexpr int CONTROLS_ROW_0 = 20;
-        static constexpr int CONTROLS_ROW_1 = 21;
-        static constexpr int CONTROLS_ROW_2 = 22;
-        static constexpr int REFRESH_INTERVAL = 8;
-        bool _visible = false;
-        bool _has_last_state = false;
-        int _frame_counter = 0;
-        state _last_state;
-    };
-
-    alignas(int) BN_DATA_EWRAM bn::regular_bg_map_cell overlay_resources::_cells[overlay_resources::MAP_CELLS];
-    alignas(int) BN_DATA_EWRAM bn::regular_bg_map_cell overlay_resources::_backdrop_cells[overlay_resources::MAP_CELLS];
+    namespace rv = str::viewer;
 
     constexpr int NUM_ROOMS = 2;
     constexpr int QUARTER_TURN_ANGLE = 16384;
@@ -680,14 +66,6 @@ namespace {
     constexpr int PAINTING_MAX_AFFINE_REGISTER = 16384;
     constexpr int ADJACENT_ROOM_DEPTH_BIAS = 1500000;
     constexpr int TRANSITION_DECOR_DEPTH_BIAS = ADJACENT_ROOM_DEPTH_BIAS;
-    constexpr int ROOM_PREVIEW_TARGET_FPS = 50;
-    constexpr int ROOM_PREVIEW_FPS_HYSTERESIS = 3;
-    constexpr int ROOM_PREVIEW_DOWNSHIFT_FPS = ROOM_PREVIEW_TARGET_FPS - ROOM_PREVIEW_FPS_HYSTERESIS;
-    constexpr int ROOM_PREVIEW_UPSHIFT_FPS = ROOM_PREVIEW_TARGET_FPS + ROOM_PREVIEW_FPS_HYSTERESIS;
-    constexpr int ROOM_PREVIEW_REQUIRED_SAMPLES = 2;
-    constexpr int ROOM_PREVIEW_MODE_CHANGE_COOLDOWN_FRAMES = 180;
-    constexpr bool ROOM_PREVIEW_AUTO_ADJUST = false;
-    constexpr bool ENABLE_RENDER_SWEEP_DEBUG = false;
     constexpr bool ENABLE_PAINTING_QUADS = true;
     constexpr bool ENABLE_NPC_SPRITES = true;
     constexpr bool ENABLE_MINIMAP = true;
@@ -773,58 +151,6 @@ namespace {
         bn::fixed r10, r11, r12;
         bn::fixed r20, r21, r22;
     };
-
-    enum class room_preview_mode
-    {
-        all_connected,
-        preferred_only,
-        off
-    };
-
-    const char* room_preview_mode_name(room_preview_mode mode)
-    {
-        switch(mode)
-        {
-            case room_preview_mode::all_connected:
-                return "ALL";
-
-            case room_preview_mode::preferred_only:
-                return "ONE";
-
-            default:
-                return "OFF";
-        }
-    }
-
-    room_preview_mode downgraded_room_preview_mode(room_preview_mode mode)
-    {
-        switch(mode)
-        {
-            case room_preview_mode::all_connected:
-                return room_preview_mode::preferred_only;
-
-            case room_preview_mode::preferred_only:
-                return room_preview_mode::off;
-
-            default:
-                return room_preview_mode::off;
-        }
-    }
-
-    room_preview_mode upgraded_room_preview_mode(room_preview_mode mode)
-    {
-        switch(mode)
-        {
-            case room_preview_mode::off:
-                return room_preview_mode::preferred_only;
-
-            case room_preview_mode::preferred_only:
-                return room_preview_mode::all_connected;
-
-            default:
-                return room_preview_mode::all_connected;
-        }
-    }
 
     int normalize_angle(int angle)
     {
@@ -987,10 +313,6 @@ namespace {
         out[3] = rotate_corner_matrix(base, QUARTER_TURN_ANGLE * 3);
     }
 
-    constexpr bn::fixed BOOKS_FX = 24;
-    constexpr bn::fixed BOOKS_FY = -12;
-    constexpr bn::fixed POTTED_PLANT_FX = -28;
-    constexpr bn::fixed POTTED_PLANT_FY = 24;
     // Textured-polygon painting quads in room-local coordinates.
     // Their wall anchors are derived from the current room half extents.
     // A (back wall): mr_and_mrs_andrews (192x112, landscape)
@@ -1004,11 +326,48 @@ namespace {
     constexpr bn::fixed PAINTING_A_CENTER_X = -38;
     constexpr bn::fixed PAINTING_B_CENTER_Y = -34;
 
-    constexpr bn::fixed BOOKS_HW = 4;
-    constexpr bn::fixed BOOKS_HD = 4;
-    constexpr bn::fixed POTTED_PLANT_HW = 6;
-    constexpr bn::fixed POTTED_PLANT_HD = 6;
     constexpr bn::fixed ROOM_WALL_TOP_Z = bn::fixed(-50);
+
+    struct room_spec
+    {
+        const fr::model_3d_item& model;
+        bn::fixed center_x;
+        bn::fixed center_y;
+        bn::fixed half_x;
+        bn::fixed half_y;
+        const fr::model_3d_item* decor_model;
+        bn::fixed decor_x;
+        bn::fixed decor_y;
+        bn::fixed decor_half_width;
+        bn::fixed decor_half_depth;
+    };
+
+    constexpr room_spec rooms[NUM_ROOMS] = {
+        {
+            str::model_3d_items::room_0,
+            bn::fixed(0),
+            bn::fixed(0),
+            bn::fixed(90),
+            bn::fixed(60),
+            nullptr,
+            0,
+            0,
+            0,
+            0
+        },
+        {
+            str::model_3d_items::room_1,
+            bn::fixed(60),
+            bn::fixed(120),
+            bn::fixed(60),
+            bn::fixed(60),
+            &str::model_3d_items::books,
+            bn::fixed(24),
+            bn::fixed(-12),
+            bn::fixed(4),
+            bn::fixed(4)
+        }
+    };
 
     constexpr bn::fixed DOOR_HALF_WIDTH = 10;
     constexpr bn::fixed DOOR_APPROACH_EDGE_MARGIN = 18;
@@ -1026,46 +385,8 @@ namespace {
     constexpr int SPAWN_PLAYER_DIR = 3;
     constexpr bool SPAWN_PLAYER_FACING_LEFT = false;
     constexpr int SPAWN_ROOM_ID = 0;
-    constexpr int SHAPE_OAM_START_INDEX = 64;
-    constexpr int SHAPE_RESERVED_HANDLES = fr::models_3d::required_reserved_sprite_handles();
-    constexpr int ROOM_VIEWER_RESERVED_HANDLES = 0;
-    static_assert(ROOM_VIEWER_RESERVED_HANDLES <= bn::hw::sprites::count(),
-                  "Room viewer reserved handles overflow OAM");
-
-    constexpr int degrees_to_angle(int degrees)
-    {
-        return (degrees * 65536) / 360;
-    }
-
-    struct render_sweep_preset
-    {
-        int fx;
-        int fy;
-        int view_angle;
-        int dir;
-        bool facing_left;
-    };
-
-    constexpr render_sweep_preset render_sweep_presets[] = {
-        { -28, 28, degrees_to_angle(180), 4, false },
-        { -12, 28, degrees_to_angle(180), 4, false },
-        {   4, 28, degrees_to_angle(180), 4, false },
-        {  20, 28, degrees_to_angle(180), 4, false },
-        { -28, 16, degrees_to_angle(180), 4, false },
-        { -12, 16, degrees_to_angle(180), 4, false },
-        {   4, 16, degrees_to_angle(180), 4, false },
-        {  20, 16, degrees_to_angle(180), 4, false },
-        { -20, 10, degrees_to_angle(168), 4, false },
-        {  -4, 10, degrees_to_angle(168), 4, false },
-        {  12, 10, degrees_to_angle(168), 4, false },
-        {  28, 10, degrees_to_angle(168), 4, false },
-        { -20, 10, degrees_to_angle(192), 0, false },
-        {  -4, 10, degrees_to_angle(192), 0, false },
-        {  12, 10, degrees_to_angle(192), 0, false },
-        {  28, 10, degrees_to_angle(192), 0, false },
-    };
-
-    constexpr int render_sweep_presets_count = sizeof(render_sweep_presets) / sizeof(render_sweep_presets[0]);
+    constexpr bn::fixed ROOM_PLAYABLE_EDGE_INSET = bn::fixed(5);
+    constexpr bn::fixed SHARED_DOOR_WORLD_X = bn::fixed(45);
 
     class textured_triangle
     {
@@ -1254,85 +575,29 @@ namespace {
         textured_triangle _bottom;
     };
 
-    enum decor_flags
-    {
-        decor_none = 0,
-        decor_books = 1 << 0,
-        decor_potted_plant = 1 << 1,
-    };
-
-    constexpr int room_decor_flags[NUM_ROOMS] = {
-        decor_none,   // Room 0
-        decor_books,  // Room 1
-    };
-
-    bool overlaps_any_furniture(int room_id, bn::fixed px, bn::fixed py)
-    {
-        int decor = room_decor_flags[room_id];
-
-        if(decor & decor_books)
-        {
-            if(bn::abs(px - BOOKS_FX) < BOOKS_HW && bn::abs(py - BOOKS_FY) < BOOKS_HD)
-                return true;
-        }
-
-        if(decor & decor_potted_plant)
-        {
-            if(bn::abs(px - POTTED_PLANT_FX) < POTTED_PLANT_HW &&
-               bn::abs(py - POTTED_PLANT_FY) < POTTED_PLANT_HD)
-                return true;
-        }
-
-        return false;
-    }
-
-    // Two-room layout:
-    //   [ Room 1: square side room ]
-    //                |
-    //   [ Room 0: long spawn room ]
-    // The small room sits above-right of the spawn room and connects through
-    // one doorway on the spawn room's long back wall.
-
     int int_abs(int value)
     {
         return value >= 0 ? value : -value;
     }
 
-    // Runtime room vertices are emitted with ROOM_SCALE=2 (generate_level_headers.py).
-    // Keep placement centers in the same scaled engine-space units.
-    constexpr bn::fixed room_center_x_values[NUM_ROOMS] = {
-        bn::fixed(0), bn::fixed(60)
-    };
-    constexpr bn::fixed room_center_y_values[NUM_ROOMS] = {
-        bn::fixed(0), bn::fixed(120)
-    };
-    constexpr bn::fixed room_half_extent_x_values[NUM_ROOMS] = {
-        bn::fixed(90), bn::fixed(60)
-    };
-    constexpr bn::fixed room_half_extent_y_values[NUM_ROOMS] = {
-        bn::fixed(60), bn::fixed(60)
-    };
-    constexpr bn::fixed ROOM_PLAYABLE_EDGE_INSET = bn::fixed(5);
-    constexpr bn::fixed SHARED_DOOR_WORLD_X = bn::fixed(45);
-
     bn::fixed room_center_x(int room_id)
     {
-        return room_center_x_values[room_id];
+        return rooms[room_id].center_x;
     }
 
     bn::fixed room_center_y(int room_id)
     {
-        return room_center_y_values[room_id];
+        return rooms[room_id].center_y;
     }
 
     bn::fixed room_half_extent_x(int room_id)
     {
-        return room_half_extent_x_values[room_id];
+        return rooms[room_id].half_x;
     }
 
     bn::fixed room_half_extent_y(int room_id)
     {
-        return room_half_extent_y_values[room_id];
+        return rooms[room_id].half_y;
     }
 
     bn::fixed room_floor_min_x(int room_id)
@@ -1355,47 +620,27 @@ namespace {
         return room_half_extent_y(room_id) - ROOM_PLAYABLE_EDGE_INSET;
     }
 
-    enum class door_direction
+    bool room_has_decor(int room_id)
     {
-        east,
-        west,
-        south,
-        north
-    };
-
-    int neighbor_room_for_door(int room_id, door_direction direction)
-    {
-        switch(direction)
-        {
-            case door_direction::south:
-                return room_id == 0 ? 1 : -1;
-
-            case door_direction::north:
-                return room_id == 1 ? 0 : -1;
-
-            case door_direction::east:
-            case door_direction::west:
-            default:
-                return -1;
-        }
+        return rooms[room_id].decor_model;
     }
 
-    // Keep doorway centers aligned between rooms with different shell sizes.
-    bn::fixed aligned_door_center_offset(int room_id, door_direction direction)
+    const fr::model_3d_item& room_decor_model(int room_id)
     {
-        int neighbor_room = neighbor_room_for_door(room_id, direction);
-        if(neighbor_room < 0)
+        return *rooms[room_id].decor_model;
+    }
+
+    bool overlaps_room_decor(int room_id, bn::fixed px, bn::fixed py)
+    {
+        const room_spec& room = rooms[room_id];
+
+        if(! room.decor_model)
         {
-            return 0;
+            return false;
         }
 
-        if(direction == door_direction::north || direction == door_direction::south)
-        {
-            return SHARED_DOOR_WORLD_X - room_center_x(room_id);
-        }
-
-        bn::fixed shared_world_y = (room_center_y(room_id) + room_center_y(neighbor_room)) / 2;
-        return shared_world_y - room_center_y(room_id);
+        return bn::abs(px - room.decor_x) < room.decor_half_width &&
+               bn::abs(py - room.decor_y) < room.decor_half_depth;
     }
 
     // Check if a door transition should occur and return the new room id (-1 if no transition)
@@ -1403,52 +648,26 @@ namespace {
     int check_door_transition(int current_room, bn::fixed local_x, bn::fixed local_y,
                               bn::fixed& new_local_x, bn::fixed& new_local_y)
     {
-        int east_room = neighbor_room_for_door(current_room, door_direction::east);
-        bn::fixed east_door_center = aligned_door_center_offset(current_room, door_direction::east);
-        if(east_room >= 0 && local_x >= room_floor_max_x(current_room) &&
-           bn::abs(local_y - east_door_center) <= DOOR_HALF_WIDTH)
-        {
-            new_local_x = room_floor_min_x(east_room);
-            bn::fixed shared_world_y = room_center_y(current_room) + local_y;
-            new_local_y = bn::clamp(shared_world_y - room_center_y(east_room),
-                                    room_floor_min_y(east_room), room_floor_max_y(east_room));
-            return east_room;
-        }
+        bn::fixed door_center = SHARED_DOOR_WORLD_X - room_center_x(current_room);
 
-        int west_room = neighbor_room_for_door(current_room, door_direction::west);
-        bn::fixed west_door_center = aligned_door_center_offset(current_room, door_direction::west);
-        if(west_room >= 0 && local_x <= room_floor_min_x(current_room) &&
-           bn::abs(local_y - west_door_center) <= DOOR_HALF_WIDTH)
-        {
-            new_local_x = room_floor_max_x(west_room);
-            bn::fixed shared_world_y = room_center_y(current_room) + local_y;
-            new_local_y = bn::clamp(shared_world_y - room_center_y(west_room),
-                                    room_floor_min_y(west_room), room_floor_max_y(west_room));
-            return west_room;
-        }
-
-        int south_room = neighbor_room_for_door(current_room, door_direction::south);
-        bn::fixed south_door_center = aligned_door_center_offset(current_room, door_direction::south);
-        if(south_room >= 0 && local_y >= room_floor_max_y(current_room) &&
-           bn::abs(local_x - south_door_center) <= DOOR_HALF_WIDTH)
+        if(current_room == 0 &&
+           local_y >= room_floor_max_y(current_room) &&
+           bn::abs(local_x - door_center) <= DOOR_HALF_WIDTH)
         {
             bn::fixed shared_world_x = room_center_x(current_room) + local_x;
-            new_local_x = bn::clamp(shared_world_x - room_center_x(south_room),
-                                    room_floor_min_x(south_room), room_floor_max_x(south_room));
-            new_local_y = room_floor_min_y(south_room);
-            return south_room;
+            new_local_x = bn::clamp(shared_world_x - room_center_x(1), room_floor_min_x(1), room_floor_max_x(1));
+            new_local_y = room_floor_min_y(1);
+            return 1;
         }
 
-        int north_room = neighbor_room_for_door(current_room, door_direction::north);
-        bn::fixed north_door_center = aligned_door_center_offset(current_room, door_direction::north);
-        if(north_room >= 0 && local_y <= room_floor_min_y(current_room) &&
-           bn::abs(local_x - north_door_center) <= DOOR_HALF_WIDTH)
+        if(current_room == 1 &&
+           local_y <= room_floor_min_y(current_room) &&
+           bn::abs(local_x - door_center) <= DOOR_HALF_WIDTH)
         {
             bn::fixed shared_world_x = room_center_x(current_room) + local_x;
-            new_local_x = bn::clamp(shared_world_x - room_center_x(north_room),
-                                    room_floor_min_x(north_room), room_floor_max_x(north_room));
-            new_local_y = room_floor_max_y(north_room);
-            return north_room;
+            new_local_x = bn::clamp(shared_world_x - room_center_x(0), room_floor_min_x(0), room_floor_max_x(0));
+            new_local_y = room_floor_max_y(0);
+            return 0;
         }
 
         return -1;
@@ -1457,54 +676,21 @@ namespace {
     bool near_door_approach(int current_room, bn::fixed local_x, bn::fixed local_y)
     {
         bn::fixed door_lane_half_width = DOOR_HALF_WIDTH + DOOR_APPROACH_LANE_MARGIN;
+        bn::fixed door_center = SHARED_DOOR_WORLD_X - room_center_x(current_room);
 
-        int east_room = neighbor_room_for_door(current_room, door_direction::east);
-        bn::fixed east_door_center = aligned_door_center_offset(current_room, door_direction::east);
-        if(east_room >= 0 &&
-           local_x >= room_floor_max_x(current_room) - DOOR_APPROACH_EDGE_MARGIN &&
-           bn::abs(local_y - east_door_center) <= door_lane_half_width)
+        if(current_room == 0)
         {
-            return true;
+            return local_y >= room_floor_max_y(current_room) - DOOR_APPROACH_EDGE_MARGIN &&
+                   bn::abs(local_x - door_center) <= door_lane_half_width;
         }
 
-        int west_room = neighbor_room_for_door(current_room, door_direction::west);
-        bn::fixed west_door_center = aligned_door_center_offset(current_room, door_direction::west);
-        if(west_room >= 0 &&
-           local_x <= room_floor_min_x(current_room) + DOOR_APPROACH_EDGE_MARGIN &&
-           bn::abs(local_y - west_door_center) <= door_lane_half_width)
-        {
-            return true;
-        }
-
-        int south_room = neighbor_room_for_door(current_room, door_direction::south);
-        bn::fixed south_door_center = aligned_door_center_offset(current_room, door_direction::south);
-        if(south_room >= 0 &&
-           local_y >= room_floor_max_y(current_room) - DOOR_APPROACH_EDGE_MARGIN &&
-           bn::abs(local_x - south_door_center) <= door_lane_half_width)
-        {
-            return true;
-        }
-
-        int north_room = neighbor_room_for_door(current_room, door_direction::north);
-        bn::fixed north_door_center = aligned_door_center_offset(current_room, door_direction::north);
-        if(north_room >= 0 &&
-           local_y <= room_floor_min_y(current_room) + DOOR_APPROACH_EDGE_MARGIN &&
-           bn::abs(local_x - north_door_center) <= door_lane_half_width)
-        {
-            return true;
-        }
-
-        return false;
+        return local_y <= room_floor_min_y(current_room) + DOOR_APPROACH_EDGE_MARGIN &&
+               bn::abs(local_x - door_center) <= door_lane_half_width;
     }
 
     const fr::model_3d_item& get_room_model(int room_id)
     {
-        switch(room_id)
-        {
-            case 0:  return str::model_3d_items::room_0;
-            case 1:  return str::model_3d_items::room_1;
-            default: return str::model_3d_items::room_0;
-        }
+        return rooms[room_id].model;
     }
 
 }
@@ -1512,62 +698,64 @@ namespace {
 namespace str
 {
 
-RoomViewer::RoomViewer() {}
-
-void RoomViewer::_update_player_anim_tiles(fr::sprite_3d_item& item, bool moving, int dir, bool facing_left,
-                                           int frame_advance)
+namespace
 {
-    const bn::sprite_item& player_sprite_item =
-        moving ? bn::sprite_items::player_walk : bn::sprite_items::player_idle;
-    int frames_per_angle = moving ? PLAYER_WALK_FRAMES_PER_ANGLE : PLAYER_IDLE_FRAMES_PER_ANGLE;
 
-    if(_player_moving != moving || _player_dir != dir || _player_facing_left != facing_left)
+    struct player_anim_state
     {
-        _player_moving = moving;
-        _player_dir = dir;
-        _player_facing_left = facing_left;
-        _anim_frame_counter = 0;
-        item.palette().set_colors(player_sprite_item.palette_item());
+        bool moving = false;
+        int dir = SPAWN_PLAYER_DIR;
+        bool facing_left = SPAWN_PLAYER_FACING_LEFT;
+        int frame_counter = 0;
+    };
+
+    void update_player_anim_tiles(rv::SpriteItem& item, player_anim_state& state, bool moving,
+                                  int dir, bool facing_left, int frame_advance)
+    {
+        const bn::sprite_item& player_sprite_item =
+            moving ? bn::sprite_items::player_walk : bn::sprite_items::player_idle;
+        int frames_per_angle = moving ? PLAYER_WALK_FRAMES_PER_ANGLE : PLAYER_IDLE_FRAMES_PER_ANGLE;
+
+        if(state.moving != moving || state.dir != dir || state.facing_left != facing_left)
+        {
+            state.moving = moving;
+            state.dir = dir;
+            state.facing_left = facing_left;
+            state.frame_counter = 0;
+            item.palette().set_colors(player_sprite_item.palette_item());
+        }
+
+        int base_frame = player_angle_row(dir, facing_left) * frames_per_angle;
+        int frame_in_anim = (state.frame_counter / PLAYER_ANIM_SPEED) % frames_per_angle;
+        int tile_index = base_frame + frame_in_anim;
+
+        item.tiles().set_tiles_ref(player_sprite_item.tiles_item(), tile_index);
+
+        state.frame_counter += frame_advance;
     }
-
-    int base_frame = player_angle_row(dir, facing_left) * frames_per_angle;
-    int frame_in_anim = (_anim_frame_counter / PLAYER_ANIM_SPEED) % frames_per_angle;
-    int tile_index = base_frame + frame_in_anim;
-
-    item.tiles().set_tiles_ref(player_sprite_item.tiles_item(), tile_index);
-
-    _anim_frame_counter += frame_advance;
 }
 
-str::Scene RoomViewer::execute()
+[[noreturn]] void run_room_viewer()
 {
-    bn::bg_palettes::set_transparent_color(bn::color(2, 2, 4));
-    _models.set_shape_oam_start_index(SHAPE_OAM_START_INDEX);
-    int required_reserved_sprite_handles = ROOM_VIEWER_RESERVED_HANDLES;
+    rv::Camera _camera;
+    rv::Renderer& _models = *new rv::Renderer();
+    int _corner_index = SPAWN_CORNER_INDEX;
+    bn::fixed _player_fx = 0;
+    bn::fixed _player_fy = 0;
+    bn::fixed _player_fz = 0;
+    player_anim_state player_anim;
 
-    if(bn::sprites::reserved_handles_count() < required_reserved_sprite_handles)
-    {
-        bn::sprites::set_reserved_handles_count(required_reserved_sprite_handles);
-    }
+    bn::bg_palettes::set_transparent_color(bn::color(2, 2, 4));
 
     // Keep spawn deterministic for debugging: start from the painting-facing view.
-    _corner_index = SPAWN_CORNER_INDEX;
-    _player_dir = SPAWN_PLAYER_DIR;
-    _player_facing_left = SPAWN_PLAYER_FACING_LEFT;
-    _player_moving = false;
-    _debug_mode = ENABLE_RENDER_SWEEP_DEBUG;
-
     int current_room = SPAWN_ROOM_ID;
     _models.load_colors(str::model_3d_items::room_model_colors);
 
-    fr::model_3d* room_models[NUM_ROOMS] = {};
-    fr::model_3d* books_ptr = nullptr;
-    fr::model_3d* potted_plant_ptr = nullptr;
-    fr::model_3d* transition_books_ptr = nullptr;
-    fr::model_3d* transition_potted_plant_ptr = nullptr;
+    rv::Model* room_models[NUM_ROOMS] = {};
+    rv::Model* decor_ptr = nullptr;
+    int decor_room = -1;
 
     fr::point_3d room_base_pos(0, 96, 8);
-    bool player_sprite_created = false;
 
     corner_matrix all_corners[4];
     compute_corner_matrices(all_corners);
@@ -1581,7 +769,8 @@ str::Scene RoomViewer::execute()
     int painting_update_cooldown_frames = 0;
     int idle_recenter_timer = 0;
     int player_world_linear_dir =
-        wrap_linear8(dir_to_linear8(_player_dir, _player_facing_left) - view_angle_steps_8(current_view_angle));
+        wrap_linear8(dir_to_linear8(player_anim.dir, player_anim.facing_left) -
+                     view_angle_steps_8(current_view_angle));
     bn::fixed world_anchor_x = room_center_x(current_room);
     bn::fixed world_anchor_y = room_center_y(current_room);
     bn::fixed camera_offset_x = 0;
@@ -1594,13 +783,6 @@ str::Scene RoomViewer::execute()
     bool door_transition_active = false;
     int door_transition_elapsed = 0;
     int door_transition_target_room = current_room;
-    int door_transition_furniture_room = -1;
-    room_preview_mode preview_mode = room_preview_mode::off;
-    bool debug_hide_room_models = false;
-    int preview_mode_low_fps_samples = 0;
-    int preview_mode_high_fps_samples = 0;
-    int preview_mode_change_cooldown_frames = 0;
-    int render_sweep_pose_index = ENABLE_RENDER_SWEEP_DEBUG ? 0 : -1;
     bn::fixed door_transition_start_global_x = 0;
     bn::fixed door_transition_start_global_y = 0;
     bn::fixed door_transition_target_global_x = 0;
@@ -1615,7 +797,7 @@ str::Scene RoomViewer::execute()
     bn::fixed door_transition_target_local_y = 0;
 
     str::Minimap* minimap = ENABLE_MINIMAP ? new str::Minimap() : nullptr;
-    auto set_model_rotation = [](fr::model_3d& m, const corner_matrix& cm) {
+    auto set_model_rotation = [](rv::Model& m, const corner_matrix& cm) {
         m.set_rotation_matrix(
             cm.r00, cm.r01, cm.r02,
             cm.r10, cm.r11, cm.r12,
@@ -1638,42 +820,8 @@ str::Scene RoomViewer::execute()
             room_base_pos.z() + rz);
     };
 
-    auto try_create_dynamic_model = [&](const fr::model_3d_item& model_item) -> fr::model_3d* {
-        int reserved_vertices = player_sprite_created ? 0 : 1;
-        int model_vertices_count = model_item.vertices().size();
-        int model_faces_count = model_item.faces().size();
-
-        if(_models.vertices_count() + model_vertices_count + reserved_vertices > fr::models_3d::max_vertices())
-        {
-            return nullptr;
-        }
-
-        if(_models.faces_count() + model_faces_count + reserved_vertices > fr::models_3d::max_faces())
-        {
-            return nullptr;
-        }
-
-        return &_models.create_dynamic_model(model_item);
-    };
-
     auto sync_room_models = [&]() {
-        bool changed = false;
         bool should_exist[NUM_ROOMS] = {};
-
-        if(debug_hide_room_models)
-        {
-            for(int room_id = 0; room_id < NUM_ROOMS; ++room_id)
-            {
-                if(room_models[room_id])
-                {
-                    _models.destroy_dynamic_model(*room_models[room_id]);
-                    room_models[room_id] = nullptr;
-                    changed = true;
-                }
-            }
-
-            return changed;
-        }
 
         should_exist[current_room] = true;
 
@@ -1686,9 +834,8 @@ str::Scene RoomViewer::execute()
         {
             if(!should_exist[room_id] && room_models[room_id])
             {
-                _models.destroy_dynamic_model(*room_models[room_id]);
+                _models.destroy_model(*room_models[room_id]);
                 room_models[room_id] = nullptr;
-                changed = true;
             }
         }
 
@@ -1698,27 +845,18 @@ str::Scene RoomViewer::execute()
                 return;
             }
 
-            fr::model_3d* room_model = room_models[room_id];
+            rv::Model* room_model = room_models[room_id];
 
             if(!room_model)
             {
-                room_model = try_create_dynamic_model(get_room_model(room_id));
+                room_model = &_models.create_model(get_room_model(room_id));
                 room_models[room_id] = room_model;
-
-                if(room_model)
-                {
-                    changed = true;
-                }
-                else
-                {
-                    return;
-                }
             }
 
             bool room_perspective_mode = room_id == current_room;
-            room_model->set_mode(
-                room_perspective_mode ? fr::model_3d::layering_mode::room_perspective :
-                                        fr::model_3d::layering_mode::room_floor_only);
+            room_model->set_layering_mode(
+                room_perspective_mode ? rv::Model::LayeringMode::room_perspective :
+                                        rv::Model::LayeringMode::room_floor_only);
             room_model->set_depth_bias(
                 room_id == current_room ? 0 : ADJACENT_ROOM_DEPTH_BIAS);
             // Preview rooms use floor-only mode; double-sided shell faces are only needed
@@ -1734,90 +872,53 @@ str::Scene RoomViewer::execute()
             ensure_room_model(door_transition_target_room);
         }
 
-        return changed;
-    };
+        int next_decor_room = -1;
 
-    auto configure_room_decor_model =
-        [&](bool needed, const fr::model_3d_item& model_item, int depth_bias, fr::model_3d*& room_model_ptr) {
-        if(needed)
+        if(door_transition_active)
         {
-            if(!room_model_ptr)
+            if(room_has_decor(door_transition_target_room))
             {
-                room_model_ptr = try_create_dynamic_model(model_item);
-            }
-
-            if(room_model_ptr)
-            {
-                room_model_ptr->set_mode(fr::model_3d::layering_mode::none);
-                room_model_ptr->set_depth_bias(depth_bias);
-                room_model_ptr->set_double_sided(false);
+                next_decor_room = door_transition_target_room;
             }
         }
-        else if(room_model_ptr)
+        else if(room_has_decor(current_room))
         {
-            _models.destroy_dynamic_model(*room_model_ptr);
-            room_model_ptr = nullptr;
+            next_decor_room = current_room;
+        }
+
+        if(next_decor_room != decor_room)
+        {
+            if(decor_ptr)
+            {
+                _models.destroy_model(*decor_ptr);
+                decor_ptr = nullptr;
+            }
+
+            decor_room = next_decor_room;
+
+            if(decor_room >= 0)
+            {
+                decor_ptr = &_models.create_model(room_decor_model(decor_room));
+            }
+        }
+
+        if(decor_ptr)
+        {
+            decor_ptr->set_layering_mode(rv::Model::LayeringMode::none);
+            decor_ptr->set_depth_bias(decor_room == current_room ? 0 : TRANSITION_DECOR_DEPTH_BIAS);
+            decor_ptr->set_double_sided(false);
         }
     };
 
-    auto ensure_room_decor_models = [&](int room_id, int depth_bias, fr::model_3d*& room_books_ptr,
-                                        fr::model_3d*& room_potted_plant_ptr) {
-        int decor = room_decor_flags[room_id];
-        configure_room_decor_model(
-            decor & decor_books, str::model_3d_items::books, depth_bias, room_books_ptr);
-        configure_room_decor_model(
-            decor & decor_potted_plant, str::model_3d_items::potted_plant, depth_bias, room_potted_plant_ptr);
-    };
-
-    auto clear_room_decor_models = [&](fr::model_3d*& room_books_ptr, fr::model_3d*& room_potted_plant_ptr) {
-        if(room_potted_plant_ptr)
-        {
-            _models.destroy_dynamic_model(*room_potted_plant_ptr);
-            room_potted_plant_ptr = nullptr;
-        }
-
-        if(room_books_ptr)
-        {
-            _models.destroy_dynamic_model(*room_books_ptr);
-            room_books_ptr = nullptr;
-        }
-    };
-
-    auto ensure_decor_models = [&]() {
-        if(debug_hide_room_models)
-        {
-            clear_room_decor_models(books_ptr, potted_plant_ptr);
-            clear_room_decor_models(transition_books_ptr, transition_potted_plant_ptr);
-            door_transition_furniture_room = -1;
-            return;
-        }
-
-        ensure_room_decor_models(current_room, 0, books_ptr, potted_plant_ptr);
-
-        if(door_transition_furniture_room >= 0 && door_transition_furniture_room != current_room)
-        {
-            ensure_room_decor_models(
-                door_transition_furniture_room,
-                TRANSITION_DECOR_DEPTH_BIAS,
-                transition_books_ptr,
-                transition_potted_plant_ptr);
-        }
-        else
-        {
-            clear_room_decor_models(transition_books_ptr, transition_potted_plant_ptr);
-            door_transition_furniture_room = -1;
-        }
-    };
-
-    fr::sprite_3d* npc_sprite_a_ptr = nullptr;
-    fr::sprite_3d* npc_sprite_b_ptr = nullptr;
+    rv::Sprite* npc_sprite_a_ptr = nullptr;
+    rv::Sprite* npc_sprite_b_ptr = nullptr;
 
     auto update_all_orientations = [&]() {
         corner_matrix cm = rotate_corner_matrix(base_corner, current_view_angle);
 
         for(int room_id = 0; room_id < NUM_ROOMS; ++room_id)
         {
-            fr::model_3d* room_model = room_models[room_id];
+            rv::Model* room_model = room_models[room_id];
 
             if(room_model)
             {
@@ -1830,50 +931,15 @@ str::Scene RoomViewer::execute()
             }
         }
 
-        if(books_ptr)
+        if(decor_ptr)
         {
-            set_model_rotation(*books_ptr, cm);
-            books_ptr->set_position(
+            const room_spec& decor = rooms[decor_room];
+            set_model_rotation(*decor_ptr, cm);
+            decor_ptr->set_position(
                 transform_global_point(cm,
-                                       room_center_x(current_room) + BOOKS_FX - world_anchor_x,
-                                       room_center_y(current_room) + BOOKS_FY - world_anchor_y,
+                                       room_center_x(decor_room) + decor.decor_x - world_anchor_x,
+                                       room_center_y(decor_room) + decor.decor_y - world_anchor_y,
                                        0));
-        }
-
-        if(potted_plant_ptr)
-        {
-            set_model_rotation(*potted_plant_ptr, cm);
-            potted_plant_ptr->set_position(
-                transform_global_point(cm,
-                                       room_center_x(current_room) + POTTED_PLANT_FX - world_anchor_x,
-                                       room_center_y(current_room) + POTTED_PLANT_FY - world_anchor_y,
-                                       0));
-        }
-
-        if(door_transition_furniture_room >= 0)
-        {
-            if(transition_books_ptr)
-            {
-                set_model_rotation(*transition_books_ptr, cm);
-                transition_books_ptr->set_position(
-                    transform_global_point(cm,
-                                           room_center_x(door_transition_furniture_room) + BOOKS_FX - world_anchor_x,
-                                           room_center_y(door_transition_furniture_room) + BOOKS_FY - world_anchor_y,
-                                           0));
-            }
-
-            if(transition_potted_plant_ptr)
-            {
-                set_model_rotation(*transition_potted_plant_ptr, cm);
-                transition_potted_plant_ptr->set_position(
-                    transform_global_point(cm,
-                                           room_center_x(door_transition_furniture_room) + POTTED_PLANT_FX -
-                                               world_anchor_x,
-                                           room_center_y(door_transition_furniture_room) + POTTED_PLANT_FY -
-                                               world_anchor_y,
-                                           0));
-            }
-
         }
     };
 
@@ -1885,7 +951,6 @@ str::Scene RoomViewer::execute()
     };
 
     sync_room_models();
-    ensure_decor_models();
     update_orientations_and_paintings();
 
     auto transform_room_local_point = [&](const corner_matrix& cm, int room_id,
@@ -1905,7 +970,7 @@ str::Scene RoomViewer::execute()
     };
 
     auto project_point_for_camera_distance = [&](const fr::point_3d& point, bn::fixed camera_y, bn::point& output) {
-        constexpr int focal_length_shift = fr::constants_3d::focal_length_shift;
+        constexpr int focal_length_shift = rv::focal_length_shift;
         constexpr int near_plane = 24 * 256 * 16;
 
         bn::fixed vry = point.y() - camera_y;
@@ -1918,8 +983,10 @@ str::Scene RoomViewer::execute()
 
         bn::fixed vrx = point.x() / 16;
         bn::fixed vrz = point.z() / 16;
-        int vcx = (vrx.unsafe_multiplication(_camera.u().x()) + vrz.unsafe_multiplication(_camera.u().z())).data();
-        int vcy = -(vrx.unsafe_multiplication(_camera.v().x()) + vrz.unsafe_multiplication(_camera.v().z())).data();
+        int vcx = (vrx.unsafe_multiplication(_camera.right_axis().x()) +
+                   vrz.unsafe_multiplication(_camera.right_axis().z())).data();
+        int vcy = -(vrx.unsafe_multiplication(_camera.up_axis().x()) +
+                    vrz.unsafe_multiplication(_camera.up_axis().z())).data();
 
         int scale = int((fr::div_lut_ptr[vcz >> 10] << (focal_length_shift - 8)) >> 6);
         output.set_x((vcx * scale) >> 16);
@@ -2150,24 +1217,23 @@ str::Scene RoomViewer::execute()
         prev_player_fy = _player_fy;
     };
 
-    _camera.set_phi(0);
+    _camera.set_yaw(0);
     update_camera();
 
     _player_fx = -20;
     _player_fy = 20;
     _player_fz = -10;
 
-    fr::sprite_3d_item player_sprite_item(
+    rv::SpriteItem player_sprite_item(
         bn::sprite_items::player_idle,
         player_angle_row(SPAWN_PLAYER_DIR, SPAWN_PLAYER_FACING_LEFT) * PLAYER_IDLE_FRAMES_PER_ANGLE);
-    fr::sprite_3d& player_sprite = _models.create_sprite(player_sprite_item);
-    player_sprite_created = true;
+    rv::Sprite& player_sprite = _models.create_sprite(player_sprite_item);
     player_sprite.set_scale(PLAYER_SPRITE_SCALE);
     player_sprite.set_horizontal_flip(false);
 
     // --- NPC sprites for the two-room layout ---
-    fr::sprite_3d_item npc_sprite_item_a(bn::sprite_items::villager, 0);
-    fr::sprite_3d_item npc_sprite_item_b(bn::sprite_items::villager, 0);
+    rv::SpriteItem npc_sprite_item_a(bn::sprite_items::villager, 0);
+    rv::SpriteItem npc_sprite_item_b(bn::sprite_items::villager, 0);
 
     // The side-room NPC gets a distinct hat tint.
     npc_sprite_item_b.palette() = bn::sprite_items::villager.palette_item().create_new_palette();
@@ -2239,7 +1305,7 @@ str::Scene RoomViewer::execute()
         bn::sprite_items::escaping_criticism_wall_bottom);
 
     auto project_point_to_screen = [&](const fr::point_3d& point, bn::point& output) {
-        constexpr int focal_length_shift = fr::constants_3d::focal_length_shift;
+        constexpr int focal_length_shift = rv::focal_length_shift;
         constexpr int near_plane = 24 * 256 * 16;
 
         const fr::point_3d& camera_position = _camera.position();
@@ -2253,8 +1319,10 @@ str::Scene RoomViewer::execute()
 
         bn::fixed vrx = (point.x() - camera_position.x()) / 16;
         bn::fixed vrz = (point.z() - camera_position.z()) / 16;
-        int vcx = (vrx.unsafe_multiplication(_camera.u().x()) + vrz.unsafe_multiplication(_camera.u().z())).data();
-        int vcy = -(vrx.unsafe_multiplication(_camera.v().x()) + vrz.unsafe_multiplication(_camera.v().z())).data();
+        int vcx = (vrx.unsafe_multiplication(_camera.right_axis().x()) +
+                   vrz.unsafe_multiplication(_camera.right_axis().z())).data();
+        int vcy = -(vrx.unsafe_multiplication(_camera.up_axis().x()) +
+                    vrz.unsafe_multiplication(_camera.up_axis().z())).data();
 
         int scale = int((fr::div_lut_ptr[vcz >> 10] << (focal_length_shift - 8)) >> 6);
         output.set_x((vcx * scale) >> 16);
@@ -2263,7 +1331,7 @@ str::Scene RoomViewer::execute()
     };
 
     auto update_painting_quads = [&]() {
-        if(debug_hide_room_models || door_transition_active || ! room_models[current_room])
+        if(door_transition_active || ! room_models[current_room])
         {
             painting_a_quad.set_visible(false);
             painting_b_quad.set_visible(false);
@@ -2414,71 +1482,6 @@ str::Scene RoomViewer::execute()
         }
     };
 
-    auto apply_render_sweep_preset = [&](int preset_index) {
-        if(! ENABLE_RENDER_SWEEP_DEBUG)
-        {
-            return;
-        }
-
-        const render_sweep_preset& preset = render_sweep_presets[preset_index];
-
-        current_room = SPAWN_ROOM_ID;
-        _player_fx = preset.fx;
-        _player_fy = preset.fy;
-        _player_fz = -10;
-        _player_dir = preset.dir;
-        _player_facing_left = preset.facing_left;
-        _player_moving = false;
-
-        current_view_angle = normalize_angle(preset.view_angle);
-        last_oriented_view_angle = current_view_angle;
-        target_view_angle = current_view_angle;
-        camera_turn_velocity = 0;
-        camera_initial_lock_frames = 0;
-        painting_update_cooldown_frames = 0;
-        idle_recenter_timer = 0;
-        player_world_linear_dir =
-            wrap_linear8(dir_to_linear8(_player_dir, _player_facing_left) - view_angle_steps_8(current_view_angle));
-        world_anchor_x = room_center_x(current_room);
-        world_anchor_y = room_center_y(current_room);
-        camera_offset_x = 0;
-        camera_offset_y = 0;
-        lookahead_x = 0;
-        lookahead_y = 0;
-        prev_player_fx = _player_fx;
-        prev_player_fy = _player_fy;
-        door_transition_active = false;
-        door_transition_elapsed = 0;
-        door_transition_target_room = current_room;
-        door_transition_furniture_room = -1;
-        door_transition_start_global_x = 0;
-        door_transition_start_global_y = 0;
-        door_transition_target_global_x = 0;
-        door_transition_target_global_y = 0;
-        door_transition_current_global_x = 0;
-        door_transition_current_global_y = 0;
-        door_transition_start_anchor_x = world_anchor_x;
-        door_transition_start_anchor_y = world_anchor_y;
-        door_transition_target_anchor_x = world_anchor_x;
-        door_transition_target_anchor_y = world_anchor_y;
-        door_transition_target_local_x = 0;
-        door_transition_target_local_y = 0;
-
-        sync_room_models();
-        ensure_decor_models();
-        bool camera_turn_in_progress = current_view_angle != target_view_angle;
-        update_camera(! camera_turn_in_progress);
-        update_orientations_and_paintings();
-        update_player_sprite_position();
-        update_painting_quads();
-        paintings_need_update = false;
-    };
-
-    if(ENABLE_RENDER_SWEEP_DEBUG)
-    {
-        apply_render_sweep_preset(render_sweep_pose_index);
-    }
-
     update_player_sprite_position();
 
     if(paintings_need_update)
@@ -2487,190 +1490,17 @@ str::Scene RoomViewer::execute()
         paintings_need_update = false;
     }
 
-    bn::sprite_text_generator tg(common::variable_8x8_sprite_font);
-    tg.set_center_alignment();
-    tg.set_bg_priority(0);
-
     // --- NPC dialog (BG-based, no sprite VRAM) ---
     str::BgDialog npc_dialog;
-    debug_menu in_game_debug_menu;
-    profiler_menu in_game_profiler;
-    bool profiler_requested = false;
-    bool minimap_visible = minimap != nullptr;
-    auto sync_overlay_visibility = [&]() {
-        if(npc_dialog.is_active())
-        {
-            in_game_debug_menu.set_visible(false);
-            in_game_profiler.set_visible(false);
-        }
-        else if(profiler_requested)
-        {
-            in_game_debug_menu.set_visible(false);
-            in_game_profiler.set_visible(true);
-        }
-        else if(_debug_mode)
-        {
-            in_game_profiler.set_visible(false);
-            in_game_debug_menu.set_visible(true);
-        }
-        else
-        {
-            in_game_debug_menu.set_visible(false);
-            in_game_profiler.set_visible(false);
-        }
-
-        if(! minimap)
-        {
-            return;
-        }
-
-        bool should_be_visible = ! _debug_mode && ! profiler_requested;
-
-        if(should_be_visible != minimap_visible)
-        {
-            minimap->set_visible(should_be_visible);
-            minimap_visible = should_be_visible;
-        }
-    };
     bool prev_near_npc = false;
     bool near_any_npc = false;
 
-    bool text_debug_mode = !_debug_mode;
-    int text_fx = 0;
-    int text_fy = 0;
-    int text_dir = 0;
-    int text_room = -1;
-    int text_corner = -1;
-    int text_yaw_deg = 999;
-    int text_preview_mode = -1;
-    int text_hide_room_models = -1;
-    int text_fps = -1;
-    int text_vertices = -1;
-    int text_hlines = -1;
-    int text_pose_index = -2;
-    int current_fps = 60;
-    int fps_sample_updates = 0;
-    int fps_sample_refreshes = 0;
     int door_transition_frame_budget = 0;
     int player_movement_frame_budget = 0;
-
-    auto refresh_overlay_text = [&](int room_id, int fps, int vertices_count, int hlines_count) {
-        _text_sprites.clear();
-        int yaw_degrees = (normalize_angle(current_view_angle) * 360 + 32768) / 65536;
-        if(yaw_degrees > 180)
-        {
-            yaw_degrees -= 360;
-        }
-
-        auto generation_failed = [&]() {
-            // Avoid hard asserts from sprite tile exhaustion when toggling overlay.
-            _text_sprites.clear();
-            text_debug_mode = _debug_mode || profiler_requested;
-            text_fx = _player_fx.integer();
-            text_fy = _player_fy.integer();
-            text_dir = _player_dir;
-            text_room = room_id;
-            text_corner = _corner_index;
-            text_yaw_deg = yaw_degrees;
-            text_preview_mode = int(preview_mode);
-            text_hide_room_models = int(debug_hide_room_models);
-            text_fps = fps;
-            text_vertices = vertices_count;
-            text_hlines = hlines_count;
-            text_pose_index = render_sweep_pose_index;
-        };
-
-        if(_debug_mode || profiler_requested)
-        {
-            int current_fx = _player_fx.integer();
-            int current_fy = _player_fy.integer();
-            text_fx = current_fx;
-            text_fy = current_fy;
-            text_dir = _player_dir;
-            text_room = room_id;
-            text_corner = _corner_index;
-            text_yaw_deg = yaw_degrees;
-            text_preview_mode = int(preview_mode);
-            text_hide_room_models = int(debug_hide_room_models);
-            text_fps = fps;
-            text_vertices = vertices_count;
-            text_hlines = hlines_count;
-            text_pose_index = render_sweep_pose_index;
-            text_debug_mode = _debug_mode || profiler_requested;
-            return;
-        }
-
-        if(! tg.generate_optional(0, -72, "ROOM VIEWER", _text_sprites))
-        {
-            generation_failed();
-            return;
-        }
-
-        if(! tg.generate_optional(0, 72, "L/R:Zoom START:Recenter B:Profiler", _text_sprites))
-        {
-            generation_failed();
-            return;
-        }
-        text_fps = fps;
-        text_vertices = vertices_count;
-        text_preview_mode = int(preview_mode);
-        text_hide_room_models = int(debug_hide_room_models);
-        text_hlines = hlines_count;
-        text_pose_index = render_sweep_pose_index;
-
-        text_debug_mode = _debug_mode || profiler_requested;
-    };
-
-    BN_PROFILER_RESET();
-    sync_overlay_visibility();
-
-    refresh_overlay_text(current_room, current_fps, _models.vertices_count(), _models.max_hlines_last_frame());
 
     while(true)
     {
         int frame_cost = bn::core::last_missed_frames() + 1;
-        fps_sample_updates += 1;
-        fps_sample_refreshes += frame_cost;
-        bool fps_sample_ready = false;
-
-        if(fps_sample_refreshes >= 60)
-        {
-            current_fps = (60 * fps_sample_updates + (fps_sample_refreshes / 2)) / fps_sample_refreshes;
-            fps_sample_updates = 0;
-            fps_sample_refreshes = 0;
-            fps_sample_ready = true;
-        }
-
-        if(! npc_dialog.is_active() && bn::keypad::b_pressed())
-        {
-            profiler_requested = ! profiler_requested;
-
-            if(profiler_requested)
-            {
-                _debug_mode = false;
-            }
-
-            sync_overlay_visibility();
-            _text_sprites.clear();
-
-            if(! profiler_requested)
-            {
-                refresh_overlay_text(current_room, current_fps,
-                                     _models.vertices_count(), _models.max_hlines_last_frame());
-            }
-        }
-
-        sync_overlay_visibility();
-
-        if(in_game_profiler.visible())
-        {
-            in_game_profiler.update();
-            bn::core::update();
-            continue;
-        }
-
-        BN_PROFILER_START("viewer_update");
-
         int elapsed_frames = bn::clamp(frame_cost, 1, 4);
         int door_transition_frame_advance = 0;
 
@@ -2694,72 +1524,6 @@ str::Scene RoomViewer::execute()
             }
         }
 
-        if(ROOM_PREVIEW_AUTO_ADJUST)
-        {
-            if(preview_mode_change_cooldown_frames > 0)
-            {
-                preview_mode_change_cooldown_frames -= elapsed_frames;
-
-                if(preview_mode_change_cooldown_frames < 0)
-                {
-                    preview_mode_change_cooldown_frames = 0;
-                }
-            }
-
-            if(fps_sample_ready)
-            {
-                if(current_fps < ROOM_PREVIEW_DOWNSHIFT_FPS)
-                {
-                    ++preview_mode_low_fps_samples;
-                    preview_mode_high_fps_samples = 0;
-                }
-                else if(current_fps > ROOM_PREVIEW_UPSHIFT_FPS)
-                {
-                    ++preview_mode_high_fps_samples;
-                    preview_mode_low_fps_samples = 0;
-                }
-                else
-                {
-                    preview_mode_low_fps_samples = 0;
-                    preview_mode_high_fps_samples = 0;
-                }
-
-                if(preview_mode_change_cooldown_frames == 0)
-                {
-                    if(preview_mode_low_fps_samples >= ROOM_PREVIEW_REQUIRED_SAMPLES)
-                    {
-                        room_preview_mode downgraded_mode = downgraded_room_preview_mode(preview_mode);
-
-                        if(downgraded_mode != preview_mode)
-                        {
-                            preview_mode = downgraded_mode;
-                            preview_mode_change_cooldown_frames = ROOM_PREVIEW_MODE_CHANGE_COOLDOWN_FRAMES;
-                            sync_room_models();
-                            update_orientations_and_paintings();
-                        }
-
-                        preview_mode_low_fps_samples = 0;
-                        preview_mode_high_fps_samples = 0;
-                    }
-                    else if(preview_mode_high_fps_samples >= ROOM_PREVIEW_REQUIRED_SAMPLES)
-                    {
-                        room_preview_mode upgraded_mode = upgraded_room_preview_mode(preview_mode);
-
-                        if(upgraded_mode != preview_mode)
-                        {
-                            preview_mode = upgraded_mode;
-                            preview_mode_change_cooldown_frames = ROOM_PREVIEW_MODE_CHANGE_COOLDOWN_FRAMES;
-                            sync_room_models();
-                            update_orientations_and_paintings();
-                        }
-
-                        preview_mode_low_fps_samples = 0;
-                        preview_mode_high_fps_samples = 0;
-                    }
-                }
-            }
-        }
-
         bool camera_unlocked = camera_initial_lock_frames == 0;
         bool door_approach_lock = near_door_approach(current_room, _player_fx, _player_fy);
         bool camera_steering_enabled = camera_unlocked && !door_approach_lock;
@@ -2776,38 +1540,6 @@ str::Scene RoomViewer::execute()
             idle_recenter_timer = 0;
         }
 
-        if(bn::keypad::select_pressed())
-        {
-            if(bn::keypad::l_held())
-            {
-                debug_hide_room_models = !debug_hide_room_models;
-                sync_room_models();
-                ensure_decor_models();
-                update_orientations_and_paintings();
-            }
-            else if(ENABLE_RENDER_SWEEP_DEBUG && !bn::keypad::start_held() && !bn::keypad::r_held())
-            {
-                render_sweep_pose_index += 1;
-
-                if(render_sweep_pose_index >= render_sweep_presets_count)
-                {
-                    render_sweep_pose_index = 0;
-                }
-
-                apply_render_sweep_preset(render_sweep_pose_index);
-            }
-            else
-            {
-                if(in_game_profiler.visible())
-                {
-                    profiler_requested = false;
-                    in_game_profiler.set_visible(false);
-                }
-
-                _debug_mode = !_debug_mode;
-                sync_overlay_visibility();
-            }
-        }
 
         if(door_transition_active)
         {
@@ -2829,14 +1561,7 @@ str::Scene RoomViewer::execute()
                 lookahead_y = 0;
                 prev_player_fx = _player_fx;
                 prev_player_fy = _player_fy;
-                clear_room_decor_models(books_ptr, potted_plant_ptr);
-                books_ptr = transition_books_ptr;
-                potted_plant_ptr = transition_potted_plant_ptr;
-                transition_books_ptr = nullptr;
-                transition_potted_plant_ptr = nullptr;
-                door_transition_furniture_room = -1;
                 sync_room_models();
-                ensure_decor_models();
                 update_orientations_and_paintings();
             }
             else
@@ -2932,7 +1657,7 @@ str::Scene RoomViewer::execute()
                 bn::fixed new_fy = bn::clamp(_player_fy + dfy,
                                              room_floor_min_y(current_room), room_floor_max_y(current_room));
 
-                if(!overlaps_any_furniture(current_room, new_fx, new_fy))
+                if(!overlaps_room_decor(current_room, new_fx, new_fy))
                 {
                     _player_fx = new_fx;
                     _player_fy = new_fy;
@@ -2942,7 +1667,7 @@ str::Scene RoomViewer::execute()
                     bn::fixed slide_fx = bn::clamp(_player_fx + dfx,
                                                    room_floor_min_x(current_room), room_floor_max_x(current_room));
                     bn::fixed slide_fy = _player_fy;
-                    if(!overlaps_any_furniture(current_room, slide_fx, slide_fy))
+                    if(!overlaps_room_decor(current_room, slide_fx, slide_fy))
                     {
                         _player_fx = slide_fx;
                     }
@@ -2951,7 +1676,7 @@ str::Scene RoomViewer::execute()
                         slide_fx = _player_fx;
                         slide_fy = bn::clamp(_player_fy + dfy,
                                              room_floor_min_y(current_room), room_floor_max_y(current_room));
-                        if(!overlaps_any_furniture(current_room, slide_fx, slide_fy))
+                        if(!overlaps_room_decor(current_room, slide_fx, slide_fy))
                         {
                             _player_fy = slide_fy;
                         }
@@ -2964,14 +1689,6 @@ str::Scene RoomViewer::execute()
                                                       new_local_x, new_local_y);
                 if(next_room >= 0 && next_room != current_room)
                 {
-                    door_transition_furniture_room = next_room;
-                    // Preload destination-room decor before camera interpolation starts.
-                    ensure_decor_models();
-                    // Avoid seeing current-room decor through walls during camera interpolation.
-                    clear_room_decor_models(books_ptr, potted_plant_ptr);
-
-                    update_orientations_and_paintings();
-
                     door_transition_active = true;
                     door_transition_elapsed = 0;
                     door_transition_frame_budget = 0;
@@ -2990,6 +1707,7 @@ str::Scene RoomViewer::execute()
                     door_transition_target_local_y = new_local_y;
                     // Keep destination neighborhood loaded during interpolation.
                     sync_room_models();
+                    update_orientations_and_paintings();
                 }
             }
 
@@ -3091,8 +1809,8 @@ str::Scene RoomViewer::execute()
         }
 
         player_sprite.set_horizontal_flip(false);
-        _update_player_anim_tiles(player_sprite_item, moving || door_transition_active, dir, facing_left,
-                                  player_frame_advance);
+        update_player_anim_tiles(player_sprite_item, player_anim, moving || door_transition_active,
+                                 dir, facing_left, player_frame_advance);
 
         // --- NPC idle animation with camera-relative facing ---
         {
@@ -3170,65 +1888,8 @@ str::Scene RoomViewer::execute()
             }
         }
 
-        bool overlay_requested = _debug_mode || profiler_requested;
-        bool text_dirty = overlay_requested != text_debug_mode;
-        int current_vertices = _models.vertices_count();
-        int current_hlines = _models.max_hlines_last_frame();
-        int current_yaw_deg = (normalize_angle(current_view_angle) * 360 + 32768) / 65536;
-        if(current_yaw_deg > 180)
-        {
-            current_yaw_deg -= 360;
-        }
-
-        if(_debug_mode && ! in_game_profiler.visible() && ! npc_dialog.is_active())
-        {
-            debug_menu::state debug_state;
-            debug_state.room_id = current_room;
-            debug_state.fps = current_fps;
-            debug_state.vertices_count = current_vertices;
-            debug_state.hlines_count = current_hlines;
-            debug_state.room_x = _player_fx.integer();
-            debug_state.room_y = _player_fy.integer();
-            debug_state.dir = _player_dir;
-            debug_state.corner = _corner_index;
-            debug_state.yaw_degrees = current_yaw_deg;
-            debug_state.preview_name = room_preview_mode_name(preview_mode);
-            debug_state.room_models_visible = ! debug_hide_room_models;
-            debug_state.used_alloc_ewram = bn::memory::used_alloc_ewram();
-            debug_state.used_static_ewram = bn::memory::used_static_ewram();
-            debug_state.used_static_iwram = bn::memory::used_static_iwram();
-            debug_state.used_bg_tiles = bn::bg_tiles::used_tiles_count();
-            debug_state.available_bg_tiles = bn::bg_tiles::available_tiles_count();
-            debug_state.used_bg_blocks = bn::bg_tiles::used_blocks_count();
-            debug_state.available_bg_blocks = bn::bg_tiles::available_blocks_count();
-            in_game_debug_menu.update(debug_state);
-        }
-
-        if(! overlay_requested)
-        {
-            int current_fx = _player_fx.integer();
-            int current_fy = _player_fy.integer();
-
-            if(current_fx != text_fx || current_fy != text_fy ||
-               _player_dir != text_dir || current_room != text_room || _corner_index != text_corner ||
-               current_yaw_deg != text_yaw_deg ||
-               int(preview_mode) != text_preview_mode ||
-               int(debug_hide_room_models) != text_hide_room_models ||
-               current_fps != text_fps || current_vertices != text_vertices ||
-               current_hlines != text_hlines ||
-               render_sweep_pose_index != text_pose_index)
-            {
-                text_dirty = true;
-            }
-        }
-
-        if(text_dirty && !npc_dialog.is_active())
-        {
-            refresh_overlay_text(current_room, current_fps, current_vertices, current_hlines);
-        }
-
         // --- Minimap update ---
-        if(minimap && ! _debug_mode && ! profiler_requested)
+        if(minimap)
         {
             bn::fixed_point player_world_pos;
             if(door_transition_active)
@@ -3252,16 +1913,9 @@ str::Scene RoomViewer::execute()
             minimap->update(player_world_pos, minimap_dir);
         }
 
-        BN_PROFILER_STOP();
-        _models.update(_camera);
+        _models.render(_camera);
         bn::core::update();
     }
 }
 
 }
-
-
-
-
-
-

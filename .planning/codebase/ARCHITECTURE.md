@@ -1,90 +1,65 @@
 # Architecture
 
 Analysis date: 2026-03-22
-Last updated: 2026-03-30
+Last updated: 2026-04-03
 
 ## Scope
 
-The current runtime is a single room-viewer flow booted from `src/main.cpp`.
-The old gameplay, menu, and model-viewer stacks are no longer part of the
-documented baseline.
+The current baseline is a single room-viewer runtime. The old world, combat,
+menu, and model-viewer flows are not part of the shipped behavior.
 
 ## Runtime Layers
 
-### Boot and Scene Entry
+### Boot
 
-- `src/main.cpp` sets up the game and enters the room viewer.
-- `include/str_scene.h` and `include/str_scene_room_viewer.h` define the
-  surviving scene surface.
+- `src/main.cpp` initializes Butano and jumps straight into
+  `str::run_room_viewer()`.
+- `include/str_scene_room_viewer.h` exposes that single room-viewer entrypoint.
 
-### Room Viewer Presentation
+### Room Viewer
 
-- `src/room_viewer.cpp` owns the room-viewer loop, camera behavior, room
-  transitions, and rendering coordination.
-- `include/str_bg_dialog.h` provides the room dialog flow used for NPC text.
-- `src/core/minimap.cpp` and `include/str_minimap.h` provide the room minimap.
-- `include/str_constants.h` holds the room, camera, and interaction constants.
-- `scripts/generate_room_shell_header.py` regenerates the simplified room shell
-  models used by the viewer.
-- `scripts/render_player_preview_assets.py` and
-  `scripts/build_voxel_player_assets.py` generate the player sprite sheets
-  offline, with the voxel export path available as an optional alternative
-  using a grounded multi-mesh bake and a preview-like pitched camera target.
-- `scripts/blender_render_static_prop_frames.py` and
-  `scripts/build_interior_prop_assets.py` bake static Interior-pack room props
-  into the same sharp sprite-sheet format used by the player.
+- `src/room_viewer.cpp` owns the gameplay loop, movement, collision, doors,
+  camera control, NPC interaction, paintings, and minimap coordination.
+- `src/core/str_bg_dialog.cpp` and `include/str_bg_dialog.h` provide the fixed
+  room-viewer dialog UI.
+- `src/core/minimap.cpp` and `include/str_minimap.h` provide the fixed two-room
+  minimap.
 
-### 3D Runtime
+### 3D Rendering
 
-- `src/viewer/` contains the shared 3D runtime adapted from Butano's
-  varooom-3d example.
-- `include/fr_*.h` contains project overrides for the 3D runtime types.
-- `include/models/` contains generated model headers used by the room viewer.
+- `src/viewer/room_renderer.h`
+- `src/viewer/room_renderer.cpp`
+- `src/viewer/room_renderer.bn_iwram.cpp`
+
+These files are the private room-viewer renderer. They replace the old public
+project-local `fr_*` surface and keep only the features the room viewer still
+uses.
+
+### Models and Generation
+
+- `scripts/generate_room_shell_header.py` writes the room-shell header to
+  `build/generated/include/models/str_model_3d_items_room.h`.
+- `include/models/str_model_3d_items_books.h` and
+  `include/models/str_model_3d_items_potted_plant.h` stay tracked so decor work
+  can be restored or extended later without rebuilding that pipeline first.
 
 ## Key Behavior
 
-- The room viewer uses a fixed 60-degree top-down presentation with an
-  eight-direction camera that turns quickly through each intermediate heading
-  toward the player's facing direction.
-- Player walking and door transitions use capped carried catch-up budgets so
-  the 60 FPS feel stays stable while brief missed-frame bursts do not turn into
-  sticky locomotion or visibly chunky room-transition jumps.
-- Only the active room is rendered outside active door transitions, and
-  camera-facing shell surfaces are culled so the interior stays visible.
-- Floors and walls remain true room-shell `model_3d` geometry rendered through
-  the existing world path, but their generated shell shapes and colors now aim
-  at a simplified Maria-style interior look.
-- The current room-shell baseline is a two-room interior: a long spawn room
-  connected by one doorway to a smaller square side room.
-- Room decor still uses the current small hard-coded 3D model set at runtime,
-  while the new Interior-pack bake scripts prepare sprite assets for a later
-  room-prop integration pass.
-- After 1 second of no input, the camera recenters behind the player's
-  current facing direction, except while the player is near the room center.
-- `START` recenters the camera behind the player's current facing direction.
-- Camera distance now auto-fits the active room shell so it fills the view for
-  the current look angle and follow offset.
-- `SELECT` toggles a BG-based debug menu with room-viewer state, while
-  `SELECT` + `L` still toggles room-model visibility.
-- `A` remains the NPC interaction button, while `B` toggles a pause-style
-  profiler menu that reads the live Butano profiler totals and peak timings.
-- The debug and profiler menus now share one BG overlay allocation and redraw
-  on a capped cadence instead of rebuilding their BG maps every visible frame.
-- The debug menu also reports live EWRAM, IWRAM, and BG tile/block usage so
-  room-viewer memory pressure can be checked in-emulator.
-- Door transitions block movement while active and use a smoothed carried
-  frame budget instead of consuming every missed frame in one visible jump.
-- NPC interaction uses `BgDialog` so the room viewer can keep the sprite budget
-  under control.
-- The minimap and room decorations are updated from the same room-viewer
-  state, the minimap is hidden while the debug menu or profiler menu is
-  active, and the in-game profiler menu overlays on a BG layer so it does not
-  consume the limited non-3D sprite handles. The minimap border sprite can be
-  scaled independently from the room, door, and player markers.
-- The default build keeps profiler support enabled but leaves engine logging
-  off; `make PROFILE_ENGINE=1 -j4` restores the noisier investigation build.
+- The runtime is a two-room interior joined by one doorway.
+- Only the current room shell is loaded during normal play; the destination
+  shell is also loaded during a door transition.
+- The camera is constrained to 8 directions, recenters behind the player after
+  a short idle delay, and also recenters on `START`.
+- Camera distance auto-fits the active room shell to the viewport.
+- Door transitions block movement while active and interpolate the player and
+  camera smoothly.
+- NPC interaction uses `BgDialog`.
+- Paintings are projected as textured quads on the active room walls.
+- The minimap mirrors the same two-room layout as the runtime.
+- There is no in-game debug overlay or profiler menu in the current baseline.
 
 ## Intentional Non-Scope
 
-- No world, combat, quest, or model-viewer systems are documented here.
-- No multi-scene menu flow remains in the current baseline.
+- No world traversal, combat, quests, or inventory systems.
+- No multi-scene boot flow.
+- No public project-local 3D renderer API under `include/`.

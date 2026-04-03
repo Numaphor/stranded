@@ -58,9 +58,15 @@ if(-not $emulatorPath)
     throw 'Unable to locate mGBA.exe in tools/ or Downloads.'
 }
 
+$screenshotDirectories = @($repoRoot, (Split-Path -Parent $emulatorPath)) |
+    Select-Object -Unique
+
 $existingShots = @{}
-Get-ChildItem -Path $repoRoot -Filter 'stranded-*.png' -File -ErrorAction SilentlyContinue | ForEach-Object {
-    $existingShots[$_.Name] = $true
+foreach($directory in $screenshotDirectories)
+{
+    Get-ChildItem -Path $directory -Filter 'stranded-*.png' -File -ErrorAction SilentlyContinue | ForEach-Object {
+        $existingShots[$_.FullName] = $true
+    }
 }
 
 Add-Type -TypeDefinition @"
@@ -94,8 +100,12 @@ function Press-Key {
 }
 
 function Get-NewScreenshotPath {
-    $newShots = Get-ChildItem -Path $repoRoot -Filter 'stranded-*.png' -File -ErrorAction SilentlyContinue |
-        Where-Object { -not $existingShots.ContainsKey($_.Name) } |
+    $newShots = foreach($directory in $screenshotDirectories)
+    {
+        Get-ChildItem -Path $directory -Filter 'stranded-*.png' -File -ErrorAction SilentlyContinue
+    }
+    $newShots = $newShots |
+        Where-Object { -not $existingShots.ContainsKey($_.FullName) } |
         Sort-Object LastWriteTime -Descending
 
     if(-not $newShots)
@@ -138,8 +148,14 @@ if($windowHandle -eq [IntPtr]::Zero)
 Start-Sleep -Milliseconds 3200
 
 $shell = New-Object -ComObject WScript.Shell
+if($shell.AppActivate('Unimplemented BIOS call'))
+{
+    Start-Sleep -Milliseconds 150
+    $shell.SendKeys('{ENTER}')
+    Start-Sleep -Milliseconds 2200
+}
 [void]$shell.AppActivate($process.Id)
-Start-Sleep -Milliseconds 250
+Start-Sleep -Milliseconds 600
 
 switch($Sequence)
 {

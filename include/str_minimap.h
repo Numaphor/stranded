@@ -66,7 +66,6 @@ namespace str
         bn::fixed_point _room_screen_pos(int room_id) const;
         int _find_room(bn::fixed_point world_pos) const;
         int _find_room_room_viewer(bn::fixed_point world_pos) const;
-        bn::fixed_point _world_to_minimap(bn::fixed_point world_pos, int room_id) const;
         bn::fixed_point _world_to_minimap_room_viewer(bn::fixed_point world_pos, int room_id) const;
         void _update_room_visuals();
         void _create_door_connectors();

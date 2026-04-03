@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -12,7 +13,9 @@ class RoomSpec:
     half_d: float
 
 
-HEADER_PATH = Path(__file__).resolve().parents[1] / "include" / "models" / "str_model_3d_items_room.h"
+REPO_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_OUTPUT_DIR = REPO_ROOT / "build" / "generated" / "include" / "models"
+HEADER_NAME = "str_model_3d_items_room.h"
 
 ROOM_MODEL_COLORS = [
     ("floor_light_a", (28, 20, 10)),
@@ -201,7 +204,7 @@ def build_room(spec: RoomSpec) -> MeshBuilder:
     return mesh
 
 
-def write_header():
+def write_header(output_path: Path):
     lines = []
     lines.append("#ifndef STR_MODEL_3D_ITEMS_ROOM_H")
     lines.append("#define STR_MODEL_3D_ITEMS_ROOM_H")
@@ -242,8 +245,12 @@ def write_header():
     lines.append("#endif")
     lines.append("")
 
-    HEADER_PATH.write_text("\n".join(lines), encoding="utf-8")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text("\n".join(lines), encoding="utf-8")
 
 
 if __name__ == "__main__":
-    write_header()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
+    args = parser.parse_args()
+    write_header(args.output_dir / HEADER_NAME)
