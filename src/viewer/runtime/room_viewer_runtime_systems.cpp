@@ -1,5 +1,4 @@
 #include "str_scene_room_viewer.h"
-#include "private/viewer/runtime/room_viewer_runtime_state.h"
 #include "bn_core.h"
 #include "bn_keypad.h"
 #include "bn_bg_palettes.h"
@@ -38,6 +37,66 @@
 #include "models/str_model_3d_items_books.h"
 #include "private/viewer/str_room_renderer.h"
 #include "private/viewer/runtime/room_viewer_runtime_systems_shared.h"
+namespace
+{
+constexpr int NPC_INTERACT_DIST = 30;
+const bn::color npc_room_b_hat_color_0(12, 28, 24);
+const bn::color npc_room_b_hat_color_1(6, 20, 18);
+const bn::color npc_room_b_hat_color_2(8, 12, 16);
+
+constexpr bn::string_view villager_a_greeting[] = {
+    "Hello, traveler!",
+    "These old halls hold many secrets.",
+    "What brings you here?"
+};
+constexpr bn::string_view villager_a_opt0_resp[] = {
+    "This gallery was built centuries ago.",
+    "The paintings... they watch you."
+};
+constexpr bn::string_view villager_a_opt1_resp[] = {
+    "Be careful in the dark rooms.",
+    "Strange things lurk in the shadows."
+};
+constexpr bn::string_view villager_b_greeting[] = {
+    "Ah, another visitor!",
+    "Not many make it this far.",
+    "Can I help you with something?"
+};
+constexpr bn::string_view villager_b_opt0_resp[] = {
+    "I've been here longer than I remember.",
+    "Time moves strangely in this place."
+};
+constexpr bn::string_view villager_b_opt1_resp[] = {
+    "The exit? I think it's through",
+    "the room with the tall painting."
+};
+constexpr str::BgDialog::DialogOption villager_a_options[] = {
+    {"Tell me about this place", villager_a_opt0_resp, false},
+    {"Any warnings?", villager_a_opt1_resp, false},
+    {"Goodbye", {}, true}
+};
+constexpr str::BgDialog::DialogOption villager_b_options[] = {
+    {"Who are you?", villager_b_opt0_resp, false},
+    {"How do I get out?", villager_b_opt1_resp, false},
+    {"Goodbye", {}, true}
+};
+
+void begin_npc_dialog(str::BgDialog& dialog, int npc_index)
+{
+    if(npc_index == 0)
+    {
+        dialog.set_greeting(villager_a_greeting);
+        dialog.set_options(villager_a_options);
+    }
+    else
+    {
+        dialog.set_greeting(villager_b_greeting);
+        dialog.set_options(villager_b_options);
+    }
+    dialog.talk();
+}
+}
+
 namespace str
 {
 [[noreturn]] void run_room_viewer()
@@ -462,9 +521,9 @@ namespace str
     rv::SpriteItem npc_sprite_item_a(bn::sprite_items::villager, 0);
     rv::SpriteItem npc_sprite_item_b(bn::sprite_items::villager, 0);
     npc_sprite_item_b.palette() = bn::sprite_items::villager.palette_item().create_new_palette();
-    npc_sprite_item_b.palette().set_color(NPC_PALETTE_HAT_INDEX_0, str::rv_runtime_state::npc_room_b_hat_color_0);
-    npc_sprite_item_b.palette().set_color(NPC_PALETTE_HAT_INDEX_1, str::rv_runtime_state::npc_room_b_hat_color_1);
-    npc_sprite_item_b.palette().set_color(NPC_PALETTE_HAT_INDEX_2, str::rv_runtime_state::npc_room_b_hat_color_2);
+    npc_sprite_item_b.palette().set_color(NPC_PALETTE_HAT_INDEX_0, npc_room_b_hat_color_0);
+    npc_sprite_item_b.palette().set_color(NPC_PALETTE_HAT_INDEX_1, npc_room_b_hat_color_1);
+    npc_sprite_item_b.palette().set_color(NPC_PALETTE_HAT_INDEX_2, npc_room_b_hat_color_2);
     npc_sprite_a_ptr = &_models.create_sprite(npc_sprite_item_a);
     npc_sprite_b_ptr = &_models.create_sprite(npc_sprite_item_b);
     npc_sprite_a_ptr->set_scale(2);
@@ -957,9 +1016,9 @@ namespace str
             ++npc_anim_counter;
         }
         bool near_npc_a = !npc_dialog.is_active() && (current_room == NPC_ROOM_A) &&
-            (bn::abs(_player_fx - NPC_FX) + bn::abs(_player_fy - NPC_FY) < str::rv_runtime_state::NPC_INTERACT_DIST);
+            (bn::abs(_player_fx - NPC_FX) + bn::abs(_player_fy - NPC_FY) < NPC_INTERACT_DIST);
         bool near_npc_b = !npc_dialog.is_active() && (current_room == NPC_ROOM_B) &&
-            (bn::abs(_player_fx - NPC_FX) + bn::abs(_player_fy - NPC_FY) < str::rv_runtime_state::NPC_INTERACT_DIST);
+            (bn::abs(_player_fx - NPC_FX) + bn::abs(_player_fy - NPC_FY) < NPC_INTERACT_DIST);
         near_any_npc = near_npc_a || near_npc_b;
         if(near_any_npc != prev_near_npc)
         {
@@ -977,11 +1036,11 @@ namespace str
             {
                 if(near_npc_a)
                 {
-                    str::rv_runtime_state::begin_npc_dialog(npc_dialog, 0);
+                    begin_npc_dialog(npc_dialog, 0);
                 }
                 else if(near_npc_b)
                 {
-                    str::rv_runtime_state::begin_npc_dialog(npc_dialog, 1);
+                    begin_npc_dialog(npc_dialog, 1);
                 }
             }
         }
