@@ -27,8 +27,6 @@ tmp_painting_mappings.png
 graphics/sprite/decor/*_inspect.png
 # OS specific files
 *.exe
-tools/mGBA-0.10.5-win64/nointro.sqlite3
-tools/mGBA-0.10.5-win64/qt.ini
 
 # node
 node_modules/
@@ -40,3 +38,12 @@ package-lock.json
 
 # codeql artifacts
 _codeql_detected_source_root
+
+# omx runtime state and logs (plans/specs/interviews/context remain tracked)
+.omx/logs/
+.omx/state/
+.omx/metrics.json
+.omx/notepad.md
+
+# bundled emulator and runtime tools
+tools/
