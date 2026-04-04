@@ -6,10 +6,40 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+$repoRootPath = Resolve-Path (Join-Path $PSScriptRoot '..')
+$repoRoot = if($repoRootPath.ProviderPath) { $repoRootPath.ProviderPath } else { $repoRootPath.Path }
 $romPath = Join-Path $repoRoot 'stranded.gba'
 $captureLockPath = Join-Path $repoRoot '.mgba_f12_capture.lock'
 $captureLockStream = $null
+
+function Resolve-LaunchableEmulatorPath {
+    param(
+        [string]$CandidatePath
+    )
+
+    if($CandidatePath -notlike '\\*')
+    {
+        return $CandidatePath
+    }
+
+    $sourceDirectory = Split-Path -Parent $CandidatePath
+    $stageDirectory = Join-Path $env:LOCALAPPDATA 'Stranded\mGBA-0.10.5-win64'
+    $stagePath = Join-Path $stageDirectory (Split-Path -Leaf $CandidatePath)
+    $sourceItem = Get-Item -LiteralPath $CandidatePath
+    $stageItem = Get-Item -LiteralPath $stagePath -ErrorAction SilentlyContinue
+    $needsSync = -not $stageItem -or
+        $stageItem.Length -ne $sourceItem.Length -or
+        $stageItem.LastWriteTimeUtc -lt $sourceItem.LastWriteTimeUtc
+
+    if($needsSync)
+    {
+        New-Item -ItemType Directory -Path $stageDirectory -Force | Out-Null
+        Get-ChildItem -LiteralPath $sourceDirectory -Force | Copy-Item -Destination $stageDirectory -Recurse -Force
+        Unblock-File -LiteralPath $stagePath -ErrorAction SilentlyContinue
+    }
+
+    return $stagePath
+}
 
 try
 {
@@ -19,9 +49,13 @@ try
         [System.IO.FileAccess]::ReadWrite,
         [System.IO.FileShare]::None)
 }
-catch
+catch [System.IO.IOException]
 {
     throw "Another mGBA F12 capture is already running: $captureLockPath"
+}
+catch
+{
+    throw "Unable to create the mGBA capture lock at ${captureLockPath}: $($_.Exception.Message)"
 }
 
 try
@@ -41,7 +75,7 @@ if(-not $SkipBuild)
     }
 }
 
-if(-not (Test-Path $romPath))
+if(-not (Test-Path -LiteralPath $romPath))
 {
     throw "ROM not found at $romPath"
 }
@@ -51,12 +85,14 @@ $emulatorCandidates = @(
     (Join-Path $HOME 'Downloads\mGBA-0.10.5-win64\mGBA.exe')
 )
 
-$emulatorPath = $emulatorCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+$emulatorPath = $emulatorCandidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
 
 if(-not $emulatorPath)
 {
     throw 'Unable to locate mGBA.exe in tools/ or Downloads.'
 }
+
+$emulatorPath = Resolve-LaunchableEmulatorPath $emulatorPath
 
 $screenshotDirectories = @($repoRoot, (Split-Path -Parent $emulatorPath)) |
     Select-Object -Unique
@@ -64,7 +100,7 @@ $screenshotDirectories = @($repoRoot, (Split-Path -Parent $emulatorPath)) |
 $existingShots = @{}
 foreach($directory in $screenshotDirectories)
 {
-    Get-ChildItem -Path $directory -Filter 'stranded-*.png' -File -ErrorAction SilentlyContinue | ForEach-Object {
+    Get-ChildItem -LiteralPath $directory -Filter 'stranded-*.png' -File -ErrorAction SilentlyContinue | ForEach-Object {
         $existingShots[$_.FullName] = $true
     }
 }
@@ -102,7 +138,7 @@ function Press-Key {
 function Get-NewScreenshotPath {
     $newShots = foreach($directory in $screenshotDirectories)
     {
-        Get-ChildItem -Path $directory -Filter 'stranded-*.png' -File -ErrorAction SilentlyContinue
+        Get-ChildItem -LiteralPath $directory -Filter 'stranded-*.png' -File -ErrorAction SilentlyContinue
     }
     $newShots = $newShots |
         Where-Object { -not $existingShots.ContainsKey($_.FullName) } |
