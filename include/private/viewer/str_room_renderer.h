@@ -23,12 +23,12 @@ class Camera
 {
 public:
     Camera();
-    [[nodiscard]] const fr::point_3d& position() const { return _position; }
+    [[nodiscard]] const fr::point_3d& position() const { return _position; }
     void set_position(const fr::point_3d& position);
-    [[nodiscard]] bn::fixed yaw() const { return _yaw; }
+    [[nodiscard]] bn::fixed yaw() const { return _yaw; }
     void set_yaw(bn::fixed yaw);
-    [[nodiscard]] const fr::point_3d& right_axis() const { return _right_axis; }
-    [[nodiscard]] const fr::point_3d& up_axis() const { return _up_axis; }
+    [[nodiscard]] const fr::point_3d& right_axis() const { return _right_axis; }
+    [[nodiscard]] const fr::point_3d& up_axis() const { return _up_axis; }
 private:
     fr::point_3d _position;
     bn::fixed _yaw;
@@ -44,12 +44,9 @@ public:
         room_perspective,
         room_floor_only
     };
-    explicit Model(const fr::model_3d_item& item) :
-        _item(item)
-    {
-    }
-    [[nodiscard]] const fr::model_3d_item& item() const { return _item; }
-    [[nodiscard]] const fr::point_3d& position() const { return _position; }
+    explicit Model(const fr::model_3d_item& item) : _item(item) {}
+    [[nodiscard]] const fr::model_3d_item& item() const { return _item; }
+    [[nodiscard]] const fr::point_3d& position() const { return _position; }
     void set_position(const fr::point_3d& position)
     {
         if(_position != position)
@@ -58,7 +55,7 @@ public:
             _touch();
         }
     }
-    [[nodiscard]] bn::fixed scale() const { return _scale; }
+    [[nodiscard]] bn::fixed scale() const { return _scale; }
     void set_scale(bn::fixed scale)
     {
         BN_ASSERT(scale > 0, "Invalid scale: ", scale);
@@ -94,7 +91,7 @@ public:
         bn::fixed xx, bn::fixed xy, bn::fixed xz,
         bn::fixed yx, bn::fixed yy, bn::fixed yz,
         bn::fixed zx, bn::fixed zy, bn::fixed zz);
-    [[nodiscard]] int depth_bias() const { return _depth_bias; }
+    [[nodiscard]] int depth_bias() const { return _depth_bias; }
     void set_depth_bias(int bias)
     {
         if(_depth_bias != bias)
@@ -103,7 +100,7 @@ public:
             _touch();
         }
     }
-    [[nodiscard]] LayeringMode layering_mode() const { return _layering_mode; }
+    [[nodiscard]] LayeringMode layering_mode() const { return _layering_mode; }
     void set_layering_mode(LayeringMode layering_mode)
     {
         if(_layering_mode != layering_mode)
@@ -112,7 +109,7 @@ public:
             _touch();
         }
     }
-    [[nodiscard]] bool double_sided() const { return _double_sided; }
+    [[nodiscard]] bool double_sided() const { return _double_sided; }
     void set_double_sided(bool double_sided)
     {
         if(_double_sided != double_sided)
@@ -121,7 +118,7 @@ public:
             _touch();
         }
     }
-    [[nodiscard]] uint16_t version() const { return _version; }
+    [[nodiscard]] uint16_t version() const { return _version; }
 private:
     const fr::model_3d_item& _item;
     fr::point_3d _position;
@@ -155,17 +152,17 @@ class SpriteItem
 {
 public:
     SpriteItem(const bn::sprite_item& item, int graphics_index);
-    [[nodiscard]] int width() const { return _shape_size.width(); }
-    [[nodiscard]] bn::sprite_size size() const { return _shape_size.size(); }
-    [[nodiscard]] const bn::sprite_tiles_ptr& tiles() const { return _tiles; }
-    [[nodiscard]] bn::sprite_tiles_ptr& tiles() { return _tiles; }
-    [[nodiscard]] int tiles_id() const { return _tiles_id; }
-    [[nodiscard]] const bn::sprite_palette_ptr& palette() const { return _palette; }
-    [[nodiscard]] bn::sprite_palette_ptr& palette() { return _palette; }
-    [[nodiscard]] int palette_id() const { return _palette_id; }
-    [[nodiscard]] const bn::sprite_affine_mat_ptr& affine_mat() const { return _affine_mat; }
-    [[nodiscard]] bn::sprite_affine_mat_ptr& affine_mat() { return _affine_mat; }
-    [[nodiscard]] int affine_mat_id() const { return _affine_mat_id; }
+    [[nodiscard]] int width() const { return _shape_size.width(); }
+    [[nodiscard]] bn::sprite_size size() const { return _shape_size.size(); }
+    [[nodiscard]] const bn::sprite_tiles_ptr& tiles() const { return _tiles; }
+    [[nodiscard]] bn::sprite_tiles_ptr& tiles() { return _tiles; }
+    [[nodiscard]] int tiles_id() const { return _tiles_id; }
+    [[nodiscard]] const bn::sprite_palette_ptr& palette() const { return _palette; }
+    [[nodiscard]] bn::sprite_palette_ptr& palette() { return _palette; }
+    [[nodiscard]] int palette_id() const { return _palette_id; }
+    [[nodiscard]] const bn::sprite_affine_mat_ptr& affine_mat() const { return _affine_mat; }
+    [[nodiscard]] bn::sprite_affine_mat_ptr& affine_mat() { return _affine_mat; }
+    [[nodiscard]] int affine_mat_id() const { return _affine_mat_id; }
 private:
     bn::sprite_shape_size _shape_size;
     int _tiles_id;
@@ -178,24 +175,21 @@ private:
 class Sprite : public bn::intrusive_list_node_type
 {
 public:
-    explicit Sprite(SpriteItem& item) :
-        _item(item)
-    {
-    }
-    [[nodiscard]] const SpriteItem& item() const { return _item; }
-    [[nodiscard]] SpriteItem& item() { return _item; }
-    [[nodiscard]] const fr::point_3d& position() const { return _position; }
+    explicit Sprite(SpriteItem& item) : _item(item) {}
+    [[nodiscard]] const SpriteItem& item() const { return _item; }
+    [[nodiscard]] SpriteItem& item() { return _item; }
+    [[nodiscard]] const fr::point_3d& position() const { return _position; }
     void set_position(const fr::point_3d& position)
     {
         _position = position;
     }
-    [[nodiscard]] bn::fixed scale() const { return _scale; }
+    [[nodiscard]] bn::fixed scale() const { return _scale; }
     void set_scale(bn::fixed scale)
     {
         BN_ASSERT(scale > 0, "Invalid scale: ", scale);
         _scale = scale;
     }
-    [[nodiscard]] bool horizontal_flip() const { return _horizontal_flip; }
+    [[nodiscard]] bool horizontal_flip() const { return _horizontal_flip; }
     void set_horizontal_flip(bool horizontal_flip)
     {
         _horizontal_flip = horizontal_flip;
@@ -209,34 +203,18 @@ private:
 class ScanlineRenderer
 {
 public:
-    struct ScanlineSpan
-    {
-        int left_x;
-        int right_x;
-    };
+    struct ScanlineSpan { int left_x; int right_x; };
     ScanlineRenderer();
-    ~ScanlineRenderer()
-    {
-        _stop_hdma();
-    }
+    ~ScanlineRenderer() { _stop_hdma(); }
     void load_colors(const bn::span<const bn::color>& colors);
-    void begin_frame()
-    {
-        _frame_active = true;
-    }
+    void begin_frame() { _frame_active = true; }
     BN_CODE_IWRAM void add_scanline_spans(unsigned minimum_y, unsigned maximum_y, int width, bool x_outside,
                                           int color_index, unsigned shading, const ScanlineSpan* scanline_spans);
     BN_CODE_IWRAM void add_sprite(unsigned minimum_y, unsigned maximum_y,
                                   uint16_t attr0, uint16_t attr1, uint16_t attr2);
     void commit_frame();
 private:
-    struct ScanlineSpriteAttributes
-    {
-        int attr1;
-        int attr2;
-        int segment_count;
-        int segment_length_limit;
-    };
+    struct ScanlineSpriteAttributes { int attr1; int attr2; int segment_count; int segment_length_limit; };
     static constexpr int _max_palettes = 8;
     static constexpr int _oam_start_index = 64;
     static constexpr int _max_hdma_sprites = 32;
@@ -286,10 +264,7 @@ private:
 class Renderer
 {
 public:
-    void load_colors(const bn::span<const bn::color>& colors)
-    {
-        _scanline_renderer.load_colors(colors);
-    }
+    void load_colors(const bn::span<const bn::color>& colors) { _scanline_renderer.load_colors(colors); }
     [[nodiscard]] Model& create_model(const fr::model_3d_item& model_item);
     void destroy_model(Model& model);
     [[nodiscard]] Sprite& create_sprite(SpriteItem& sprite_item);
@@ -299,11 +274,7 @@ private:
     static constexpr int _max_vertices = 240;
     static constexpr int _max_faces = 192;
     static_assert(_max_faces <= bn::numeric_limits<uint8_t>::max());
-    struct ScreenPoint
-    {
-        int16_t x;
-        int16_t y;
-    };
+    struct ScreenPoint { int16_t x; int16_t y; };
     struct PolygonVertex
     {
         int x;
@@ -311,12 +282,7 @@ private:
         PolygonVertex* prev;
         PolygonVertex* next;
     };
-    struct ProjectedFace
-    {
-        const fr::face_3d* face;
-        const ScreenPoint* projected_vertices;
-        int projected_depth;
-    };
+    struct ProjectedFace { const fr::face_3d* face; const ScreenPoint* projected_vertices; int projected_depth; };
     struct VisibleRenderItem
     {
         const ProjectedFace* projected_face;
