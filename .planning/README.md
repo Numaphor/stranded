@@ -1,6 +1,6 @@
 # Planning Docs
 
-Last updated: 2026-03-22
+Last updated: 2026-04-04
 
 ## Purpose
 
@@ -29,6 +29,7 @@ baseline.
 
 - `features/MGBA_DEBUG_GUIDE.md` - local mGBA debugging workflow.
 - `features/MINIMAL_RUNTIME_CULL_BASELINE.md` - baseline note for the cull.
+- `features/LOC_REDUCTION_EXECUTION.md` - approved Gate A/B/C execution and doc-sync note for the current LOC-reduction push.
 
 ## Maintenance Rules
 

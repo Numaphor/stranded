@@ -1,6 +1,6 @@
 # Quality and Testing
 
-Last updated: 2026-04-03
+Last updated: 2026-04-04
 
 ## Current Practice
 
@@ -30,6 +30,15 @@ For room-viewer changes, verify:
 
 When a change is visual, use native mGBA `F12` screenshots and inspect them
 directly.
+
+## LOC-Reduction Gate Checks
+
+For the current staged LOC-reduction effort, also capture:
+
+1. A fresh `src/` + `include/` LOC total before and after each gate.
+2. Include-edge sanity for touched runtime, dialog, minimap, or renderer headers.
+3. An isolated checkpoint artifact after each passing gate so only the active
+   gate must be rolled back on regression.
 
 ## Main Risks
 
